@@ -780,9 +780,29 @@ fn apply_resolve_choice(
         return apply_resolve_select_enemy(state, player_idx, choice_index);
     }
 
+    // Capture skill_id before resolving (pending is consumed)
+    let skill_id_for_flip = if let Some(ActivePending::Choice(ref pc)) =
+        state.players[player_idx].pending.active
+    {
+        pc.skill_id.clone()
+    } else {
+        None
+    };
+
     effect_queue::resolve_pending_choice(state, player_idx, choice_index).map_err(|e| {
         ApplyError::InternalError(format!("resolve_pending_choice failed: {:?}", e))
     })?;
+
+    // Battle Frenzy: flip face-down when Attack 4 option (index 1) is chosen
+    if let Some(ref sid) = skill_id_for_flip {
+        if sid.as_str() == "krang_battle_frenzy" && choice_index == 1 {
+            let player = &mut state.players[player_idx];
+            if !player.skill_flip_state.flipped_skills.contains(sid) {
+                player.skill_flip_state.flipped_skills.push(sid.clone());
+            }
+        }
+    }
+
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
@@ -3063,19 +3083,34 @@ fn apply_select_enemy_effects(
     }
 
     // armor_change — blocked by ArcaneImmunity
-    if template.armor_change != 0 && !has_ai {
+    let effective_armor_change = if template.armor_per_resistance {
+        // resistance_break: multiply armor_change by number of resistances
+        let num_resistances = {
+            let combat = state.combat.as_ref().unwrap();
+            combat
+                .enemies
+                .iter()
+                .find(|e| e.instance_id.as_str() == enemy_instance_id)
+                .and_then(|e| get_enemy(e.enemy_id.as_str()))
+                .map_or(0, |def| def.resistances.len() as i32)
+        };
+        template.armor_change * num_resistances
+    } else {
+        template.armor_change
+    };
+    if effective_armor_change != 0 && !has_ai {
         // Use fortified_armor_change when enemy is fortified and template specifies it
         let effective_amount = if is_fortified {
-            template.fortified_armor_change.unwrap_or(template.armor_change)
+            template.fortified_armor_change.unwrap_or(effective_armor_change)
         } else {
-            template.armor_change
+            effective_armor_change
         };
         push_modifier(ModifierEffect::EnemyStat {
             stat: ModEnemyStat::Armor,
             amount: effective_amount,
             minimum: template.armor_minimum,
             attack_index: None,
-            per_resistance: false,
+            per_resistance: template.armor_per_resistance,
             fortified_amount: template.fortified_armor_change,
         });
     }
@@ -6982,5 +7017,136 @@ mod tests {
         assert!(actions.actions.iter().any(|a| matches!(a,
             LegalAction::ResolveGladeWound { choice: GladeWoundChoice::Discard }
         )));
+    }
+
+    // =========================================================================
+    // Skill activation integration tests
+    // =========================================================================
+
+    #[test]
+    fn battle_frenzy_attack2_no_flip() {
+        let mut state = crate::setup::create_solo_game(42, Hero::Krang);
+        state.round_phase = RoundPhase::PlayerTurns;
+        state.phase = GamePhase::Round;
+        state.players[0].skills.push(SkillId::from("krang_battle_frenzy"));
+        state.combat = Some(Box::new(CombatState::default()));
+
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        // UseSkill creates a pending choice
+        let result = apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: SkillId::from("krang_battle_frenzy") },
+            epoch,
+        );
+        assert!(result.is_ok());
+        assert!(state.players[0].pending.active.is_some());
+
+        // Resolve choice 0 (Attack 2) — should NOT flip
+        let epoch = state.action_epoch;
+        let result = apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 0 },
+            epoch,
+        );
+        assert!(result.is_ok());
+        assert!(
+            !state.players[0].skill_flip_state.flipped_skills.iter()
+                .any(|s| s.as_str() == "krang_battle_frenzy"),
+            "Attack 2 option should not flip the skill"
+        );
+        // Check combat accumulator got +2 attack
+        assert_eq!(state.players[0].combat_accumulator.attack.normal, 2);
+    }
+
+    #[test]
+    fn battle_frenzy_attack4_flips() {
+        let mut state = crate::setup::create_solo_game(42, Hero::Krang);
+        state.round_phase = RoundPhase::PlayerTurns;
+        state.phase = GamePhase::Round;
+        state.players[0].skills.push(SkillId::from("krang_battle_frenzy"));
+        state.combat = Some(Box::new(CombatState::default()));
+
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        let _ = apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: SkillId::from("krang_battle_frenzy") },
+            epoch,
+        );
+
+        // Resolve choice 1 (Attack 4) — should flip
+        let epoch = state.action_epoch;
+        let result = apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 1 },
+            epoch,
+        );
+        assert!(result.is_ok());
+        assert!(
+            state.players[0].skill_flip_state.flipped_skills.iter()
+                .any(|s| s.as_str() == "krang_battle_frenzy"),
+            "Attack 4 option should flip the skill face-down"
+        );
+        assert_eq!(state.players[0].combat_accumulator.attack.normal, 4);
+    }
+
+    #[test]
+    fn flipped_battle_frenzy_not_activatable() {
+        let mut state = crate::setup::create_solo_game(42, Hero::Krang);
+        state.round_phase = RoundPhase::PlayerTurns;
+        state.phase = GamePhase::Round;
+        state.players[0].skills.push(SkillId::from("krang_battle_frenzy"));
+        state.players[0].skill_flip_state.flipped_skills.push(SkillId::from("krang_battle_frenzy"));
+        state.combat = Some(Box::new(CombatState::default()));
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        assert!(
+            !actions.actions.iter().any(|a| matches!(a,
+                LegalAction::UseSkill { ref skill_id } if skill_id.as_str() == "krang_battle_frenzy"
+            )),
+            "Flipped battle_frenzy should not be activatable"
+        );
+    }
+
+    #[test]
+    fn inspiration_heals_wounded_unit() {
+        use mk_types::ids::{UnitId, UnitInstanceId};
+
+        let mut state = crate::setup::create_solo_game(42, Hero::Norowas);
+        state.round_phase = RoundPhase::PlayerTurns;
+        state.phase = GamePhase::Round;
+        state.players[0].skills.push(SkillId::from("norowas_inspiration"));
+        // Add a wounded unit
+        state.players[0].units.push(PlayerUnit {
+            unit_id: UnitId::from("peasants"),
+            instance_id: UnitInstanceId::from("unit_0"),
+            level: 1,
+            state: UnitState::Ready,
+            wounded: true,
+            used_resistance_this_combat: false,
+            used_ability_indices: vec![],
+            mana_token: None,
+        });
+
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        // UseSkill → pending choice (ReadyUnit vs HealUnit)
+        let _ = apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: SkillId::from("norowas_inspiration") },
+            epoch,
+        );
+        assert!(state.players[0].pending.active.is_some());
+
+        // Choose HealUnit (index 1)
+        let epoch = state.action_epoch;
+        let _ = apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 1 },
+            epoch,
+        );
+        // Unit should be healed
+        assert!(!state.players[0].units[0].wounded, "Unit should be healed");
     }
 }

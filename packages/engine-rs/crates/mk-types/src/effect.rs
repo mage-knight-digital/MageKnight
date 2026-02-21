@@ -398,6 +398,9 @@ pub enum CardEffect {
     ReadyUnit {
         max_level: u8,
     },
+    HealUnit {
+        max_level: u8,
+    },
     AttackWithDefeatBonus {
         amount: u32,
         #[serde(rename = "combatType")]

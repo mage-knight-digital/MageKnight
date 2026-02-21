@@ -360,7 +360,22 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
                 ],
             }),
         }),
-        "tovak_resistance_break" => Some(stub("tovak_resistance_break", SkillUsageType::OncePerTurn, SkillPhaseRestriction::CombatOnly)),
+        // Resistance Break: target enemy armor -1 per resistance (min 1), not vs Arcane Immune
+        "tovak_resistance_break" => Some(SkillDefinition {
+            id: "tovak_resistance_break",
+            usage_type: SkillUsageType::OncePerTurn,
+            phase_restriction: SkillPhaseRestriction::CombatOnly,
+            is_motivation: false,
+            effect: Some(CardEffect::SelectCombatEnemy {
+                template: mk_types::pending::SelectEnemyTemplate {
+                    exclude_arcane_immune: true,
+                    armor_change: -1,
+                    armor_minimum: 1,
+                    armor_per_resistance: true,
+                    ..mk_types::pending::SelectEnemyTemplate::new()
+                },
+            }),
+        }),
         "tovak_i_feel_no_pain" => Some(SkillDefinition {
             id: "tovak_i_feel_no_pain",
             usage_type: SkillUsageType::OncePerTurn,
@@ -607,7 +622,19 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
                 })),
             }),
         }),
-        "norowas_inspiration" => Some(stub("norowas_inspiration", SkillUsageType::OncePerTurn, SkillPhaseRestriction::NoCombat)),
+        // Inspiration: Choice of Ready unit (any level) or Heal wounded unit
+        "norowas_inspiration" => Some(SkillDefinition {
+            id: "norowas_inspiration",
+            usage_type: SkillUsageType::OncePerRound,
+            phase_restriction: SkillPhaseRestriction::NoCombat,
+            is_motivation: false,
+            effect: Some(CardEffect::Choice {
+                options: vec![
+                    CardEffect::ReadyUnit { max_level: 4 },
+                    CardEffect::HealUnit { max_level: 4 },
+                ],
+            }),
+        }),
         "norowas_bright_negotiation" => Some(SkillDefinition {
             id: "norowas_bright_negotiation",
             usage_type: SkillUsageType::OncePerTurn,
@@ -741,7 +768,33 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
                 ],
             }),
         }),
-        "wolfhawk_hawk_eyes" => Some(stub("wolfhawk_hawk_eyes", SkillUsageType::OncePerTurn, SkillPhaseRestriction::NoCombat)),
+        // Hawk Eyes: Move 1, night: explore cost -1 (turn), day: reveal garrisons at distance 2 (turn)
+        "wolfhawk_hawk_eyes" => Some(SkillDefinition {
+            id: "wolfhawk_hawk_eyes",
+            usage_type: SkillUsageType::OncePerTurn,
+            phase_restriction: SkillPhaseRestriction::NoCombat,
+            is_motivation: false,
+            effect: Some(CardEffect::Compound {
+                effects: vec![
+                    CardEffect::GainMove { amount: 1 },
+                    CardEffect::Conditional {
+                        condition: EffectCondition::IsNightOrUnderground,
+                        then_effect: Box::new(CardEffect::ApplyModifier {
+                            effect: ModifierEffect::ExploreCostReduction { amount: 1 },
+                            duration: ModifierDuration::Turn,
+                            scope: ModifierScope::SelfScope,
+                        }),
+                        else_effect: Some(Box::new(CardEffect::ApplyModifier {
+                            effect: ModifierEffect::RuleOverride {
+                                rule: RuleOverride::GarrisonRevealDistance2,
+                            },
+                            duration: ModifierDuration::Turn,
+                            scope: ModifierScope::SelfScope,
+                        })),
+                    },
+                ],
+            }),
+        }),
         "wolfhawk_on_her_own" => Some(SkillDefinition {
             id: "wolfhawk_on_her_own",
             usage_type: SkillUsageType::OncePerTurn,
@@ -776,7 +829,33 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
             }),
         }),
         "wolfhawk_know_your_prey" => Some(stub("wolfhawk_know_your_prey", SkillUsageType::OncePerTurn, SkillPhaseRestriction::CombatOnly)),
-        "wolfhawk_taunt" => Some(stub("wolfhawk_taunt", SkillUsageType::OncePerTurn, SkillPhaseRestriction::CombatOnly)),
+        // Taunt: Choice A: reduce enemy attack by 1. Choice B: increase enemy attack by 2, reduce armor by 2 (min 1).
+        "wolfhawk_taunt" => Some(SkillDefinition {
+            id: "wolfhawk_taunt",
+            usage_type: SkillUsageType::OncePerTurn,
+            phase_restriction: SkillPhaseRestriction::BlockOnly,
+            is_motivation: false,
+            effect: Some(CardEffect::Choice {
+                options: vec![
+                    CardEffect::SelectCombatEnemy {
+                        template: mk_types::pending::SelectEnemyTemplate {
+                            attack_change: -1,
+                            attack_minimum: 0,
+                            ..mk_types::pending::SelectEnemyTemplate::new()
+                        },
+                    },
+                    CardEffect::SelectCombatEnemy {
+                        template: mk_types::pending::SelectEnemyTemplate {
+                            attack_change: 2,
+                            attack_minimum: 0,
+                            armor_change: -2,
+                            armor_minimum: 1,
+                            ..mk_types::pending::SelectEnemyTemplate::new()
+                        },
+                    },
+                ],
+            }),
+        }),
         "wolfhawk_dueling" => Some(stub("wolfhawk_dueling", SkillUsageType::OncePerTurn, SkillPhaseRestriction::CombatOnly)),
         "wolfhawk_motivation" => Some(SkillDefinition {
             id: "wolfhawk_motivation",
@@ -846,7 +925,28 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
                 ],
             }),
         }),
-        "krang_battle_frenzy" => Some(stub("krang_battle_frenzy", SkillUsageType::OncePerRound, SkillPhaseRestriction::CombatOnly)),
+        // Battle Frenzy: Attack 2 OR Attack 4 (flips face-down)
+        // Flip side-effect handled in apply_resolve_choice when skill_id == "krang_battle_frenzy" && choice_index == 1
+        "krang_battle_frenzy" => Some(SkillDefinition {
+            id: "krang_battle_frenzy",
+            usage_type: SkillUsageType::OncePerTurn,
+            phase_restriction: SkillPhaseRestriction::CombatOnly,
+            is_motivation: false,
+            effect: Some(CardEffect::Choice {
+                options: vec![
+                    CardEffect::GainAttack {
+                        amount: 2,
+                        combat_type: CombatType::Melee,
+                        element: Element::Physical,
+                    },
+                    CardEffect::GainAttack {
+                        amount: 4,
+                        combat_type: CombatType::Melee,
+                        element: Element::Physical,
+                    },
+                ],
+            }),
+        }),
         "krang_shamanic_ritual" => Some(SkillDefinition {
             id: "krang_shamanic_ritual",
             usage_type: SkillUsageType::OncePerRound,
@@ -1108,6 +1208,12 @@ mod tests {
             "krang_battle_hardened",
             "braevalar_elemental_resistance",
             "norowas_leadership",
+            // Tier 3b (SelectCombatEnemy + misc)
+            "tovak_resistance_break",
+            "wolfhawk_taunt",
+            "wolfhawk_hawk_eyes",
+            "norowas_inspiration",
+            "krang_battle_frenzy",
         ];
         for id in implemented {
             let skill = get_skill(id).unwrap_or_else(|| panic!("Missing: {}", id));

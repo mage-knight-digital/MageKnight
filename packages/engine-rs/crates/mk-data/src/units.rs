@@ -129,6 +129,7 @@ const CANCEL_ATTACK_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
     nullify_fortified: false, remove_resistances: false, remove_fire_resistance: false,
     defeat_if_blocked: false, defeat: false, nullify_all_attack_abilities: false,
     damage_redirect_from_unit: false, bundled_ranged_attack: 0,
+    armor_per_resistance: false,
 };
 
 /// Shocktroops: weaken (armor -1 min 1, attack -1 min 0).
@@ -142,6 +143,7 @@ const WEAKEN_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
     nullify_fortified: false, remove_resistances: false, remove_fire_resistance: false,
     defeat_if_blocked: false, defeat: false, nullify_all_attack_abilities: false,
     damage_redirect_from_unit: false, bundled_ranged_attack: 0,
+    armor_per_resistance: false,
 };
 
 /// Shocktroops: taunt (attack -3 min 0, damage redirect).
@@ -156,6 +158,7 @@ const TAUNT_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
     defeat_if_blocked: false, defeat: false, nullify_all_attack_abilities: false,
     remove_fire_resistance: false,
     damage_redirect_from_unit: true, bundled_ranged_attack: 0,
+    armor_per_resistance: false,
 };
 
 /// Sorcerers: strip fortification + ranged 3 (white mana).
@@ -168,6 +171,7 @@ const STRIP_FORT_RANGED_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
     nullify_fortified: true, remove_resistances: false, remove_fire_resistance: false,
     defeat_if_blocked: false, defeat: false, nullify_all_attack_abilities: false,
     damage_redirect_from_unit: false, bundled_ranged_attack: 3,
+    armor_per_resistance: false,
 };
 
 /// Sorcerers: strip resistances + ranged 3 (green mana).
@@ -180,6 +184,7 @@ const STRIP_RESIST_RANGED_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
     nullify_fortified: false, remove_resistances: true, remove_fire_resistance: false,
     defeat_if_blocked: false, defeat: false, nullify_all_attack_abilities: false,
     damage_redirect_from_unit: false, bundled_ranged_attack: 3,
+    armor_per_resistance: false,
 };
 
 /// Amotep Freezers: freeze (skip attack + armor -3 min 1, blue mana).
@@ -194,6 +199,7 @@ const FREEZE_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
     nullify_fortified: false, remove_resistances: false, remove_fire_resistance: false,
     defeat_if_blocked: false, defeat: false, nullify_all_attack_abilities: false,
     damage_redirect_from_unit: false, bundled_ranged_attack: 0,
+    armor_per_resistance: false,
 };
 
 /// Delphana Masters: cancel (blue mana). Excludes arcane immune + ice resistant.
@@ -207,6 +213,7 @@ const DELPHANA_CANCEL_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
     nullify_fortified: false, remove_resistances: false, remove_fire_resistance: false,
     defeat_if_blocked: false, defeat: false, nullify_all_attack_abilities: false,
     damage_redirect_from_unit: false, bundled_ranged_attack: 0,
+    armor_per_resistance: false,
 };
 
 /// Delphana Masters: destroy if blocked (red mana). Excludes arcane immune + fire resistant.
@@ -221,6 +228,7 @@ const DESTROY_IF_BLOCKED_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
     defeat_if_blocked: true, defeat: false, nullify_all_attack_abilities: false,
     remove_fire_resistance: false,
     damage_redirect_from_unit: false, bundled_ranged_attack: 0,
+    armor_per_resistance: false,
 };
 
 /// Delphana Masters: armor -5 (green mana).
@@ -234,6 +242,7 @@ const ARMOR_MINUS_5_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
     nullify_fortified: false, remove_resistances: false, remove_fire_resistance: false,
     defeat_if_blocked: false, defeat: false, nullify_all_attack_abilities: false,
     damage_redirect_from_unit: false, bundled_ranged_attack: 0,
+    armor_per_resistance: false,
 };
 
 /// Delphana Masters: strip defenses (white mana). Nullify fortified + remove resistances.
@@ -247,6 +256,7 @@ const STRIP_DEFENSES_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
     nullify_fortified: true, remove_resistances: true, remove_fire_resistance: false,
     defeat_if_blocked: false, defeat: false, nullify_all_attack_abilities: false,
     damage_redirect_from_unit: false, bundled_ranged_attack: 0,
+    armor_per_resistance: false,
 };
 
 // =============================================================================

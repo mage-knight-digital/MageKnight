@@ -332,6 +332,18 @@ pub fn resolve_pending_choice(
                 }
             }
         }
+        ChoiceResolution::HealUnitTarget {
+            eligible_unit_indices,
+        } => {
+            // Heal the wounded unit at the selected index
+            if choice_index < eligible_unit_indices.len() {
+                let unit_idx = eligible_unit_indices[choice_index];
+                let player = &mut state.players[player_idx];
+                if unit_idx < player.units.len() {
+                    player.units[unit_idx].wounded = false;
+                }
+            }
+        }
         ChoiceResolution::PureMagicConsume { token_colors } => {
             // Consume a mana token of the color at token_colors[choice_index]
             if choice_index < token_colors.len() {
@@ -726,6 +738,7 @@ fn resolve_one(state: &mut GameState, player_idx: usize, effect: &CardEffect) ->
             ResolveResult::Applied
         }
         CardEffect::ReadyUnit { max_level } => apply_ready_unit(state, player_idx, *max_level),
+        CardEffect::HealUnit { max_level } => apply_heal_unit(state, player_idx, *max_level),
         CardEffect::DiscardForBonus {
             choice_options,
             bonus_per_card,
@@ -1279,6 +1292,37 @@ fn apply_ready_unit(state: &mut GameState, player_idx: usize, max_level: u8) -> 
                 options,
                 ChoiceResolution::ReadyUnitTarget {
                     eligible_unit_indices: eligible_indices,
+                },
+            )
+        }
+    }
+}
+
+fn apply_heal_unit(state: &mut GameState, player_idx: usize, max_level: u8) -> ResolveResult {
+    let player = &state.players[player_idx];
+
+    // Find wounded units at or below max_level
+    let eligible: Vec<usize> = player
+        .units
+        .iter()
+        .enumerate()
+        .filter(|(_, u)| u.wounded && u.level <= max_level)
+        .map(|(i, _)| i)
+        .collect();
+
+    match eligible.len() {
+        0 => ResolveResult::Skipped,
+        1 => {
+            let unit_idx = eligible[0];
+            state.players[player_idx].units[unit_idx].wounded = false;
+            ResolveResult::Applied
+        }
+        _ => {
+            let options: Vec<CardEffect> = eligible.iter().map(|_| CardEffect::Noop).collect();
+            ResolveResult::NeedsChoiceWith(
+                options,
+                ChoiceResolution::HealUnitTarget {
+                    eligible_unit_indices: eligible,
                 },
             )
         }
@@ -2098,6 +2142,7 @@ pub(crate) fn is_resolvable(state: &GameState, player_idx: usize, effect: &CardE
         | CardEffect::ApplyModifier { .. }
         | CardEffect::HandLimitBonus { .. }
         | CardEffect::ReadyUnit { .. }
+        | CardEffect::HealUnit { .. }
         | CardEffect::DiscardForBonus { .. }
         | CardEffect::Decompose { .. }
         | CardEffect::DiscardForAttack { .. }
@@ -4516,5 +4561,122 @@ mod tests {
                 attacks_by_color: vec![]
             }
         ));
+    }
+
+    // =========================================================================
+    // HealUnit tests
+    // =========================================================================
+
+    #[test]
+    fn heal_unit_no_wounded_skips() {
+        let mut state = test_state();
+        state.players[0].units.push(make_unit("u0", 1, false)); // not wounded
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::HealUnit { max_level: 4 }, None);
+        let result = queue.drain(&mut state, 0);
+        assert!(matches!(result, DrainResult::Complete));
+        assert!(!state.players[0].units[0].wounded);
+    }
+
+    #[test]
+    fn heal_unit_one_wounded_auto_heals() {
+        let mut state = test_state();
+        let mut u = make_unit("u0", 2, false);
+        u.wounded = true;
+        state.players[0].units.push(u);
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::HealUnit { max_level: 4 }, None);
+        let result = queue.drain(&mut state, 0);
+        assert!(matches!(result, DrainResult::Complete));
+        assert!(!state.players[0].units[0].wounded);
+    }
+
+    #[test]
+    fn heal_unit_level_filter_excludes_high_level() {
+        let mut state = test_state();
+        let mut u = make_unit("u0", 3, false);
+        u.wounded = true;
+        state.players[0].units.push(u);
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::HealUnit { max_level: 2 }, None);
+        let result = queue.drain(&mut state, 0);
+        assert!(matches!(result, DrainResult::Complete));
+        // Unit should still be wounded (level 3 > max 2)
+        assert!(state.players[0].units[0].wounded);
+    }
+
+    #[test]
+    fn heal_unit_multiple_wounded_needs_choice() {
+        let mut state = test_state();
+        let mut u0 = make_unit("u0", 1, false);
+        u0.wounded = true;
+        let mut u1 = make_unit("u1", 2, false);
+        u1.wounded = true;
+        state.players[0].units.push(u0);
+        state.players[0].units.push(u1);
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::HealUnit { max_level: 4 }, None);
+        let result = queue.drain(&mut state, 0);
+        match result {
+            DrainResult::NeedsChoice {
+                options,
+                resolution,
+                ..
+            } => {
+                assert_eq!(options.len(), 2);
+                assert!(matches!(
+                    resolution,
+                    ChoiceResolution::HealUnitTarget { .. }
+                ));
+            }
+            _ => panic!("Expected NeedsChoice"),
+        }
+        // Both still wounded
+        assert!(state.players[0].units[0].wounded);
+        assert!(state.players[0].units[1].wounded);
+    }
+
+    #[test]
+    fn heal_unit_choice_resolved_heals_selected() {
+        let mut state = test_state();
+        let mut u0 = make_unit("u0", 1, false);
+        u0.wounded = true;
+        let mut u1 = make_unit("u1", 2, false);
+        u1.wounded = true;
+        state.players[0].units.push(u0);
+        state.players[0].units.push(u1);
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::HealUnit { max_level: 4 }, None);
+        let result = queue.drain(&mut state, 0);
+        match result {
+            DrainResult::NeedsChoice {
+                options,
+                continuation,
+                resolution,
+            } => {
+                state.players[0].pending.active =
+                    Some(ActivePending::Choice(PendingChoice {
+                        card_id: None,
+                        skill_id: None,
+                        unit_instance_id: None,
+                        options,
+                        continuation: continuation
+                            .into_iter()
+                            .map(|q| ContinuationEntry {
+                                effect: q.effect,
+                                source_card_id: q.source_card_id,
+                            })
+                            .collect(),
+                        movement_bonus_applied: false,
+                        resolution,
+                    }));
+            }
+            _ => panic!("Expected NeedsChoice"),
+        }
+        // Pick unit 1 (index 1)
+        resolve_pending_choice(&mut state, 0, 1).unwrap();
+        // Unit 0 still wounded, unit 1 healed
+        assert!(state.players[0].units[0].wounded);
+        assert!(!state.players[0].units[1].wounded);
     }
 }

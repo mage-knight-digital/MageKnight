@@ -209,7 +209,7 @@ mod tests {
 
     #[test]
     fn unimplemented_skill_skipped() {
-        let mut state = test_state_with_skill("arythea_invocation");
+        let state = test_state_with_skill("arythea_invocation");
         // arythea_invocation has effect: None
         let mut actions = Vec::new();
         enumerate_skill_activations(&state, 0, &mut actions);

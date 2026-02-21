@@ -72,6 +72,8 @@ pub struct SelectEnemyTemplate {
     pub damage_redirect_from_unit: bool,
     // Bundled ranged attack (Sorcerers) — 0 = none
     pub bundled_ranged_attack: u32,
+    /// Armor change is per resistance (resistance_break: -1 per resistance).
+    pub armor_per_resistance: bool,
 }
 
 impl SelectEnemyTemplate {
@@ -94,6 +96,7 @@ impl SelectEnemyTemplate {
             nullify_all_attack_abilities: false,
             damage_redirect_from_unit: false,
             bundled_ranged_attack: 0,
+            armor_per_resistance: false,
         }
     }
 }
@@ -138,6 +141,9 @@ pub enum ChoiceResolution {
     /// ReadyUnit: ready the unit at the selected index.
     /// `eligible_unit_indices` are the player's unit array indices of spent units.
     ReadyUnitTarget { eligible_unit_indices: Vec<usize> },
+    /// HealUnit: heal the unit at the selected index.
+    /// `eligible_unit_indices` are the player's unit array indices of wounded units.
+    HealUnitTarget { eligible_unit_indices: Vec<usize> },
     /// PureMagic: consume a mana token of the color at `token_colors[choice_index]`.
     PureMagicConsume { token_colors: Vec<ManaColor> },
 }
