@@ -6,7 +6,7 @@ import {
   type ReactNode,
 } from "react";
 import type { GameServer } from "@mage-knight/server";
-import type { ClientGameState, GameEvent, GameConfig } from "@mage-knight/shared";
+import type { ClientGameState, GameEvent, GameConfig, PlayerAction } from "@mage-knight/shared";
 import { GameContext, type ActionLogEntry, type GameContextValue } from "./GameContext";
 import {
   WebSocketConnection,
@@ -16,8 +16,12 @@ import {
   CONNECTION_STATUS_ERROR,
   CONNECTION_STATUS_DISCONNECTED,
 } from "../network/WebSocketConnection";
+import { RustGameConnection, type ConnectionStatus } from "../rust/RustGameConnection";
+import { snakeToCamel } from "../rust/snakeToCamel";
+import { patchRustState } from "../rust/patchRustState";
+import type { LegalAction } from "../rust/types";
 
-type GameMode = "local" | "network";
+type GameMode = "local" | "network" | "rust";
 
 interface BaseGameProviderProps {
   children: ReactNode;
@@ -37,7 +41,15 @@ interface NetworkGameProviderProps extends BaseGameProviderProps {
   sessionToken?: string;
 }
 
-type GameProviderProps = LocalGameProviderProps | NetworkGameProviderProps;
+interface RustGameProviderProps extends BaseGameProviderProps {
+  mode: "rust";
+  serverUrl: string;
+  hero: string;
+  seed?: number;
+  playerId?: string;
+}
+
+type GameProviderProps = LocalGameProviderProps | NetworkGameProviderProps | RustGameProviderProps;
 
 let nextLogId = 1;
 
@@ -86,10 +98,15 @@ export function GameProvider(props: GameProviderProps) {
   const [actionLog, setActionLog] = useState<ActionLogEntry[]>([]);
   const [isActionLogEnabled, setActionLogEnabled] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatusInfo | null>(null);
+  const [legalActions, setLegalActions] = useState<LegalAction[]>([]);
+  const [epoch, setEpoch] = useState(0);
+  const [rustConnectionStatus, setRustConnectionStatus] = useState<ConnectionStatus | null>(null);
 
   const serverRef = useRef<GameServer | null>(null);
   const wsConnectionRef = useRef<WebSocketConnection | null>(null);
+  const rustConnectionRef = useRef<RustGameConnection | null>(null);
   const isActionLogEnabledRef = useRef(isActionLogEnabled);
+  const epochRef = useRef(0);
 
   // Keep ref in sync with state for use in callbacks
   useEffect(() => {
@@ -97,10 +114,16 @@ export function GameProvider(props: GameProviderProps) {
   }, [isActionLogEnabled]);
 
   // Determine mode and playerId from props
+  // Cast to access mode-specific properties — discriminated union can't narrow via derived variable
   const mode: GameMode = props.mode;
+  const localProps = props as LocalGameProviderProps;
+  const networkProps = props as NetworkGameProviderProps;
+  const rustProps = props as RustGameProviderProps;
   const myPlayerId = mode === "local"
-    ? (props.config.playerIds[0] ?? "player1")
-    : props.playerId;
+    ? (localProps.config.playerIds[0] ?? "player1")
+    : mode === "rust"
+    ? (rustProps.playerId ?? "player_0")
+    : networkProps.playerId;
 
   // Handle state updates from either local or network mode
   const handleStateUpdate = useCallback((newEvents: readonly GameEvent[], newState: ClientGameState) => {
@@ -135,7 +158,7 @@ export function GameProvider(props: GameProviderProps) {
     let isMounted = true;
 
     // Get existing server (HMR) or create new one
-    getOrCreateServer(props.seed, props.config).then((server) => {
+    getOrCreateServer(localProps.seed, localProps.config).then((server) => {
       if (!isMounted) return;
       if (!server) return;
 
@@ -162,16 +185,16 @@ export function GameProvider(props: GameProviderProps) {
     };
 
     const connection = new WebSocketConnection({
-      gameId: props.gameId,
-      playerId: props.playerId,
-      serverUrl: props.serverUrl,
+      gameId: networkProps.gameId,
+      playerId: networkProps.playerId,
+      serverUrl: networkProps.serverUrl,
       onStateUpdate: handleStateUpdate,
       onStatusChange: handleConnectionStatusChange,
     });
 
     // Set session token if provided
-    if (props.sessionToken) {
-      connection.setSessionToken(props.sessionToken);
+    if (networkProps.sessionToken) {
+      connection.setSessionToken(networkProps.sessionToken);
     }
 
     wsConnectionRef.current = connection;
@@ -182,6 +205,59 @@ export function GameProvider(props: GameProviderProps) {
       wsConnectionRef.current = null;
     };
   }, [mode, props, handleStateUpdate]);
+
+  // Rust mode: connect via WebSocket to mk-server
+  useEffect(() => {
+    if (mode !== "rust") return;
+
+    const connection = new RustGameConnection({
+      serverUrl: rustProps.serverUrl,
+      onGameUpdate: (rawState, actions, newEpoch) => {
+        const camelState = patchRustState(snakeToCamel(rawState)) as ClientGameState;
+        setState(camelState);
+        setLegalActions(actions);
+        setEpoch(newEpoch);
+        epochRef.current = newEpoch;
+
+        // Debug: log Rust state updates to diagnose rendering issues
+        if (import.meta.env.DEV) {
+          const player = camelState.players?.[0];
+          const cardActionTypes = actions
+            .filter((a: LegalAction) => typeof a !== "string" && (Object.keys(a)[0]?.startsWith("PlayCard")))
+            .map((a: LegalAction) => typeof a === "string" ? a : Object.keys(a)[0]);
+          console.log(
+            `[Rust Update] epoch=${newEpoch} phase=${camelState.phase} roundPhase=${camelState.roundPhase}`,
+            `hand=[${player?.hand}]`,
+            `selectedTacticId=${player?.selectedTacticId}`,
+            `actionCount=${actions.length} cardActions=${cardActionTypes.length}`,
+            `tiles=${camelState.map?.tiles?.length ?? 0}`,
+            cardActionTypes.length > 0 ? `firstCardAction=${JSON.stringify(actions.find((a: LegalAction) => typeof a !== "string" && Object.keys(a)[0]?.startsWith("PlayCard")))}` : ""
+          );
+        }
+
+        // Expose state for e2e testing (development only)
+        if (import.meta.env.DEV) {
+          (window as unknown as { __MAGE_KNIGHT_STATE__: ClientGameState }).
+            __MAGE_KNIGHT_STATE__ = camelState;
+        }
+      },
+      onError: (message) => {
+        console.error("[mk-server]", message);
+      },
+      onStatusChange: (status) => {
+        setRustConnectionStatus(status);
+      },
+    });
+
+    rustConnectionRef.current = connection;
+    connection.connect();
+    connection.sendNewGame(rustProps.hero, rustProps.seed);
+
+    return () => {
+      connection.disconnect();
+      rustConnectionRef.current = null;
+    };
+  }, [mode, props]);
 
   const sendAction = useCallback((action: Parameters<GameContextValue["sendAction"]>[0]) => {
     // Log action for debugging
@@ -197,11 +273,14 @@ export function GameProvider(props: GameProviderProps) {
       ]);
     }
 
-    // Send via local server or WebSocket connection
+    // Send via local server, WebSocket connection, or Rust server
     if (mode === "local" && serverRef.current) {
-      serverRef.current.handleAction(myPlayerId, action);
+      serverRef.current.handleAction(myPlayerId, action as PlayerAction);
     } else if (mode === "network" && wsConnectionRef.current) {
-      wsConnectionRef.current.sendAction(action);
+      wsConnectionRef.current.sendAction(action as PlayerAction);
+    } else if (mode === "rust" && rustConnectionRef.current) {
+      // In rust mode, action is a LegalAction — send with current epoch
+      rustConnectionRef.current.sendAction(action as LegalAction, epochRef.current);
     }
   }, [mode, myPlayerId]);
 
@@ -235,7 +314,41 @@ export function GameProvider(props: GameProviderProps) {
     clearActionLog,
     isActionLogEnabled,
     setActionLogEnabled,
+    legalActions,
+    epoch,
+    isRustMode: mode === "rust",
   };
+
+  // Show loading/connection status for rust mode
+  if (mode === "rust") {
+    if (rustConnectionStatus === "connecting" || rustConnectionStatus === null) {
+      return (
+        <div className="loading-screen">
+          <p>Connecting to Rust server...</p>
+        </div>
+      );
+    }
+
+    if (rustConnectionStatus === "reconnecting") {
+      return (
+        <div className="loading-screen">
+          <p>Reconnecting to Rust server...</p>
+        </div>
+      );
+    }
+
+    if (rustConnectionStatus === "error") {
+      return (
+        <div className="loading-screen error">
+          <p>Connection Error</p>
+          <p className="error-message">Failed to connect to Rust server</p>
+          <p className="error-hint">
+            Make sure mk-server is running: <code>cargo run --release -p mk-server</code>
+          </p>
+        </div>
+      );
+    }
+  }
 
   // Show loading/connection status for network mode
   if (mode === "network") {

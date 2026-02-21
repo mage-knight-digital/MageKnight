@@ -10907,13 +10907,6 @@ mod tests {
             ))
             .collect();
 
-        // Print all actions in JSON format (as they'd appear on the wire)
-        eprintln!("Hand: {:?}", hand);
-        eprintln!("Total actions: {}", las2.actions.len());
-        for a in &las2.actions {
-            eprintln!("  JSON: {}", serde_json::to_string(a).unwrap());
-        }
-
         assert!(!card_actions.is_empty(), "Should have PlayCard* actions after tactic selection, got {} total actions", las2.actions.len());
 
         // 6. Verify JSON serialization matches client expectations

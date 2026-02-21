@@ -18,18 +18,29 @@ import { ReplayLoadScreen } from "./components/Replay";
 
 const MODE_PARAM = "mode" as const;
 const MODE_NETWORK = "network" as const;
+const MODE_RUST = "rust" as const;
 const SERVER_URL_PARAM = "serverUrl" as const;
 const GAME_ID_PARAM = "gameId" as const;
 const PLAYER_ID_PARAM = "playerId" as const;
 const SESSION_TOKEN_PARAM = "sessionToken" as const;
 const MODE_REPLAY = "replay" as const;
 const DEFAULT_NETWORK_SERVER_URL = "ws://localhost:3001" as const;
+const DEFAULT_RUST_SERVER_URL = "ws://localhost:3030/ws" as const;
+const HERO_PARAM = "hero" as const;
+const SEED_PARAM = "seed" as const;
 
 interface RuntimeNetworkConfig {
   serverUrl: string;
   gameId: string;
   playerId: string;
   sessionToken?: string;
+}
+
+interface RuntimeRustConfig {
+  serverUrl: string;
+  hero: string;
+  seed?: number;
+  playerId?: string;
 }
 
 function getRuntimeNetworkConfig(): RuntimeNetworkConfig | null {
@@ -68,6 +79,28 @@ function isReplayModeRequested(): boolean {
   return urlParams.get(MODE_PARAM) === MODE_REPLAY;
 }
 
+function getRuntimeRustConfig(): RuntimeRustConfig | null {
+  const urlParams = new URLSearchParams(window.location.search);
+  const mode = urlParams.get(MODE_PARAM);
+
+  if (mode !== MODE_RUST) {
+    return null;
+  }
+
+  const hero = urlParams.get(HERO_PARAM) ?? "arythea";
+  const serverUrl = urlParams.get(SERVER_URL_PARAM) ?? DEFAULT_RUST_SERVER_URL;
+  const playerId = urlParams.get(PLAYER_ID_PARAM) ?? undefined;
+  const seedParam = urlParams.get(SEED_PARAM);
+  const seed = seedParam ? parseInt(seedParam, 10) : undefined;
+
+  return {
+    serverUrl,
+    hero,
+    seed: seed && !isNaN(seed) ? seed : undefined,
+    playerId,
+  };
+}
+
 // Get seed from URL param (?seed=12345) or use current time
 // This allows reproducible games for testing and debugging
 function getGameSeed(): number {
@@ -87,6 +120,7 @@ function getGameSeed(): number {
 
 const GAME_SEED = getGameSeed();
 const RUNTIME_NETWORK_CONFIG = getRuntimeNetworkConfig();
+const RUNTIME_RUST_CONFIG = getRuntimeRustConfig();
 const NETWORK_MODE_REQUESTED = isNetworkModeRequested();
 const REPLAY_MODE_REQUESTED = isReplayModeRequested();
 
@@ -166,6 +200,21 @@ export function App() {
           <code>sessionToken=...</code>
         </p>
       </div>
+    );
+  }
+
+  // Rust mode: connect to Rust mk-server via WebSocket
+  if (RUNTIME_RUST_CONFIG) {
+    return (
+      <GameProvider
+        mode="rust"
+        serverUrl={RUNTIME_RUST_CONFIG.serverUrl}
+        hero={RUNTIME_RUST_CONFIG.hero}
+        seed={RUNTIME_RUST_CONFIG.seed}
+        playerId={RUNTIME_RUST_CONFIG.playerId}
+      >
+        {gameShell}
+      </GameProvider>
     );
   }
 

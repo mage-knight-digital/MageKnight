@@ -11,6 +11,7 @@ import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { useIsMyTurn } from "../../hooks/useIsMyTurn";
 import { useCardInteraction } from "../CardInteraction";
 import { useRegisterOverlay } from "../../contexts/OverlayContext";
+import { groupCardActions, extractTacticOptions, extractUnitActions } from "../../rust/legalActionUtils";
 
 // Menu state types
 type MenuState =
@@ -36,7 +37,7 @@ export interface PlayerHandProps {
 }
 
 export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
-  const { state } = useGame();
+  const { state, legalActions, isRustMode } = useGame();
   const player = useMyPlayer();
   const isMyTurn = useIsMyTurn();
   const { state: cardInteractionState, dispatch: cardInteractionDispatch } = useCardInteraction();
@@ -52,12 +53,20 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
   // Register unit ability menu as an overlay
   useRegisterOverlay(menuState.type === "unit-action");
 
-  // Track whether we need tactic selection (for auto-navigation)
-  const needsTacticSelection = !!(
-    player &&
-    player.selectedTacticId === null &&
-    state?.validActions?.mode === "tactics_selection"
+  // Rust mode: derive tactic options from legalActions
+  const rustTacticOptions = useMemo(
+    () => isRustMode ? extractTacticOptions(legalActions) : [],
+    [isRustMode, legalActions]
   );
+
+  // Track whether we need tactic selection (for auto-navigation)
+  const needsTacticSelection = isRustMode
+    ? rustTacticOptions.length > 0
+    : !!(
+        player &&
+        player.selectedTacticId === null &&
+        state?.validActions?.mode === "tactics_selection"
+      );
 
   // Track previous tactic selection state to detect when selection completes
   const prevNeedsTacticRef = useRef<boolean | null>(null); // null = not yet initialized
@@ -166,8 +175,39 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [needsTacticSelection]);
 
+  // Rust mode: derive card action groups from legalActions
+  const rustCardActions = useMemo(
+    () => isRustMode ? groupCardActions(legalActions) : new Map(),
+    [isRustMode, legalActions]
+  );
+
   // Get playable cards from validActions - memoized to avoid hook dependency issues
   const playableCardMap = useMemo(() => {
+    if (isRustMode) {
+      if (import.meta.env.DEV) {
+        console.log(`[PlayerHand] rustCardActions: ${rustCardActions.size} cards`, rustCardActions.size > 0 ? [...rustCardActions.keys()] : "(none)");
+      }
+      // In Rust mode, convert CardActionGroup to a PlayableCard-compatible shape
+      const map = new Map();
+      for (const [cardId, group] of rustCardActions) {
+        map.set(cardId, {
+          cardId,
+          handIndex: group.handIndex,
+          canPlayBasic: !!group.basic,
+          canPlayPowered: group.powered.length > 0,
+          requiredMana: group.powered[0]?.manaColor ?? null,
+          isSpell: false, // Rust doesn't distinguish — not needed for action dispatch
+          canPlaySideways: group.sideways.length > 0,
+          sidewaysOptions: group.sideways.map((s: { sidewaysAs: string }) => ({
+            as: s.sidewaysAs,
+            value: 1,
+          })),
+          // Carry the action group for UnifiedCardMenu to use
+          _rustActions: group,
+        });
+      }
+      return map;
+    }
     if (!state?.validActions) return new Map();
     const va = state.validActions;
     const playableCards =
@@ -175,7 +215,7 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
         ? (va.playCard?.cards ?? [])
         : [];
     return new Map(playableCards.map(c => [c.cardId, c]));
-  }, [state]);
+  }, [isRustMode, rustCardActions, state]);
 
   // Cast hand to array - memoized for stable reference
   const handArray = useMemo(
@@ -189,13 +229,34 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
   // Get selected unit info from menu state
   const selectedUnitIndex = menuState.type === "unit-action" ? menuState.unitIndex : null;
 
+  // Rust mode: derive unit activations from legalActions
+  const rustUnitActions = useMemo(
+    () => isRustMode ? extractUnitActions(legalActions) : new Map(),
+    [isRustMode, legalActions]
+  );
+
   // Get activatable units from validActions
   const activatableUnits = useMemo(() => {
+    if (isRustMode) {
+      // In Rust mode, convert unit activation map to ActivatableUnit-compatible shape
+      const result: ActivatableUnit[] = [];
+      for (const [unitInstanceId, activations] of rustUnitActions) {
+        result.push({
+          unitInstanceId,
+          abilities: activations.map((a: { abilityIndex: number; action: unknown }) => ({
+            abilityIndex: a.abilityIndex,
+            canActivate: true,
+            _rustAction: a.action,
+          })),
+        } as ActivatableUnit);
+      }
+      return result;
+    }
     const va = state?.validActions;
     if (!va || (va.mode !== "combat" && va.mode !== "normal_turn"))
       return [];
     return va.units?.activatable ?? [];
-  }, [state?.validActions]);
+  }, [isRustMode, rustUnitActions, state?.validActions]);
 
   // Close unit menu when activatable units change (unit was activated and spent)
   useEffect(() => {

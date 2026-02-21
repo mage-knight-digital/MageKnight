@@ -2,13 +2,15 @@
  * Hex interaction hook for PixiJS hex grid
  *
  * Manages movement highlights and click handlers for hex interactions.
+ * Supports both TS engine (PlayerAction) and Rust engine (LegalAction) modes.
  */
 
 import { useCallback } from "react";
-import type { HexCoord, MoveTarget, ReachableHex, PlayerAction } from "@mage-knight/shared";
+import type { HexCoord, MoveTarget, ReachableHex } from "@mage-knight/shared";
 import { MOVE_ACTION, EXPLORE_ACTION, CHALLENGE_RAMPAGING_ACTION, RESOLVE_HEX_COST_REDUCTION_ACTION } from "@mage-knight/shared";
 import type { MoveHighlight, ExploreTarget } from "../pixi/rendering";
 import { findPath } from "../pixi/pathfinding";
+import type { LegalAction } from "../../../rust/types";
 
 interface UseHexInteractionParams {
   validMoveTargets: readonly MoveTarget[];
@@ -16,8 +18,13 @@ interface UseHexInteractionParams {
   challengeTargetHexes: readonly HexCoord[];
   hexCostReductionTargets: readonly HexCoord[];
   playerPosition: HexCoord | null;
-  sendAction: (action: PlayerAction) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sendAction: (action: any) => void;
   isMyTurn: boolean;
+  isRustMode?: boolean;
+  rustMoveActions?: Map<string, LegalAction>;
+  rustExploreActions?: Map<string, LegalAction>;
+  rustChallengeActions?: Map<string, LegalAction>;
 }
 
 interface UseHexInteractionReturn {
@@ -34,6 +41,10 @@ export function useHexInteraction({
   playerPosition,
   sendAction,
   isMyTurn,
+  isRustMode = false,
+  rustMoveActions,
+  rustExploreActions,
+  rustChallengeActions,
 }: UseHexInteractionParams): UseHexInteractionReturn {
   // Movement highlight getter
   const getMoveHighlight = useCallback(
@@ -90,6 +101,7 @@ export function useHexInteraction({
         (t) => t.q === coord.q && t.r === coord.r
       );
       if (isCostReductionTarget) {
+        if (isRustMode) return; // Not supported in Rust mode yet
         sendAction({ type: RESOLVE_HEX_COST_REDUCTION_ACTION, coordinate: coord });
         return;
       }
@@ -102,7 +114,13 @@ export function useHexInteraction({
       );
 
       if (isChallengeTarget) {
-        sendAction({ type: CHALLENGE_RAMPAGING_ACTION, targetHex: coord });
+        if (isRustMode) {
+          const key = `${coord.q},${coord.r}`;
+          const action = rustChallengeActions?.get(key);
+          if (action) sendAction(action);
+        } else {
+          sendAction({ type: CHALLENGE_RAMPAGING_ACTION, targetHex: coord });
+        }
         return;
       }
 
@@ -111,7 +129,13 @@ export function useHexInteraction({
       );
 
       if (isAdjacentTarget) {
-        sendAction({ type: MOVE_ACTION, target: coord });
+        if (isRustMode) {
+          const key = `${coord.q},${coord.r}`;
+          const action = rustMoveActions?.get(key);
+          if (action) sendAction(action);
+        } else {
+          sendAction({ type: MOVE_ACTION, target: coord });
+        }
         return;
       }
 
@@ -122,11 +146,17 @@ export function useHexInteraction({
       if (isReachableTarget) {
         const path = findPath(playerPosition, coord, reachableHexes, validMoveTargets);
         if (path.length > 1 && path[1]) {
-          sendAction({ type: MOVE_ACTION, target: path[1] });
+          if (isRustMode) {
+            const key = `${path[1].q},${path[1].r}`;
+            const action = rustMoveActions?.get(key);
+            if (action) sendAction(action);
+          } else {
+            sendAction({ type: MOVE_ACTION, target: path[1] });
+          }
         }
       }
     },
-    [isMyTurn, playerPosition, validMoveTargets, reachableHexes, challengeTargetHexes, hexCostReductionTargets, sendAction]
+    [isMyTurn, playerPosition, validMoveTargets, reachableHexes, challengeTargetHexes, hexCostReductionTargets, sendAction, isRustMode, rustMoveActions, rustChallengeActions]
   );
 
   // Handle explore click
@@ -135,13 +165,18 @@ export function useHexInteraction({
       // Block interaction if not player's turn
       if (!isMyTurn) return;
 
-      sendAction({
-        type: EXPLORE_ACTION,
-        direction: target.direction,
-        fromTileCoord: target.fromTileCoord,
-      });
+      if (isRustMode) {
+        const action = rustExploreActions?.get(target.direction);
+        if (action) sendAction(action);
+      } else {
+        sendAction({
+          type: EXPLORE_ACTION,
+          direction: target.direction,
+          fromTileCoord: target.fromTileCoord,
+        });
+      }
     },
-    [isMyTurn, sendAction]
+    [isMyTurn, sendAction, isRustMode, rustExploreActions]
   );
 
   return {

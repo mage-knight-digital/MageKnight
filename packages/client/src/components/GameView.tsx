@@ -1,5 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useGame } from "../hooks/useGame";
+import { extractTacticOptions } from "../rust/legalActionUtils";
 import { useMyPlayer } from "../hooks/useMyPlayer";
 import { useGameIntro } from "../contexts/GameIntroContext";
 import { useCinematic } from "../contexts/CinematicContext";
@@ -33,7 +34,7 @@ import { ReplayControls } from "./Replay";
 import { ActivityFeed } from "./ActivityFeed/ActivityFeed";
 
 export function GameView() {
-  const { state } = useGame();
+  const { state, legalActions, isRustMode } = useGame();
   const player = useMyPlayer();
   const { isIntroComplete } = useGameIntro();
   const { isInCinematic } = useCinematic();
@@ -46,6 +47,7 @@ export function GameView() {
   // validActions.combat may be undefined during choice resolution, but we still want
   // to show the combat scene (enemies, phase rail, etc.) while the player makes their choice
   const inCombat = state?.combat != null;
+
 
   // Register combat as an overlay to disable hex tooltips during combat
   useRegisterOverlay(inCombat);
@@ -78,10 +80,11 @@ export function GameView() {
 
   // Check if we're in tactic selection mode
   // Only dim the world after intro completes - don't dim during the theatrical reveal
-  const isTacticSelectionActive =
-    player &&
-    player.selectedTacticId === null &&
-    state.validActions.mode === "tactics_selection";
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const tacticOptions = useMemo(() => extractTacticOptions(legalActions), [legalActions]);
+  const isTacticSelectionActive = isRustMode
+    ? (player && player.selectedTacticId === null && tacticOptions.length > 0)
+    : (player && player.selectedTacticId === null && state.validActions?.mode === "tactics_selection");
   const shouldDimForTactics = isTacticSelectionActive && isIntroComplete;
 
   const appClassName = [

@@ -24,6 +24,8 @@ export interface ActionSelectWedge extends PieMenuWedge {
   readonly actionType: "basic" | "powered" | "sideways";
   /** For sideways actions, which type */
   readonly sidewaysAs?: SidewaysAs;
+  /** For Rust mode powered actions, which mana color this variant uses */
+  readonly manaColor?: string;
 }
 
 export interface ActionSelectConfig {

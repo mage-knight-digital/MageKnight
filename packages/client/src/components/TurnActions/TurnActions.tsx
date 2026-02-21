@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import {
   END_TURN_ACTION,
   UNDO_ACTION,
@@ -16,16 +16,23 @@ import {
   useGameIntro,
   UI_REVEAL_TIMING,
 } from "../../contexts/GameIntroContext";
+import { extractTurnOptions, type TurnOptions } from "../../rust/legalActionUtils";
 import "./TurnActions.css";
 
 export function TurnActions() {
-  const { state, sendAction } = useGame();
+  const { state, sendAction, legalActions, isRustMode } = useGame();
   const player = useMyPlayer();
   const { isIntroComplete } = useGameIntro();
 
   const isMyTurn = useIsMyTurn();
   // Must check player exists AND has a tactic (not null/undefined)
   const hasTactic = player != null && player.selectedTacticId != null;
+
+  // Rust mode: derive turn options from legalActions
+  const rustTurnOptions: TurnOptions = useMemo(
+    () => extractTurnOptions(legalActions),
+    [legalActions]
+  );
 
   // End turn seal should only appear after a tactic is selected
   // - "hidden": No tactic selected yet, or intro is running
@@ -68,21 +75,28 @@ export function TurnActions() {
     }
   }, [hasTactic, isIntroComplete]);
   const va = state?.validActions;
-  const canUndo =
-    va && "turn" in va ? va.turn.canUndo : false;
+  const canUndo = isRustMode
+    ? rustTurnOptions.canUndo
+    : (va && "turn" in va ? va.turn.canUndo : false);
 
-  // Check for activatable tactics (only in normal_turn)
-  const canActivate =
-    va?.mode === "normal_turn" ? va.tacticEffects?.canActivate : undefined;
-  const canActivateTheRightMoment = canActivate?.theRightMoment === true;
-  const canActivateLongNight = canActivate?.longNight === true;
-  const canActivateMidnightMeditation = canActivate?.midnightMeditation === true;
+  // Check for activatable tactics
+  const canActivateTactic = isRustMode
+    ? rustTurnOptions.canActivateTactic
+    : false;
+  const canActivate = !isRustMode && va?.mode === "normal_turn"
+    ? va.tacticEffects?.canActivate
+    : undefined;
+  const canActivateTheRightMoment = isRustMode ? canActivateTactic : (canActivate?.theRightMoment === true);
+  const canActivateLongNight = isRustMode ? false : (canActivate?.longNight === true);
+  const canActivateMidnightMeditation = isRustMode ? false : (canActivate?.midnightMeditation === true);
 
-  // Check for rest options (only in normal_turn; resting state is handled by RestCompletionOverlay)
-  const canDeclareRest =
-    va?.mode === "normal_turn" ? (va.turn.canDeclareRest ?? false) : false;
-  const canAnnounceEndOfRound =
-    va?.mode === "normal_turn" ? (va.turn.canAnnounceEndOfRound ?? false) : false;
+  // Check for rest options
+  const canDeclareRest = isRustMode
+    ? rustTurnOptions.canDeclareRest
+    : (va?.mode === "normal_turn" ? (va.turn.canDeclareRest ?? false) : false);
+  const canAnnounceEndOfRound = !isRustMode && va?.mode === "normal_turn"
+    ? (va.turn.canAnnounceEndOfRound ?? false)
+    : false;
 
   // Ctrl+Z / Cmd+Z keyboard shortcut for undo
   useEffect(() => {
@@ -110,18 +124,27 @@ export function TurnActions() {
     state.endOfRoundAnnouncedBy !== player.id;
 
   const handleEndTurn = () => {
-    sendAction({ type: END_TURN_ACTION });
+    if (isRustMode && rustTurnOptions.endTurnAction) {
+      sendAction(rustTurnOptions.endTurnAction);
+    } else {
+      sendAction({ type: END_TURN_ACTION });
+    }
   };
 
   const handleUndo = () => {
-    sendAction({ type: UNDO_ACTION });
+    if (isRustMode && rustTurnOptions.undoAction) {
+      sendAction(rustTurnOptions.undoAction);
+    } else {
+      sendAction({ type: UNDO_ACTION });
+    }
   };
 
   const handleActivateTheRightMoment = () => {
-    sendAction({
-      type: ACTIVATE_TACTIC_ACTION,
-      tacticId: TACTIC_THE_RIGHT_MOMENT,
-    });
+    if (isRustMode && rustTurnOptions.activateTacticAction) {
+      sendAction(rustTurnOptions.activateTacticAction);
+    } else {
+      sendAction({ type: ACTIVATE_TACTIC_ACTION, tacticId: TACTIC_THE_RIGHT_MOMENT });
+    }
   };
 
   const handleActivateLongNight = () => {
@@ -129,14 +152,15 @@ export function TurnActions() {
   };
 
   const handleActivateMidnightMeditation = () => {
-    sendAction({
-      type: ACTIVATE_TACTIC_ACTION,
-      tacticId: TACTIC_MIDNIGHT_MEDITATION,
-    });
+    sendAction({ type: ACTIVATE_TACTIC_ACTION, tacticId: TACTIC_MIDNIGHT_MEDITATION });
   };
 
   const handleDeclareRest = () => {
-    sendAction({ type: DECLARE_REST_ACTION });
+    if (isRustMode && rustTurnOptions.declareRestAction) {
+      sendAction(rustTurnOptions.declareRestAction);
+    } else {
+      sendAction({ type: DECLARE_REST_ACTION });
+    }
   };
 
   const handleAnnounceEndOfRound = () => {

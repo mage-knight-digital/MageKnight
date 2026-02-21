@@ -22,6 +22,7 @@ import {
 } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
+import type { CardActionGroup } from "../../rust/legalActionUtils";
 import { useRegisterOverlay } from "../../contexts/OverlayContext";
 import { useCardMenuPosition } from "../../context/CardMenuPositionContext";
 import { playSound } from "../../utils/audioManager";
@@ -50,7 +51,7 @@ const MENU_CARD_SCALE = 1.4;
 // ============================================================================
 
 export function UnifiedCardMenu() {
-  const { state: gameState, sendAction } = useGame();
+  const { state: gameState, sendAction, isRustMode } = useGame();
   const player = useMyPlayer();
   const { state: interactionState, dispatch } = useCardInteraction();
   const { setPosition, visualScale } = useCardMenuPosition();
@@ -169,63 +170,95 @@ export function UnifiedCardMenu() {
 
       playSound("cardPlay");
 
-      if (wedge.actionType === "basic") {
-        sendAction({
-          type: PLAY_CARD_ACTION,
-          cardId: interactionState.cardId,
-          powered: false,
-        });
-        dispatch({ type: "SELECT_BASIC" });
-      } else if (wedge.actionType === "powered") {
-        const isSpell = interactionState.playability.isSpell;
+      // In Rust mode, look up the pre-computed LegalAction from the _rustActions group
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rustActions: CardActionGroup | undefined =
+        isRustMode && interactionState.playability
+          ? (interactionState.playability as any)["_rustActions"] as CardActionGroup | undefined
+          : undefined;
 
-        if (isSpell && blackManaSources.length > 0) {
-          // Spell: go to black mana selection
-          dispatch({
-            type: "SELECT_POWERED",
-            availableSources: manaSources,
-            blackSources: blackManaSources,
-          });
-        } else if (manaSources.length === 0) {
-          // No mana needed (shouldn't happen)
-          sendAction({
-            type: PLAY_CARD_ACTION,
-            cardId: interactionState.cardId,
-            powered: true,
-          });
-          dispatch({
-            type: "SELECT_POWERED",
-            availableSources: [],
-          });
-        } else if (manaSources.length === 1) {
-          // Single source: auto-select
-          sendAction({
-            type: PLAY_CARD_ACTION,
-            cardId: interactionState.cardId,
-            powered: true,
-            manaSource: manaSources[0],
-          });
-          dispatch({
-            type: "SELECT_POWERED",
-            availableSources: manaSources,
-          });
+      if (wedge.actionType === "basic") {
+        if (isRustMode && rustActions?.basic) {
+          sendAction(rustActions.basic);
         } else {
-          // Multiple sources: show selection
-          dispatch({
-            type: "SELECT_POWERED",
-            availableSources: manaSources,
+          sendAction({
+            type: PLAY_CARD_ACTION,
+            cardId: interactionState.cardId,
+            powered: false,
           });
         }
+        dispatch({ type: "SELECT_BASIC" });
+      } else if (wedge.actionType === "powered") {
+        if (isRustMode && rustActions) {
+          // In Rust mode, each powered variant is a separate LegalAction with mana pre-selected.
+          // If there's only one powered option, send it directly.
+          // If multiple, we use the wedge's manaColor to find the right one.
+          const manaColor = wedge.manaColor;
+          const match = manaColor
+            ? rustActions.powered.find(p => p.manaColor === manaColor)
+            : rustActions.powered[0];
+          if (match) {
+            sendAction(match.action);
+            dispatch({ type: "SELECT_BASIC" }); // Skip mana-select, go straight to completing
+          }
+        } else {
+          const isSpell = interactionState.playability.isSpell;
+
+          if (isSpell && blackManaSources.length > 0) {
+            // Spell: go to black mana selection
+            dispatch({
+              type: "SELECT_POWERED",
+              availableSources: manaSources,
+              blackSources: blackManaSources,
+            });
+          } else if (manaSources.length === 0) {
+            // No mana needed (shouldn't happen)
+            sendAction({
+              type: PLAY_CARD_ACTION,
+              cardId: interactionState.cardId,
+              powered: true,
+            });
+            dispatch({
+              type: "SELECT_POWERED",
+              availableSources: [],
+            });
+          } else if (manaSources.length === 1) {
+            // Single source: auto-select
+            sendAction({
+              type: PLAY_CARD_ACTION,
+              cardId: interactionState.cardId,
+              powered: true,
+              manaSource: manaSources[0],
+            });
+            dispatch({
+              type: "SELECT_POWERED",
+              availableSources: manaSources,
+            });
+          } else {
+            // Multiple sources: show selection
+            dispatch({
+              type: "SELECT_POWERED",
+              availableSources: manaSources,
+            });
+          }
+        }
       } else if (wedge.actionType === "sideways" && wedge.sidewaysAs) {
-        sendAction({
-          type: PLAY_CARD_SIDEWAYS_ACTION,
-          cardId: interactionState.cardId,
-          as: wedge.sidewaysAs,
-        });
+        if (isRustMode && rustActions) {
+          const match = rustActions.sideways.find(s => s.sidewaysAs === wedge.sidewaysAs);
+          if (match) {
+            sendAction(match.action);
+          }
+        } else {
+          sendAction({
+            type: PLAY_CARD_SIDEWAYS_ACTION,
+            cardId: interactionState.cardId,
+            as: wedge.sidewaysAs,
+          });
+        }
         dispatch({ type: "SELECT_SIDEWAYS", as: wedge.sidewaysAs });
       }
     },
-    [interactionState, manaSources, blackManaSources, dispatch, sendAction]
+    [interactionState, manaSources, blackManaSources, dispatch, sendAction, isRustMode]
   );
 
   // Handle mana source selection

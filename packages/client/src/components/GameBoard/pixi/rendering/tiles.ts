@@ -360,7 +360,7 @@ export async function renderTiles(
   // Only render tiles that are revealed (have a tileId)
   // Unrevealed tiles don't send tileId to prevent map hacking
   const revealedTiles = tiles.filter((tile): tile is typeof tile & { tileId: string } =>
-    tile.tileId !== undefined
+    tile.tileId != null
   );
 
   // Preload all tile textures in parallel to avoid sequential loading blocking frames

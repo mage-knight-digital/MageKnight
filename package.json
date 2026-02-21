@@ -18,6 +18,9 @@
     "dev:client": "bun run --filter @mage-knight/client dev",
     "dev:server": "bun run packages/server/dev.ts",
     "dev:network": "bun run --parallel dev:server dev:client",
+    "dev:rust-server": "cargo run -p mk-server --manifest-path packages/engine-rs/Cargo.toml",
+    "dev:rust": "bun run --parallel dev:rust-server dev:client",
+    "cli": "cargo run --release --bin mk-cli --manifest-path packages/engine-rs/Cargo.toml",
     "mage-dev": "bun packages/mage-dev/dist/cli.js"
   },
   "devDependencies": {
