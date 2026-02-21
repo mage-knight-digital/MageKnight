@@ -127,6 +127,41 @@ pub(super) fn enumerate_pending(
         ActivePending::LevelUpReward(reward) => {
             enumerate_level_up_reward(reward, state, actions);
         }
+        ActivePending::CrystalJoyReclaim(ref pending) => {
+            let player = &state.players[player_idx];
+            for (i, card) in player.discard.iter().enumerate() {
+                let eligible = match pending.version {
+                    mk_types::pending::EffectMode::Basic => card.as_str() != WOUND_CARD_ID,
+                    mk_types::pending::EffectMode::Powered => true,
+                };
+                if eligible {
+                    actions.push(LegalAction::ResolveCrystalJoyReclaim {
+                        discard_index: Some(i),
+                    });
+                }
+            }
+            // Always allow skipping
+            actions.push(LegalAction::ResolveCrystalJoyReclaim {
+                discard_index: None,
+            });
+        }
+        ActivePending::SteadyTempoDeckPlacement(ref pending) => {
+            let can_place = match pending.version {
+                mk_types::pending::EffectMode::Basic => {
+                    !state.players[player_idx].deck.is_empty()
+                }
+                mk_types::pending::EffectMode::Powered => true,
+            };
+            if can_place {
+                actions.push(LegalAction::ResolveSteadyTempoDeckPlacement { place: true });
+            }
+            // Always allow skipping
+            actions.push(LegalAction::ResolveSteadyTempoDeckPlacement { place: false });
+        }
+        ActivePending::BannerProtectionChoice => {
+            actions.push(LegalAction::ResolveBannerProtection { remove_all: true });
+            actions.push(LegalAction::ResolveBannerProtection { remove_all: false });
+        }
         // Non-choice pending states are not wired into LegalAction yet.
         // Panic instead of silently returning no actions to avoid deadlocked turns.
         other => panic!(

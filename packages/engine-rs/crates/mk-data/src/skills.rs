@@ -960,7 +960,13 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
                 ],
             }),
         }),
-        "wolfhawk_wolfs_howl" => Some(stub("wolfhawk_wolfs_howl", SkillUsageType::OncePerRound, SkillPhaseRestriction::NoCombat)),
+        "wolfhawk_wolfs_howl" => Some(SkillDefinition {
+            id: "wolfhawk_wolfs_howl",
+            usage_type: SkillUsageType::OncePerRound,
+            phase_restriction: SkillPhaseRestriction::NoCombat,
+            is_motivation: false,
+            effect: Some(CardEffect::Noop), // Custom handler
+        }),
 
         // =====================================================================
         // Krang
@@ -1077,7 +1083,13 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
                 ],
             }),
         }),
-        "krang_puppet_master" => Some(stub("krang_puppet_master", SkillUsageType::OncePerRound, SkillPhaseRestriction::CombatOnly)),
+        "krang_puppet_master" => Some(SkillDefinition {
+            id: "krang_puppet_master",
+            usage_type: SkillUsageType::OncePerTurn,
+            phase_restriction: SkillPhaseRestriction::CombatOnly,
+            is_motivation: false,
+            effect: Some(CardEffect::Noop), // Custom handler
+        }),
         "krang_master_of_chaos" => Some(stub("krang_master_of_chaos", SkillUsageType::Interactive, SkillPhaseRestriction::NoCombat)),
         "krang_curse" => Some(SkillDefinition {
             id: "krang_curse",
@@ -1211,7 +1223,13 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
             is_motivation: false,
             effect: Some(CardEffect::Noop), // Custom handler
         }),
-        "braevalar_shapeshift" => Some(stub("braevalar_shapeshift", SkillUsageType::OncePerRound, SkillPhaseRestriction::CombatOnly)),
+        "braevalar_shapeshift" => Some(SkillDefinition {
+            id: "braevalar_shapeshift",
+            usage_type: SkillUsageType::OncePerTurn,
+            phase_restriction: SkillPhaseRestriction::CombatOnly,
+            is_motivation: false,
+            effect: Some(CardEffect::Noop), // Custom handler
+        }),
         // Secret Ways: passive mountain cost 5 + safe, active: Move 1 + optional blue mana for lake access
         "braevalar_secret_ways" => Some(SkillDefinition {
             id: "braevalar_secret_ways",
@@ -1372,6 +1390,10 @@ mod tests {
             "wolfhawk_know_your_prey",
             "krang_curse",
             "braevalar_forked_lightning",
+            // Batch 1 non-interactive
+            "wolfhawk_wolfs_howl",
+            "krang_puppet_master",
+            "braevalar_shapeshift",
         ];
         for id in implemented {
             let skill = get_skill(id).unwrap_or_else(|| panic!("Missing: {}", id));
@@ -1467,8 +1489,13 @@ mod tests {
     #[test]
     fn stub_skills_have_no_effect() {
         let stubs = [
-            "braevalar_shapeshift",
-            "krang_puppet_master",
+            "arythea_ritual_of_pain",
+            "tovak_mana_overload",
+            "goldyx_source_opening",
+            "norowas_prayer_of_weather",
+            "krang_master_of_chaos",
+            "krang_mana_enhancement",
+            "braevalar_natures_vengeance",
         ];
         for id in stubs {
             let skill = get_skill(id).unwrap();

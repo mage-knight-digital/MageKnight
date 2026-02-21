@@ -14,8 +14,10 @@ use mk_data::levels::{get_level_from_fame, get_level_stats, is_skill_level_up};
 use mk_data::tactics::get_tactics_for_time;
 use mk_types::enums::*;
 use mk_types::ids::*;
+use mk_types::modifier::ModifierEffect;
 use mk_types::pending::{
-    ActivePending, DeferredPending, PendingLevelUpReward, MAX_DEEP_MINE_COLORS, MAX_DRAWN_SKILLS,
+    ActivePending, DeferredPending, PendingCrystalJoyReclaim, PendingLevelUpReward,
+    PendingSteadyTempoDeckPlacement, MAX_DEEP_MINE_COLORS, MAX_DRAWN_SKILLS,
 };
 use mk_types::state::*;
 
@@ -38,6 +40,8 @@ pub enum EndTurnResult {
     GameEnded,
     /// Level-up rewards pending — player must resolve before card draw + turn advance.
     AwaitingLevelUpRewards,
+    /// End-turn artifact choice pending (Crystal Joy, Steady Tempo, Banner Protection).
+    AwaitingEndTurnChoice,
 }
 
 /// Errors from end turn.
@@ -55,81 +59,291 @@ pub enum EndTurnError {
 
 /// End the current player's turn.
 ///
-/// Simplified Phase 2 flow:
-/// 1. Check minimum turn requirement (must have played a card)
-/// 2. Process level-ups from fame gained
-/// 3. Card flow: play area → discard, draw up to hand limit
-/// 4. Return mana dice
-/// 5. Reset player turn state
-/// 6. Determine next player or trigger round end
+/// Re-entrant: uses `end_turn_step` on the player to track progress through
+/// end-turn phases. When an artifact step creates a pending choice, we return
+/// `AwaitingEndTurnChoice` and the handler re-calls this function after
+/// resolving. Completed steps are skipped on re-entry.
 ///
-/// Many TS steps are deferred to later phases (TODOs below).
+/// Steps:
+///   0 — Minimum turn requirement (only on first entry)
+///   1 — Magical Glade wound + Mine/Deep Mine
+///   2 — Crystal Joy reclaim (may create pending)
+///   3 — Steady Tempo deck placement (may create pending)
+///   4 — Banner of Protection wound removal (may create pending)
+///   5+ — Automated: Mysterious Box, Crystal Mastery, Ring fame, level-ups,
+///         Mountain Lore, card flow, reset, advance
 pub fn end_turn(state: &mut GameState, player_idx: usize) -> Result<EndTurnResult, EndTurnError> {
     if player_idx >= state.players.len() {
         return Err(EndTurnError::InvalidPlayerIndex);
     }
 
-    // Step 0: Minimum turn requirement
-    // Player must have played at least 1 card or rested.
-    // In Phase 2, we check the flag. In the full game, this would trigger
-    // a mandatory discard if not met.
-    let player = &state.players[player_idx];
-    if !player
-        .flags
-        .contains(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN)
-        && !player.flags.contains(PlayerFlags::HAS_RESTED_THIS_TURN)
-    {
-        return Err(EndTurnError::MinimumTurnRequirementNotMet);
+    let step = state.players[player_idx].end_turn_step;
+
+    // Step 0: Minimum turn requirement (only on first entry)
+    if step == 0 {
+        let player = &state.players[player_idx];
+        if !player
+            .flags
+            .contains(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN)
+            && !player.flags.contains(PlayerFlags::HAS_RESTED_THIS_TURN)
+        {
+            return Err(EndTurnError::MinimumTurnRequirementNotMet);
+        }
     }
 
-    // Step 1: Magical Glade wound check
-    if apply_magical_glade_wound(state, player_idx) {
-        // Glade wound choice pending — must resolve before continuing.
-        // Pending blocks next enumeration.
+    // Step 1: Magical Glade wound + Mine/Deep Mine
+    if step < 1 {
+        apply_magical_glade_wound(state, player_idx);
+        apply_mine_crystal(state, player_idx);
+        if apply_deep_mine_choice(state, player_idx) {
+            // Deep mine pending — blocks enumeration until resolved
+        }
+        state.players[player_idx].end_turn_step = 1;
     }
 
-    // TODO: Step 2 — Auto-announce end of round (hand+deck empty)
-
-    // Step 3: Mine / Deep Mine crystal rewards
-    apply_mine_crystal(state, player_idx);
-    if apply_deep_mine_choice(state, player_idx) {
-        // Deep mine creates a pending choice — must resolve before continuing.
-        // Pending blocks next enumeration.
+    // Step 2: Crystal Joy reclaim
+    if step < 2 {
+        if check_crystal_joy_reclaim(state, player_idx) {
+            state.players[player_idx].end_turn_step = 2;
+            return Ok(EndTurnResult::AwaitingEndTurnChoice);
+        }
+        state.players[player_idx].end_turn_step = 2;
     }
-    // TODO: Step 3a — Crystal Joy reclaim
-    // TODO: Step 3b — Steady Tempo deck placement
-    // TODO: Step 3c — Banner of Protection wound removal
-    // TODO: Step 4 — Mysterious Box cleanup
-    // TODO: Step 5 — Crystal Mastery return
-    // TODO: Step 6 — Ring artifact fame bonus
 
-    // Step 7: Process level-ups
+    // Step 3: Steady Tempo deck placement
+    if step < 3 {
+        if check_steady_tempo_placement(state, player_idx) {
+            state.players[player_idx].end_turn_step = 3;
+            return Ok(EndTurnResult::AwaitingEndTurnChoice);
+        }
+        state.players[player_idx].end_turn_step = 3;
+    }
+
+    // Step 4: Banner of Protection wound removal
+    if step < 4 {
+        if apply_banner_protection_choice(state, player_idx) {
+            state.players[player_idx].end_turn_step = 4;
+            return Ok(EndTurnResult::AwaitingEndTurnChoice);
+        }
+        state.players[player_idx].end_turn_step = 4;
+    }
+
+    // Step 5+: All automated (no pending)
+    apply_mysterious_box_cleanup(state, player_idx);
+    apply_crystal_mastery_return(state, player_idx);
+    apply_ring_fame_bonus(state, player_idx);
+
+    // Level-ups
     process_level_ups(state, player_idx);
-
-    // Check if level-up rewards need resolution before card draw.
-    // If so, skip card flow and turn advance — those happen after rewards are resolved.
     if promote_level_up_reward(state, player_idx) {
-        // Reset turn state, return dice, expire modifiers — but no card draw or advance
         reset_player_turn(&mut state.players[player_idx]);
         cleanup_end_turn_mana(state, player_idx);
         return Ok(EndTurnResult::AwaitingLevelUpRewards);
     }
 
-    // TODO: Step 8 — Mountain Lore hand limit bonus
+    // Mountain Lore hand limit bonus (before card draw)
+    apply_mountain_lore_bonus(state, player_idx);
 
-    // Step 9: Card flow — play area → discard, draw up to hand limit
+    // Card flow: play area → discard, draw up to hand limit
     process_card_flow(state, player_idx);
 
-    // Step 10: Reset player turn state
+    // Reset player turn state
     reset_player_turn(&mut state.players[player_idx]);
 
     // Mana/dice/modifier cleanup
     cleanup_end_turn_mana(state, player_idx);
 
-    // Step 14-16: Determine next player or round end
+    // Determine next player or round end
     let result = advance_turn(state, player_idx);
 
     Ok(result)
+}
+
+// =============================================================================
+// Artifact end-turn steps
+// =============================================================================
+
+/// Crystal Joy reclaim: offer to reclaim a card from discard to hand.
+/// Returns true if a pending choice was created.
+fn check_crystal_joy_reclaim(state: &mut GameState, player_idx: usize) -> bool {
+    let version = match state.players[player_idx].crystal_joy_reclaim_version.take() {
+        Some(v) => v,
+        None => return false,
+    };
+    state.players[player_idx].pending.active =
+        Some(ActivePending::CrystalJoyReclaim(PendingCrystalJoyReclaim { version }));
+    true
+}
+
+/// Steady Tempo deck placement: offer to place the card on deck.
+/// Returns true if a pending choice was created.
+fn check_steady_tempo_placement(state: &mut GameState, player_idx: usize) -> bool {
+    let version = match state.players[player_idx].steady_tempo_version.take() {
+        Some(v) => v,
+        None => return false,
+    };
+    state.players[player_idx].pending.active = Some(
+        ActivePending::SteadyTempoDeckPlacement(PendingSteadyTempoDeckPlacement { version }),
+    );
+    true
+}
+
+/// Banner of Protection: offer to remove wounds received this turn.
+/// Returns true if a pending choice was created.
+fn apply_banner_protection_choice(state: &mut GameState, player_idx: usize) -> bool {
+    if !state.players[player_idx]
+        .flags
+        .contains(PlayerFlags::BANNER_OF_PROTECTION_ACTIVE)
+    {
+        return false;
+    }
+    let wounds = state.players[player_idx].wounds_received_this_turn;
+    if wounds.hand == 0 && wounds.discard == 0 {
+        return false;
+    }
+    state.players[player_idx].pending.active = Some(ActivePending::BannerProtectionChoice);
+    true
+}
+
+/// Mysterious Box cleanup: return revealed artifact to deck, handle card fate.
+fn apply_mysterious_box_cleanup(state: &mut GameState, player_idx: usize) {
+    let box_state = match state.players[player_idx].mysterious_box_state.take() {
+        Some(bs) => bs,
+        None => return,
+    };
+
+    // Return revealed artifact to bottom of artifact deck
+    state
+        .decks
+        .artifact_deck
+        .push(box_state.revealed_artifact_id);
+
+    // Remove any temporary banner attachment for mysterious_box
+    state.players[player_idx]
+        .attached_banners
+        .retain(|b| b.banner_id.as_str() != "mysterious_box");
+
+    let player = &mut state.players[player_idx];
+    match box_state.used_as {
+        MysteriousBoxUsage::Unused => {
+            // Return mysterious_box from play_area to hand
+            if let Some(idx) = player
+                .play_area
+                .iter()
+                .position(|c| c.as_str() == "mysterious_box")
+            {
+                player.play_area.remove(idx);
+                player.hand.push(CardId::from("mysterious_box"));
+            }
+        }
+        MysteriousBoxUsage::Powered => {
+            // Remove mysterious_box from play_area to removed_cards
+            if let Some(idx) = player
+                .play_area
+                .iter()
+                .position(|c| c.as_str() == "mysterious_box")
+            {
+                player.play_area.remove(idx);
+                player.removed_cards.push(CardId::from("mysterious_box"));
+            }
+        }
+        MysteriousBoxUsage::Banner => {
+            // Move mysterious_box from play_area to discard
+            if let Some(idx) = player
+                .play_area
+                .iter()
+                .position(|c| c.as_str() == "mysterious_box")
+            {
+                player.play_area.remove(idx);
+                player.discard.push(CardId::from("mysterious_box"));
+            }
+        }
+        MysteriousBoxUsage::Basic => {
+            // Basic: stays in play_area, normal card flow moves it to discard
+        }
+    }
+}
+
+/// Crystal Mastery return: return spent crystals if powered was active.
+fn apply_crystal_mastery_return(state: &mut GameState, player_idx: usize) {
+    let player = &mut state.players[player_idx];
+    if !player
+        .flags
+        .contains(PlayerFlags::CRYSTAL_MASTERY_POWERED_ACTIVE)
+    {
+        return;
+    }
+    let spent = player.spent_crystals_this_turn;
+    player.crystals.red = (player.crystals.red + spent.red).min(mana::MAX_CRYSTALS_PER_COLOR);
+    player.crystals.blue = (player.crystals.blue + spent.blue).min(mana::MAX_CRYSTALS_PER_COLOR);
+    player.crystals.green =
+        (player.crystals.green + spent.green).min(mana::MAX_CRYSTALS_PER_COLOR);
+    player.crystals.white =
+        (player.crystals.white + spent.white).min(mana::MAX_CRYSTALS_PER_COLOR);
+}
+
+/// Ring artifact fame bonus: +1 fame per spell cast of the ring's color.
+fn apply_ring_fame_bonus(state: &mut GameState, player_idx: usize) {
+    let player_id = state.players[player_idx].id.clone();
+    let mut total_fame: u32 = 0;
+
+    for m in &state.active_modifiers {
+        if m.created_by_player_id != player_id {
+            continue;
+        }
+        if !matches!(m.duration, mk_types::modifier::ModifierDuration::Turn) {
+            continue;
+        }
+        if let ModifierEffect::EndlessMana { ref colors } = m.effect {
+            // Find the ring's color (first non-Black color)
+            let ring_color = colors.iter().find(|c| **c != ManaColor::Black);
+            if let Some(color) = ring_color {
+                let spell_count = state.players[player_idx]
+                    .spells_cast_by_color_this_turn
+                    .get(color)
+                    .copied()
+                    .unwrap_or(0);
+                total_fame += spell_count;
+            }
+        }
+    }
+
+    if total_fame > 0 {
+        state.players[player_idx].fame += total_fame;
+    }
+}
+
+/// Mountain Lore hand limit bonus: +1 on hills, +2 on mountains.
+fn apply_mountain_lore_bonus(state: &mut GameState, player_idx: usize) {
+    let terrain = player_hex(state, player_idx).map(|h| h.terrain);
+    let terrain = match terrain {
+        Some(t) => t,
+        None => return,
+    };
+
+    let player_id = state.players[player_idx].id.clone();
+    let mut bonus: u32 = 0;
+
+    for m in &state.active_modifiers {
+        if m.created_by_player_id != player_id {
+            continue;
+        }
+        if let ModifierEffect::MountainLoreHandLimit {
+            hills_bonus,
+            mountain_bonus,
+        } = m.effect
+        {
+            match terrain {
+                Terrain::Mountain => bonus += mountain_bonus,
+                Terrain::Hills => bonus += hills_bonus,
+                _ => {}
+            }
+        }
+    }
+
+    if bonus > 0 {
+        state.players[player_idx].meditation_hand_limit_bonus += bonus;
+    }
 }
 
 // =============================================================================
@@ -291,8 +505,9 @@ fn process_card_flow(state: &mut GameState, player_idx: usize) {
     } else {
         0
     };
-    // TODO: Keep bonus (adjacent to owned keep), Meditation bonus
-    let draw_limit = (player.hand_limit as usize) + planning_bonus;
+    // TODO: Keep bonus (adjacent to owned keep)
+    let draw_limit =
+        (player.hand_limit as usize) + planning_bonus + (player.meditation_hand_limit_bonus as usize);
 
     while player.hand.len() < draw_limit {
         if player.deck.is_empty() {
@@ -366,8 +581,11 @@ fn reset_player_turn(player: &mut PlayerState) {
     player.skill_cooldowns.active_until_next_turn.clear();
     player.skill_cooldowns.used_this_turn.clear();
 
-    // TODO: pendingSourceOpeningRerollChoice, pendingMeditation, mysteriousBoxState
+    // TODO: pendingSourceOpeningRerollChoice, pendingMeditation
     player.mysterious_box_state = None;
+    player.end_turn_step = 0;
+    player.crystal_joy_reclaim_version = None;
+    player.steady_tempo_version = None;
 }
 
 // =============================================================================
@@ -1982,6 +2200,930 @@ mod tests {
             state.final_turns_remaining,
             Some(0),
             "final_turns_remaining should be set to 0 on game end"
+        );
+    }
+
+    // =========================================================================
+    // Crystal Mastery return
+    // =========================================================================
+
+    #[test]
+    fn crystal_mastery_returns_spent_crystals() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+        state.players[0]
+            .flags
+            .insert(PlayerFlags::CRYSTAL_MASTERY_POWERED_ACTIVE);
+        state.players[0].crystals.red = 1;
+        state.players[0].crystals.blue = 0;
+        state.players[0].spent_crystals_this_turn = Crystals {
+            red: 1,
+            blue: 2,
+            green: 0,
+            white: 0,
+        };
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        // red: 1 + 1 = 2, blue: 0 + 2 = 2
+        assert_eq!(state.players[0].crystals.red, 2);
+        assert_eq!(state.players[0].crystals.blue, 2);
+    }
+
+    #[test]
+    fn crystal_mastery_caps_at_max() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+        state.players[0]
+            .flags
+            .insert(PlayerFlags::CRYSTAL_MASTERY_POWERED_ACTIVE);
+        state.players[0].crystals.green = 2;
+        state.players[0].spent_crystals_this_turn = Crystals {
+            red: 0,
+            blue: 0,
+            green: 3,
+            white: 0,
+        };
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        // green: 2 + 3 = 5, capped at 3
+        assert_eq!(state.players[0].crystals.green, 3);
+    }
+
+    #[test]
+    fn crystal_mastery_no_flag_no_return() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+        // No CRYSTAL_MASTERY_POWERED_ACTIVE flag
+        state.players[0].crystals.red = 0;
+        state.players[0].spent_crystals_this_turn = Crystals {
+            red: 2,
+            blue: 0,
+            green: 0,
+            white: 0,
+        };
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        // No return without flag
+        assert_eq!(state.players[0].crystals.red, 0);
+    }
+
+    // =========================================================================
+    // Ring fame bonus
+    // =========================================================================
+
+    #[test]
+    fn ring_fame_bonus_adds_spells_cast() {
+        use mk_types::modifier::*;
+        use std::collections::BTreeMap;
+
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+        let pid = state.players[0].id.clone();
+
+        // Ring of Red: EndlessMana with [Red, Black], Turn duration
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("ring_red"),
+            source: ModifierSource::Skill {
+                skill_id: SkillId::from("ring"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::EndlessMana {
+                colors: vec![ManaColor::Red, ManaColor::Black],
+            },
+            created_at_round: 1,
+            created_by_player_id: pid.clone(),
+        });
+
+        // Player cast 3 red spells this turn
+        let mut spell_map = BTreeMap::new();
+        spell_map.insert(ManaColor::Red, 3);
+        state.players[0].spells_cast_by_color_this_turn = spell_map;
+        state.players[0].fame = 0;
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        // Should get +3 fame from ring
+        assert_eq!(state.players[0].fame, 3);
+    }
+
+    #[test]
+    fn ring_fame_no_spells_no_bonus() {
+        use mk_types::modifier::*;
+
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+        let pid = state.players[0].id.clone();
+
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("ring_blue"),
+            source: ModifierSource::Skill {
+                skill_id: SkillId::from("ring"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::EndlessMana {
+                colors: vec![ManaColor::Blue, ManaColor::Black],
+            },
+            created_at_round: 1,
+            created_by_player_id: pid.clone(),
+        });
+
+        // No spells cast
+        state.players[0].fame = 5;
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        assert_eq!(state.players[0].fame, 5, "No bonus when no spells cast");
+    }
+
+    // =========================================================================
+    // Mountain Lore hand limit bonus
+    // =========================================================================
+
+    #[test]
+    fn mountain_lore_mountain_adds_2_to_hand_limit() {
+        use mk_types::modifier::*;
+
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..10).map(|i| CardId::from(format!("c{}", i))).collect();
+        let pid = state.players[0].id.clone();
+
+        // Place player on mountain
+        let coord = HexCoord { q: 50, r: 50 };
+        state.map.hexes.insert(
+            coord.key(),
+            HexState {
+                coord,
+                terrain: Terrain::Mountain,
+                tile_id: TileId::StartingA,
+                site: None,
+                rampaging_enemies: ArrayVec::new(),
+                enemies: ArrayVec::new(),
+                ruins_token: None,
+                shield_tokens: Vec::new(),
+            },
+        );
+        state.players[0].position = Some(coord);
+
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("mt_lore"),
+            source: ModifierSource::Skill {
+                skill_id: SkillId::from("mountain_lore"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Permanent,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::MountainLoreHandLimit {
+                hills_bonus: 1,
+                mountain_bonus: 2,
+            },
+            created_at_round: 1,
+            created_by_player_id: pid.clone(),
+        });
+
+        play_card_sideways(&mut state, 0, 0, SidewaysAs::Move).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        // Base hand limit 5 + 2 mountain bonus = 7
+        assert_eq!(state.players[0].hand.len(), 7);
+    }
+
+    #[test]
+    fn mountain_lore_hills_adds_1_to_hand_limit() {
+        use mk_types::modifier::*;
+
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..10).map(|i| CardId::from(format!("c{}", i))).collect();
+        let pid = state.players[0].id.clone();
+
+        // Place player on hills
+        let coord = HexCoord { q: 50, r: 50 };
+        state.map.hexes.insert(
+            coord.key(),
+            HexState {
+                coord,
+                terrain: Terrain::Hills,
+                tile_id: TileId::StartingA,
+                site: None,
+                rampaging_enemies: ArrayVec::new(),
+                enemies: ArrayVec::new(),
+                ruins_token: None,
+                shield_tokens: Vec::new(),
+            },
+        );
+        state.players[0].position = Some(coord);
+
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("mt_lore"),
+            source: ModifierSource::Skill {
+                skill_id: SkillId::from("mountain_lore"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Permanent,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::MountainLoreHandLimit {
+                hills_bonus: 1,
+                mountain_bonus: 2,
+            },
+            created_at_round: 1,
+            created_by_player_id: pid.clone(),
+        });
+
+        play_card_sideways(&mut state, 0, 0, SidewaysAs::Move).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        // Base hand limit 5 + 1 hills bonus = 6
+        assert_eq!(state.players[0].hand.len(), 6);
+    }
+
+    #[test]
+    fn mountain_lore_plains_no_bonus() {
+        use mk_types::modifier::*;
+
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..10).map(|i| CardId::from(format!("c{}", i))).collect();
+        let pid = state.players[0].id.clone();
+
+        // Player starts on plains (default starting position)
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("mt_lore"),
+            source: ModifierSource::Skill {
+                skill_id: SkillId::from("mountain_lore"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Permanent,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::MountainLoreHandLimit {
+                hills_bonus: 1,
+                mountain_bonus: 2,
+            },
+            created_at_round: 1,
+            created_by_player_id: pid.clone(),
+        });
+
+        play_card_sideways(&mut state, 0, 0, SidewaysAs::Move).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        // Base hand limit 5, no bonus on plains
+        assert_eq!(state.players[0].hand.len(), 5);
+    }
+
+    // =========================================================================
+    // Mysterious Box cleanup
+    // =========================================================================
+
+    #[test]
+    fn mysterious_box_unused_returns_to_hand() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+        state.players[0]
+            .play_area
+            .push(CardId::from("mysterious_box"));
+        state.players[0].mysterious_box_state = Some(MysteriousBoxState {
+            revealed_artifact_id: CardId::from("some_artifact"),
+            used_as: MysteriousBoxUsage::Unused,
+            played_card_from_hand_before_play: false,
+        });
+        state.decks.artifact_deck.clear();
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        // mysterious_box should be in hand (removed from play_area before card flow)
+        assert!(
+            state.players[0]
+                .hand
+                .iter()
+                .any(|c| c.as_str() == "mysterious_box"),
+            "Unused: mysterious_box should be in hand"
+        );
+        // Artifact returned to deck
+        assert!(state.decks.artifact_deck.contains(&CardId::from("some_artifact")));
+    }
+
+    #[test]
+    fn mysterious_box_powered_goes_to_removed() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+        state.players[0]
+            .play_area
+            .push(CardId::from("mysterious_box"));
+        state.players[0].mysterious_box_state = Some(MysteriousBoxState {
+            revealed_artifact_id: CardId::from("some_artifact"),
+            used_as: MysteriousBoxUsage::Powered,
+            played_card_from_hand_before_play: false,
+        });
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        // mysterious_box should be in removed_cards
+        assert!(
+            state.players[0]
+                .removed_cards
+                .iter()
+                .any(|c| c.as_str() == "mysterious_box"),
+            "Powered: mysterious_box should be in removed_cards"
+        );
+        assert!(
+            !state.players[0]
+                .hand
+                .iter()
+                .any(|c| c.as_str() == "mysterious_box"),
+            "Powered: mysterious_box should NOT be in hand"
+        );
+    }
+
+    #[test]
+    fn mysterious_box_banner_goes_to_discard() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+        state.players[0]
+            .play_area
+            .push(CardId::from("mysterious_box"));
+        state.players[0].mysterious_box_state = Some(MysteriousBoxState {
+            revealed_artifact_id: CardId::from("some_artifact"),
+            used_as: MysteriousBoxUsage::Banner,
+            played_card_from_hand_before_play: false,
+        });
+        // Add banner attachment
+        state.players[0].attached_banners.push(BannerAttachment {
+            banner_id: CardId::from("mysterious_box"),
+            unit_instance_id: UnitInstanceId::from("unit_0"),
+            is_used_this_round: false,
+        });
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        // mysterious_box in discard (moved there before card flow, then card flow moves it again)
+        // Actually: moved to discard by cleanup, then play_area→discard in card flow
+        // The card should end up in discard
+        assert!(
+            state.players[0]
+                .discard
+                .iter()
+                .any(|c| c.as_str() == "mysterious_box"),
+            "Banner: mysterious_box should be in discard"
+        );
+        // Banner attachment should be removed
+        assert!(
+            !state.players[0]
+                .attached_banners
+                .iter()
+                .any(|b| b.banner_id.as_str() == "mysterious_box"),
+            "Banner attachment should be removed"
+        );
+    }
+
+    #[test]
+    fn mysterious_box_basic_stays_in_play_area_for_normal_flow() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+        state.players[0]
+            .play_area
+            .push(CardId::from("mysterious_box"));
+        state.players[0].mysterious_box_state = Some(MysteriousBoxState {
+            revealed_artifact_id: CardId::from("some_artifact"),
+            used_as: MysteriousBoxUsage::Basic,
+            played_card_from_hand_before_play: false,
+        });
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        // Basic: stays in play_area → card flow moves it to discard
+        assert!(
+            state.players[0]
+                .discard
+                .iter()
+                .any(|c| c.as_str() == "mysterious_box"),
+            "Basic: mysterious_box should end up in discard via normal card flow"
+        );
+    }
+
+    // =========================================================================
+    // Crystal Joy reclaim (via end-turn pending)
+    // =========================================================================
+
+    #[test]
+    fn crystal_joy_creates_pending_on_end_turn() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+        state.players[0].crystal_joy_reclaim_version =
+            Some(mk_types::pending::EffectMode::Basic);
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        let result = end_turn(&mut state, 0).unwrap();
+
+        assert!(
+            matches!(result, EndTurnResult::AwaitingEndTurnChoice),
+            "Should return AwaitingEndTurnChoice, got {:?}",
+            result,
+        );
+        assert!(matches!(
+            state.players[0].pending.active,
+            Some(ActivePending::CrystalJoyReclaim(_))
+        ));
+    }
+
+    #[test]
+    fn crystal_joy_reclaim_basic_non_wound_only() {
+        use crate::legal_actions::enumerate_legal_actions;
+
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].crystal_joy_reclaim_version =
+            Some(mk_types::pending::EffectMode::Basic);
+        state.players[0].discard = vec![
+            CardId::from("rage"),
+            CardId::from("wound"),
+            CardId::from("stamina"),
+        ];
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        // Enumerate legal actions
+        let legal = enumerate_legal_actions(&state, 0);
+        // Should have: rage(0), stamina(2) as eligible, plus skip(None), plus Undo
+        let reclaim_actions: Vec<_> = legal
+            .actions
+            .iter()
+            .filter(|a| matches!(a, mk_types::legal_action::LegalAction::ResolveCrystalJoyReclaim { .. }))
+            .collect();
+        // 2 non-wound cards + 1 skip = 3
+        assert_eq!(reclaim_actions.len(), 3, "2 non-wound + 1 skip");
+    }
+
+    #[test]
+    fn crystal_joy_reclaim_powered_all_eligible() {
+        use crate::legal_actions::enumerate_legal_actions;
+
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].crystal_joy_reclaim_version =
+            Some(mk_types::pending::EffectMode::Powered);
+        state.players[0].discard = vec![
+            CardId::from("rage"),
+            CardId::from("wound"),
+        ];
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        let legal = enumerate_legal_actions(&state, 0);
+        let reclaim_actions: Vec<_> = legal
+            .actions
+            .iter()
+            .filter(|a| matches!(a, mk_types::legal_action::LegalAction::ResolveCrystalJoyReclaim { .. }))
+            .collect();
+        // Powered: all cards eligible (rage + wound) + skip = 3
+        assert_eq!(reclaim_actions.len(), 3, "Powered: 2 cards + 1 skip");
+    }
+
+    #[test]
+    fn crystal_joy_resolve_moves_card_to_hand() {
+        use crate::action_pipeline::apply_legal_action;
+        use crate::legal_actions::enumerate_legal_actions;
+        use crate::undo::UndoStack;
+        use mk_types::legal_action::LegalAction;
+
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+        state.players[0].crystal_joy_reclaim_version =
+            Some(mk_types::pending::EffectMode::Basic);
+        state.players[0].discard = vec![CardId::from("rage"), CardId::from("stamina")];
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+        // Now pending CrystalJoyReclaim
+
+        let legal = enumerate_legal_actions(&state, 0);
+        let mut undo = UndoStack::new();
+
+        // Resolve: pick rage (index 0)
+        let action = LegalAction::ResolveCrystalJoyReclaim {
+            discard_index: Some(0),
+        };
+        apply_legal_action(&mut state, &mut undo, 0, &action, legal.epoch).unwrap();
+
+        // rage should be in hand now
+        assert!(
+            state.players[0]
+                .hand
+                .iter()
+                .any(|c| c.as_str() == "rage"),
+            "Reclaimed card should be in hand"
+        );
+        // stamina stays in discard (moved to discard by card flow)
+        assert!(!state.players[0].pending.has_active());
+    }
+
+    #[test]
+    fn crystal_joy_skip_no_card_moved() {
+        use crate::action_pipeline::apply_legal_action;
+        use crate::legal_actions::enumerate_legal_actions;
+        use crate::undo::UndoStack;
+        use mk_types::legal_action::LegalAction;
+
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+        state.players[0].crystal_joy_reclaim_version =
+            Some(mk_types::pending::EffectMode::Basic);
+        state.players[0].discard = vec![CardId::from("rage")];
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        let legal = enumerate_legal_actions(&state, 0);
+        let mut undo = UndoStack::new();
+
+        // Resolve: skip (None)
+        let action = LegalAction::ResolveCrystalJoyReclaim {
+            discard_index: None,
+        };
+        apply_legal_action(&mut state, &mut undo, 0, &action, legal.epoch).unwrap();
+
+        // No card reclaimed, rage should be in discard (from card flow)
+        assert!(
+            state.players[0]
+                .discard
+                .iter()
+                .any(|c| c.as_str() == "rage"),
+            "rage should stay in discard after skip"
+        );
+        assert!(!state.players[0].pending.has_active());
+    }
+
+    // =========================================================================
+    // Steady Tempo deck placement (via end-turn pending)
+    // =========================================================================
+
+    #[test]
+    fn steady_tempo_creates_pending_on_end_turn() {
+        let mut state = setup_playing_game(vec!["steady_tempo"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        // play_card should set steady_tempo_version
+        assert!(state.players[0].steady_tempo_version.is_some());
+
+        let result = end_turn(&mut state, 0).unwrap();
+        assert!(
+            matches!(result, EndTurnResult::AwaitingEndTurnChoice),
+            "Should return AwaitingEndTurnChoice, got {:?}",
+            result,
+        );
+        assert!(matches!(
+            state.players[0].pending.active,
+            Some(ActivePending::SteadyTempoDeckPlacement(_))
+        ));
+    }
+
+    #[test]
+    fn steady_tempo_basic_places_at_bottom() {
+        use crate::action_pipeline::apply_legal_action;
+        use crate::legal_actions::enumerate_legal_actions;
+        use crate::undo::UndoStack;
+        use mk_types::legal_action::LegalAction;
+
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+        state.players[0].steady_tempo_version =
+            Some(mk_types::pending::EffectMode::Basic);
+        state.players[0]
+            .play_area
+            .push(CardId::from("steady_tempo"));
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+        // Pending SteadyTempoDeckPlacement
+
+        let legal = enumerate_legal_actions(&state, 0);
+        let mut undo = UndoStack::new();
+
+        let action = LegalAction::ResolveSteadyTempoDeckPlacement { place: true };
+        apply_legal_action(&mut state, &mut undo, 0, &action, legal.epoch).unwrap();
+
+        // steady_tempo should be at the bottom of deck
+        assert_eq!(
+            state.players[0].deck.last().map(|c| c.as_str()),
+            Some("steady_tempo"),
+            "Basic: steady_tempo should be at bottom of deck"
+        );
+    }
+
+    #[test]
+    fn steady_tempo_powered_places_at_top() {
+        use crate::action_pipeline::apply_legal_action;
+        use crate::legal_actions::enumerate_legal_actions;
+        use crate::undo::UndoStack;
+        use mk_types::legal_action::LegalAction;
+
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+        state.players[0].steady_tempo_version =
+            Some(mk_types::pending::EffectMode::Powered);
+        state.players[0]
+            .play_area
+            .push(CardId::from("steady_tempo"));
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        let legal = enumerate_legal_actions(&state, 0);
+        let mut undo = UndoStack::new();
+
+        let action = LegalAction::ResolveSteadyTempoDeckPlacement { place: true };
+        apply_legal_action(&mut state, &mut undo, 0, &action, legal.epoch).unwrap();
+
+        // After resolve, end_turn resumes → card flow → draw up
+        // steady_tempo was placed at top of deck, so it would be drawn first
+        // Check that it was drawn into hand
+        assert!(
+            state.players[0]
+                .hand
+                .iter()
+                .any(|c| c.as_str() == "steady_tempo"),
+            "Powered: steady_tempo placed at top should be drawn into hand"
+        );
+    }
+
+    #[test]
+    fn steady_tempo_skip_stays_in_discard() {
+        use crate::action_pipeline::apply_legal_action;
+        use crate::legal_actions::enumerate_legal_actions;
+        use crate::undo::UndoStack;
+        use mk_types::legal_action::LegalAction;
+
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+        state.players[0].steady_tempo_version =
+            Some(mk_types::pending::EffectMode::Basic);
+        state.players[0]
+            .play_area
+            .push(CardId::from("steady_tempo"));
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        let legal = enumerate_legal_actions(&state, 0);
+        let mut undo = UndoStack::new();
+
+        let action = LegalAction::ResolveSteadyTempoDeckPlacement { place: false };
+        apply_legal_action(&mut state, &mut undo, 0, &action, legal.epoch).unwrap();
+
+        // Skip: steady_tempo stays in play_area → card flow moves to discard
+        assert!(
+            state.players[0]
+                .discard
+                .iter()
+                .any(|c| c.as_str() == "steady_tempo"),
+            "Skip: steady_tempo should end up in discard"
+        );
+    }
+
+    // =========================================================================
+    // Banner of Protection (via end-turn pending)
+    // =========================================================================
+
+    #[test]
+    fn banner_protection_creates_pending_when_wounds_received() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+        state.players[0]
+            .flags
+            .insert(PlayerFlags::BANNER_OF_PROTECTION_ACTIVE);
+        state.players[0].wounds_received_this_turn = WoundsReceived {
+            hand: 1,
+            discard: 0,
+        };
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        let result = end_turn(&mut state, 0).unwrap();
+
+        assert!(
+            matches!(result, EndTurnResult::AwaitingEndTurnChoice),
+            "Should create pending, got {:?}",
+            result,
+        );
+        assert!(matches!(
+            state.players[0].pending.active,
+            Some(ActivePending::BannerProtectionChoice)
+        ));
+    }
+
+    #[test]
+    fn banner_protection_no_wounds_no_pending() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+        state.players[0]
+            .flags
+            .insert(PlayerFlags::BANNER_OF_PROTECTION_ACTIVE);
+        state.players[0].wounds_received_this_turn = WoundsReceived {
+            hand: 0,
+            discard: 0,
+        };
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        let result = end_turn(&mut state, 0).unwrap();
+
+        // No wounds → no pending → normal end turn
+        assert!(
+            !matches!(result, EndTurnResult::AwaitingEndTurnChoice),
+            "No pending when no wounds received"
+        );
+    }
+
+    #[test]
+    fn banner_protection_remove_all_removes_wounds() {
+        use crate::action_pipeline::apply_legal_action;
+        use crate::legal_actions::enumerate_legal_actions;
+        use crate::undo::UndoStack;
+        use mk_types::legal_action::LegalAction;
+
+        let mut state = setup_playing_game(vec!["march", "wound"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+        state.players[0]
+            .flags
+            .insert(PlayerFlags::BANNER_OF_PROTECTION_ACTIVE);
+        state.players[0].wounds_received_this_turn = WoundsReceived {
+            hand: 1,
+            discard: 1,
+        };
+        state.players[0].discard.push(CardId::from("wound"));
+        state.players[0]
+            .play_area
+            .push(CardId::from("banner_of_protection"));
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+        // Pending BannerProtectionChoice
+
+        let legal = enumerate_legal_actions(&state, 0);
+        let mut undo = UndoStack::new();
+
+        let action = LegalAction::ResolveBannerProtection { remove_all: true };
+        apply_legal_action(&mut state, &mut undo, 0, &action, legal.epoch).unwrap();
+
+        // Wounds should be removed from hand and discard
+        assert!(
+            !state.players[0]
+                .hand
+                .iter()
+                .any(|c| c.as_str() == "wound"),
+            "Wounds should be removed from hand"
+        );
+        // banner_of_protection should be in removed_cards
+        assert!(
+            state.players[0]
+                .removed_cards
+                .iter()
+                .any(|c| c.as_str() == "banner_of_protection"),
+            "Banner should be destroyed (removed_cards)"
+        );
+    }
+
+    #[test]
+    fn banner_protection_decline_keeps_wounds() {
+        use crate::action_pipeline::apply_legal_action;
+        use crate::legal_actions::enumerate_legal_actions;
+        use crate::undo::UndoStack;
+        use mk_types::legal_action::LegalAction;
+
+        let mut state = setup_playing_game(vec!["march", "wound"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+        state.players[0]
+            .flags
+            .insert(PlayerFlags::BANNER_OF_PROTECTION_ACTIVE);
+        state.players[0].wounds_received_this_turn = WoundsReceived {
+            hand: 1,
+            discard: 0,
+        };
+        state.players[0]
+            .play_area
+            .push(CardId::from("banner_of_protection"));
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        let legal = enumerate_legal_actions(&state, 0);
+        let mut undo = UndoStack::new();
+
+        let action = LegalAction::ResolveBannerProtection { remove_all: false };
+        apply_legal_action(&mut state, &mut undo, 0, &action, legal.epoch).unwrap();
+
+        // Wound stays in hand (drawn back from card flow)
+        // banner_of_protection NOT destroyed (goes through normal card flow → discard)
+        assert!(
+            !state.players[0]
+                .removed_cards
+                .iter()
+                .any(|c| c.as_str() == "banner_of_protection"),
+            "Banner should NOT be destroyed on decline"
+        );
+    }
+
+    // =========================================================================
+    // End-turn step re-entrancy
+    // =========================================================================
+
+    #[test]
+    fn end_turn_step_reentrancy_skips_completed_steps() {
+        use crate::action_pipeline::apply_legal_action;
+        use crate::legal_actions::enumerate_legal_actions;
+        use crate::undo::UndoStack;
+        use mk_types::legal_action::LegalAction;
+
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+
+        // Set both crystal joy and steady tempo
+        state.players[0].crystal_joy_reclaim_version =
+            Some(mk_types::pending::EffectMode::Basic);
+        state.players[0].steady_tempo_version =
+            Some(mk_types::pending::EffectMode::Basic);
+        state.players[0]
+            .play_area
+            .push(CardId::from("steady_tempo"));
+        state.players[0].discard = vec![CardId::from("rage")];
+
+        play_card(&mut state, 0, 0, false).unwrap();
+
+        // First end_turn: should stop at Crystal Joy (step 2)
+        let result = end_turn(&mut state, 0).unwrap();
+        assert!(matches!(result, EndTurnResult::AwaitingEndTurnChoice));
+        assert_eq!(state.players[0].end_turn_step, 2);
+        assert!(matches!(
+            state.players[0].pending.active,
+            Some(ActivePending::CrystalJoyReclaim(_))
+        ));
+
+        // Resolve Crystal Joy (skip)
+        let legal = enumerate_legal_actions(&state, 0);
+        let mut undo = UndoStack::new();
+        let action = LegalAction::ResolveCrystalJoyReclaim {
+            discard_index: None,
+        };
+        apply_legal_action(&mut state, &mut undo, 0, &action, legal.epoch).unwrap();
+
+        // After resolve, end_turn resumes → hits Steady Tempo (step 3)
+        assert_eq!(state.players[0].end_turn_step, 3);
+        assert!(matches!(
+            state.players[0].pending.active,
+            Some(ActivePending::SteadyTempoDeckPlacement(_))
+        ));
+
+        // Resolve Steady Tempo (skip)
+        let legal2 = enumerate_legal_actions(&state, 0);
+        let action2 = LegalAction::ResolveSteadyTempoDeckPlacement { place: false };
+        apply_legal_action(&mut state, &mut undo, 0, &action2, legal2.epoch).unwrap();
+
+        // Turn should complete normally now
+        assert!(!state.players[0].pending.has_active());
+        assert_eq!(state.players[0].end_turn_step, 0, "Step should reset after turn ends");
+    }
+
+    // =========================================================================
+    // Card play flag tracking
+    // =========================================================================
+
+    #[test]
+    fn steady_tempo_card_play_sets_version_flag() {
+        let mut state = setup_playing_game(vec!["steady_tempo"]);
+        assert!(state.players[0].steady_tempo_version.is_none());
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        assert_eq!(
+            state.players[0].steady_tempo_version,
+            Some(mk_types::pending::EffectMode::Basic)
+        );
+    }
+
+    #[test]
+    fn steady_tempo_powered_sets_powered_version() {
+        let mut state = setup_playing_game(vec!["steady_tempo"]);
+        // steady_tempo is powered by blue
+        state.players[0].pure_mana.push(ManaToken {
+            color: ManaColor::Blue,
+            source: ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+
+        play_card(&mut state, 0, 0, true).unwrap();
+        assert_eq!(
+            state.players[0].steady_tempo_version,
+            Some(mk_types::pending::EffectMode::Powered)
         );
     }
 }

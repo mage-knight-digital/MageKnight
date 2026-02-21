@@ -345,6 +345,11 @@ pub struct PlayerState {
     // Mysterious Box
     pub mysterious_box_state: Option<MysteriousBoxState>,
 
+    // End-turn artifact tracking
+    pub end_turn_step: u8,
+    pub crystal_joy_reclaim_version: Option<crate::pending::EffectMode>,
+    pub steady_tempo_version: Option<crate::pending::EffectMode>,
+
     // Packed boolean flags
     pub flags: PlayerFlags,
 

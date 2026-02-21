@@ -207,6 +207,20 @@ pub(super) fn enumerate_skill_activations(
             }
         }
 
+        // Puppet Master requires: in combat + at least one kept enemy token.
+        if skill_id.as_str() == "krang_puppet_master" {
+            if player.kept_enemy_tokens.is_empty() {
+                continue;
+            }
+        }
+
+        // Shapeshift requires: in combat + at least one basic action card in hand.
+        if skill_id.as_str() == "braevalar_shapeshift" {
+            if !crate::action_pipeline::has_shapeshift_eligible_cards(state, player_idx) {
+                continue;
+            }
+        }
+
         actions.push(LegalAction::UseSkill {
             skill_id: skill_id.clone(),
         });

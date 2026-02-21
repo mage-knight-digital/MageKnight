@@ -124,6 +124,18 @@ pub enum LegalAction {
     SubsetSelect { index: usize },
     /// Confirm the current subset selection (execute it).
     SubsetConfirm,
+    ResolveCrystalJoyReclaim {
+        /// Index into discard pile, or None to skip.
+        discard_index: Option<usize>,
+    },
+    ResolveSteadyTempoDeckPlacement {
+        /// true = place card on deck, false = skip
+        place: bool,
+    },
+    ResolveBannerProtection {
+        /// true = remove all wounds received this turn, false = keep them
+        remove_all: bool,
+    },
     EndTurn,
     DeclareRest,
     CompleteRest {

@@ -483,6 +483,47 @@ pub fn resolve_pending_choice(
                 );
             }
         }
+        ChoiceResolution::PuppetMasterSelectToken { ref token_indices } => {
+            if choice_index < token_indices.len() {
+                let token_idx = token_indices[choice_index];
+                let skill_id = choice.skill_id.clone().unwrap_or_else(|| {
+                    mk_types::ids::SkillId::from("krang_puppet_master")
+                });
+                crate::action_pipeline::execute_puppet_master_select_token(
+                    state, player_idx, &skill_id, token_idx,
+                );
+            }
+        }
+        ChoiceResolution::PuppetMasterUseMode {
+            token_index, attack_value, attack_element, block_value, block_element,
+        } => {
+            crate::action_pipeline::execute_puppet_master_use_mode(
+                state, player_idx, *token_index, choice_index,
+                *attack_value, *attack_element, *block_value, *block_element,
+            );
+        }
+        ChoiceResolution::ShapeshiftCardSelect { ref options } => {
+            let skill_id = choice.skill_id.clone().unwrap_or_else(|| {
+                mk_types::ids::SkillId::from("braevalar_shapeshift")
+            });
+            let opts = options.clone();
+            crate::action_pipeline::execute_shapeshift_card_select(
+                state, player_idx, &skill_id, &opts, choice_index,
+            );
+        }
+        ChoiceResolution::ShapeshiftTypeSelect {
+            ref card_id, hand_index, ref original_type, amount, ref element,
+        } => {
+            let skill_id = choice.skill_id.clone().unwrap_or_else(|| {
+                mk_types::ids::SkillId::from("braevalar_shapeshift")
+            });
+            let cid = card_id.clone();
+            let ot = *original_type;
+            let el = *element;
+            crate::action_pipeline::execute_shapeshift_type_select(
+                state, player_idx, &skill_id, &cid, *hand_index, ot, *amount, el, choice_index,
+            );
+        }
     }
 
     // Build a new queue with the chosen option + continuation
@@ -2502,6 +2543,9 @@ mod tests {
             wounds_received_this_turn: Default::default(),
             time_bending_set_aside_cards: vec![],
             mysterious_box_state: None,
+            end_turn_step: 0,
+            crystal_joy_reclaim_version: None,
+            steady_tempo_version: None,
             flags: PlayerFlags::empty(),
             pending: PendingQueue::new(),
         }

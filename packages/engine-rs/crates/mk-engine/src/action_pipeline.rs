@@ -268,6 +268,21 @@ pub fn apply_legal_action(
             )?
         }
 
+        LegalAction::ResolveCrystalJoyReclaim { discard_index } => {
+            undo_stack.set_checkpoint();
+            apply_resolve_crystal_joy_reclaim(state, player_idx, *discard_index)?
+        }
+
+        LegalAction::ResolveSteadyTempoDeckPlacement { place } => {
+            undo_stack.set_checkpoint();
+            apply_resolve_steady_tempo(state, player_idx, *place)?
+        }
+
+        LegalAction::ResolveBannerProtection { remove_all } => {
+            undo_stack.set_checkpoint();
+            apply_resolve_banner_protection(state, player_idx, *remove_all)?
+        }
+
         LegalAction::EndTurn => {
             // Irreversible: set checkpoint
             undo_stack.set_checkpoint();
@@ -1097,8 +1112,10 @@ fn apply_choose_level_up_reward(
     })
 }
 
-fn apply_end_turn(state: &mut GameState, player_idx: usize) -> Result<ApplyResult, ApplyError> {
-    match end_turn::end_turn(state, player_idx) {
+fn end_turn_result_to_apply(
+    result: Result<end_turn::EndTurnResult, end_turn::EndTurnError>,
+) -> Result<ApplyResult, ApplyError> {
+    match result {
         Ok(end_turn::EndTurnResult::GameEnded) => Ok(ApplyResult {
             needs_reenumeration: true,
             game_ended: true,
@@ -1112,6 +1129,122 @@ fn apply_end_turn(state: &mut GameState, player_idx: usize) -> Result<ApplyResul
             e
         ))),
     }
+}
+
+fn apply_end_turn(state: &mut GameState, player_idx: usize) -> Result<ApplyResult, ApplyError> {
+    end_turn_result_to_apply(end_turn::end_turn(state, player_idx))
+}
+
+fn apply_resolve_crystal_joy_reclaim(
+    state: &mut GameState,
+    player_idx: usize,
+    discard_index: Option<usize>,
+) -> Result<ApplyResult, ApplyError> {
+    // Clear pending
+    state.players[player_idx].pending.active = None;
+
+    if let Some(idx) = discard_index {
+        // Move the selected card from discard to hand
+        if idx < state.players[player_idx].discard.len() {
+            let card = state.players[player_idx].discard.remove(idx);
+            state.players[player_idx].hand.push(card);
+        }
+    }
+    // Skip: no card moved
+
+    // Resume end_turn flow
+    end_turn_result_to_apply(end_turn::end_turn(state, player_idx))
+}
+
+fn apply_resolve_steady_tempo(
+    state: &mut GameState,
+    player_idx: usize,
+    place: bool,
+) -> Result<ApplyResult, ApplyError> {
+    // Extract pending to get version
+    let version = match state.players[player_idx].pending.active.take() {
+        Some(mk_types::pending::ActivePending::SteadyTempoDeckPlacement(p)) => p.version,
+        other => {
+            state.players[player_idx].pending.active = other;
+            return Err(ApplyError::InternalError(
+                "ResolveSteadyTempo: no SteadyTempoDeckPlacement pending".into(),
+            ));
+        }
+    };
+
+    if place {
+        // Remove steady_tempo from play_area and place on deck
+        if let Some(idx) = state.players[player_idx]
+            .play_area
+            .iter()
+            .position(|c| c.as_str() == "steady_tempo")
+        {
+            let card = state.players[player_idx].play_area.remove(idx);
+            match version {
+                mk_types::pending::EffectMode::Basic => {
+                    // Bottom of deck
+                    state.players[player_idx].deck.push(card);
+                }
+                mk_types::pending::EffectMode::Powered => {
+                    // Top of deck
+                    state.players[player_idx].deck.insert(0, card);
+                }
+            }
+        }
+    }
+    // Skip: card stays in play_area, will be discarded normally in card flow
+
+    // Resume end_turn flow
+    end_turn_result_to_apply(end_turn::end_turn(state, player_idx))
+}
+
+fn apply_resolve_banner_protection(
+    state: &mut GameState,
+    player_idx: usize,
+    remove_all: bool,
+) -> Result<ApplyResult, ApplyError> {
+    // Clear pending
+    state.players[player_idx].pending.active = None;
+
+    if remove_all {
+        let wounds = state.players[player_idx].wounds_received_this_turn;
+
+        // Remove wounds from hand
+        for _ in 0..wounds.hand {
+            if let Some(idx) = state.players[player_idx]
+                .hand
+                .iter()
+                .position(|c| c.as_str() == "wound")
+            {
+                state.players[player_idx].hand.remove(idx);
+            }
+        }
+
+        // Remove wounds from discard
+        for _ in 0..wounds.discard {
+            if let Some(idx) = state.players[player_idx]
+                .discard
+                .iter()
+                .position(|c| c.as_str() == "wound")
+            {
+                state.players[player_idx].discard.remove(idx);
+            }
+        }
+
+        // Banner is destroyed after use — remove from play area
+        // (Banner of Protection artifact card goes to removed_cards)
+        if let Some(idx) = state.players[player_idx]
+            .play_area
+            .iter()
+            .position(|c| c.as_str() == "banner_of_protection")
+        {
+            let card = state.players[player_idx].play_area.remove(idx);
+            state.players[player_idx].removed_cards.push(card);
+        }
+    }
+
+    // Resume end_turn flow
+    end_turn_result_to_apply(end_turn::end_turn(state, player_idx))
 }
 
 fn apply_declare_rest(state: &mut GameState, player_idx: usize) -> ApplyResult {
@@ -2361,6 +2494,9 @@ fn apply_use_skill(
         "krang_curse" => return apply_curse(state, player_idx, skill_id),
         "braevalar_forked_lightning" => return apply_forked_lightning(state, player_idx, skill_id),
         "wolfhawk_know_your_prey" => return apply_know_your_prey(state, player_idx, skill_id),
+        "wolfhawk_wolfs_howl" => return apply_wolfs_howl(state, player_idx, skill_id),
+        "krang_puppet_master" => return apply_puppet_master(state, player_idx, skill_id),
+        "braevalar_shapeshift" => return apply_shapeshift(state, player_idx, skill_id),
         _ => {}
     }
 
@@ -2726,6 +2862,394 @@ pub(crate) fn push_universal_power_modifiers(
             ],
         },
     );
+}
+
+fn apply_wolfs_howl(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::modifier::{ModifierDuration, ModifierEffect, ModifierScope};
+
+    let player = &state.players[player_idx];
+    let level_stats = mk_data::levels::get_level_stats(player.level);
+    let units_count = player.units.len() as u32;
+    let empty_slots = level_stats.command_slots.saturating_sub(units_count);
+    let value = 4 + empty_slots;
+
+    push_skill_modifier(
+        state,
+        player_idx,
+        skill_id,
+        ModifierDuration::Turn,
+        ModifierScope::SelfScope,
+        ModifierEffect::SidewaysValue {
+            new_value: value,
+            for_wounds: false,
+            condition: None,
+            mana_color: None,
+            for_card_types: vec![],
+        },
+    );
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+// =============================================================================
+// Puppet Master + Shapeshift skill handlers
+// =============================================================================
+
+fn apply_puppet_master(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+) -> Result<ApplyResult, ApplyError> {
+    let player = &state.players[player_idx];
+    if player.kept_enemy_tokens.is_empty() {
+        return Err(ApplyError::InternalError(
+            "Puppet Master: no kept enemy tokens".into(),
+        ));
+    }
+
+    if player.kept_enemy_tokens.len() == 1 {
+        // Auto-select the only token, go straight to use mode
+        setup_puppet_master_use_mode(state, player_idx, skill_id, 0);
+    } else {
+        // Multiple tokens: present selection
+        let token_indices: Vec<usize> = (0..player.kept_enemy_tokens.len()).collect();
+        let options: Vec<mk_types::effect::CardEffect> = token_indices
+            .iter()
+            .map(|_| mk_types::effect::CardEffect::Noop)
+            .collect();
+        state.players[player_idx].pending.active =
+            Some(ActivePending::Choice(mk_types::pending::PendingChoice {
+                card_id: None,
+                skill_id: Some(skill_id.clone()),
+                unit_instance_id: None,
+                options,
+                continuation: vec![],
+                movement_bonus_applied: false,
+                resolution: mk_types::pending::ChoiceResolution::PuppetMasterSelectToken {
+                    token_indices,
+                },
+            }));
+    }
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+fn setup_puppet_master_use_mode(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+    token_index: usize,
+) {
+    let player = &state.players[player_idx];
+    let token = &player.kept_enemy_tokens[token_index];
+
+    let attack_value = (token.attack + 1) / 2; // ceil(attack/2)
+    let attack_element = token.attack_element;
+    let block_value = (token.armor + 1) / 2; // ceil(armor/2)
+
+    // Derive block element from enemy resistances
+    let block_element = derive_block_element_from_enemy(token.enemy_id.as_str());
+
+    let options = vec![
+        mk_types::effect::CardEffect::Noop, // Attack
+        mk_types::effect::CardEffect::Noop, // Block
+    ];
+
+    state.players[player_idx].pending.active =
+        Some(ActivePending::Choice(mk_types::pending::PendingChoice {
+            card_id: None,
+            skill_id: Some(skill_id.clone()),
+            unit_instance_id: None,
+            options,
+            continuation: vec![],
+            movement_bonus_applied: false,
+            resolution: mk_types::pending::ChoiceResolution::PuppetMasterUseMode {
+                token_index,
+                attack_value,
+                attack_element,
+                block_value,
+                block_element,
+            },
+        }));
+}
+
+/// Derive block element from enemy resistances.
+fn derive_block_element_from_enemy(enemy_id: &str) -> Element {
+    let def = mk_data::enemies::get_enemy(enemy_id);
+    let resistances = def.map(|d| d.resistances).unwrap_or(&[]);
+
+    let has_fire = resistances.contains(&ResistanceElement::Fire);
+    let has_ice = resistances.contains(&ResistanceElement::Ice);
+
+    match (has_fire, has_ice) {
+        (true, true) => Element::ColdFire,
+        (true, false) => Element::Ice,
+        (false, true) => Element::Fire,
+        (false, false) => Element::Physical,
+    }
+}
+
+pub(crate) fn execute_puppet_master_select_token(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+    token_index: usize,
+) {
+    setup_puppet_master_use_mode(state, player_idx, skill_id, token_index);
+}
+
+pub(crate) fn execute_puppet_master_use_mode(
+    state: &mut GameState,
+    player_idx: usize,
+    token_index: usize,
+    choice_index: usize,
+    attack_value: u32,
+    attack_element: Element,
+    block_value: u32,
+    block_element: Element,
+) {
+    // Remove the token from kept_enemy_tokens
+    let player = &mut state.players[player_idx];
+    if token_index < player.kept_enemy_tokens.len() {
+        player.kept_enemy_tokens.remove(token_index);
+    }
+
+    if choice_index == 0 {
+        // Attack: add melee attack to combat accumulator
+        let acc = &mut state.players[player_idx].combat_accumulator.attack;
+        acc.normal += attack_value;
+        match attack_element {
+            Element::Physical => acc.normal_elements.physical += attack_value,
+            Element::Fire => acc.normal_elements.fire += attack_value,
+            Element::Ice => acc.normal_elements.ice += attack_value,
+            Element::ColdFire => acc.normal_elements.cold_fire += attack_value,
+        }
+    } else {
+        // Block: add block value to combat accumulator
+        let acc = &mut state.players[player_idx].combat_accumulator;
+        acc.block += block_value;
+        match block_element {
+            Element::Physical => acc.block_elements.physical += block_value,
+            Element::Fire => acc.block_elements.fire += block_value,
+            Element::Ice => acc.block_elements.ice += block_value,
+            Element::ColdFire => acc.block_elements.cold_fire += block_value,
+        }
+    }
+}
+
+fn apply_shapeshift(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::pending::{ShapeshiftCardOption, ChoiceResolution, PendingChoice};
+
+    let player = &state.players[player_idx];
+    let mut options: Vec<ShapeshiftCardOption> = Vec::new();
+
+    for (hand_index, card_id) in player.hand.iter().enumerate() {
+        if let Some(opt) = classify_basic_action_for_shapeshift(card_id.as_str()) {
+            options.push(ShapeshiftCardOption {
+                hand_index,
+                card_id: card_id.clone(),
+                original_type: opt.0,
+                amount: opt.1,
+                element: opt.2,
+            });
+        }
+    }
+
+    if options.is_empty() {
+        return Err(ApplyError::InternalError(
+            "Shapeshift: no eligible basic action cards in hand".into(),
+        ));
+    }
+
+    if options.len() == 1 {
+        // Single card: go straight to type selection
+        let opt = options[0].clone();
+        setup_shapeshift_type_select(state, player_idx, skill_id, &opt);
+    } else {
+        let choice_options: Vec<mk_types::effect::CardEffect> = options
+            .iter()
+            .map(|_| mk_types::effect::CardEffect::Noop)
+            .collect();
+        state.players[player_idx].pending.active =
+            Some(ActivePending::Choice(PendingChoice {
+                card_id: None,
+                skill_id: Some(skill_id.clone()),
+                unit_instance_id: None,
+                options: choice_options,
+                continuation: vec![],
+                movement_bonus_applied: false,
+                resolution: ChoiceResolution::ShapeshiftCardSelect { options },
+            }));
+    }
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+/// Classify a card as a basic action eligible for Shapeshift.
+/// Returns (original_type, amount, element) or None if not eligible.
+///
+/// Eligible: cards whose basic effect is GainMove, GainAttack, GainBlock,
+/// or a Choice where the first option is GainAttack/GainBlock (rage, determination).
+fn classify_basic_action_for_shapeshift(card_id: &str) -> Option<(mk_types::modifier::ShapeshiftTarget, u32, Option<Element>)> {
+    let def = mk_data::cards::get_basic_action_card(card_id)?;
+    if def.card_type != DeedCardType::BasicAction {
+        return None;
+    }
+
+    classify_effect_for_shapeshift(&def.basic_effect)
+}
+
+fn classify_effect_for_shapeshift(effect: &mk_types::effect::CardEffect) -> Option<(mk_types::modifier::ShapeshiftTarget, u32, Option<Element>)> {
+    use mk_types::modifier::ShapeshiftTarget;
+
+    match effect {
+        mk_types::effect::CardEffect::GainMove { amount } => {
+            Some((ShapeshiftTarget::Move, *amount, None))
+        }
+        mk_types::effect::CardEffect::GainAttack { amount, element, .. } => {
+            Some((ShapeshiftTarget::Attack, *amount, Some(*element)))
+        }
+        mk_types::effect::CardEffect::GainBlock { amount, element } => {
+            Some((ShapeshiftTarget::Block, *amount, Some(*element)))
+        }
+        mk_types::effect::CardEffect::Choice { options } => {
+            // For Choice cards like Rage (Attack 2 or Block 2), classify by first option
+            options.first().and_then(|first| classify_effect_for_shapeshift(first))
+        }
+        _ => None,
+    }
+}
+
+fn setup_shapeshift_type_select(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+    card_opt: &mk_types::pending::ShapeshiftCardOption,
+) {
+    use mk_types::modifier::ShapeshiftTarget;
+
+    // Build 2 options: the two types other than the original
+    let all_types = [ShapeshiftTarget::Move, ShapeshiftTarget::Attack, ShapeshiftTarget::Block];
+    let target_types: Vec<ShapeshiftTarget> = all_types
+        .iter()
+        .filter(|t| **t != card_opt.original_type)
+        .copied()
+        .collect();
+
+    let options: Vec<mk_types::effect::CardEffect> = target_types
+        .iter()
+        .map(|_| mk_types::effect::CardEffect::Noop)
+        .collect();
+
+    state.players[player_idx].pending.active =
+        Some(ActivePending::Choice(mk_types::pending::PendingChoice {
+            card_id: None,
+            skill_id: Some(skill_id.clone()),
+            unit_instance_id: None,
+            options,
+            continuation: vec![],
+            movement_bonus_applied: false,
+            resolution: mk_types::pending::ChoiceResolution::ShapeshiftTypeSelect {
+                card_id: card_opt.card_id.clone(),
+                hand_index: card_opt.hand_index,
+                original_type: card_opt.original_type,
+                amount: card_opt.amount,
+                element: card_opt.element,
+            },
+        }));
+}
+
+pub(crate) fn execute_shapeshift_card_select(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+    options: &[mk_types::pending::ShapeshiftCardOption],
+    choice_index: usize,
+) {
+    if choice_index < options.len() {
+        let opt = options[choice_index].clone();
+        setup_shapeshift_type_select(state, player_idx, skill_id, &opt);
+    }
+}
+
+pub(crate) fn execute_shapeshift_type_select(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+    card_id: &CardId,
+    _hand_index: usize,
+    original_type: mk_types::modifier::ShapeshiftTarget,
+    _amount: u32,
+    element: Option<Element>,
+    choice_index: usize,
+) {
+    use mk_types::modifier::{ModifierDuration, ModifierEffect, ModifierScope, ShapeshiftTarget};
+
+    let all_types = [ShapeshiftTarget::Move, ShapeshiftTarget::Attack, ShapeshiftTarget::Block];
+    let target_types: Vec<ShapeshiftTarget> = all_types
+        .iter()
+        .filter(|t| **t != original_type)
+        .copied()
+        .collect();
+
+    if choice_index >= target_types.len() {
+        return;
+    }
+
+    let target_type = target_types[choice_index];
+
+    // Determine combat_type and element for the new type
+    let (combat_type, new_element) = match target_type {
+        ShapeshiftTarget::Move => (None, None),
+        ShapeshiftTarget::Attack => (
+            Some(CombatType::Melee),
+            Some(element.unwrap_or(Element::Physical)),
+        ),
+        ShapeshiftTarget::Block => (
+            None,
+            Some(element.unwrap_or(Element::Physical)),
+        ),
+    };
+
+    push_skill_modifier(
+        state,
+        player_idx,
+        skill_id,
+        ModifierDuration::Turn,
+        ModifierScope::SelfScope,
+        ModifierEffect::ShapeshiftActive {
+            target_card_id: card_id.clone(),
+            target_type,
+            choice_index: None,
+            combat_type,
+            element: new_element,
+        },
+    );
+}
+
+/// Check if the player has any basic action card in hand eligible for Shapeshift.
+pub(crate) fn has_shapeshift_eligible_cards(state: &GameState, player_idx: usize) -> bool {
+    let player = &state.players[player_idx];
+    player.hand.iter().any(|card_id| {
+        classify_basic_action_for_shapeshift(card_id.as_str()).is_some()
+    })
 }
 
 // =============================================================================
@@ -10926,5 +11450,315 @@ mod tests {
             assert!(inner.get("card_id").is_some(), "Must have card_id field: {json}");
             assert!(inner.get("hand_index").is_some(), "Must have hand_index field: {json}");
         }
+    }
+
+    // =================================================================
+    // Wolf's Howl tests
+    // =================================================================
+
+    #[test]
+    fn wolfs_howl_base_value_4() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Wolfhawk, "wolfhawk_wolfs_howl");
+        // Level 1 has 1 command slot, 0 units = 1 empty slot → value = 4 + 1 = 5
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("wolfhawk_wolfs_howl") },
+            epoch,
+        ).unwrap();
+        let val = crate::card_play::get_effective_sideways_value(
+            &state, 0, false, DeedCardType::BasicAction, Some(BasicManaColor::Green),
+        );
+        // Level 1 = 1 command slot, 0 units → empty_slots = 1, value = 4 + 1 = 5
+        assert_eq!(val, 5);
+    }
+
+    #[test]
+    fn wolfs_howl_scales_with_empty_slots() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Wolfhawk, "wolfhawk_wolfs_howl");
+        // Set to level 5 (3 command slots), 1 unit → 2 empty slots → value = 4 + 2 = 6
+        state.players[0].level = 5;
+        state.players[0].fame = 35; // enough for level 5
+        state.players[0].units.push(mk_types::state::PlayerUnit {
+            instance_id: mk_types::ids::UnitInstanceId::from("unit_1"),
+            unit_id: mk_types::ids::UnitId::from("peasants"),
+            level: 1,
+            state: UnitState::Ready,
+            wounded: false,
+            used_resistance_this_combat: false,
+            used_ability_indices: vec![],
+            mana_token: None,
+        });
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("wolfhawk_wolfs_howl") },
+            epoch,
+        ).unwrap();
+        let val = crate::card_play::get_effective_sideways_value(
+            &state, 0, false, DeedCardType::BasicAction, Some(BasicManaColor::Green),
+        );
+        assert_eq!(val, 6);
+    }
+
+    #[test]
+    fn wolfs_howl_mutual_exclusivity() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Wolfhawk, "wolfhawk_wolfs_howl");
+        // Activate wolf's howl
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("wolfhawk_wolfs_howl") },
+            epoch,
+        ).unwrap();
+        // If player also had another sideways skill, it should be blocked.
+        // Simulate by adding power_of_pain and checking enumeration.
+        state.players[0].skills.push(mk_types::ids::SkillId::from("arythea_power_of_pain"));
+        let las = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        assert!(
+            !las.actions.iter().any(|a|
+                matches!(a, LegalAction::UseSkill { skill_id } if skill_id.as_str() == "arythea_power_of_pain")
+            ),
+            "Another sideways skill should be blocked after Wolf's Howl activation"
+        );
+    }
+
+    // =================================================================
+    // Puppet Master tests
+    // =================================================================
+
+    fn setup_puppet_master_state() -> (GameState, UndoStack) {
+        let (mut state, undo) = setup_with_skill(Hero::Krang, "krang_puppet_master");
+        state.combat = Some(Box::new(CombatState::default()));
+        // Add a kept enemy token (prowlers: attack 4 Physical, armor 3, no resistances)
+        state.players[0].kept_enemy_tokens.push(mk_types::state::KeptEnemyToken {
+            enemy_id: mk_types::ids::EnemyId::from("prowlers"),
+            name: "Prowlers".to_string(),
+            attack: 4,
+            attack_element: Element::Physical,
+            armor: 3,
+        });
+        (state, undo)
+    }
+
+    #[test]
+    fn puppet_master_expend_attack() {
+        let (mut state, mut undo) = setup_puppet_master_state();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("krang_puppet_master") },
+            epoch,
+        ).unwrap();
+        // Single token → auto-select → PuppetMasterUseMode pending
+        assert!(state.players[0].pending.has_active());
+        // Choose attack (index 0)
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 0 },
+            epoch,
+        ).unwrap();
+        // ceil(4/2) = 2 melee attack
+        assert_eq!(state.players[0].combat_accumulator.attack.normal, 2);
+        assert_eq!(state.players[0].combat_accumulator.attack.normal_elements.physical, 2);
+    }
+
+    #[test]
+    fn puppet_master_expend_block() {
+        let (mut state, mut undo) = setup_puppet_master_state();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("krang_puppet_master") },
+            epoch,
+        ).unwrap();
+        // Choose block (index 1)
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 1 },
+            epoch,
+        ).unwrap();
+        // ceil(3/2) = 2 block (armor = 3, Physical since prowlers have no resistances)
+        assert_eq!(state.players[0].combat_accumulator.block, 2);
+        assert_eq!(state.players[0].combat_accumulator.block_elements.physical, 2);
+    }
+
+    #[test]
+    fn puppet_master_block_element_from_resistance() {
+        // skeletal_warriors: Fire resistance only → block = Ice
+        assert_eq!(derive_block_element_from_enemy("skeletal_warriors"), Element::Ice);
+        // crystal_sprites: Ice resistance only → block = Fire
+        assert_eq!(derive_block_element_from_enemy("crystal_sprites"), Element::Fire);
+        // orc_war_beasts: Fire + Ice resistance → block = ColdFire
+        assert_eq!(derive_block_element_from_enemy("orc_war_beasts"), Element::ColdFire);
+        // prowlers: no resistance → block = Physical
+        assert_eq!(derive_block_element_from_enemy("prowlers"), Element::Physical);
+    }
+
+    #[test]
+    fn puppet_master_token_removed_after_use() {
+        let (mut state, mut undo) = setup_puppet_master_state();
+        assert_eq!(state.players[0].kept_enemy_tokens.len(), 1);
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("krang_puppet_master") },
+            epoch,
+        ).unwrap();
+        // Choose attack (index 0)
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 0 },
+            epoch,
+        ).unwrap();
+        assert_eq!(state.players[0].kept_enemy_tokens.len(), 0);
+    }
+
+    #[test]
+    fn puppet_master_not_available_without_tokens() {
+        let (mut state, undo) = setup_with_skill(Hero::Krang, "krang_puppet_master");
+        state.combat = Some(Box::new(CombatState::default()));
+        // No tokens → should not enumerate
+        let las = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        assert!(
+            !las.actions.iter().any(|a|
+                matches!(a, LegalAction::UseSkill { skill_id } if skill_id.as_str() == "krang_puppet_master")
+            ),
+            "Puppet Master should not be available without kept tokens"
+        );
+    }
+
+    // =================================================================
+    // Shapeshift tests
+    // =================================================================
+
+    fn setup_shapeshift_state() -> (GameState, UndoStack) {
+        let (mut state, undo) = setup_with_skill(Hero::Braevalar, "braevalar_shapeshift");
+        state.combat = Some(Box::new(CombatState::default()));
+        state.players[0].hand = vec![
+            CardId::from("march"),
+            CardId::from("rage"),
+        ];
+        (state, undo)
+    }
+
+    #[test]
+    fn shapeshift_move_to_attack() {
+        let (mut state, mut undo) = setup_shapeshift_state();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("braevalar_shapeshift") },
+            epoch,
+        ).unwrap();
+        // Multiple cards → ShapeshiftCardSelect pending
+        assert!(state.players[0].pending.has_active());
+        // Pick march (index 0 in options which maps to march)
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 0 },
+            epoch,
+        ).unwrap();
+        // Now ShapeshiftTypeSelect pending. March = Move, so options are Attack(0), Block(1)
+        assert!(state.players[0].pending.has_active());
+        // Pick Attack (index 0)
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 0 },
+            epoch,
+        ).unwrap();
+        // Should have ShapeshiftActive modifier
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::ShapeshiftActive {
+                target_card_id, target_type, ..
+            } if target_card_id.as_str() == "march" && *target_type == mk_types::modifier::ShapeshiftTarget::Attack)
+        ));
+    }
+
+    #[test]
+    fn shapeshift_attack_to_block() {
+        let (mut state, mut undo) = setup_shapeshift_state();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("braevalar_shapeshift") },
+            epoch,
+        ).unwrap();
+        // Pick rage (index 1 in options → rage is Attack type)
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 1 },
+            epoch,
+        ).unwrap();
+        // Rage = Attack, so options are Move(0), Block(1)
+        // Pick Block (index 1)
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 1 },
+            epoch,
+        ).unwrap();
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::ShapeshiftActive {
+                target_card_id, target_type, ..
+            } if target_card_id.as_str() == "rage" && *target_type == mk_types::modifier::ShapeshiftTarget::Block)
+        ));
+    }
+
+    #[test]
+    fn shapeshift_only_basic_actions() {
+        // Move cards
+        assert!(classify_basic_action_for_shapeshift("march").is_some());
+        assert!(classify_basic_action_for_shapeshift("stamina").is_some());
+        assert!(classify_basic_action_for_shapeshift("swiftness").is_some());
+        // Choice cards (Attack/Block first option → classified as Attack)
+        assert!(classify_basic_action_for_shapeshift("rage").is_some());
+        assert!(classify_basic_action_for_shapeshift("determination").is_some());
+    }
+
+    #[test]
+    fn shapeshift_excludes_non_combat_cards() {
+        assert!(classify_basic_action_for_shapeshift("concentration").is_none());
+        assert!(classify_basic_action_for_shapeshift("wound").is_none());
+        assert!(classify_basic_action_for_shapeshift("mana_draw").is_none());
+        assert!(classify_basic_action_for_shapeshift("crystallize").is_none());
+        assert!(classify_basic_action_for_shapeshift("improvisation").is_none());
+        assert!(classify_basic_action_for_shapeshift("tranquility").is_none());
+        assert!(classify_basic_action_for_shapeshift("promise").is_none());
+        assert!(classify_basic_action_for_shapeshift("threaten").is_none());
+    }
+
+    #[test]
+    fn shapeshift_modifier_applied() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Braevalar, "braevalar_shapeshift");
+        state.combat = Some(Box::new(CombatState::default()));
+        // Single eligible card → auto-select card, then type select
+        state.players[0].hand = vec![CardId::from("march")];
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("braevalar_shapeshift") },
+            epoch,
+        ).unwrap();
+        // Single card → auto-selected → ShapeshiftTypeSelect pending
+        assert!(state.players[0].pending.has_active());
+        // Pick Block (index 1: Move excluded → options are Attack(0), Block(1))
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 1 },
+            epoch,
+        ).unwrap();
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::ShapeshiftActive {
+                target_type, ..
+            } if *target_type == mk_types::modifier::ShapeshiftTarget::Block)
+        ));
     }
 }

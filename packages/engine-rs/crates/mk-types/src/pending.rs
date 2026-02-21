@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::effect::CardEffect;
 use crate::enums::*;
 use crate::ids::*;
+use crate::modifier::ShapeshiftTarget;
 
 // =============================================================================
 // Max capacities (derived from replay data + safety margin)
@@ -164,6 +165,16 @@ pub enum KnowYourPreyApplyOption {
     ConvertElement { from: Element, to: Element },
 }
 
+/// Option for Shapeshift skill: a basic action card eligible for type conversion.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShapeshiftCardOption {
+    pub hand_index: usize,
+    pub card_id: CardId,
+    pub original_type: ShapeshiftTarget,
+    pub amount: u32,
+    pub element: Option<Element>,
+}
+
 /// How a pending choice should be resolved beyond just enqueueing the chosen effect.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ChoiceResolution {
@@ -240,6 +251,30 @@ pub enum ChoiceResolution {
     KnowYourPreyOption {
         enemy_instance_id: String,
         options: Vec<KnowYourPreyApplyOption>,
+    },
+    /// Puppet Master step 1: select which kept token to expend.
+    PuppetMasterSelectToken {
+        token_indices: Vec<usize>,
+    },
+    /// Puppet Master step 2: choose Attack or Block with the selected token.
+    PuppetMasterUseMode {
+        token_index: usize,
+        attack_value: u32,
+        attack_element: Element,
+        block_value: u32,
+        block_element: Element,
+    },
+    /// Shapeshift step 1: select which basic action card to transform.
+    ShapeshiftCardSelect {
+        options: Vec<ShapeshiftCardOption>,
+    },
+    /// Shapeshift step 2: choose the target type (the two types other than original).
+    ShapeshiftTypeSelect {
+        card_id: CardId,
+        hand_index: usize,
+        original_type: ShapeshiftTarget,
+        amount: u32,
+        element: Option<Element>,
     },
 }
 

@@ -91,6 +91,25 @@ pub fn play_card(
         .flags
         .insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
 
+    // Track artifact end-turn flags (consumed by end_turn artifact steps)
+    match card_id.as_str() {
+        "goldyx_crystal_joy" => {
+            player.crystal_joy_reclaim_version = Some(if powered {
+                mk_types::pending::EffectMode::Powered
+            } else {
+                mk_types::pending::EffectMode::Basic
+            });
+        }
+        "steady_tempo" => {
+            player.steady_tempo_version = Some(if powered {
+                mk_types::pending::EffectMode::Powered
+            } else {
+                mk_types::pending::EffectMode::Basic
+            });
+        }
+        _ => {}
+    }
+
     // Resolve the effect via effect queue
     let mut queue = EffectQueue::new();
     queue.push(effect, Some(card_id.clone()));

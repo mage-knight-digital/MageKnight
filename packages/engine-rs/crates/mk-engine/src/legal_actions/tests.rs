@@ -664,7 +664,9 @@ fn pending_choice_emits_resolve_choices() {
 #[should_panic(expected = "Unsupported active pending in legal action pipeline")]
 fn pending_non_choice_panics_fast() {
     let mut state = setup_game(vec!["march"]);
-    state.players[0].pending.active = Some(ActivePending::BannerProtectionChoice);
+    state.players[0].pending.active = Some(ActivePending::SourceOpeningReroll {
+        die_id: mk_types::ids::SourceDieId::from("test"),
+    });
     let _ = enumerate_legal_actions(&state, 0);
 }
 

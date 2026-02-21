@@ -188,6 +188,9 @@ fn create_player(
         wounds_received_this_turn: WoundsReceived::default(),
         time_bending_set_aside_cards: Vec::new(),
         mysterious_box_state: None,
+        end_turn_step: 0,
+        crystal_joy_reclaim_version: None,
+        steady_tempo_version: None,
 
         flags: PlayerFlags::empty(),
         pending: mk_types::pending::PendingQueue::new(),

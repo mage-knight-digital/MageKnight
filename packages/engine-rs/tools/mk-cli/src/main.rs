@@ -483,6 +483,16 @@ fn format_action(action: &LegalAction, state: &GameState, player_idx: usize) -> 
         LegalAction::AssignDamageToUnit { enemy_index, attack_index, unit_instance_id } => {
             format!("Assign damage to unit {} (enemy {}, attack {})", unit_instance_id.as_str(), enemy_index, attack_index)
         }
+        LegalAction::ResolveCrystalJoyReclaim { discard_index } => match discard_index {
+            Some(i) => format!("Reclaim card from discard (index {})", i),
+            None => "Skip Crystal Joy reclaim".into(),
+        },
+        LegalAction::ResolveSteadyTempoDeckPlacement { place } => {
+            if *place { "Place Steady Tempo on deck".into() } else { "Skip Steady Tempo placement".into() }
+        }
+        LegalAction::ResolveBannerProtection { remove_all } => {
+            if *remove_all { "Remove all wounds (Banner of Protection)".into() } else { "Keep wounds".into() }
+        }
         LegalAction::Undo => "Undo".into(),
     }
 }
