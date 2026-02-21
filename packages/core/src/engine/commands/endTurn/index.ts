@@ -44,6 +44,10 @@ import { applyMountainLoreEndTurnBonus } from "./mountainLoreBonus.js";
 import { processMysteriousBoxCleanup } from "./mysteriousBoxCleanup.js";
 import { expireManaEnhancementAtTurnStart } from "../skills/index.js";
 import { EFFECT_NOOP } from "../../../types/effectTypes.js";
+import {
+  calculateFinalScores,
+  createDefaultScoringConfig,
+} from "../../scoring/index.js";
 
 export { END_TURN_COMMAND };
 export type { EndTurnCommandParams };
@@ -462,24 +466,35 @@ export function createEndTurnCommand(params: EndTurnCommandParams): Command {
 
       // Trigger game end if scenario final turns complete
       if (nextPlayerResult.shouldTriggerGameEnd) {
-        const finalScores = newState.players.map((p) => ({
-          playerId: p.id,
-          score: p.fame,
+        const isSolo = newState.players.length === 1;
+        const scoringConfig =
+          newState.scenarioConfig.scoringConfig ??
+          createDefaultScoringConfig(isSolo);
+        const finalScoreResult = calculateFinalScores(newState, scoringConfig);
+
+        const finalScores = finalScoreResult.playerResults.map((r) => ({
+          playerId: r.playerId,
+          score: r.totalScore,
         }));
-        finalScores.sort((a, b) => b.score - a.score);
-        const winningPlayerId = finalScores[0]?.playerId ?? null;
+
+        const winningPlayerId = finalScoreResult.isTied
+          ? null
+          : finalScoreResult.rankings[0] ?? null;
 
         newState = {
           ...newState,
           phase: GAME_PHASE_END,
+          finalTurnsRemaining: 0,
           gameEnded: true,
           winningPlayerId,
+          finalScoreResult,
         };
 
         events.push({
           type: GAME_ENDED,
           winningPlayerId,
           finalScores,
+          fullScoreResult: finalScoreResult,
         });
 
         return { state: newState, events };
