@@ -1,0 +1,11 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "mk_python"
+requires-python = ">=3.10"
+description = "Rust game engine bindings for Mage Knight"
+
+[tool.maturin]
+manifest-path = "crates/mk-python/Cargo.toml"

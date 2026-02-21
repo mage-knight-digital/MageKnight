@@ -617,11 +617,13 @@ dependencies = [
 name = "mk-python"
 version = "0.1.0"
 dependencies = [
+ "mk-data",
  "mk-engine",
  "mk-env",
  "mk-features",
  "mk-types",
  "pyo3",
+ "serde_json",
 ]
 
 [[package]]

@@ -13,4 +13,6 @@ mk-types = { workspace = true }
 mk-engine = { workspace = true }
 mk-features = { workspace = true }
 mk-env = { workspace = true }
+mk-data = { workspace = true }
 pyo3 = { workspace = true }
+serde_json = { workspace = true }
