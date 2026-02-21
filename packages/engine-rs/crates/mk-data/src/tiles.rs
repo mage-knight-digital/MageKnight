@@ -363,6 +363,80 @@ pub static CORE_VOLKARE: &[TileHex] = &[
 ];
 
 // =============================================================================
+// Tile pool helpers
+// =============================================================================
+
+/// All base-game countryside tile IDs (11 tiles: Countryside1-11).
+pub fn all_countryside_tiles() -> Vec<TileId> {
+    vec![
+        TileId::Countryside1,
+        TileId::Countryside2,
+        TileId::Countryside3,
+        TileId::Countryside4,
+        TileId::Countryside5,
+        TileId::Countryside6,
+        TileId::Countryside7,
+        TileId::Countryside8,
+        TileId::Countryside9,
+        TileId::Countryside10,
+        TileId::Countryside11,
+    ]
+}
+
+/// All non-city core tile IDs (Core1-Core4).
+pub fn all_non_city_core_tiles() -> Vec<TileId> {
+    vec![TileId::Core1, TileId::Core2, TileId::Core3, TileId::Core4]
+}
+
+/// All city core tile IDs (Core5GreenCity-Core8RedCity).
+pub fn all_city_core_tiles() -> Vec<TileId> {
+    vec![
+        TileId::Core5GreenCity,
+        TileId::Core6BlueCity,
+        TileId::Core7WhiteCity,
+        TileId::Core8RedCity,
+    ]
+}
+
+/// Returns true if this tile contains a City hex.
+pub fn is_city_tile(tile_id: TileId) -> bool {
+    matches!(
+        tile_id,
+        TileId::Core5GreenCity
+            | TileId::Core6BlueCity
+            | TileId::Core7WhiteCity
+            | TileId::Core8RedCity
+    )
+}
+
+/// Create a tile deck from scenario config.
+///
+/// Shuffles the countryside and core pools, takes the specified counts.
+/// City tiles go at the bottom of the core deck (drawn last).
+pub fn create_tile_deck(
+    config: &mk_types::state::ScenarioConfig,
+    rng: &mut mk_types::rng::RngState,
+) -> mk_types::state::TileDeck {
+    let mut countryside_pool = all_countryside_tiles();
+    rng.shuffle(&mut countryside_pool);
+    let countryside = countryside_pool[..config.countryside_tile_count as usize].to_vec();
+
+    let mut non_city_pool = all_non_city_core_tiles();
+    rng.shuffle(&mut non_city_pool);
+    let non_city = non_city_pool[..config.core_tile_count as usize].to_vec();
+
+    let mut city_pool = all_city_core_tiles();
+    rng.shuffle(&mut city_pool);
+    let cities = city_pool[..config.city_tile_count as usize].to_vec();
+
+    // Core deck: non-city tiles on top, city tiles at bottom (drawn last)
+    let mut core = non_city;
+    core.extend(cities);
+
+    mk_types::state::TileDeck { countryside, core }
+}
+
+// =============================================================================
 // Lookup functions
 // =============================================================================
 
@@ -605,5 +679,90 @@ mod tests {
     #[test]
     fn total_tile_count() {
         assert_eq!(ALL_TILE_IDS.len(), 27, "Should have 27 total tiles");
+    }
+
+    // ---- Tile pool / deck tests ----
+
+    #[test]
+    fn all_countryside_tiles_count() {
+        assert_eq!(all_countryside_tiles().len(), 11, "11 base-game countryside tiles");
+    }
+
+    #[test]
+    fn all_city_core_tiles_count() {
+        assert_eq!(all_city_core_tiles().len(), 4, "4 city core tiles");
+    }
+
+    #[test]
+    fn is_city_tile_positive() {
+        assert!(is_city_tile(TileId::Core5GreenCity));
+        assert!(is_city_tile(TileId::Core6BlueCity));
+        assert!(is_city_tile(TileId::Core7WhiteCity));
+        assert!(is_city_tile(TileId::Core8RedCity));
+    }
+
+    #[test]
+    fn is_city_tile_negative() {
+        assert!(!is_city_tile(TileId::Core1));
+        assert!(!is_city_tile(TileId::Core4));
+        assert!(!is_city_tile(TileId::Countryside1));
+        assert!(!is_city_tile(TileId::StartingA));
+    }
+
+    #[test]
+    fn create_tile_deck_correct_counts() {
+        let config = mk_types::state::ScenarioConfig {
+            countryside_tile_count: 8,
+            core_tile_count: 2,
+            city_tile_count: 1,
+            map_shape: mk_types::enums::MapShape::Wedge,
+            day_rounds: 2,
+            night_rounds: 2,
+            total_rounds: 4,
+            skills_enabled: false,
+            elite_units_enabled: false,
+            spells_available: true,
+            advanced_actions_available: true,
+            fame_per_tile_explored: 1,
+            cities_can_be_entered: false,
+            default_city_level: 1,
+            tactic_removal_mode: mk_types::enums::TacticRemovalMode::AllUsed,
+            dummy_tactic_order: mk_types::enums::DummyTacticOrder::AfterHumans,
+            end_trigger: mk_types::enums::ScenarioEndTrigger::CityRevealed,
+        };
+        let mut rng = mk_types::rng::RngState::new(42);
+        let deck = create_tile_deck(&config, &mut rng);
+
+        assert_eq!(deck.countryside.len(), 8, "8 countryside tiles");
+        assert_eq!(deck.core.len(), 3, "2 non-city + 1 city = 3 core tiles");
+    }
+
+    #[test]
+    fn create_tile_deck_city_at_bottom() {
+        let config = mk_types::state::ScenarioConfig {
+            countryside_tile_count: 8,
+            core_tile_count: 2,
+            city_tile_count: 1,
+            map_shape: mk_types::enums::MapShape::Wedge,
+            day_rounds: 2,
+            night_rounds: 2,
+            total_rounds: 4,
+            skills_enabled: false,
+            elite_units_enabled: false,
+            spells_available: true,
+            advanced_actions_available: true,
+            fame_per_tile_explored: 1,
+            cities_can_be_entered: false,
+            default_city_level: 1,
+            tactic_removal_mode: mk_types::enums::TacticRemovalMode::AllUsed,
+            dummy_tactic_order: mk_types::enums::DummyTacticOrder::AfterHumans,
+            end_trigger: mk_types::enums::ScenarioEndTrigger::CityRevealed,
+        };
+        let mut rng = mk_types::rng::RngState::new(42);
+        let deck = create_tile_deck(&config, &mut rng);
+
+        // Last core entry should be a city tile
+        let last = *deck.core.last().unwrap();
+        assert!(is_city_tile(last), "Last core tile should be a city tile, got {:?}", last);
     }
 }

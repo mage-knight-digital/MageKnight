@@ -1,6 +1,7 @@
 use mk_types::legal_action::LegalAction;
 use mk_types::state::{GameState, PlayerFlags};
 
+use super::utils::WOUND_CARD_ID;
 use crate::undo::UndoStack;
 
 pub(super) fn enumerate_turn_options(
@@ -43,9 +44,35 @@ pub(super) fn enumerate_turn_options(
         actions.push(LegalAction::DeclareRest);
     }
 
-    // Category 11: CompleteRest.
+    // Category 11: CompleteRest — one per discardable card.
     if is_resting {
-        actions.push(LegalAction::CompleteRest);
+        let has_non_wound = player
+            .hand
+            .iter()
+            .any(|c| c.as_str() != WOUND_CARD_ID);
+
+        if player.hand.is_empty() {
+            // Empty hand edge case.
+            actions.push(LegalAction::CompleteRest {
+                discard_hand_index: None,
+            });
+        } else if has_non_wound {
+            // Standard rest: one CompleteRest per non-wound card.
+            for (i, card_id) in player.hand.iter().enumerate() {
+                if card_id.as_str() != WOUND_CARD_ID {
+                    actions.push(LegalAction::CompleteRest {
+                        discard_hand_index: Some(i),
+                    });
+                }
+            }
+        } else {
+            // Slow recovery: hand is all wounds — one per wound.
+            for i in 0..player.hand.len() {
+                actions.push(LegalAction::CompleteRest {
+                    discard_hand_index: Some(i),
+                });
+            }
+        }
     }
 
     // Category 12: Undo.

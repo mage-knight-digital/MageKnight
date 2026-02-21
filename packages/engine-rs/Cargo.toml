@@ -8,6 +8,8 @@ members = [
     "crates/mk-env",
     "crates/mk-python",
     "tools/codegen",
+    "tools/mk-cli",
+    "tools/mk-server",
 ]
 
 [workspace.package]

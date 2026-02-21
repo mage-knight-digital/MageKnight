@@ -6,7 +6,7 @@ use mk_types::legal_action::LegalAction;
 use mk_types::state::*;
 
 use crate::combat_resolution::{
-    auto_assign_defend, calculate_effective_attack, calculate_effective_block, combine_resistances,
+    auto_assign_defend, calculate_effective_attack, calculate_effective_block,
     get_effective_armor, get_enemy_attack_info, has_ability, subtract_elements,
 };
 
@@ -173,15 +173,17 @@ pub(super) fn enumerate_attack_declarations(
     };
 
     let player = &state.players[player_idx];
+    let modifiers = &state.active_modifiers;
 
     match combat.phase {
         CombatPhase::RangedSiege => {
-            // Ranged attacks: cannot target Fortified enemies
+            // Ranged attacks: cannot target effectively Fortified enemies
             enumerate_attack_type(
                 combat,
                 &player.combat_accumulator,
                 CombatType::Ranged,
                 true, // exclude fortified
+                modifiers,
                 actions,
             );
             // Siege attacks: can target all enemies
@@ -190,6 +192,7 @@ pub(super) fn enumerate_attack_declarations(
                 &player.combat_accumulator,
                 CombatType::Siege,
                 false,
+                modifiers,
                 actions,
             );
         }
@@ -200,6 +203,7 @@ pub(super) fn enumerate_attack_declarations(
                 &player.combat_accumulator,
                 CombatType::Melee,
                 false,
+                modifiers,
                 actions,
             );
         }
@@ -212,6 +216,7 @@ fn enumerate_attack_type(
     accumulator: &CombatAccumulator,
     attack_type: CombatType,
     exclude_fortified: bool,
+    modifiers: &[mk_types::modifier::ActiveModifier],
     actions: &mut Vec<LegalAction>,
 ) {
     let phase = combat.phase;
@@ -249,7 +254,14 @@ fn enumerate_attack_type(
             None => continue,
         };
 
-        if exclude_fortified && has_ability(def, EnemyAbilityType::Fortified) {
+        if exclude_fortified
+            && crate::combat_resolution::is_effectively_fortified(
+                def,
+                enemy.instance_id.as_str(),
+                combat.is_at_fortified_site,
+                modifiers,
+            )
+        {
             continue;
         }
 
@@ -273,10 +285,25 @@ fn enumerate_attack_type(
             }
         }
 
-        // Calculate if attack is sufficient (including vampiric + defend bonuses)
-        let defs: Vec<&mk_data::enemies::EnemyDefinition> =
-            targets.iter().map(|(_, def)| *def).collect();
-        let combined_resistances = combine_resistances(&defs);
+        // Calculate if attack is sufficient (including vampiric + defend + modifier bonuses)
+        // Combine resistances, accounting for RemoveResistances modifier
+        let combined_resistances = {
+            let mut combined = Vec::new();
+            for (enemy, def) in &targets {
+                if crate::combat_resolution::are_resistances_removed(
+                    modifiers,
+                    enemy.instance_id.as_str(),
+                ) {
+                    continue; // This enemy contributes no resistances
+                }
+                for &res in def.resistances {
+                    if !combined.contains(&res) {
+                        combined.push(res);
+                    }
+                }
+            }
+            combined
+        };
         let effective_attack = calculate_effective_attack(&available, &combined_resistances);
 
         // Compute defend assignments for this target subset
@@ -298,7 +325,18 @@ fn enumerate_attack_type(
                     .get(enemy.instance_id.as_str())
                     .copied()
                     .unwrap_or(0);
-                get_effective_armor(def, phase, vampiric, defend)
+                let base = get_effective_armor(def, phase, vampiric, defend);
+                // Apply armor modifier from SelectCombatEnemy abilities
+                let (armor_change, armor_min) =
+                    crate::combat_resolution::get_enemy_armor_modifier(
+                        modifiers,
+                        enemy.instance_id.as_str(),
+                    );
+                if armor_change != 0 {
+                    (base as i32 + armor_change).max(armor_min as i32) as u32
+                } else {
+                    base
+                }
             })
             .sum();
 
@@ -312,6 +350,136 @@ fn enumerate_attack_type(
             });
         }
     }
+}
+
+// =============================================================================
+// Damage assignment enumeration
+// =============================================================================
+
+/// Enumerate damage assignment actions for the AssignDamage phase.
+///
+/// Finds the first unassigned enemy attack and offers:
+/// - AssignDamageToHero (always available)
+/// - AssignDamageToUnit for each eligible unit (Ready or Spent, not destroyed)
+///
+/// Only enumerates for the FIRST unassigned attack (sequential assignment).
+pub(super) fn enumerate_damage_assignments(
+    state: &GameState,
+    player_idx: usize,
+    actions: &mut Vec<LegalAction>,
+) {
+    let combat = match state.combat.as_ref() {
+        Some(c) => c,
+        None => return,
+    };
+
+    if combat.phase != CombatPhase::AssignDamage {
+        return;
+    }
+
+    let player = &state.players[player_idx];
+
+    // Find first unassigned attack (sequential)
+    for (enemy_idx, enemy) in combat.enemies.iter().enumerate() {
+        if enemy.is_defeated {
+            continue;
+        }
+
+        // Skip hidden summoners (they don't deal damage)
+        if enemy.is_summoner_hidden {
+            continue;
+        }
+
+        // Skip enemies whose attacks are cancelled/skipped
+        if crate::combat_resolution::is_enemy_attacks_skipped(
+            &state.active_modifiers,
+            enemy.instance_id.as_str(),
+        ) {
+            continue;
+        }
+
+        let def = match get_enemy(enemy.enemy_id.as_str()) {
+            Some(d) => d,
+            None => continue,
+        };
+
+        let num_attacks = attack_count(def);
+
+        for attack_idx in 0..num_attacks {
+            // Skip already-assigned, blocked, or cancelled attacks
+            if enemy.attacks_damage_assigned.get(attack_idx).copied().unwrap_or(true) {
+                continue;
+            }
+            if enemy.attacks_blocked.get(attack_idx).copied().unwrap_or(false) {
+                continue;
+            }
+            if enemy.attacks_cancelled.get(attack_idx).copied().unwrap_or(false) {
+                continue;
+            }
+
+            // Check damage > 0 (zero-damage attacks skip assignment)
+            let (base_damage, _, _) = crate::combat_resolution::get_enemy_attack_info(def, attack_idx);
+            if base_damage == 0 {
+                continue;
+            }
+
+            // This is the next attack to assign
+            // Option 1: Always can assign to hero
+            actions.push(LegalAction::AssignDamageToHero {
+                enemy_index: enemy_idx,
+                attack_index: attack_idx,
+            });
+
+            // Option 2: Each eligible unit (if units_allowed)
+            if combat.units_allowed {
+                for unit in &player.units {
+                    if unit.state != UnitState::Ready && unit.state != UnitState::Spent {
+                        continue;
+                    }
+                    actions.push(LegalAction::AssignDamageToUnit {
+                        enemy_index: enemy_idx,
+                        attack_index: attack_idx,
+                        unit_instance_id: unit.instance_id.clone(),
+                    });
+                }
+            }
+
+            return; // Only enumerate for the FIRST unassigned attack
+        }
+    }
+}
+
+/// Check if all damage has been assigned (no remaining unblocked, uncancelled, unassigned attacks).
+pub(super) fn all_damage_assigned(combat: &CombatState) -> bool {
+    for enemy in &combat.enemies {
+        if enemy.is_defeated || enemy.is_summoner_hidden {
+            continue;
+        }
+
+        let def = match get_enemy(enemy.enemy_id.as_str()) {
+            Some(d) => d,
+            None => continue,
+        };
+
+        let num_attacks = attack_count(def);
+        for attack_idx in 0..num_attacks {
+            if enemy.attacks_damage_assigned.get(attack_idx).copied().unwrap_or(true) {
+                continue;
+            }
+            if enemy.attacks_blocked.get(attack_idx).copied().unwrap_or(false) {
+                continue;
+            }
+            if enemy.attacks_cancelled.get(attack_idx).copied().unwrap_or(false) {
+                continue;
+            }
+            let (base_damage, _, _) = crate::combat_resolution::get_enemy_attack_info(def, attack_idx);
+            if base_damage == 0 {
+                continue;
+            }
+            return false; // Found an unassigned attack with damage
+        }
+    }
+    true
 }
 
 // =============================================================================

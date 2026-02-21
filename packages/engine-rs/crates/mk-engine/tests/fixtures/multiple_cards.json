@@ -14,24 +14,24 @@
             "r": 0
           },
           "hand": [
-            "determination",
-            "promise",
-            "march",
+            "improvisation",
             "stamina",
-            "march"
+            "arythea_battle_versatility",
+            "march",
+            "swiftness"
           ],
           "deck": [
             "concentration",
             "threaten",
+            "mana_draw",
+            "promise",
             "rage",
-            "swiftness",
-            "swiftness",
+            "crystallize",
+            "determination",
             "tranquility",
             "stamina",
-            "mana_draw",
-            "arythea_battle_versatility",
-            "crystallize",
-            "improvisation"
+            "swiftness",
+            "march"
           ],
           "discard": [],
           "play_area": [],
@@ -69,17 +69,17 @@
         "mana_dice": [
           {
             "id": "die_0",
-            "color": "green",
+            "color": "red",
             "depleted": false
           },
           {
             "id": "die_1",
-            "color": "green",
+            "color": "blue",
             "depleted": false
           },
           {
             "id": "die_2",
-            "color": "blue",
+            "color": "green",
             "depleted": false
           }
         ],
@@ -100,24 +100,24 @@
             "r": 0
           },
           "hand": [
-            "determination",
-            "promise",
-            "march",
+            "improvisation",
             "stamina",
-            "march"
+            "arythea_battle_versatility",
+            "march",
+            "swiftness"
           ],
           "deck": [
             "concentration",
             "threaten",
+            "mana_draw",
+            "promise",
             "rage",
-            "swiftness",
-            "swiftness",
+            "crystallize",
+            "determination",
             "tranquility",
             "stamina",
-            "mana_draw",
-            "arythea_battle_versatility",
-            "crystallize",
-            "improvisation"
+            "swiftness",
+            "march"
           ],
           "discard": [],
           "play_area": [],
@@ -155,17 +155,17 @@
         "mana_dice": [
           {
             "id": "die_0",
-            "color": "green",
+            "color": "red",
             "depleted": false
           },
           {
             "id": "die_1",
-            "color": "green",
+            "color": "blue",
             "depleted": false
           },
           {
             "id": "die_2",
-            "color": "blue",
+            "color": "green",
             "depleted": false
           }
         ],
@@ -178,7 +178,7 @@
       "action": {
         "type": "play_card_basic",
         "card_id": "march",
-        "hand_index": 2
+        "hand_index": 3
       },
       "expected": {
         "player": {
@@ -187,23 +187,23 @@
             "r": 0
           },
           "hand": [
-            "determination",
-            "promise",
+            "improvisation",
             "stamina",
-            "march"
+            "arythea_battle_versatility",
+            "swiftness"
           ],
           "deck": [
             "concentration",
             "threaten",
+            "mana_draw",
+            "promise",
             "rage",
-            "swiftness",
-            "swiftness",
+            "crystallize",
+            "determination",
             "tranquility",
             "stamina",
-            "mana_draw",
-            "arythea_battle_versatility",
-            "crystallize",
-            "improvisation"
+            "swiftness",
+            "march"
           ],
           "discard": [],
           "play_area": [
@@ -243,17 +243,17 @@
         "mana_dice": [
           {
             "id": "die_0",
-            "color": "green",
+            "color": "red",
             "depleted": false
           },
           {
             "id": "die_1",
-            "color": "green",
+            "color": "blue",
             "depleted": false
           },
           {
             "id": "die_2",
-            "color": "blue",
+            "color": "green",
             "depleted": false
           }
         ],
@@ -265,8 +265,8 @@
       "step": 3,
       "action": {
         "type": "play_card_basic",
-        "card_id": "march",
-        "hand_index": 3
+        "card_id": "stamina",
+        "hand_index": 1
       },
       "expected": {
         "player": {
@@ -275,27 +275,27 @@
             "r": 0
           },
           "hand": [
-            "determination",
-            "promise",
-            "stamina"
+            "improvisation",
+            "arythea_battle_versatility",
+            "swiftness"
           ],
           "deck": [
             "concentration",
             "threaten",
+            "mana_draw",
+            "promise",
             "rage",
-            "swiftness",
-            "swiftness",
+            "crystallize",
+            "determination",
             "tranquility",
             "stamina",
-            "mana_draw",
-            "arythea_battle_versatility",
-            "crystallize",
-            "improvisation"
+            "swiftness",
+            "march"
           ],
           "discard": [],
           "play_area": [
             "march",
-            "march"
+            "stamina"
           ],
           "move_points": 4,
           "influence_points": 0,
@@ -331,17 +331,17 @@
         "mana_dice": [
           {
             "id": "die_0",
-            "color": "green",
+            "color": "red",
             "depleted": false
           },
           {
             "id": "die_1",
-            "color": "green",
+            "color": "blue",
             "depleted": false
           },
           {
             "id": "die_2",
-            "color": "blue",
+            "color": "green",
             "depleted": false
           }
         ],
@@ -353,8 +353,8 @@
       "step": 4,
       "action": {
         "type": "play_card_sideways",
-        "card_id": "promise",
-        "hand_index": 1,
+        "card_id": "swiftness",
+        "hand_index": 2,
         "sideways_as": "move"
       },
       "expected": {
@@ -364,27 +364,27 @@
             "r": 0
           },
           "hand": [
-            "determination",
-            "stamina"
+            "improvisation",
+            "arythea_battle_versatility"
           ],
           "deck": [
             "concentration",
             "threaten",
+            "mana_draw",
+            "promise",
             "rage",
-            "swiftness",
-            "swiftness",
+            "crystallize",
+            "determination",
             "tranquility",
             "stamina",
-            "mana_draw",
-            "arythea_battle_versatility",
-            "crystallize",
-            "improvisation"
+            "swiftness",
+            "march"
           ],
           "discard": [],
           "play_area": [
             "march",
-            "march",
-            "promise"
+            "stamina",
+            "swiftness"
           ],
           "move_points": 5,
           "influence_points": 0,
@@ -420,17 +420,17 @@
         "mana_dice": [
           {
             "id": "die_0",
-            "color": "green",
+            "color": "red",
             "depleted": false
           },
           {
             "id": "die_1",
-            "color": "green",
+            "color": "blue",
             "depleted": false
           },
           {
             "id": "die_2",
-            "color": "blue",
+            "color": "green",
             "depleted": false
           }
         ],
@@ -450,26 +450,26 @@
             "r": 0
           },
           "hand": [
-            "determination",
-            "stamina",
+            "improvisation",
+            "arythea_battle_versatility",
             "concentration",
             "threaten",
-            "rage"
+            "mana_draw"
           ],
           "deck": [
-            "swiftness",
-            "swiftness",
+            "promise",
+            "rage",
+            "crystallize",
+            "determination",
             "tranquility",
             "stamina",
-            "mana_draw",
-            "arythea_battle_versatility",
-            "crystallize",
-            "improvisation"
+            "swiftness",
+            "march"
           ],
           "discard": [
             "march",
-            "march",
-            "promise"
+            "stamina",
+            "swiftness"
           ],
           "play_area": [],
           "move_points": 0,
@@ -506,17 +506,17 @@
         "mana_dice": [
           {
             "id": "die_0",
-            "color": "green",
+            "color": "red",
             "depleted": false
           },
           {
             "id": "die_1",
-            "color": "green",
+            "color": "blue",
             "depleted": false
           },
           {
             "id": "die_2",
-            "color": "blue",
+            "color": "green",
             "depleted": false
           }
         ],

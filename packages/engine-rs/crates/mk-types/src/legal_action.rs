@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::enums::{BasicManaColor, CombatType, GladeWoundChoice, SidewaysAs};
 use crate::hex::{HexCoord, HexDirection};
-use crate::ids::{CardId, CombatInstanceId, TacticId};
+use crate::ids::{CardId, CombatInstanceId, SkillId, TacticId, UnitId, UnitInstanceId};
 
 /// Data for a tactic decision resolution.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -99,15 +99,46 @@ pub enum LegalAction {
     ResolveGladeWound {
         choice: GladeWoundChoice,
     },
+    RecruitUnit {
+        unit_id: UnitId,
+        offer_index: usize,
+        influence_cost: u32,
+    },
+    ActivateUnit {
+        unit_instance_id: UnitInstanceId,
+        ability_index: usize,
+    },
+    AssignDamageToHero {
+        enemy_index: usize,
+        attack_index: usize,
+    },
+    AssignDamageToUnit {
+        enemy_index: usize,
+        attack_index: usize,
+        unit_instance_id: UnitInstanceId,
+    },
+    ChooseLevelUpReward {
+        /// Index into drawn_skills (if from_common_pool=false) or common_skills (if true).
+        skill_index: usize,
+        /// True if picking from common_skills instead of the drawn pair.
+        from_common_pool: bool,
+        /// AA to take from the offer row.
+        advanced_action_id: CardId,
+    },
     EndTurn,
     DeclareRest,
-    CompleteRest,
+    CompleteRest {
+        discard_hand_index: Option<usize>,
+    },
+    UseSkill {
+        skill_id: SkillId,
+    },
     EndCombatPhase,
     Undo,
 }
 
 /// A set of legal actions for a specific player at a specific epoch.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LegalActionSet {
     /// The epoch at which these actions were computed.
     pub epoch: u64,

@@ -154,13 +154,21 @@ fn rage_basic_not_playable_outside_combat() {
 }
 
 #[test]
-fn no_cards_when_resting() {
+fn no_sideways_when_resting() {
     let mut state = setup_game(vec!["march"]);
     state.players[0].flags.insert(PlayerFlags::IS_RESTING);
 
     let va = get_valid_actions(&state, 0);
     if let ValidActions::NormalTurn(actions) = va {
-        assert!(actions.playable_cards.is_empty());
+        // Basic/powered are allowed during rest (FAQ S3).
+        assert!(!actions.playable_cards.is_empty());
+        // But sideways should be blocked.
+        for card in &actions.playable_cards {
+            assert!(
+                !card.can_play_sideways,
+                "sideways should be blocked while resting"
+            );
+        }
     }
 }
 

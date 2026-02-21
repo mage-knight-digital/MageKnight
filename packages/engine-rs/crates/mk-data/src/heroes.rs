@@ -2,7 +2,7 @@
 //!
 //! Matches `packages/core/src/types/hero.ts`.
 
-use mk_types::enums::Hero;
+use mk_types::enums::{BasicManaColor, Hero};
 use mk_types::ids::CardId;
 
 /// Standard 16-card starting deck (before hero-specific replacements).
@@ -102,6 +102,27 @@ pub fn build_starting_deck(hero: Hero) -> Vec<CardId> {
     }
 
     deck
+}
+
+/// Get the 3 starting crystal colors for a hero (for dummy player).
+///
+/// Returns a BTreeMap of crystal counts per basic mana color.
+pub fn hero_starting_crystals(hero: Hero) -> std::collections::BTreeMap<BasicManaColor, u32> {
+    use std::collections::BTreeMap;
+    let colors: [BasicManaColor; 3] = match hero {
+        Hero::Arythea => [BasicManaColor::Red, BasicManaColor::Red, BasicManaColor::White],
+        Hero::Tovak => [BasicManaColor::Blue, BasicManaColor::Red, BasicManaColor::White],
+        Hero::Goldyx => [BasicManaColor::Blue, BasicManaColor::Blue, BasicManaColor::White],
+        Hero::Norowas => [BasicManaColor::Green, BasicManaColor::Green, BasicManaColor::White],
+        Hero::Wolfhawk => [BasicManaColor::Green, BasicManaColor::White, BasicManaColor::White],
+        Hero::Krang => [BasicManaColor::Red, BasicManaColor::Green, BasicManaColor::White],
+        Hero::Braevalar => [BasicManaColor::Green, BasicManaColor::Blue, BasicManaColor::White],
+    };
+    let mut map = BTreeMap::new();
+    for c in &colors {
+        *map.entry(*c).or_insert(0) += 1;
+    }
+    map
 }
 
 /// Starting hand size.

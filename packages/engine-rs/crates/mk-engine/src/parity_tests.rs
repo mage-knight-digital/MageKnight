@@ -77,7 +77,9 @@ enum ActionRecord {
     #[serde(rename = "declare_rest")]
     DeclareRest,
     #[serde(rename = "complete_rest")]
-    CompleteRest,
+    CompleteRest {
+        discard_hand_index: Option<usize>,
+    },
     #[serde(rename = "undo")]
     Undo,
 }
@@ -198,7 +200,9 @@ impl ActionRecord {
             },
             ActionRecord::EndTurn => LegalAction::EndTurn,
             ActionRecord::DeclareRest => LegalAction::DeclareRest,
-            ActionRecord::CompleteRest => LegalAction::CompleteRest,
+            ActionRecord::CompleteRest { discard_hand_index } => LegalAction::CompleteRest {
+                discard_hand_index: *discard_hand_index,
+            },
             ActionRecord::Undo => LegalAction::Undo,
         }
     }

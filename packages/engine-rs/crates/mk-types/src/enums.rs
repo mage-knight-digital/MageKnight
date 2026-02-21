@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 // =============================================================================
 
 /// Basic mana colors (can be crystals).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BasicManaColor {
     Red,
@@ -579,6 +579,77 @@ pub enum RecruitmentSource {
     Normal,
     Artifact,
     Spell,
+}
+
+// =============================================================================
+// Recruit Site
+// =============================================================================
+
+/// Sites where units can be recruited.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RecruitSite {
+    Village,
+    Keep,
+    MageTower,
+    Monastery,
+    City,
+    Camp,
+    MagicalGlade,
+}
+
+// =============================================================================
+// Dummy Tactic Order (solo mode)
+// =============================================================================
+
+/// When the dummy selects its tactic relative to human players.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DummyTacticOrder {
+    AfterHumans,
+    BeforeHumans,
+    None,
+}
+
+// =============================================================================
+// Map Shape
+// =============================================================================
+
+/// Map shape for scenario layout.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MapShape {
+    Wedge,
+    Open,
+    Open3,
+    Open4,
+    Open5,
+}
+
+// =============================================================================
+// Scenario End Trigger
+// =============================================================================
+
+/// What triggers the end of the scenario.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ScenarioEndTrigger {
+    CityRevealed,
+    CityConquered,
+    RoundLimit,
+}
+
+// =============================================================================
+// Tactic Removal Mode
+// =============================================================================
+
+/// How tactics are removed between rounds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TacticRemovalMode {
+    None,
+    AllUsed,
+    VoteOne,
 }
 
 // =============================================================================

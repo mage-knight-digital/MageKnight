@@ -8,14 +8,20 @@
 //! - Rampaging enemies block direct entry but provoke combat when skirted past.
 //! - Explore places a new tile adjacent to the player's current tile.
 
+use std::collections::BTreeMap;
+
 use arrayvec::ArrayVec;
+use mk_data::city_garrison::get_city_garrison;
+use mk_data::enemies::{attack_count, get_enemy};
 use mk_data::enemy_piles::{
-    draw_enemy_token, is_site_enemy_revealed, rampaging_enemy_color, site_defender_config,
+    draw_enemy_token, enemy_id_from_token, is_site_enemy_revealed, rampaging_enemy_color,
+    site_defender_config,
 };
+use mk_data::sites::get_site_properties;
 use mk_data::tiles::get_tile_hexes;
 use mk_types::enums::*;
 use mk_types::hex::{HexCoord, HexDirection, TILE_HEX_OFFSETS, TILE_PLACEMENT_OFFSETS};
-use mk_types::ids::EnemyTokenId;
+use mk_types::ids::*;
 use mk_types::state::*;
 
 use crate::combat;
@@ -34,6 +40,8 @@ pub enum MoveBlockReason {
     Impassable,
     /// Rampaging enemies block entry into this hex.
     Rampaging,
+    /// City entry is blocked by scenario config (cities_can_be_entered == false).
+    CityEntryBlocked,
 }
 
 /// Result of evaluating whether a hex can be entered.
@@ -112,6 +120,8 @@ pub struct MoveResult {
     pub cost: u32,
     /// Whether any rampaging enemies were provoked (skirted past).
     pub provocation: Option<ProvocationInfo>,
+    /// Whether an assault on a fortified site was triggered.
+    pub assault: bool,
 }
 
 // =============================================================================
@@ -126,6 +136,40 @@ pub fn get_terrain_cost(terrain: Terrain, time_of_day: TimeOfDay) -> Option<u32>
         TimeOfDay::Night => terrain.night_cost(),
     }
     .map(|c| c as u32)
+}
+
+/// Apply terrain cost modifiers (e.g., Foresters' terrain reduction) to a base cost.
+///
+/// Iterates active modifiers with `TerrainCost` effect, applying cost changes
+/// for matching terrain. The final cost is clamped to `max(0, modifier_minimum)`.
+fn apply_terrain_cost_modifiers(
+    base_cost: u32,
+    terrain: Terrain,
+    modifiers: &[mk_types::modifier::ActiveModifier],
+) -> u32 {
+    use mk_types::modifier::{ModifierEffect, TerrainOrAll};
+
+    let mut cost = base_cost as i32;
+    let mut min_floor = 0i32;
+
+    for m in modifiers {
+        if let ModifierEffect::TerrainCost { terrain: t, amount, minimum, replace_cost } = &m.effect {
+            let matches = match t {
+                TerrainOrAll::All => true,
+                TerrainOrAll::Specific(tt) => *tt == terrain,
+            };
+            if matches {
+                if let Some(rc) = replace_cost {
+                    cost = *rc as i32;
+                } else {
+                    cost += amount;
+                }
+                min_floor = min_floor.max(*minimum as i32);
+            }
+        }
+    }
+
+    cost.max(min_floor).max(0) as u32
 }
 
 // =============================================================================
@@ -151,11 +195,13 @@ pub fn evaluate_move_entry(
     };
 
     // 2. Check terrain passability
-    // TODO: apply terrain cost modifiers (RULE_TERRAIN_DAY_NIGHT_SWAP, replaceCost, etc.)
-    let cost = match get_terrain_cost(hex.terrain, state.time_of_day) {
+    let base_cost = match get_terrain_cost(hex.terrain, state.time_of_day) {
         Some(c) => c,
         None => return MoveEntryResult::blocked(MoveBlockReason::Impassable),
     };
+
+    // Apply terrain cost modifiers (e.g., Foresters terrain reduction)
+    let cost = apply_terrain_cost_modifiers(base_cost, hex.terrain, &state.active_modifiers);
 
     // 3. Check rampaging enemies
     // Both rampaging_enemies (type slots from tile) and enemies (drawn tokens) must be non-empty.
@@ -164,7 +210,13 @@ pub fn evaluate_move_entry(
         return MoveEntryResult::blocked(MoveBlockReason::Rampaging);
     }
 
-    // TODO: city entry check (scenarioConfig.citiesCanBeEntered)
+    // City entry check
+    if let Some(ref site) = hex.site {
+        if site.site_type == SiteType::City && !state.scenario_config.cities_can_be_entered {
+            return MoveEntryResult::blocked(MoveBlockReason::CityEntryBlocked);
+        }
+    }
+
     // TODO: terrain prohibition modifiers (EFFECT_TERRAIN_PROHIBITION)
 
     MoveEntryResult::passable(cost)
@@ -197,6 +249,198 @@ pub fn find_provoked_rampaging_enemies(
         }
     }
     provoked
+}
+
+// =============================================================================
+// Assault helpers
+// =============================================================================
+
+/// Info about a detected assault on a fortified site.
+struct AssaultInfo {
+    /// Whether city defenders need to be drawn (cities don't get enemies at tile reveal).
+    needs_city_draw: bool,
+    /// City color for garrison lookup (only set for cities).
+    city_color: Option<BasicManaColor>,
+    /// City level for garrison lookup.
+    city_level: u32,
+}
+
+/// Detect whether moving to `target` triggers a fortified site assault.
+///
+/// Returns `Some(AssaultInfo)` if the target hex has an unconquered fortified site.
+fn detect_assault(state: &GameState, target: HexCoord) -> Option<AssaultInfo> {
+    let hex = state.map.hexes.get(&target.key())?;
+    let site = hex.site.as_ref()?;
+
+    let props = get_site_properties(site.site_type);
+    if !props.fortified || site.is_conquered {
+        return None;
+    }
+
+    Some(AssaultInfo {
+        needs_city_draw: site.site_type == SiteType::City,
+        city_color: site.city_color,
+        city_level: state.scenario_config.default_city_level,
+    })
+}
+
+/// Draw city garrison defenders onto the target hex.
+///
+/// Uses the city garrison table to determine which enemy colors to draw,
+/// then draws tokens from the appropriate piles. Enemies are placed face-down.
+fn draw_city_defenders(
+    state: &mut GameState,
+    target: HexCoord,
+    city_color: Option<BasicManaColor>,
+    city_level: u32,
+) {
+    let color = match city_color {
+        Some(c) => c,
+        None => return, // No city color means no garrison to draw
+    };
+
+    let garrison = get_city_garrison(color, city_level);
+
+    let mut drawn: Vec<HexEnemy> = Vec::new();
+    for &enemy_color in garrison {
+        if let Some(token_id) =
+            draw_enemy_token(&mut state.enemy_tokens, enemy_color, &mut state.rng)
+        {
+            drawn.push(HexEnemy {
+                token_id,
+                color: enemy_color,
+                is_revealed: false, // City defenders are face-down
+            });
+        }
+    }
+
+    if let Some(hex) = state.map.hexes.get_mut(&target.key()) {
+        for enemy in drawn {
+            hex.enemies.push(enemy);
+        }
+    }
+}
+
+/// Enter combat for a fortified site assault.
+///
+/// Creates combat with `is_fortified=true`, sets `assault_origin`, and marks
+/// site defenders as `is_required_for_conquest=true` while provoked rampaging
+/// enemies get `is_required_for_conquest=false`.
+fn enter_assault_combat(
+    state: &mut GameState,
+    player_idx: usize,
+    all_token_ids: &[EnemyTokenId],
+    site_defender_count: usize,
+    assault_origin: HexCoord,
+    combat_hex: HexCoord,
+) -> Result<(), CombatError> {
+    if all_token_ids.is_empty() {
+        return Err(CombatError::NoEnemies);
+    }
+
+    let mut enemies = Vec::with_capacity(all_token_ids.len());
+
+    for (i, token_id) in all_token_ids.iter().enumerate() {
+        let enemy_id_str = enemy_id_from_token(token_id);
+        let def = get_enemy(&enemy_id_str)
+            .ok_or_else(|| CombatError::UnknownEnemy(enemy_id_str.clone()))?;
+
+        let num_attacks = attack_count(def);
+
+        enemies.push(CombatEnemy {
+            instance_id: CombatInstanceId::from(format!("enemy_{}", i)),
+            enemy_id: EnemyId::from(enemy_id_str),
+            is_blocked: false,
+            is_defeated: false,
+            damage_assigned: false,
+            is_required_for_conquest: i < site_defender_count,
+            summoned_by_instance_id: None,
+            is_summoner_hidden: false,
+            attacks_blocked: vec![false; num_attacks],
+            attacks_damage_assigned: vec![false; num_attacks],
+            attacks_cancelled: vec![false; num_attacks],
+        });
+    }
+
+    let combat = CombatState {
+        phase: CombatPhase::RangedSiege,
+        enemies,
+        wounds_this_combat: 0,
+        wounds_added_to_hand_this_combat: false,
+        attacks_this_phase: 0,
+        fame_gained: 0,
+        is_at_fortified_site: true,
+        units_allowed: true,
+        night_mana_rules: false,
+        assault_origin: Some(assault_origin),
+        combat_hex_coord: Some(combat_hex),
+        all_damage_blocked_this_phase: false,
+        discard_enemies_on_failure: false,
+        combat_context: CombatContext::Standard,
+        pending_damage: BTreeMap::new(),
+        pending_block: BTreeMap::new(),
+        pending_swift_block: BTreeMap::new(),
+        cumbersome_reductions: BTreeMap::new(),
+        used_defend: BTreeMap::new(),
+        defend_bonuses: BTreeMap::new(),
+        vampiric_armor_bonus: BTreeMap::new(),
+        paid_thugs_damage_influence: BTreeMap::new(),
+        damage_redirects: BTreeMap::new(),
+        enemy_assignments: None,
+        paid_heroes_assault_influence: false,
+        declared_attack_targets: None,
+        declared_block_target: None,
+        declared_block_attack_index: None,
+        has_paralyze_damage_to_hero: false,
+    };
+
+    // Clear healing points
+    state.players[player_idx].healing_points = 0;
+    state.combat = Some(Box::new(combat));
+
+    Ok(())
+}
+
+/// Reveal face-down garrison enemies at fortified sites newly adjacent to the player.
+///
+/// During daytime only: checks hexes within distance 1 of `to` that were NOT
+/// within distance 1 of `from`. For any fortified site with unrevealed enemies,
+/// sets all enemies to revealed.
+fn reveal_garrison_at_adjacent_sites(state: &mut GameState, from: HexCoord, to: HexCoord) {
+    if state.time_of_day != TimeOfDay::Day {
+        return;
+    }
+
+    let to_neighbors = to.neighbors();
+    let from_neighbors_set: Vec<(i32, i32)> =
+        from.neighbors().iter().map(|c| (c.q, c.r)).collect();
+
+    for neighbor in &to_neighbors {
+        // Skip hexes that were already adjacent before the move
+        if from_neighbors_set.contains(&(neighbor.q, neighbor.r)) {
+            continue;
+        }
+
+        let key = neighbor.key();
+        if let Some(hex) = state.map.hexes.get(&key) {
+            let has_fortified_site = hex
+                .site
+                .as_ref()
+                .map(|s| get_site_properties(s.site_type).fortified)
+                .unwrap_or(false);
+
+            let has_unrevealed = hex.enemies.iter().any(|e| !e.is_revealed);
+
+            if has_fortified_site && has_unrevealed {
+                // Reveal all enemies at this hex
+                if let Some(hex) = state.map.hexes.get_mut(&key) {
+                    for enemy in &mut hex.enemies {
+                        enemy.is_revealed = true;
+                    }
+                }
+            }
+        }
+    }
 }
 
 // =============================================================================
@@ -252,10 +496,72 @@ pub fn execute_move(
     player.flags.insert(PlayerFlags::HAS_MOVED_THIS_TURN);
     player.units_recruited_this_interaction.clear();
 
-    // Enter combat with first provoked hex's enemies (multi-hex provocation is rare; extend later)
-    if let Some(provoked_hex) = provocation.as_ref().and_then(|p| p.provoked_hexes.first()) {
+    // ---- Assault detection ----
+    let assault_info = detect_assault(state, target);
+    let mut assault = false;
+
+    if let Some(info) = assault_info {
+        assault = true;
+
+        // Draw city defenders if needed (cities don't have pre-drawn enemies)
+        if info.needs_city_draw {
+            draw_city_defenders(state, target, info.city_color, info.city_level);
+        }
+
+        // Apply -1 reputation penalty for assault
+        let player = &mut state.players[player_idx];
+        player.reputation = (player.reputation - 1).max(-7);
+
+        // Collect site defender tokens (these are the enemies on the target hex)
+        let site_tokens: Vec<EnemyTokenId> = state
+            .map
+            .hexes
+            .get(&target.key())
+            .map(|h| h.enemies.iter().map(|e| e.token_id.clone()).collect())
+            .unwrap_or_default();
+
+        // Collect provoked rampaging enemy tokens
+        let provoked_tokens: Vec<EnemyTokenId> = provocation
+            .as_ref()
+            .map(|p| {
+                p.provoked_hexes
+                    .iter()
+                    .flat_map(|hex_coord| {
+                        state
+                            .map
+                            .hexes
+                            .get(&hex_coord.key())
+                            .map(|h| h.enemies.iter().map(|e| e.token_id.clone()).collect::<Vec<_>>())
+                            .unwrap_or_default()
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        // Enter assault combat with merged enemies
+        let all_tokens: Vec<EnemyTokenId> = site_tokens
+            .iter()
+            .chain(provoked_tokens.iter())
+            .cloned()
+            .collect();
+
+        if !all_tokens.is_empty() {
+            enter_assault_combat(
+                state,
+                player_idx,
+                &all_tokens,
+                site_tokens.len(),
+                from,
+                target,
+            )
+            .map_err(MoveError::CombatFailed)?;
+        }
+    } else if let Some(provoked_hex) = provocation.as_ref().and_then(|p| p.provoked_hexes.first())
+    {
+        // No assault — just rampaging enemy provocation
         let hex = state.map.hexes.get(&provoked_hex.key()).unwrap();
-        let enemy_tokens: Vec<EnemyTokenId> = hex.enemies.iter().map(|e| e.token_id.clone()).collect();
+        let enemy_tokens: Vec<EnemyTokenId> =
+            hex.enemies.iter().map(|e| e.token_id.clone()).collect();
         combat::execute_enter_combat(
             state,
             player_idx,
@@ -267,11 +573,16 @@ pub fn execute_move(
         .map_err(MoveError::CombatFailed)?;
     }
 
-    // TODO: fortified assault combat trigger (entering unconquered keep/mage tower/city)
-    // TODO: enemy reveal at fortified sites (daytime, reveal distance 1 or 2)
+    // During daytime, reveal face-down enemies at newly adjacent fortified sites
+    reveal_garrison_at_adjacent_sites(state, from, target);
+
     // TODO: ruins token reveal
 
-    Ok(MoveResult { cost, provocation })
+    Ok(MoveResult {
+        cost,
+        provocation,
+        assault,
+    })
 }
 
 // =============================================================================
@@ -525,8 +836,22 @@ pub fn execute_explore(
 
     // TODO: draw ruins tokens for ancient ruins
     // TODO: monastery AA reveals
-    // TODO: fame award for exploring (scenarioConfig.famePerTileExplored)
-    // TODO: scenario end trigger for city tiles
+
+    // Fame award for exploring (scenarioConfig.famePerTileExplored)
+    let fame = state.scenario_config.fame_per_tile_explored;
+    if fame > 0 {
+        state.players[player_idx].fame += fame;
+        crate::end_turn::process_level_ups_pub(state, player_idx);
+    }
+
+    // Scenario end trigger for city tiles
+    if !state.scenario_end_triggered
+        && state.scenario_config.end_trigger == ScenarioEndTrigger::CityRevealed
+        && mk_data::tiles::is_city_tile(tile_id)
+    {
+        state.scenario_end_triggered = true;
+        state.final_turns_remaining = Some(state.players.len() as u32);
+    }
 
     Ok(())
 }
@@ -546,6 +871,9 @@ mod tests {
         let mut state = create_solo_game(42, Hero::Arythea);
         state.round_phase = RoundPhase::PlayerTurns;
         state.players[0].move_points = move_pts;
+        // Clear tile deck so explore tests start from a clean slate
+        // (tests push specific tiles they need)
+        state.map.tile_deck = TileDeck::default();
         state
     }
 
@@ -1106,5 +1434,339 @@ mod tests {
         // Move to adjacent plains — no rampaging enemies nearby
         execute_move(&mut state, 0, HexCoord::new(1, 0)).unwrap();
         assert!(state.combat.is_none());
+    }
+
+    // ---- Assault tests ----
+
+    /// Place an unconquered Keep with a gray defender on the E hex (1,0).
+    fn place_keep_at_e(state: &mut GameState) {
+        let hex = state.map.hexes.get_mut("1,0").unwrap();
+        hex.site = Some(Site {
+            site_type: SiteType::Keep,
+            owner: None,
+            is_conquered: false,
+            is_burned: false,
+            city_color: None,
+            mine_color: None,
+            deep_mine_colors: None,
+        });
+        hex.enemies.push(HexEnemy {
+            token_id: EnemyTokenId::from("guardsmen_1"),
+            color: EnemyColor::Gray,
+            is_revealed: false,
+        });
+    }
+
+    #[test]
+    fn assault_keep_enters_combat() {
+        let mut state = setup_game_with_move_points(10);
+        place_keep_at_e(&mut state);
+
+        let result = execute_move(&mut state, 0, HexCoord::new(1, 0)).unwrap();
+        assert!(result.assault);
+        assert!(state.combat.is_some(), "Assault should trigger combat");
+        let combat = state.combat.as_ref().unwrap();
+        assert!(combat.is_at_fortified_site);
+        assert_eq!(combat.enemies.len(), 1);
+        assert_eq!(combat.enemies[0].enemy_id.as_str(), "guardsmen");
+        assert!(combat.enemies[0].is_required_for_conquest);
+    }
+
+    #[test]
+    fn assault_keep_reputation_penalty() {
+        let mut state = setup_game_with_move_points(10);
+        place_keep_at_e(&mut state);
+        let initial_rep = state.players[0].reputation;
+
+        execute_move(&mut state, 0, HexCoord::new(1, 0)).unwrap();
+
+        assert_eq!(
+            state.players[0].reputation,
+            initial_rep - 1,
+            "Assault should apply -1 reputation"
+        );
+    }
+
+    #[test]
+    fn assault_keep_assault_origin() {
+        let mut state = setup_game_with_move_points(10);
+        place_keep_at_e(&mut state);
+
+        execute_move(&mut state, 0, HexCoord::new(1, 0)).unwrap();
+
+        let combat = state.combat.as_ref().unwrap();
+        assert_eq!(
+            combat.assault_origin,
+            Some(HexCoord::new(0, 0)),
+            "assault_origin should be the position before the move"
+        );
+    }
+
+    #[test]
+    fn assault_mage_tower_enters_combat() {
+        let mut state = setup_game_with_move_points(10);
+        let hex = state.map.hexes.get_mut("1,0").unwrap();
+        hex.site = Some(Site {
+            site_type: SiteType::MageTower,
+            owner: None,
+            is_conquered: false,
+            is_burned: false,
+            city_color: None,
+            mine_color: None,
+            deep_mine_colors: None,
+        });
+        hex.enemies.push(HexEnemy {
+            token_id: EnemyTokenId::from("sorcerers_1"),
+            color: EnemyColor::Violet,
+            is_revealed: false,
+        });
+
+        let result = execute_move(&mut state, 0, HexCoord::new(1, 0)).unwrap();
+        assert!(result.assault);
+        assert!(state.combat.as_ref().unwrap().is_at_fortified_site);
+    }
+
+    #[test]
+    fn conquered_keep_not_assaulted() {
+        let mut state = setup_game_with_move_points(10);
+        let hex = state.map.hexes.get_mut("1,0").unwrap();
+        hex.site = Some(Site {
+            site_type: SiteType::Keep,
+            owner: Some(state.players[0].id.clone()),
+            is_conquered: true,
+            is_burned: false,
+            city_color: None,
+            mine_color: None,
+            deep_mine_colors: None,
+        });
+
+        let result = execute_move(&mut state, 0, HexCoord::new(1, 0)).unwrap();
+        assert!(!result.assault);
+        assert!(state.combat.is_none());
+    }
+
+    #[test]
+    fn city_entry_blocked_by_scenario() {
+        let mut state = setup_game_with_move_points(10);
+        // First Reconnaissance scenario doesn't allow city entry
+        state.scenario_config.cities_can_be_entered = false;
+        let hex = state.map.hexes.get_mut("1,0").unwrap();
+        hex.site = Some(Site {
+            site_type: SiteType::City,
+            owner: None,
+            is_conquered: false,
+            is_burned: false,
+            city_color: Some(BasicManaColor::Blue),
+            mine_color: None,
+            deep_mine_colors: None,
+        });
+
+        let result = execute_move(&mut state, 0, HexCoord::new(1, 0));
+        assert_eq!(
+            result.unwrap_err(),
+            MoveError::Blocked(MoveBlockReason::CityEntryBlocked)
+        );
+    }
+
+    #[test]
+    fn assault_with_provocation_merges() {
+        let mut state = setup_game_with_move_points(10);
+
+        // Place unconquered Keep at NE (1,-1)
+        let hex = state.map.hexes.get_mut("1,-1").unwrap();
+        hex.site = Some(Site {
+            site_type: SiteType::Keep,
+            owner: None,
+            is_conquered: false,
+            is_burned: false,
+            city_color: None,
+            mine_color: None,
+            deep_mine_colors: None,
+        });
+        hex.enemies.push(HexEnemy {
+            token_id: EnemyTokenId::from("guardsmen_1"),
+            color: EnemyColor::Gray,
+            is_revealed: false,
+        });
+
+        // Place rampaging enemy on NW (0,-1) — adjacent to both (0,0) and (1,-1)
+        let hex_nw = state.map.hexes.get_mut("0,-1").unwrap();
+        hex_nw
+            .rampaging_enemies
+            .push(RampagingEnemyType::OrcMarauder);
+        hex_nw.enemies.push(HexEnemy {
+            token_id: EnemyTokenId::from("prowlers_1"),
+            color: EnemyColor::Green,
+            is_revealed: true,
+        });
+
+        // Move from (0,0) to NE (1,-1) — assault + provocation
+        let result = execute_move(&mut state, 0, HexCoord::new(1, -1)).unwrap();
+        assert!(result.assault);
+        assert!(result.provocation.is_some());
+
+        let combat = state.combat.as_ref().unwrap();
+        assert!(combat.is_at_fortified_site);
+        assert_eq!(combat.enemies.len(), 2, "Both site defender and provoked enemy");
+
+        // Site defender should be required for conquest
+        assert!(
+            combat.enemies[0].is_required_for_conquest,
+            "Site defender is required for conquest"
+        );
+        // Provoked rampaging enemy is NOT required
+        assert!(
+            !combat.enemies[1].is_required_for_conquest,
+            "Provoked rampaging enemy is NOT required for conquest"
+        );
+    }
+
+    #[test]
+    fn daytime_reveal_adjacent_garrison() {
+        let mut state = setup_game_with_move_points(10);
+        state.time_of_day = TimeOfDay::Day;
+
+        // Place Keep with face-down enemy on NE (1,-1) — not adjacent to (0,0) via E direction
+        // Actually (1,-1) IS adjacent to (0,0). We need a hex that becomes newly adjacent.
+        // Player starts at (0,0). Move to E (1,0). Now (1,-1) was already adjacent to (0,0),
+        // so it won't be "newly adjacent."
+        // We need the keep at (2,-1) — adjacent to (1,0) but NOT to (0,0).
+        // But (2,-1) might not exist. Let's explore a tile first.
+        // Simpler: add a keep hex manually at (2,-1).
+        state.map.hexes.insert(
+            "2,-1".to_string(),
+            HexState {
+                coord: HexCoord::new(2, -1),
+                terrain: Terrain::Plains,
+                tile_id: TileId::Countryside3,
+                site: Some(Site {
+                    site_type: SiteType::Keep,
+                    owner: None,
+                    is_conquered: false,
+                    is_burned: false,
+                    city_color: None,
+                    mine_color: None,
+                    deep_mine_colors: None,
+                }),
+                rampaging_enemies: ArrayVec::new(),
+                enemies: {
+                    let mut e = ArrayVec::new();
+                    e.push(HexEnemy {
+                        token_id: EnemyTokenId::from("guardsmen_2"),
+                        color: EnemyColor::Gray,
+                        is_revealed: false,
+                    });
+                    e
+                },
+                ruins_token: None,
+                shield_tokens: Vec::new(),
+            },
+        );
+
+        // Move from (0,0) to E (1,0). (2,-1) is adjacent to (1,0) but NOT to (0,0).
+        execute_move(&mut state, 0, HexCoord::new(1, 0)).unwrap();
+
+        // The Keep at (2,-1) should now have its enemies revealed
+        let keep_hex = state.map.hexes.get("2,-1").unwrap();
+        assert!(
+            keep_hex.enemies[0].is_revealed,
+            "Daytime movement should reveal enemies at newly adjacent fortified sites"
+        );
+    }
+
+    #[test]
+    fn nighttime_no_garrison_reveal() {
+        let mut state = setup_game_with_move_points(10);
+        state.time_of_day = TimeOfDay::Night;
+
+        // Same setup as daytime test
+        state.map.hexes.insert(
+            "2,-1".to_string(),
+            HexState {
+                coord: HexCoord::new(2, -1),
+                terrain: Terrain::Plains,
+                tile_id: TileId::Countryside3,
+                site: Some(Site {
+                    site_type: SiteType::Keep,
+                    owner: None,
+                    is_conquered: false,
+                    is_burned: false,
+                    city_color: None,
+                    mine_color: None,
+                    deep_mine_colors: None,
+                }),
+                rampaging_enemies: ArrayVec::new(),
+                enemies: {
+                    let mut e = ArrayVec::new();
+                    e.push(HexEnemy {
+                        token_id: EnemyTokenId::from("guardsmen_2"),
+                        color: EnemyColor::Gray,
+                        is_revealed: false,
+                    });
+                    e
+                },
+                ruins_token: None,
+                shield_tokens: Vec::new(),
+            },
+        );
+
+        execute_move(&mut state, 0, HexCoord::new(1, 0)).unwrap();
+
+        // At night, enemies should stay hidden
+        let keep_hex = state.map.hexes.get("2,-1").unwrap();
+        assert!(
+            !keep_hex.enemies[0].is_revealed,
+            "Nighttime movement should NOT reveal garrison enemies"
+        );
+    }
+
+    #[test]
+    fn city_garrison_drawn_on_assault() {
+        let mut state = setup_game_with_move_points(10);
+        // Enable city entry
+        state.scenario_config.cities_can_be_entered = true;
+        state.scenario_config.default_city_level = 1;
+
+        // Place a blue city on E hex (1,0) with NO pre-drawn enemies
+        let hex = state.map.hexes.get_mut("1,0").unwrap();
+        hex.site = Some(Site {
+            site_type: SiteType::City,
+            owner: None,
+            is_conquered: false,
+            is_burned: false,
+            city_color: Some(BasicManaColor::Blue),
+            mine_color: None,
+            deep_mine_colors: None,
+        });
+        // No enemies pre-drawn (city defenders are drawn on assault)
+
+        let result = execute_move(&mut state, 0, HexCoord::new(1, 0)).unwrap();
+        assert!(result.assault);
+
+        // Blue city level 1 garrison = [Gray, Violet]
+        let combat = state.combat.as_ref().unwrap();
+        assert_eq!(
+            combat.enemies.len(),
+            2,
+            "Blue city level 1 should draw 2 defenders"
+        );
+        assert!(combat.is_at_fortified_site);
+        // Both should be required for conquest
+        assert!(combat.enemies[0].is_required_for_conquest);
+        assert!(combat.enemies[1].is_required_for_conquest);
+    }
+
+    #[test]
+    fn assault_reputation_floor_at_negative_seven() {
+        let mut state = setup_game_with_move_points(10);
+        place_keep_at_e(&mut state);
+        state.players[0].reputation = -7;
+
+        execute_move(&mut state, 0, HexCoord::new(1, 0)).unwrap();
+
+        assert_eq!(
+            state.players[0].reputation, -7,
+            "Reputation should not go below -7"
+        );
     }
 }

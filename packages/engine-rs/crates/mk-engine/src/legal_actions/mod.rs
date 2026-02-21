@@ -23,8 +23,10 @@ mod explore;
 mod movement;
 mod pending;
 mod sites;
+mod skills;
 mod tactics;
 mod turn_options;
+mod units;
 mod utils;
 
 #[cfg(test)]
@@ -38,7 +40,8 @@ use crate::undo::UndoStack;
 
 use self::cards::{enumerate_combat_cards, enumerate_normal_cards};
 use self::combat::{
-    enumerate_attack_declarations, enumerate_block_declarations, enumerate_cumbersome_actions,
+    all_damage_assigned, enumerate_attack_declarations, enumerate_block_declarations,
+    enumerate_cumbersome_actions, enumerate_damage_assignments,
 };
 use self::explore::enumerate_explores;
 use self::movement::{enumerate_challenges, enumerate_moves};
@@ -46,6 +49,8 @@ use self::pending::enumerate_pending;
 use self::sites::enumerate_site_actions;
 use self::tactics::enumerate_tactics;
 use self::turn_options::enumerate_turn_options;
+use self::skills::enumerate_skill_activations;
+use self::units::{enumerate_unit_actions, enumerate_unit_activations};
 
 /// Enumerate all legal actions for the given player.
 ///
@@ -114,21 +119,34 @@ pub fn enumerate_legal_actions_with_undo(
     }
 
     // Combat blocks normal turn.
-    if state.combat.is_some() {
-        enumerate_combat_cards(state, player_idx, &mut actions);
-        // Block/Attack declarations (categories 5-6).
-        enumerate_block_declarations(state, player_idx, &mut actions);
-        enumerate_cumbersome_actions(state, player_idx, &mut actions);
-        enumerate_attack_declarations(state, player_idx, &mut actions);
-        // ActivateTactic (The Right Moment can be used during combat).
-        if can_activate_tactic_in_combat(state, player_idx) {
-            actions.push(LegalAction::ActivateTactic);
-        }
-        // EndCombatPhase (category 8).
-        actions.push(LegalAction::EndCombatPhase);
-        // Undo (category 12).
-        if undo.can_undo() {
-            actions.push(LegalAction::Undo);
+    if let Some(ref combat) = state.combat {
+        if combat.phase == CombatPhase::AssignDamage {
+            // AssignDamage phase: enumerate per-attack assignment options
+            enumerate_damage_assignments(state, player_idx, &mut actions);
+            if all_damage_assigned(combat) {
+                actions.push(LegalAction::EndCombatPhase);
+            }
+            if undo.can_undo() {
+                actions.push(LegalAction::Undo);
+            }
+        } else {
+            enumerate_combat_cards(state, player_idx, &mut actions);
+            enumerate_unit_activations(state, player_idx, &mut actions);
+            enumerate_skill_activations(state, player_idx, &mut actions);
+            // Block/Attack declarations (categories 5-6).
+            enumerate_block_declarations(state, player_idx, &mut actions);
+            enumerate_cumbersome_actions(state, player_idx, &mut actions);
+            enumerate_attack_declarations(state, player_idx, &mut actions);
+            // ActivateTactic (The Right Moment can be used during combat).
+            if can_activate_tactic_in_combat(state, player_idx) {
+                actions.push(LegalAction::ActivateTactic);
+            }
+            // EndCombatPhase (category 8).
+            actions.push(LegalAction::EndCombatPhase);
+            // Undo (category 12).
+            if undo.can_undo() {
+                actions.push(LegalAction::Undo);
+            }
         }
         return LegalActionSet {
             epoch,
@@ -139,10 +157,13 @@ pub fn enumerate_legal_actions_with_undo(
 
     // Normal turn.
     enumerate_normal_cards(state, player_idx, &mut actions);
+    enumerate_unit_activations(state, player_idx, &mut actions);
+    enumerate_skill_activations(state, player_idx, &mut actions);
     enumerate_moves(state, player_idx, &mut actions);
     enumerate_explores(state, player_idx, &mut actions);
     enumerate_challenges(state, player_idx, &mut actions);
     enumerate_site_actions(state, player_idx, &mut actions);
+    enumerate_unit_actions(state, player_idx, &mut actions);
     enumerate_turn_options(state, player_idx, undo, &mut actions);
 
     LegalActionSet {

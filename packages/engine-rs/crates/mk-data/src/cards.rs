@@ -6,14 +6,14 @@
 
 use mk_types::effect::{CardEffect, EffectCondition, ScalingFactor};
 use mk_types::enums::{
-    BasicManaColor, CardColor, CombatType, DeedCardType, DiscardForBonusFilter, Element, ManaColor,
-    Terrain,
+    BasicManaColor, CardColor, CombatType, DeedCardType, DiscardForBonusFilter, Element,
+    EnemyAbilityType, ManaColor, ResistanceElement, Terrain,
 };
 use mk_types::effect::EffectType;
-use mk_types::pending::EffectMode;
+use mk_types::pending::{EffectMode, SelectEnemyTemplate};
 use mk_types::modifier::{
-    CombatValueType, LearningDestination, ModifierDuration, ModifierEffect, ModifierScope,
-    RuleOverride, TerrainOrAll,
+    BurningShieldMode, CombatValueType, EnemyStat as ModEnemyStat, LearningDestination,
+    ModifierDuration, ModifierEffect, ModifierScope, RuleOverride, TerrainOrAll,
 };
 
 /// Static card definition.
@@ -34,6 +34,21 @@ pub fn get_card(id: &str) -> Option<CardDefinition> {
         .or_else(|| get_hero_card(id))
         .or_else(|| get_advanced_action_card(id))
         .or_else(|| get_spell_card(id))
+}
+
+/// Get the basic mana color of an action card (basic or advanced, NOT spells).
+/// Returns `None` for wounds, spells, or unknown cards.
+pub fn get_card_color(id: &str) -> Option<BasicManaColor> {
+    get_basic_action_card(id)
+        .or_else(|| get_hero_card(id))
+        .or_else(|| get_advanced_action_card(id))
+        .and_then(|c| c.color.to_basic_mana_color())
+}
+
+/// Get the basic mana color of a spell card.
+/// Returns `None` for non-spell cards.
+pub fn get_spell_color(id: &str) -> Option<BasicManaColor> {
+    get_spell_card(id).and_then(|c| c.color.to_basic_mana_color())
 }
 
 /// Look up a basic action card by ID.
@@ -881,6 +896,7 @@ fn counterattack() -> CardDefinition {
                 element: Element::Physical,
             }),
             bonus_per_count: Some(2),
+            maximum: None,
         },
         powered_effect: CardEffect::Scaling {
             factor: ScalingFactor::PerEnemyBlocked,
@@ -890,6 +906,7 @@ fn counterattack() -> CardDefinition {
                 element: Element::Physical,
             }),
             bonus_per_count: Some(3),
+            maximum: None,
         },
         sideways_value: 1,
     }
@@ -1090,11 +1107,13 @@ fn in_need() -> CardDefinition {
             factor: ScalingFactor::PerWoundTotal,
             base_effect: Box::new(CardEffect::GainInfluence { amount: 3 }),
             bonus_per_count: Some(1),
+            maximum: None,
         },
         powered_effect: CardEffect::Scaling {
             factor: ScalingFactor::PerWoundTotal,
             base_effect: Box::new(CardEffect::GainInfluence { amount: 5 }),
             bonus_per_count: Some(2),
+            maximum: None,
         },
         sideways_value: 1,
     }
@@ -1543,9 +1562,21 @@ fn ice_shield() -> CardDefinition {
             amount: 3,
             element: Element::Ice,
         },
-        // Powered: Block 3 ice + select enemy for armor -3 (needs SelectCombatEnemy)
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::SelectCombatEnemy,
+        powered_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainBlock {
+                    amount: 3,
+                    element: Element::Ice,
+                },
+                CardEffect::SelectCombatEnemy {
+                    template: SelectEnemyTemplate {
+                        exclude_resistance: Some(ResistanceElement::Ice),
+                        armor_change: -3,
+                        armor_minimum: 1,
+                        ..SelectEnemyTemplate::new()
+                    },
+                },
+            ],
         },
         sideways_value: 1,
     }
@@ -1828,15 +1859,24 @@ fn shield_bash() -> CardDefinition {
         color: CardColor::Blue,
         card_type: DeedCardType::AdvancedAction,
         powered_by: Some(BasicManaColor::Blue),
-        // Basic: Block 3 (Physical)
-        // Note: countsTwiceAgainstSwift is a modifier detail handled separately
+        // Basic: Block 3 (Physical). countsTwiceAgainstSwift handled in combat resolution.
         basic_effect: CardEffect::GainBlock {
             amount: 3,
             element: Element::Physical,
         },
-        // Powered: Compound(Block 5, ShieldBash modifier) — needs SelectCombatEnemy
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::ShieldBash,
+        // Powered: Block 5 + on successful block, excess block reduces enemy armor (min 1)
+        powered_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainBlock {
+                    amount: 5,
+                    element: Element::Physical,
+                },
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::ShieldBashArmorReduction,
+                    duration: ModifierDuration::Combat,
+                    scope: ModifierScope::SelfScope,
+                },
+            ],
         },
         sideways_value: 1,
     }
@@ -2257,11 +2297,32 @@ fn chilling_stare() -> CardDefinition {
         color: CardColor::Blue,
         card_type: DeedCardType::AdvancedAction,
         powered_by: Some(BasicManaColor::Blue), // or White
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::SelectCombatEnemy,
+        // Basic: Influence 3 OR select non-ice-resistant enemy → nullify all attack abilities
+        basic_effect: CardEffect::Choice {
+            options: vec![
+                CardEffect::GainInfluence { amount: 3 },
+                CardEffect::SelectCombatEnemy {
+                    template: SelectEnemyTemplate {
+                        exclude_resistance: Some(ResistanceElement::Ice),
+                        nullify_all_attack_abilities: true,
+                        ..SelectEnemyTemplate::new()
+                    },
+                },
+            ],
         },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::SelectCombatEnemy,
+        // Powered: Influence 5 OR select non-AI non-ice-resistant enemy → skip attack
+        powered_effect: CardEffect::Choice {
+            options: vec![
+                CardEffect::GainInfluence { amount: 5 },
+                CardEffect::SelectCombatEnemy {
+                    template: SelectEnemyTemplate {
+                        exclude_arcane_immune: true,
+                        exclude_resistance: Some(ResistanceElement::Ice),
+                        skip_attack: true,
+                        ..SelectEnemyTemplate::new()
+                    },
+                },
+            ],
         },
         sideways_value: 1,
     }
@@ -2381,11 +2442,54 @@ fn tremor() -> CardDefinition {
         color: CardColor::Red,
         card_type: DeedCardType::Spell,
         powered_by: Some(BasicManaColor::Red),
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::SelectCombatEnemy,
+        // Basic: one enemy −3 armor (min 1) OR all enemies −2 armor (min 1)
+        basic_effect: CardEffect::Choice {
+            options: vec![
+                CardEffect::SelectCombatEnemy {
+                    template: SelectEnemyTemplate {
+                        armor_change: -3,
+                        armor_minimum: 1,
+                        ..SelectEnemyTemplate::new()
+                    },
+                },
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::EnemyStat {
+                        stat: ModEnemyStat::Armor,
+                        amount: -2,
+                        minimum: 1,
+                        attack_index: None,
+                        per_resistance: false,
+                        fortified_amount: None,
+                    },
+                    duration: ModifierDuration::Combat,
+                    scope: ModifierScope::AllEnemies,
+                },
+            ],
         },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::SelectCombatEnemy,
+        // Powered: one enemy −3/−6 armor (min 1) OR all enemies −2/−4 armor (min 1)
+        powered_effect: CardEffect::Choice {
+            options: vec![
+                CardEffect::SelectCombatEnemy {
+                    template: SelectEnemyTemplate {
+                        armor_change: -3,
+                        armor_minimum: 1,
+                        fortified_armor_change: Some(-6),
+                        ..SelectEnemyTemplate::new()
+                    },
+                },
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::EnemyStat {
+                        stat: ModEnemyStat::Armor,
+                        amount: -2,
+                        minimum: 1,
+                        attack_index: None,
+                        per_resistance: false,
+                        fortified_amount: Some(-4),
+                    },
+                    duration: ModifierDuration::Combat,
+                    scope: ModifierScope::AllEnemies,
+                },
+            ],
         },
         sideways_value: 1,
     }
@@ -2444,11 +2548,39 @@ fn burning_shield() -> CardDefinition {
         color: CardColor::Red,
         card_type: DeedCardType::Spell,
         powered_by: Some(BasicManaColor::Red),
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::SelectCombatEnemy,
+        basic_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainBlock {
+                    amount: 4,
+                    element: Element::Fire,
+                },
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::BurningShieldActive {
+                        mode: BurningShieldMode::Attack,
+                        block_value: 4,
+                        attack_value: 4,
+                    },
+                    duration: ModifierDuration::Combat,
+                    scope: ModifierScope::SelfScope,
+                },
+            ],
         },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::SelectCombatEnemy,
+        powered_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainBlock {
+                    amount: 4,
+                    element: Element::Fire,
+                },
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::BurningShieldActive {
+                        mode: BurningShieldMode::Destroy,
+                        block_value: 4,
+                        attack_value: 0,
+                    },
+                    duration: ModifierDuration::Combat,
+                    scope: ModifierScope::SelfScope,
+                },
+            ],
         },
         sideways_value: 1,
     }
@@ -2509,11 +2641,26 @@ fn chill() -> CardDefinition {
         color: CardColor::Blue,
         card_type: DeedCardType::Spell,
         powered_by: Some(BasicManaColor::Blue),
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::SelectCombatEnemy,
+        // Basic: select non-AI non-ice-resistant enemy → skip attack + remove fire resistance
+        basic_effect: CardEffect::SelectCombatEnemy {
+            template: SelectEnemyTemplate {
+                exclude_arcane_immune: true,
+                exclude_resistance: Some(ResistanceElement::Ice),
+                skip_attack: true,
+                remove_fire_resistance: true,
+                ..SelectEnemyTemplate::new()
+            },
         },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::SelectCombatEnemy,
+        // Powered: select non-AI non-ice-resistant enemy → skip attack + −4 armor (min 1)
+        powered_effect: CardEffect::SelectCombatEnemy {
+            template: SelectEnemyTemplate {
+                exclude_arcane_immune: true,
+                exclude_resistance: Some(ResistanceElement::Ice),
+                skip_attack: true,
+                armor_change: -4,
+                armor_minimum: 1,
+                ..SelectEnemyTemplate::new()
+            },
         },
         sideways_value: 1,
     }
@@ -2594,11 +2741,35 @@ fn space_bending() -> CardDefinition {
         color: CardColor::Blue,
         card_type: DeedCardType::Spell,
         powered_by: Some(BasicManaColor::Blue),
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::GainMove,
+        basic_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::RuleOverride {
+                        rule: RuleOverride::SpaceBendingAdjacency,
+                    },
+                    duration: ModifierDuration::Turn,
+                    scope: ModifierScope::SelfScope,
+                },
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::RuleOverride {
+                        rule: RuleOverride::IgnoreRampagingProvoke,
+                    },
+                    duration: ModifierDuration::Turn,
+                    scope: ModifierScope::SelfScope,
+                },
+            ],
         },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::GainMove,
+        powered_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::RuleOverride {
+                        rule: RuleOverride::TimeBendingActive,
+                    },
+                    duration: ModifierDuration::Turn,
+                    scope: ModifierScope::SelfScope,
+                },
+                CardEffect::Noop,
+            ],
         },
         sideways_value: 1,
     }
@@ -2675,7 +2846,7 @@ fn underground_travel() -> CardDefinition {
                 CardEffect::GainMove { amount: 3 },
                 CardEffect::ApplyModifier {
                     effect: ModifierEffect::TerrainCost {
-                        terrain: TerrainOrAll::Specific(Terrain::Swamp),
+                        terrain: TerrainOrAll::All,
                         amount: 0,
                         minimum: 0,
                         replace_cost: Some(1),
@@ -2684,8 +2855,27 @@ fn underground_travel() -> CardDefinition {
                     scope: ModifierScope::SelfScope,
                 },
                 CardEffect::ApplyModifier {
+                    effect: ModifierEffect::TerrainProhibition {
+                        prohibited_terrains: vec![Terrain::Swamp, Terrain::Lake],
+                    },
+                    duration: ModifierDuration::Turn,
+                    scope: ModifierScope::SelfScope,
+                },
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::RuleOverride {
+                        rule: RuleOverride::IgnoreRampagingProvoke,
+                    },
+                    duration: ModifierDuration::Turn,
+                    scope: ModifierScope::SelfScope,
+                },
+            ],
+        },
+        powered_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainMove { amount: 3 },
+                CardEffect::ApplyModifier {
                     effect: ModifierEffect::TerrainCost {
-                        terrain: TerrainOrAll::Specific(Terrain::Lake),
+                        terrain: TerrainOrAll::All,
                         amount: 0,
                         minimum: 0,
                         replace_cost: Some(1),
@@ -2693,10 +2883,28 @@ fn underground_travel() -> CardDefinition {
                     duration: ModifierDuration::Turn,
                     scope: ModifierScope::SelfScope,
                 },
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::TerrainProhibition {
+                        prohibited_terrains: vec![Terrain::Swamp, Terrain::Lake],
+                    },
+                    duration: ModifierDuration::Turn,
+                    scope: ModifierScope::SelfScope,
+                },
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::RuleOverride {
+                        rule: RuleOverride::IgnoreRampagingProvoke,
+                    },
+                    duration: ModifierDuration::Turn,
+                    scope: ModifierScope::SelfScope,
+                },
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::RuleOverride {
+                        rule: RuleOverride::IgnoreFortification,
+                    },
+                    duration: ModifierDuration::Turn,
+                    scope: ModifierScope::SelfScope,
+                },
             ],
-        },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::GainMove,
         },
         sideways_value: 1,
     }
@@ -2710,12 +2918,8 @@ fn meditation() -> CardDefinition {
         color: CardColor::Green,
         card_type: DeedCardType::Spell,
         powered_by: Some(BasicManaColor::Green),
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::Decompose,
-        },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::Decompose,
-        },
+        basic_effect: CardEffect::Noop,
+        powered_effect: CardEffect::Noop,
         sideways_value: 1,
     }
 }
@@ -2730,17 +2934,25 @@ fn whirlwind() -> CardDefinition {
         color: CardColor::White,
         card_type: DeedCardType::Spell,
         powered_by: Some(BasicManaColor::White),
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::SelectCombatEnemy,
+        // Basic: select enemy → skip its attack
+        basic_effect: CardEffect::SelectCombatEnemy {
+            template: SelectEnemyTemplate {
+                skip_attack: true,
+                ..SelectEnemyTemplate::new()
+            },
         },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::SelectCombatEnemy,
+        // Powered: select enemy → defeat it outright
+        powered_effect: CardEffect::SelectCombatEnemy {
+            template: SelectEnemyTemplate {
+                defeat: true,
+                ..SelectEnemyTemplate::new()
+            },
         },
         sideways_value: 1,
     }
 }
 
-/// Expose: Enemies lose fortification
+/// Expose: Enemies lose fortification and resistances
 fn expose() -> CardDefinition {
     CardDefinition {
         id: "expose",
@@ -2748,11 +2960,49 @@ fn expose() -> CardDefinition {
         color: CardColor::White,
         card_type: DeedCardType::Spell,
         powered_by: Some(BasicManaColor::White),
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::SelectCombatEnemy,
+        // Basic: select one enemy → nullify fortification + remove resistances, then Ranged 2
+        basic_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::SelectCombatEnemy {
+                    template: SelectEnemyTemplate {
+                        nullify_fortified: true,
+                        remove_resistances: true,
+                        ..SelectEnemyTemplate::new()
+                    },
+                },
+                CardEffect::GainAttack {
+                    amount: 2,
+                    combat_type: CombatType::Ranged,
+                    element: Element::Physical,
+                },
+            ],
         },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::SelectCombatEnemy,
+        // Powered: ALL enemies lose fortification OR resistances, then Ranged 3
+        powered_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::Choice {
+                    options: vec![
+                        CardEffect::ApplyModifier {
+                            effect: ModifierEffect::AbilityNullifier {
+                                ability: Some(EnemyAbilityType::Fortified),
+                                ignore_arcane_immunity: false,
+                            },
+                            duration: ModifierDuration::Combat,
+                            scope: ModifierScope::AllEnemies,
+                        },
+                        CardEffect::ApplyModifier {
+                            effect: ModifierEffect::RemoveResistances,
+                            duration: ModifierDuration::Combat,
+                            scope: ModifierScope::AllEnemies,
+                        },
+                    ],
+                },
+                CardEffect::GainAttack {
+                    amount: 3,
+                    combat_type: CombatType::Ranged,
+                    element: Element::Physical,
+                },
+            ],
         },
         sideways_value: 1,
     }
@@ -2766,12 +3016,10 @@ fn cure() -> CardDefinition {
         color: CardColor::White,
         card_type: DeedCardType::Spell,
         powered_by: Some(BasicManaColor::White),
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::Cure,
-        },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::Cure,
-        },
+        // Basic (Cure): heal up to 2 wounds from hand, draw 1 card per wound healed
+        basic_effect: CardEffect::Cure { amount: 2 },
+        // Powered (Disease): set armor to 1 for all fully-blocked enemies
+        powered_effect: CardEffect::Disease,
         sideways_value: 1,
     }
 }
@@ -2812,7 +3060,40 @@ fn mind_read() -> CardDefinition {
     }
 }
 
-/// Wings of Wind: Flight movement
+/// Flight option helper: Move N + all terrain costs 1 + no provoke + no exploration.
+fn flight_option(move_amount: u32) -> CardEffect {
+    CardEffect::Compound {
+        effects: vec![
+            CardEffect::GainMove { amount: move_amount },
+            CardEffect::ApplyModifier {
+                effect: ModifierEffect::TerrainCost {
+                    terrain: TerrainOrAll::All,
+                    amount: 0,
+                    minimum: 0,
+                    replace_cost: Some(1),
+                },
+                duration: ModifierDuration::Turn,
+                scope: ModifierScope::SelfScope,
+            },
+            CardEffect::ApplyModifier {
+                effect: ModifierEffect::RuleOverride {
+                    rule: RuleOverride::IgnoreRampagingProvoke,
+                },
+                duration: ModifierDuration::Turn,
+                scope: ModifierScope::SelfScope,
+            },
+            CardEffect::ApplyModifier {
+                effect: ModifierEffect::RuleOverride {
+                    rule: RuleOverride::NoExploration,
+                },
+                duration: ModifierDuration::Turn,
+                scope: ModifierScope::SelfScope,
+            },
+        ],
+    }
+}
+
+/// Wings of Wind: Flight (choose 1-5 move) / Wings of Night (custom)
 fn wings_of_wind() -> CardDefinition {
     CardDefinition {
         id: "wings_of_wind",
@@ -2820,8 +3101,14 @@ fn wings_of_wind() -> CardDefinition {
         color: CardColor::White,
         card_type: DeedCardType::Spell,
         powered_by: Some(BasicManaColor::White),
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::WingsOfNight,
+        basic_effect: CardEffect::Choice {
+            options: vec![
+                flight_option(1),
+                flight_option(2),
+                flight_option(3),
+                flight_option(4),
+                flight_option(5),
+            ],
         },
         powered_effect: CardEffect::Other {
             effect_type: EffectType::WingsOfNight,
@@ -3073,7 +3360,7 @@ mod tests {
     fn counterattack_is_scaling() {
         let card = get_card("counterattack").unwrap();
         match &card.basic_effect {
-            CardEffect::Scaling { factor, base_effect, bonus_per_count } => {
+            CardEffect::Scaling { factor, base_effect, bonus_per_count, .. } => {
                 assert!(matches!(factor, ScalingFactor::PerEnemyBlocked));
                 assert!(matches!(**base_effect, CardEffect::GainAttack { amount: 2, .. }));
                 assert_eq!(*bonus_per_count, Some(2));
@@ -3081,7 +3368,7 @@ mod tests {
             _ => panic!("Expected Scaling"),
         }
         match &card.powered_effect {
-            CardEffect::Scaling { factor, base_effect, bonus_per_count } => {
+            CardEffect::Scaling { factor, base_effect, bonus_per_count, .. } => {
                 assert!(matches!(factor, ScalingFactor::PerEnemyBlocked));
                 assert!(matches!(**base_effect, CardEffect::GainAttack { amount: 4, .. }));
                 assert_eq!(*bonus_per_count, Some(3));
@@ -3140,7 +3427,7 @@ mod tests {
         let card = get_card("in_need").unwrap();
         assert_eq!(card.color, CardColor::Green);
         match &card.basic_effect {
-            CardEffect::Scaling { factor, base_effect, bonus_per_count } => {
+            CardEffect::Scaling { factor, base_effect, bonus_per_count, .. } => {
                 assert!(matches!(factor, ScalingFactor::PerWoundTotal));
                 assert!(matches!(**base_effect, CardEffect::GainInfluence { amount: 3 }));
                 assert_eq!(*bonus_per_count, Some(1));
@@ -3445,8 +3732,15 @@ mod tests {
             }
             _ => panic!("Expected GainBlock"),
         }
-        // Powered is placeholder (SelectCombatEnemy)
-        assert!(matches!(card.powered_effect, CardEffect::Other { .. }));
+        // Powered: Block 3 Ice + SelectCombatEnemy (armor -3, min 1, exclude ice resistant)
+        match &card.powered_effect {
+            CardEffect::Compound { effects } => {
+                assert_eq!(effects.len(), 2);
+                assert!(matches!(&effects[0], CardEffect::GainBlock { amount: 3, element: Element::Ice }));
+                assert!(matches!(&effects[1], CardEffect::SelectCombatEnemy { .. }));
+            }
+            _ => panic!("Expected Compound"),
+        }
     }
 
     #[test]
@@ -3878,8 +4172,17 @@ mod tests {
             }
             _ => panic!("Expected GainBlock"),
         }
-        // Powered is placeholder (ShieldBash)
-        assert!(matches!(card.powered_effect, CardEffect::Other { .. }));
+        // Powered: Block 5 + ShieldBashArmorReduction modifier
+        match &card.powered_effect {
+            CardEffect::Compound { effects } => {
+                assert_eq!(effects.len(), 2);
+                assert!(matches!(&effects[0], CardEffect::GainBlock { amount: 5, element: Element::Physical }));
+                assert!(matches!(&effects[1], CardEffect::ApplyModifier {
+                    effect: ModifierEffect::ShieldBashArmorReduction, ..
+                }));
+            }
+            _ => panic!("Expected Compound"),
+        }
     }
 
     // =========================================================================

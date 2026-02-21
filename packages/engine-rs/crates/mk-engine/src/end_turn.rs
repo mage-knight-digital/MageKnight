@@ -10,11 +10,13 @@
 //! - `packages/core/src/engine/commands/endRound/timeTransition.ts`
 
 use arrayvec::ArrayVec;
-use mk_data::levels::{get_level_from_fame, get_level_stats, get_levels_crossed};
+use mk_data::levels::{get_level_from_fame, get_level_stats, is_skill_level_up};
 use mk_data::tactics::get_tactics_for_time;
 use mk_types::enums::*;
 use mk_types::ids::*;
-use mk_types::pending::{ActivePending, MAX_DEEP_MINE_COLORS};
+use mk_types::pending::{
+    ActivePending, DeferredPending, PendingLevelUpReward, MAX_DEEP_MINE_COLORS, MAX_DRAWN_SKILLS,
+};
 use mk_types::state::*;
 
 use crate::mana;
@@ -34,6 +36,8 @@ pub enum EndTurnResult {
     RoundEnded { new_round: u32 },
     /// Turn ended, game is over.
     GameEnded,
+    /// Level-up rewards pending — player must resolve before card draw + turn advance.
+    AwaitingLevelUpRewards,
 }
 
 /// Errors from end turn.
@@ -102,6 +106,15 @@ pub fn end_turn(state: &mut GameState, player_idx: usize) -> Result<EndTurnResul
     // Step 7: Process level-ups
     process_level_ups(state, player_idx);
 
+    // Check if level-up rewards need resolution before card draw.
+    // If so, skip card flow and turn advance — those happen after rewards are resolved.
+    if promote_level_up_reward(state, player_idx) {
+        // Reset turn state, return dice, expire modifiers — but no card draw or advance
+        reset_player_turn(&mut state.players[player_idx]);
+        cleanup_end_turn_mana(state, player_idx);
+        return Ok(EndTurnResult::AwaitingLevelUpRewards);
+    }
+
     // TODO: Step 8 — Mountain Lore hand limit bonus
 
     // Step 9: Card flow — play area → discard, draw up to hand limit
@@ -110,22 +123,8 @@ pub fn end_turn(state: &mut GameState, player_idx: usize) -> Result<EndTurnResul
     // Step 10: Reset player turn state
     reset_player_turn(&mut state.players[player_idx]);
 
-    // TODO: Step 11 — Source Opening crystal
-
-    // Step 11a: Mana Steal cleanup — return stolen die
-    if let Some(stolen_die) = state.players[player_idx].tactic_state.stored_mana_die.take() {
-        mana::reroll_die(
-            &mut state.source,
-            &stolen_die.die_id,
-            state.time_of_day,
-            &mut state.rng,
-        );
-    }
-
-    // Step 12: Return mana dice
-    return_player_dice(state, player_idx);
-
-    // TODO: Step 13 — Expire turn-duration modifiers
+    // Mana/dice/modifier cleanup
+    cleanup_end_turn_mana(state, player_idx);
 
     // Step 14-16: Determine next player or round end
     let result = advance_turn(state, player_idx);
@@ -137,25 +136,33 @@ pub fn end_turn(state: &mut GameState, player_idx: usize) -> Result<EndTurnResul
 // Level-up processing
 // =============================================================================
 
+/// Public wrapper for process_level_ups (used by movement.rs on explore fame).
+pub fn process_level_ups_pub(state: &mut GameState, player_idx: usize) {
+    process_level_ups(state, player_idx);
+}
+
+/// Public wrapper for process_card_flow (used by action_pipeline after level-up rewards).
+pub fn process_card_flow_pub(state: &mut GameState, player_idx: usize) {
+    process_card_flow(state, player_idx);
+}
+
+/// Public wrapper for advance_turn (used by action_pipeline after level-up rewards).
+pub fn advance_turn_pub(state: &mut GameState, player_idx: usize) -> EndTurnResult {
+    advance_turn(state, player_idx)
+}
+
 /// Process any level-ups earned by the player based on current fame.
 ///
 /// Updates level, armor, hand_limit, and command_tokens from the level stats table.
-/// Even-level skill choices are deferred (TODO: pending level-up rewards).
+/// For even levels (2, 4, 6, 8, 10), draws hero skills and queues level-up rewards
+/// as deferred pending entries.
 fn process_level_ups(state: &mut GameState, player_idx: usize) {
-    let player = &state.players[player_idx];
-    let old_fame_level = player.level;
-    let new_level = get_level_from_fame(player.fame);
+    let old_level = state.players[player_idx].level;
+    let new_level = get_level_from_fame(state.players[player_idx].fame);
 
-    if new_level <= old_fame_level {
+    if new_level <= old_level {
         return;
     }
-
-    let crossed = get_levels_crossed(
-        // Compute old fame threshold that gave old_fame_level
-        // Actually just pass current fame with old level info
-        0, // doesn't matter — we already know the levels crossed
-        player.fame,
-    );
 
     // Use the final level's stats
     let stats = get_level_stats(new_level);
@@ -165,9 +172,100 @@ fn process_level_ups(state: &mut GameState, player_idx: usize) {
     player.hand_limit = stats.hand_limit;
     player.command_tokens = stats.command_slots;
 
-    // TODO: For even levels (2, 4, 6, 8, 10), queue skill choice to pendingLevelUpRewards
-    // For now, we just update stats. Skill selection requires the pending state system.
-    let _crossed = crossed; // suppress unused warning
+    // Queue skill choices for each even level crossed
+    let mut rewards: Vec<PendingLevelUpReward> = Vec::new();
+    for level in (old_level + 1)..=new_level {
+        if is_skill_level_up(level) {
+            // Shuffle remaining_hero_skills, draw min(2, len)
+            let player = &mut state.players[player_idx];
+            state.rng.shuffle(&mut player.remaining_hero_skills);
+            let draw_count = player.remaining_hero_skills.len().min(MAX_DRAWN_SKILLS);
+            let mut drawn: ArrayVec<SkillId, MAX_DRAWN_SKILLS> = ArrayVec::new();
+            for _ in 0..draw_count {
+                drawn.push(player.remaining_hero_skills.pop().unwrap());
+            }
+            rewards.push(PendingLevelUpReward {
+                level: level as u8,
+                drawn_skills: drawn,
+            });
+        }
+    }
+
+    // Add as deferred pending — promoted to active when end_turn flow processes them
+    if !rewards.is_empty() {
+        state.players[player_idx]
+            .pending
+            .deferred
+            .push(DeferredPending::LevelUpRewards(rewards));
+    }
+}
+
+/// Promote the first deferred level-up reward to active pending.
+/// Returns true if a reward was promoted (caller should defer card draw).
+fn promote_level_up_reward(state: &mut GameState, player_idx: usize) -> bool {
+    let player = &mut state.players[player_idx];
+
+    // Find the LevelUpRewards entry in deferred
+    let deferred_idx = player
+        .pending
+        .deferred
+        .iter()
+        .position(|d| matches!(d, DeferredPending::LevelUpRewards(_)));
+
+    let Some(idx) = deferred_idx else {
+        return false;
+    };
+
+    // Extract the rewards vec
+    let DeferredPending::LevelUpRewards(ref mut rewards) =
+        player.pending.deferred[idx]
+    else {
+        return false;
+    };
+
+    if rewards.is_empty() {
+        player.pending.deferred.remove(idx);
+        return false;
+    }
+
+    // Pop the first reward and set as active pending
+    let reward = rewards.remove(0);
+    if rewards.is_empty() {
+        player.pending.deferred.remove(idx);
+    }
+
+    player.pending.active = Some(ActivePending::LevelUpReward(reward));
+    true
+}
+
+/// Public wrapper for promote_level_up_reward (used by action_pipeline after final reward).
+pub fn promote_level_up_reward_pub(state: &mut GameState, player_idx: usize) -> bool {
+    promote_level_up_reward(state, player_idx)
+}
+
+/// Mana steal cleanup, return dice, and expire turn-duration modifiers.
+/// Extracted to avoid duplication between normal end-turn and level-up-reward path.
+fn cleanup_end_turn_mana(state: &mut GameState, player_idx: usize) {
+    // Mana Steal cleanup — return stolen die
+    if let Some(stolen_die) = state.players[player_idx]
+        .tactic_state
+        .stored_mana_die
+        .take()
+    {
+        mana::reroll_die(
+            &mut state.source,
+            &stolen_die.die_id,
+            state.time_of_day,
+            &mut state.rng,
+        );
+    }
+
+    // Return mana dice
+    return_player_dice(state, player_idx);
+
+    // Expire turn-duration modifiers
+    let player_id = state.players[player_idx].id.clone();
+    crate::action_pipeline::expire_modifiers_turn_end(&mut state.active_modifiers, &player_id);
 }
 
 // =============================================================================
@@ -283,14 +381,24 @@ fn advance_turn(state: &mut GameState, current_player_idx: usize) -> EndTurnResu
 
     if should_end_round {
         end_round(state);
+        if state.game_ended {
+            return EndTurnResult::GameEnded;
+        }
         return EndTurnResult::RoundEnded {
             new_round: state.round,
         };
     }
 
-    // Check for game end
-    if state.game_ended {
-        return EndTurnResult::GameEnded;
+    // Final turns countdown (scenario end was triggered, e.g. city revealed)
+    if state.scenario_end_triggered {
+        if let Some(ref mut remaining) = state.final_turns_remaining {
+            *remaining = remaining.saturating_sub(1);
+            if *remaining == 0 {
+                state.game_ended = true;
+                state.phase = GamePhase::End;
+                return EndTurnResult::GameEnded;
+            }
+        }
     }
 
     // Extra turn check (The Right Moment tactic)
@@ -301,25 +409,56 @@ fn advance_turn(state: &mut GameState, current_player_idx: usize) -> EndTurnResu
         };
     }
 
-    // Advance to next player
-    let next_idx = ((current_player_idx as u32 + 1) % state.turn_order.len() as u32) as usize;
-    state.current_player_index = next_idx as u32;
+    // Advance through turn_order, auto-executing dummy player turns
+    let turn_order_len = state.turn_order.len();
+    let mut next_turn_idx = (state.current_player_index as usize + 1) % turn_order_len;
 
-    // TODO: Skip dummy player (auto-execute their turn)
+    // Auto-execute dummy player turns (skip over them)
+    while crate::dummy_player::is_dummy_player(state.turn_order[next_turn_idx].as_str()) {
+        if let Some(ref mut dummy) = state.dummy_player {
+            if crate::dummy_player::execute_dummy_turn(dummy).is_none() {
+                // Dummy deck exhausted → announce end of round
+                state.end_of_round_announced_by =
+                    Some(PlayerId::from(crate::dummy_player::DUMMY_PLAYER_ID));
+                state.players_with_final_turn =
+                    state.players.iter().map(|p| p.id.clone()).collect();
+            }
+        }
+        next_turn_idx = (next_turn_idx + 1) % turn_order_len;
+    }
+
+    state.current_player_index = next_turn_idx as u32;
+
+    // Find the player index in state.players for this turn_order entry
+    let next_player_id = &state.turn_order[next_turn_idx];
+    let next_player_idx = state
+        .players
+        .iter()
+        .position(|p| &p.id == next_player_id)
+        .expect("Turn order entry not found in players");
+
+    // Expire UntilNextTurn modifiers for the next player (at their turn start)
+    {
+        let player_id = state.players[next_player_idx].id.clone();
+        crate::action_pipeline::expire_modifiers_turn_start(
+            &mut state.active_modifiers,
+            &player_id,
+        );
+    }
 
     // Setup next player: Magical Glade mana
-    apply_magical_glade_mana(state, next_idx);
+    apply_magical_glade_mana(state, next_player_idx);
 
     // Setup next player: Plunder decision at unconquered inhabited sites
-    apply_plunder_decision(state, next_idx);
+    apply_plunder_decision(state, next_player_idx);
 
     // Sparing Power before-turn setup: if next player has sparing_power and hasn't flipped
     {
-        let next_player = &state.players[next_idx];
+        let next_player = &state.players[next_player_idx];
         if next_player.selected_tactic.as_ref().map(|t| t.as_str()) == Some("sparing_power")
             && !next_player.flags.contains(PlayerFlags::TACTIC_FLIPPED)
         {
-            let player = &mut state.players[next_idx];
+            let player = &mut state.players[next_player_idx];
             player.flags.insert(PlayerFlags::BEFORE_TURN_TACTIC_PENDING);
             player.pending.active = Some(mk_types::pending::ActivePending::TacticDecision(
                 mk_types::pending::PendingTacticDecision::SparingPower,
@@ -328,7 +467,7 @@ fn advance_turn(state: &mut GameState, current_player_idx: usize) -> EndTurnResu
     }
 
     EndTurnResult::NextPlayer {
-        next_player_idx: next_idx,
+        next_player_idx: next_player_idx,
     }
 }
 
@@ -374,7 +513,25 @@ fn check_round_end(state: &mut GameState, current_player_idx: usize) -> bool {
 ///
 /// Matches TS `createEndRoundCommand()` in `endRound/index.ts`.
 fn end_round(state: &mut GameState) {
-    // TODO: Game end check (scenario total rounds reached)
+    // Game end check: scenario total rounds reached.
+    // state.round is 1-based and hasn't been incremented yet,
+    // so round == total_rounds means we just finished the last round.
+    if state.round >= state.scenario_config.total_rounds {
+        state.game_ended = true;
+        state.phase = GamePhase::End;
+        return;
+    }
+
+    // 0. Capture used tactics before player reset clears them
+    let mut used_tactics_this_round = Vec::new();
+    if let Some(ref t) = state.dummy_player_tactic {
+        used_tactics_this_round.push(t.clone());
+    }
+    for p in &state.players {
+        if let Some(ref t) = p.selected_tactic {
+            used_tactics_this_round.push(t.clone());
+        }
+    }
 
     // 1. Toggle day/night
     state.time_of_day = match state.time_of_day {
@@ -388,7 +545,14 @@ fn end_round(state: &mut GameState) {
     let player_count = state.players.len() as u32;
     state.source = create_mana_source(player_count, state.time_of_day, &mut state.rng);
 
-    // TODO: 3. Dummy offer gains (solo mode)
+    // 3. Dummy offer gains (solo mode — before offer refresh)
+    if let Some(ref mut dummy) = state.dummy_player {
+        crate::dummy_player::process_dummy_offer_gains(
+            dummy,
+            &mut state.offers.advanced_actions,
+            &state.offers.spells,
+        );
+    }
 
     // 4. Offer refresh
     mk_data::offers::refresh_offer(
@@ -399,10 +563,22 @@ fn end_round(state: &mut GameState) {
         &mut state.offers.spells,
         &mut state.decks.spell_deck,
     );
+    // Unit offer: clear and redraw (player_count + 2)
+    let unit_offer_size = state.players.len() + 2;
+    mk_data::unit_offers::refresh_unit_offer(
+        &mut state.offers.units,
+        &mut state.decks.unit_deck,
+        unit_offer_size,
+    );
 
     // 5. Player round reset (reshuffle + draw)
     for player_idx in 0..state.players.len() {
         reset_player_round(state, player_idx);
+    }
+
+    // 5a. Dummy player reset for new round
+    if let Some(ref mut dummy) = state.dummy_player {
+        crate::dummy_player::reset_dummy_for_new_round(dummy, &mut state.rng);
     }
 
     // 6. Increment round
@@ -416,15 +592,34 @@ fn end_round(state: &mut GameState) {
     let new_time = state.time_of_day;
     let tactic_ids = get_tactics_for_time(new_time);
     state.available_tactics = tactic_ids.iter().map(|&s| TacticId::from(s)).collect();
-    // TODO: Remove used tactics in solo mode (TACTIC_REMOVAL_ALL_USED)
+
+    // 8a. Remove used tactics based on scenario config
+    match state.scenario_config.tactic_removal_mode {
+        TacticRemovalMode::AllUsed => {
+            state.removed_tactics.extend(used_tactics_this_round);
+            state
+                .available_tactics
+                .retain(|t| !state.removed_tactics.contains(t));
+        }
+        TacticRemovalMode::None | TacticRemovalMode::VoteOne => {
+            // None: tactics recycled each round
+            // VoteOne: cooperative mode, not yet implemented
+        }
+    }
+    state.dummy_player_tactic = None;
 
     state.round_phase = RoundPhase::TacticsSelection;
-    // TODO: Determine tactic selection order from previous round's tactic numbers
-    // For now, keep current turn order
-    state.tactics_selection_order = state.turn_order.clone();
+    // Tactic selection order: humans only (dummy auto-selects in apply_select_tactic)
+    state.tactics_selection_order = state
+        .turn_order
+        .iter()
+        .filter(|pid| !crate::dummy_player::is_dummy_player(pid.as_str()))
+        .cloned()
+        .collect();
     state.current_tactic_selector = state.tactics_selection_order.first().cloned();
 
-    // TODO: Expire round-duration modifiers
+    // Expire round-duration modifiers
+    crate::action_pipeline::expire_modifiers_round_end(&mut state.active_modifiers);
 }
 
 /// Reset a single player for a new round: reshuffle all cards, draw up to hand limit.
@@ -1507,5 +1702,145 @@ mod tests {
             ),
             "No plunder at conquered Village"
         );
+    }
+
+    // =========================================================================
+    // Modifier expiration
+    // =========================================================================
+
+    fn make_modifier(
+        duration: mk_types::modifier::ModifierDuration,
+        player_id: &str,
+    ) -> mk_types::modifier::ActiveModifier {
+        use mk_types::modifier::*;
+        ActiveModifier {
+            id: ModifierId::from(format!("mod_{:?}_{}", duration, player_id)),
+            effect: ModifierEffect::TerrainCost {
+                terrain: TerrainOrAll::All,
+                amount: -1,
+                minimum: 0,
+                replace_cost: None,
+            },
+            duration,
+            scope: ModifierScope::SelfScope,
+            source: ModifierSource::Unit {
+                unit_index: 0,
+                player_id: PlayerId::from(player_id),
+            },
+            created_at_round: 0,
+            created_by_player_id: PlayerId::from(player_id),
+        }
+    }
+
+    #[test]
+    fn turn_end_expires_turn_modifiers_for_player() {
+        use mk_types::modifier::ModifierDuration;
+
+        let mut state = setup_playing_game(vec!["march"]);
+        let player_id = state.players[0].id.clone();
+
+        // Add modifiers of various durations
+        state.active_modifiers.push(make_modifier(ModifierDuration::Turn, player_id.as_str()));
+        state.active_modifiers.push(make_modifier(ModifierDuration::Combat, player_id.as_str()));
+        state.active_modifiers.push(make_modifier(ModifierDuration::Round, player_id.as_str()));
+        state.active_modifiers.push(make_modifier(ModifierDuration::Permanent, player_id.as_str()));
+
+        assert_eq!(state.active_modifiers.len(), 4);
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        // Turn modifier should be expired, others remain
+        assert_eq!(state.active_modifiers.len(), 3, "Turn modifier should be expired");
+        assert!(state.active_modifiers.iter().all(|m| m.duration != ModifierDuration::Turn));
+    }
+
+    #[test]
+    fn round_end_expires_round_modifiers() {
+        use mk_types::modifier::ModifierDuration;
+
+        let mut state = setup_playing_game(vec!["march"]);
+        let player_id = state.players[0].id.clone();
+
+        state.active_modifiers.push(make_modifier(ModifierDuration::Round, player_id.as_str()));
+        state.active_modifiers.push(make_modifier(ModifierDuration::Permanent, player_id.as_str()));
+
+        assert_eq!(state.active_modifiers.len(), 2);
+
+        // Make hand+deck empty to trigger round end
+        play_card(&mut state, 0, 0, false).unwrap();
+        state.players[0].hand.clear();
+        state.players[0].deck.clear();
+        let result = end_turn(&mut state, 0).unwrap();
+        assert!(matches!(result, EndTurnResult::RoundEnded { .. }));
+
+        // Round modifier should be expired, permanent remains
+        assert_eq!(state.active_modifiers.len(), 1, "Round modifier should be expired");
+        assert_eq!(state.active_modifiers[0].duration, ModifierDuration::Permanent);
+    }
+
+    #[test]
+    fn combat_end_expires_combat_modifiers() {
+        use mk_types::modifier::ModifierDuration;
+
+        let mut state = setup_playing_game(vec!["march"]);
+        let player_id = state.players[0].id.clone();
+
+        // Add combat and turn modifiers
+        state.active_modifiers.push(make_modifier(ModifierDuration::Combat, player_id.as_str()));
+        state.active_modifiers.push(make_modifier(ModifierDuration::Turn, player_id.as_str()));
+
+        // Enter and immediately end combat
+        let tokens = vec![mk_types::ids::EnemyTokenId::from("prowlers_1")];
+        crate::combat::execute_enter_combat(
+            &mut state, 0, &tokens, false, None, Default::default(),
+        ).unwrap();
+
+        // Mark enemy defeated and end attack phase to trigger end_combat
+        state.combat.as_mut().unwrap().enemies[0].is_defeated = true;
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+
+        // Execute EndCombatPhase to trigger end_combat
+        let mut undo = crate::undo::UndoStack::new();
+        let legal = crate::legal_actions::enumerate_legal_actions_with_undo(&state, 0, &undo);
+        let end_phase = legal.actions.iter().find(|a| matches!(a, mk_types::legal_action::LegalAction::EndCombatPhase)).unwrap();
+        let _ = crate::action_pipeline::apply_legal_action(&mut state, &mut undo, 0, end_phase, legal.epoch);
+
+        // Combat modifier should be expired, turn modifier should remain
+        assert_eq!(state.active_modifiers.len(), 1, "Combat modifier should be expired");
+        assert_eq!(state.active_modifiers[0].duration, ModifierDuration::Turn);
+    }
+
+    #[test]
+    fn combat_end_resets_unit_resistance() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].units.clear();
+        state.players[0].units.push(mk_types::state::PlayerUnit {
+            instance_id: mk_types::ids::UnitInstanceId::from("unit_test"),
+            unit_id: mk_types::ids::UnitId::from("peasants"),
+            level: 1,
+            state: UnitState::Ready,
+            wounded: false,
+            used_resistance_this_combat: true,  // Used during combat
+            used_ability_indices: Vec::new(),
+            mana_token: None,
+        });
+
+        // Enter and immediately end combat
+        let tokens = vec![mk_types::ids::EnemyTokenId::from("prowlers_1")];
+        crate::combat::execute_enter_combat(
+            &mut state, 0, &tokens, false, None, Default::default(),
+        ).unwrap();
+
+        state.combat.as_mut().unwrap().enemies[0].is_defeated = true;
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+
+        let mut undo = crate::undo::UndoStack::new();
+        let legal = crate::legal_actions::enumerate_legal_actions_with_undo(&state, 0, &undo);
+        let end_phase = legal.actions.iter().find(|a| matches!(a, mk_types::legal_action::LegalAction::EndCombatPhase)).unwrap();
+        let _ = crate::action_pipeline::apply_legal_action(&mut state, &mut undo, 0, end_phase, legal.epoch);
+
+        assert!(!state.players[0].units[0].used_resistance_this_combat,
+            "used_resistance_this_combat should reset after combat");
     }
 }

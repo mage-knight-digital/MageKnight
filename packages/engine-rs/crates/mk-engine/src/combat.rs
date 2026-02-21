@@ -117,6 +117,7 @@ pub fn execute_enter_combat(
         declared_attack_targets: None,
         declared_block_target: None,
         declared_block_attack_index: None,
+        has_paralyze_damage_to_hero: false,
     };
 
     // Clear healing points (rulebook: unspent healing disappears when entering combat)

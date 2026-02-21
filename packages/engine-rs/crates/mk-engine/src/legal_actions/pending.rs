@@ -1,6 +1,6 @@
 use mk_types::enums::{DeedCardType, DiscardForBonusFilter, GladeWoundChoice};
 use mk_types::legal_action::{LegalAction, TacticDecisionData};
-use mk_types::pending::{ActivePending, PendingTacticDecision};
+use mk_types::pending::{ActivePending, PendingLevelUpReward, PendingTacticDecision};
 
 use crate::effect_queue::{is_resolvable, WOUND_CARD_ID};
 use crate::undo::UndoStack;
@@ -81,6 +81,21 @@ pub(super) fn enumerate_pending(
                     choice: GladeWoundChoice::Discard,
                 });
             }
+        }
+        ActivePending::UnitAbilityChoice { options, .. } => {
+            // One ResolveChoice per option (move/influence or attack/block).
+            for i in 0..options.len() {
+                actions.push(LegalAction::ResolveChoice { choice_index: i });
+            }
+        }
+        ActivePending::SelectCombatEnemy { eligible_enemy_ids, .. } => {
+            // One ResolveChoice per eligible enemy.
+            for i in 0..eligible_enemy_ids.len() {
+                actions.push(LegalAction::ResolveChoice { choice_index: i });
+            }
+        }
+        ActivePending::LevelUpReward(reward) => {
+            enumerate_level_up_reward(reward, state, actions);
         }
         // Non-choice pending states are not wired into LegalAction yet.
         // Panic instead of silently returning no actions to avoid deadlocked turns.
@@ -165,6 +180,33 @@ fn enumerate_tactic_decision(
     }
 }
 
+fn enumerate_level_up_reward(
+    reward: &PendingLevelUpReward,
+    state: &mk_types::state::GameState,
+    actions: &mut Vec<LegalAction>,
+) {
+    // Option A: Choose from drawn hero skills
+    for (i, _skill) in reward.drawn_skills.iter().enumerate() {
+        for aa in &state.offers.advanced_actions {
+            actions.push(LegalAction::ChooseLevelUpReward {
+                skill_index: i,
+                from_common_pool: false,
+                advanced_action_id: aa.clone(),
+            });
+        }
+    }
+    // Option B: Choose from common skill pool
+    for (i, _skill) in state.offers.common_skills.iter().enumerate() {
+        for aa in &state.offers.advanced_actions {
+            actions.push(LegalAction::ChooseLevelUpReward {
+                skill_index: i,
+                from_common_pool: true,
+                advanced_action_id: aa.clone(),
+            });
+        }
+    }
+}
+
 fn count_eligible_for_discard(
     hand: &[mk_types::ids::CardId],
     filter: DiscardForBonusFilter,
@@ -200,5 +242,7 @@ fn active_pending_kind(pending: &ActivePending) -> &'static str {
         ActivePending::TerrainCostReduction(_) => "terrain_cost_reduction",
         ActivePending::CrystalJoyReclaim(_) => "crystal_joy_reclaim",
         ActivePending::SteadyTempoDeckPlacement(_) => "steady_tempo_deck_placement",
+        ActivePending::UnitAbilityChoice { .. } => "unit_ability_choice",
+        ActivePending::SelectCombatEnemy { .. } => "select_combat_enemy",
     }
 }

@@ -8,7 +8,7 @@ use mk_data::enemies::{attack_count, get_enemy};
 use mk_data::enemy_piles::{discard_enemy_token, draw_enemy_token, enemy_id_from_token};
 use mk_data::tactics::tactic_turn_order;
 use mk_types::enums::*;
-use mk_types::ids::{CardId, CombatInstanceId, EnemyId, EnemyTokenId};
+use mk_types::ids::{CardId, CombatInstanceId, EnemyId, EnemyTokenId, PlayerId, SkillId};
 use mk_types::legal_action::{LegalAction, TacticDecisionData};
 use mk_types::pending::{ActivePending, PendingTacticDecision};
 use mk_types::state::*;
@@ -214,6 +214,60 @@ pub fn apply_legal_action(
             apply_resolve_glade_wound(state, player_idx, choice)?
         }
 
+        LegalAction::RecruitUnit {
+            unit_id,
+            offer_index: _,
+            influence_cost,
+        } => {
+            // Reversible: save snapshot
+            undo_stack.save(state);
+            apply_recruit_unit(state, player_idx, unit_id, *influence_cost)?
+        }
+
+        LegalAction::ActivateUnit {
+            unit_instance_id,
+            ability_index,
+        } => {
+            // Reversible: save snapshot
+            undo_stack.save(state);
+            apply_activate_unit(state, player_idx, unit_instance_id, *ability_index)?
+        }
+
+        LegalAction::AssignDamageToHero {
+            enemy_index,
+            attack_index,
+        } => {
+            // Reversible: save snapshot
+            undo_stack.save(state);
+            apply_assign_damage_to_hero(state, player_idx, *enemy_index, *attack_index)?
+        }
+
+        LegalAction::AssignDamageToUnit {
+            enemy_index,
+            attack_index,
+            unit_instance_id,
+        } => {
+            // Reversible: save snapshot
+            undo_stack.save(state);
+            apply_assign_damage_to_unit(state, player_idx, *enemy_index, *attack_index, unit_instance_id)?
+        }
+
+        LegalAction::ChooseLevelUpReward {
+            skill_index,
+            from_common_pool,
+            advanced_action_id,
+        } => {
+            // Irreversible: affects offers and skill pools
+            undo_stack.set_checkpoint();
+            apply_choose_level_up_reward(
+                state,
+                player_idx,
+                *skill_index,
+                *from_common_pool,
+                advanced_action_id,
+            )?
+        }
+
         LegalAction::EndTurn => {
             // Irreversible: set checkpoint
             undo_stack.set_checkpoint();
@@ -226,16 +280,22 @@ pub fn apply_legal_action(
             apply_declare_rest(state, player_idx)
         }
 
-        LegalAction::CompleteRest => {
-            // Irreversible: set checkpoint (Phase 2 simplified)
-            undo_stack.set_checkpoint();
-            apply_complete_rest(state, player_idx)
+        LegalAction::CompleteRest { discard_hand_index } => {
+            // Reversible: save snapshot (no RNG involved).
+            undo_stack.save(state);
+            apply_complete_rest(state, player_idx, *discard_hand_index)?
         }
 
         LegalAction::EndCombatPhase => {
             // Irreversible: set checkpoint
             undo_stack.set_checkpoint();
             apply_end_combat_phase(state, player_idx)?
+        }
+
+        LegalAction::UseSkill { skill_id } => {
+            // Reversible: save snapshot
+            undo_stack.save(state);
+            apply_use_skill(state, player_idx, skill_id)?
         }
 
         LegalAction::Undo => apply_undo(state, undo_stack)?,
@@ -262,21 +322,58 @@ fn apply_select_tactic(
     // Remove tactic from available list
     state.available_tactics.retain(|t| t != tactic_id);
 
+    // Auto-select dummy tactic if in solo mode
+    if state.dummy_player.is_some()
+        && state.scenario_config.dummy_tactic_order == DummyTacticOrder::AfterHumans
+        && !state.available_tactics.is_empty()
+    {
+        let idx = state
+            .rng
+            .random_index(state.available_tactics.len())
+            .expect("Available tactics should not be empty");
+        let dummy_tactic = state.available_tactics.remove(idx);
+        state.dummy_player_tactic = Some(dummy_tactic);
+    }
+
     // Advance to PlayerTurns phase (solo: single selector)
     state.round_phase = RoundPhase::PlayerTurns;
     state.current_tactic_selector = None;
 
     // Sort turn order by tactic number (lower goes first)
+    // Dummy player uses its auto-selected tactic for sorting
     state.turn_order.sort_by_key(|pid| {
-        state
-            .players
-            .iter()
-            .find(|p| p.id == *pid)
-            .and_then(|p| p.selected_tactic.as_ref())
-            .and_then(|t| tactic_turn_order(t.as_str()))
-            .unwrap_or(99)
+        if let Some(p) = state.players.iter().find(|p| p.id == *pid) {
+            p.selected_tactic
+                .as_ref()
+                .and_then(|t| tactic_turn_order(t.as_str()))
+                .unwrap_or(99)
+        } else if crate::dummy_player::is_dummy_player(pid.as_str()) {
+            state
+                .dummy_player_tactic
+                .as_ref()
+                .and_then(|t| tactic_turn_order(t.as_str()))
+                .unwrap_or(99)
+        } else {
+            99
+        }
     });
     state.current_player_index = 0;
+
+    // If dummy is first in turn order, auto-execute their first turn
+    if crate::dummy_player::is_dummy_player(
+        state.turn_order[state.current_player_index as usize].as_str(),
+    ) {
+        if let Some(ref mut dummy) = state.dummy_player {
+            if crate::dummy_player::execute_dummy_turn(dummy).is_none() {
+                state.end_of_round_announced_by =
+                    Some(PlayerId::from(crate::dummy_player::DUMMY_PLAYER_ID));
+                state.players_with_final_turn =
+                    state.players.iter().map(|p| p.id.clone()).collect();
+            }
+        }
+        state.current_player_index =
+            (state.current_player_index + 1) % state.turn_order.len() as u32;
+    }
 
     // On-pick tactic effects
     let tid = tactic_id.as_str();
@@ -669,6 +766,20 @@ fn apply_resolve_choice(
         });
     }
 
+    // Check if this is a UnitAbilityChoice
+    if let Some(ActivePending::UnitAbilityChoice { .. }) =
+        state.players[player_idx].pending.active
+    {
+        return apply_resolve_unit_ability_choice(state, player_idx, choice_index);
+    }
+
+    // Check if this is a SelectCombatEnemy
+    if let Some(ActivePending::SelectCombatEnemy { .. }) =
+        state.players[player_idx].pending.active
+    {
+        return apply_resolve_select_enemy(state, player_idx, choice_index);
+    }
+
     effect_queue::resolve_pending_choice(state, player_idx, choice_index).map_err(|e| {
         ApplyError::InternalError(format!("resolve_pending_choice failed: {:?}", e))
     })?;
@@ -708,6 +819,95 @@ fn apply_resolve_discard_for_bonus(
     })
 }
 
+fn apply_choose_level_up_reward(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_index: usize,
+    from_common_pool: bool,
+    advanced_action_id: &CardId,
+) -> Result<ApplyResult, ApplyError> {
+    // 1. Extract the active PendingLevelUpReward
+    let reward = match state.players[player_idx].pending.active.take() {
+        Some(mk_types::pending::ActivePending::LevelUpReward(r)) => r,
+        other => {
+            state.players[player_idx].pending.active = other;
+            return Err(ApplyError::InternalError(
+                "ChooseLevelUpReward: no active LevelUpReward pending".into(),
+            ));
+        }
+    };
+
+    // 2. Skill selection
+    if from_common_pool {
+        // Pick from common pool — add BOTH drawn skills back to common pool
+        if skill_index >= state.offers.common_skills.len() {
+            return Err(ApplyError::InternalError(format!(
+                "ChooseLevelUpReward: common pool index {} out of range (len {})",
+                skill_index,
+                state.offers.common_skills.len()
+            )));
+        }
+        let chosen_skill = state.offers.common_skills.remove(skill_index);
+        state.players[player_idx].skills.push(chosen_skill);
+        // Return both drawn skills to common pool
+        for skill in reward.drawn_skills.iter() {
+            state.offers.common_skills.push(skill.clone());
+        }
+    } else {
+        // Pick from drawn pair — add the OTHER skill to common pool
+        if skill_index >= reward.drawn_skills.len() {
+            return Err(ApplyError::InternalError(format!(
+                "ChooseLevelUpReward: drawn skill index {} out of range (len {})",
+                skill_index,
+                reward.drawn_skills.len()
+            )));
+        }
+        let chosen_skill = reward.drawn_skills[skill_index].clone();
+        state.players[player_idx].skills.push(chosen_skill);
+        // Add unchosen drawn skills to common pool
+        for (i, skill) in reward.drawn_skills.iter().enumerate() {
+            if i != skill_index {
+                state.offers.common_skills.push(skill.clone());
+            }
+        }
+    }
+
+    // 3. AA selection — remove from offer, push to front of player's deck, replenish
+    if let Some(offer_idx) = state
+        .offers
+        .advanced_actions
+        .iter()
+        .position(|a| a == advanced_action_id)
+    {
+        let aa = state.offers.advanced_actions.remove(offer_idx);
+        state.players[player_idx].deck.insert(0, aa);
+        // Replenish offer from deck
+        if !state.decks.advanced_action_deck.is_empty() {
+            let new_card = state.decks.advanced_action_deck.remove(0);
+            state.offers.advanced_actions.insert(0, new_card);
+        }
+    }
+
+    // 4. Check for more rewards — promote next from deferred
+    if end_turn::promote_level_up_reward_pub(state, player_idx) {
+        // More rewards to resolve
+        return Ok(ApplyResult {
+            needs_reenumeration: true,
+            game_ended: false,
+        });
+    }
+
+    // 5. No more rewards — process card flow and advance turn
+    end_turn::process_card_flow_pub(state, player_idx);
+    let turn_result = end_turn::advance_turn_pub(state, player_idx);
+
+    let game_ended = matches!(turn_result, end_turn::EndTurnResult::GameEnded);
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended,
+    })
+}
+
 fn apply_end_turn(state: &mut GameState, player_idx: usize) -> Result<ApplyResult, ApplyError> {
     match end_turn::end_turn(state, player_idx) {
         Ok(end_turn::EndTurnResult::GameEnded) => Ok(ApplyResult {
@@ -726,25 +926,77 @@ fn apply_end_turn(state: &mut GameState, player_idx: usize) -> Result<ApplyResul
 }
 
 fn apply_declare_rest(state: &mut GameState, player_idx: usize) -> ApplyResult {
-    state.players[player_idx]
-        .flags
-        .insert(PlayerFlags::IS_RESTING);
+    let player = &mut state.players[player_idx];
+    player.flags.insert(PlayerFlags::IS_RESTING);
+    player.flags.insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
     ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
     }
 }
 
-fn apply_complete_rest(state: &mut GameState, player_idx: usize) -> ApplyResult {
-    // Phase 2 simplified: just set the HAS_RESTED flag and clear IS_RESTING.
-    // Full game would involve discarding cards from hand first.
+fn apply_complete_rest(
+    state: &mut GameState,
+    player_idx: usize,
+    discard_hand_index: Option<usize>,
+) -> Result<ApplyResult, ApplyError> {
+    let player = &mut state.players[player_idx];
+
+    if let Some(idx) = discard_hand_index {
+        if idx >= player.hand.len() {
+            return Err(ApplyError::InternalError(format!(
+                "CompleteRest discard index {} out of range (hand len {})",
+                idx,
+                player.hand.len()
+            )));
+        }
+
+        let chosen_card = player.hand[idx].clone();
+        let is_wound = chosen_card.as_str() == effect_queue::WOUND_CARD_ID;
+        let has_non_wound = player
+            .hand
+            .iter()
+            .any(|c| c.as_str() != effect_queue::WOUND_CARD_ID);
+
+        if has_non_wound {
+            // Standard rest: discard chosen non-wound card + all wounds from hand.
+            if is_wound {
+                return Err(ApplyError::InternalError(
+                    "Standard rest: must discard a non-wound card".into(),
+                ));
+            }
+            // Remove chosen card first (by index), then drain all wounds.
+            player.hand.remove(idx);
+            player.discard.push(chosen_card);
+            // Remove all wounds from hand → discard.
+            let mut i = 0;
+            while i < player.hand.len() {
+                if player.hand[i].as_str() == effect_queue::WOUND_CARD_ID {
+                    let wound = player.hand.remove(i);
+                    player.discard.push(wound);
+                } else {
+                    i += 1;
+                }
+            }
+        } else {
+            // Slow recovery: hand is all wounds — discard only the chosen wound.
+            player.hand.remove(idx);
+            player.discard.push(chosen_card);
+        }
+    }
+    // else: empty hand — no discard needed.
+
     let player = &mut state.players[player_idx];
     player.flags.remove(PlayerFlags::IS_RESTING);
     player.flags.insert(PlayerFlags::HAS_RESTED_THIS_TURN);
-    ApplyResult {
+    player
+        .flags
+        .insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
+
+    Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
-    }
+    })
 }
 
 fn apply_declare_block(
@@ -1220,8 +1472,47 @@ fn apply_end_combat_phase(
             resolve_summons(state)?;
         }
         CombatPhase::Block => {
-            // Auto-process damage from unblocked attacks
-            apply_auto_damage(state, player_idx)?;
+            // Check DefeatIfBlocked: enemies with the modifier whose ALL attacks are blocked → defeated
+            {
+                let combat = state.combat.as_ref().unwrap();
+                let mut defeat_indices: Vec<usize> = Vec::new();
+                for (idx, enemy) in combat.enemies.iter().enumerate() {
+                    if enemy.is_defeated {
+                        continue;
+                    }
+                    if !combat_resolution::has_defeat_if_blocked(
+                        &state.active_modifiers,
+                        enemy.instance_id.as_str(),
+                    ) {
+                        continue;
+                    }
+                    // Check if ALL attacks are blocked
+                    let all_blocked = enemy
+                        .attacks_blocked
+                        .iter()
+                        .enumerate()
+                        .all(|(i, blocked)| {
+                            *blocked || enemy.attacks_cancelled.get(i).copied().unwrap_or(false)
+                        });
+                    if all_blocked && !enemy.attacks_blocked.is_empty() {
+                        defeat_indices.push(idx);
+                    }
+                }
+
+                // Award fame and mark defeated
+                for idx in &defeat_indices {
+                    let enemy = &state.combat.as_ref().unwrap().enemies[*idx];
+                    let enemy_id_str = enemy.enemy_id.as_str().to_string();
+                    let is_summoned = enemy.summoned_by_instance_id.is_some();
+                    if let Some(def) = get_enemy(&enemy_id_str) {
+                        if !is_summoned {
+                            state.players[player_idx].fame += def.fame;
+                            state.combat.as_mut().unwrap().fame_gained += def.fame;
+                        }
+                    }
+                    state.combat.as_mut().unwrap().enemies[*idx].is_defeated = true;
+                }
+            }
 
             // Clear block accumulator
             let accumulator = &mut state.players[player_idx].combat_accumulator;
@@ -1231,9 +1522,39 @@ fn apply_end_combat_phase(
             accumulator.assigned_block = 0;
             accumulator.assigned_block_elements = ElementalValues::default();
 
-            state.combat.as_mut().unwrap().phase = CombatPhase::AssignDamage;
+            // Check if there are units available and unblocked damage exists
+            // If units present, enter interactive AssignDamage phase.
+            // Otherwise, auto-assign all to hero (existing behavior).
+            let has_eligible_units = state.combat.as_ref().unwrap().units_allowed
+                && state.players[player_idx]
+                    .units
+                    .iter()
+                    .any(|u| u.state == UnitState::Ready || u.state == UnitState::Spent);
+
+            if has_eligible_units && has_unassigned_damage(state) {
+                state.combat.as_mut().unwrap().phase = CombatPhase::AssignDamage;
+            } else {
+                // Auto-assign all damage to hero (no units to choose)
+                apply_auto_damage(state, player_idx)?;
+                state.combat.as_mut().unwrap().phase = CombatPhase::AssignDamage;
+            }
         }
         CombatPhase::AssignDamage => {
+            // Apply paralyze effect: if any unblocked Paralyze attack dealt wounds to hero,
+            // discard all non-wound cards from hand
+            let combat = state.combat.as_ref().unwrap();
+            if combat.has_paralyze_damage_to_hero {
+                let player = &mut state.players[player_idx];
+                let non_wounds: Vec<CardId> = player
+                    .hand
+                    .iter()
+                    .filter(|c| c.as_str() != "wound")
+                    .cloned()
+                    .collect();
+                player.hand.retain(|c| c.as_str() == "wound");
+                player.discard.extend(non_wounds);
+            }
+
             // Remove undefeated summoned enemies (they don't persist to Attack phase)
             let combat = state.combat.as_mut().unwrap();
             combat.enemies.retain(|e| {
@@ -1245,7 +1566,6 @@ fn apply_end_combat_phase(
                 enemy.is_summoner_hidden = false;
             }
 
-            // Placeholder for unit damage assignment (Phase 3)
             combat.phase = CombatPhase::Attack;
         }
         CombatPhase::Attack => {
@@ -1293,6 +1613,8 @@ fn apply_auto_damage(
 
     let mut damage_entries: Vec<DamageInfo> = Vec::new();
 
+    let active_modifiers = &state.active_modifiers;
+
     for (enemy_idx, enemy) in combat.enemies.iter().enumerate() {
         if enemy.is_defeated {
             continue;
@@ -1303,12 +1625,21 @@ fn apply_auto_damage(
             continue;
         }
 
+        // Check if enemy's attacks are skipped (e.g., cancel attack, freeze)
+        if combat_resolution::is_enemy_attacks_skipped(active_modifiers, enemy.instance_id.as_str()) {
+            continue;
+        }
+
         let def = match get_enemy(enemy.enemy_id.as_str()) {
             Some(d) => d,
             None => continue,
         };
 
         let num_attacks = attack_count(def);
+
+        // Get attack modifier for this enemy (from weaken, taunt, etc.)
+        let (atk_change, atk_minimum) =
+            combat_resolution::get_enemy_attack_modifier(active_modifiers, enemy.instance_id.as_str());
 
         for attack_index in 0..num_attacks {
             // Skip blocked, cancelled, or already-assigned attacks
@@ -1331,7 +1662,16 @@ fn apply_auto_damage(
 
             let (base_damage, _element, _is_swift) =
                 combat_resolution::get_enemy_attack_info(def, attack_index);
-            let reduced_damage = base_damage.saturating_sub(cumbersome_reduction);
+
+            // Apply attack modifier (weaken, taunt, etc.)
+            let modified_damage = if atk_change != 0 {
+                let d = (base_damage as i32 + atk_change).max(atk_minimum as i32) as u32;
+                d
+            } else {
+                base_damage
+            };
+
+            let reduced_damage = modified_damage.saturating_sub(cumbersome_reduction);
 
             // If cumbersome reduces to 0, skip (considered blocked)
             if reduced_damage == 0 && base_damage > 0 {
@@ -1484,6 +1824,357 @@ fn apply_auto_damage(
     Ok(())
 }
 
+/// Check if there are any unassigned, unblocked, uncancelled attacks with damage > 0.
+fn has_unassigned_damage(state: &GameState) -> bool {
+    let combat = match state.combat.as_ref() {
+        Some(c) => c,
+        None => return false,
+    };
+    for enemy in &combat.enemies {
+        if enemy.is_defeated || enemy.is_summoner_hidden {
+            continue;
+        }
+        if combat_resolution::is_enemy_attacks_skipped(
+            &state.active_modifiers,
+            enemy.instance_id.as_str(),
+        ) {
+            continue;
+        }
+        let def = match get_enemy(enemy.enemy_id.as_str()) {
+            Some(d) => d,
+            None => continue,
+        };
+        let num_attacks = attack_count(def);
+        for i in 0..num_attacks {
+            if enemy.attacks_blocked.get(i).copied().unwrap_or(false) {
+                continue;
+            }
+            if enemy.attacks_cancelled.get(i).copied().unwrap_or(false) {
+                continue;
+            }
+            if enemy.attacks_damage_assigned.get(i).copied().unwrap_or(true) {
+                continue;
+            }
+            let (dmg, _, _) = combat_resolution::get_enemy_attack_info(def, i);
+            if dmg > 0 {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Assign a specific enemy attack's damage to the hero.
+fn apply_assign_damage_to_hero(
+    state: &mut GameState,
+    player_idx: usize,
+    enemy_index: usize,
+    attack_index: usize,
+) -> Result<ApplyResult, ApplyError> {
+    let combat = state.combat.as_ref().ok_or_else(|| {
+        ApplyError::InternalError("AssignDamageToHero: no combat".into())
+    })?;
+
+    let enemy = combat.enemies.get(enemy_index).ok_or_else(|| {
+        ApplyError::InternalError(format!("AssignDamageToHero: enemy_index {} out of range", enemy_index))
+    })?;
+
+    let def = get_enemy(enemy.enemy_id.as_str()).ok_or_else(|| {
+        ApplyError::InternalError(format!("AssignDamageToHero: unknown enemy '{}'", enemy.enemy_id.as_str()))
+    })?;
+
+    let hero_armor = state.players[player_idx].armor;
+
+    // Get attack modifier for this enemy
+    let (atk_change, atk_minimum) =
+        combat_resolution::get_enemy_attack_modifier(&state.active_modifiers, enemy.instance_id.as_str());
+
+    // Apply cumbersome reduction
+    let cumbersome_reduction = combat
+        .cumbersome_reductions
+        .get(enemy.instance_id.as_str())
+        .copied()
+        .unwrap_or(0);
+
+    let (base_damage, _element, _is_swift) =
+        combat_resolution::get_enemy_attack_info(def, attack_index);
+
+    let modified_damage = if atk_change != 0 {
+        (base_damage as i32 + atk_change).max(atk_minimum as i32) as u32
+    } else {
+        base_damage
+    };
+
+    let reduced_damage = modified_damage.saturating_sub(cumbersome_reduction);
+
+    let (wounds, is_poison) =
+        combat_resolution::calculate_hero_wounds_with_damage(def, attack_index, hero_armor, reduced_damage);
+
+    let is_paralyze = combat_resolution::has_ability(def, EnemyAbilityType::Paralyze);
+
+    // Apply wounds to hero
+    let player = &mut state.players[player_idx];
+    for _ in 0..wounds {
+        player.hand.push(CardId::from("wound"));
+    }
+    if is_poison {
+        for _ in 0..wounds {
+            player.discard.push(CardId::from("wound"));
+        }
+    }
+
+    player.wounds_received_this_turn.hand += wounds;
+    if is_poison {
+        player.wounds_received_this_turn.discard += wounds;
+    }
+
+    // Update combat state
+    let combat = state.combat.as_mut().unwrap();
+    combat.wounds_this_combat += wounds + if is_poison { wounds } else { 0 };
+    if wounds > 0 {
+        combat.wounds_added_to_hand_this_combat = true;
+    }
+
+    // Update vampiric armor bonus
+    if wounds > 0 {
+        for enemy in &combat.enemies {
+            if enemy.is_defeated {
+                continue;
+            }
+            let edef = match get_enemy(enemy.enemy_id.as_str()) {
+                Some(d) => d,
+                None => continue,
+            };
+            if combat_resolution::has_ability(edef, EnemyAbilityType::Vampiric) {
+                let instance_id = enemy.instance_id.as_str().to_string();
+                *combat.vampiric_armor_bonus.entry(instance_id).or_insert(0) += wounds;
+            }
+        }
+    }
+
+    // Mark attack as assigned
+    combat.enemies[enemy_index].attacks_damage_assigned[attack_index] = true;
+    combat.enemies[enemy_index].damage_assigned = true;
+
+    // Track paralyze for end of assignment
+    if is_paralyze && wounds > 0 {
+        combat.has_paralyze_damage_to_hero = true;
+    }
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+/// Assign a specific enemy attack's damage to a unit.
+fn apply_assign_damage_to_unit(
+    state: &mut GameState,
+    player_idx: usize,
+    enemy_index: usize,
+    attack_index: usize,
+    unit_instance_id: &mk_types::ids::UnitInstanceId,
+) -> Result<ApplyResult, ApplyError> {
+    let combat = state.combat.as_ref().ok_or_else(|| {
+        ApplyError::InternalError("AssignDamageToUnit: no combat".into())
+    })?;
+
+    let enemy = combat.enemies.get(enemy_index).ok_or_else(|| {
+        ApplyError::InternalError(format!("AssignDamageToUnit: enemy_index {} out of range", enemy_index))
+    })?;
+
+    let def = get_enemy(enemy.enemy_id.as_str()).ok_or_else(|| {
+        ApplyError::InternalError(format!("AssignDamageToUnit: unknown enemy '{}'", enemy.enemy_id.as_str()))
+    })?;
+
+    // Get attack modifier for this enemy
+    let (atk_change, atk_minimum) =
+        combat_resolution::get_enemy_attack_modifier(&state.active_modifiers, enemy.instance_id.as_str());
+
+    // Apply cumbersome reduction
+    let cumbersome_reduction = combat
+        .cumbersome_reductions
+        .get(enemy.instance_id.as_str())
+        .copied()
+        .unwrap_or(0);
+
+    let (base_damage, attack_element, _is_swift) =
+        combat_resolution::get_enemy_attack_info(def, attack_index);
+
+    let modified_damage = if atk_change != 0 {
+        (base_damage as i32 + atk_change).max(atk_minimum as i32) as u32
+    } else {
+        base_damage
+    };
+
+    let reduced_damage = modified_damage.saturating_sub(cumbersome_reduction);
+
+    let is_poison = combat_resolution::has_ability(def, EnemyAbilityType::Poison);
+    let is_paralyze = combat_resolution::has_ability(def, EnemyAbilityType::Paralyze);
+    let is_brutal = combat_resolution::has_ability(def, EnemyAbilityType::Brutal);
+    let effective_damage = if is_brutal { reduced_damage * 2 } else { reduced_damage };
+
+    // Find the unit
+    let unit_idx = state.players[player_idx]
+        .units
+        .iter()
+        .position(|u| u.instance_id == *unit_instance_id)
+        .ok_or_else(|| {
+            ApplyError::InternalError(format!(
+                "AssignDamageToUnit: unit '{}' not found",
+                unit_instance_id.as_str()
+            ))
+        })?;
+
+    let unit = &state.players[player_idx].units[unit_idx];
+    let unit_id = unit.unit_id.clone();
+    let _unit_def = mk_data::units::get_unit(unit_id.as_str()).ok_or_else(|| {
+        ApplyError::InternalError(format!("AssignDamageToUnit: unknown unit def '{}'", unit_id.as_str()))
+    })?;
+
+    // Collect unit's resistances: base from definition + granted by modifiers
+    let unit_resistances: Vec<ResistanceElement> = {
+        let mut resistances = Vec::new();
+        // Check for GrantResistances modifiers (e.g., from Altem Guardians)
+        for m in &state.active_modifiers {
+            if let mk_types::modifier::ModifierEffect::GrantResistances { resistances: granted } = &m.effect {
+                let scope_matches = matches!(&m.scope, mk_types::modifier::ModifierScope::AllUnits)
+                    || matches!(&m.scope, mk_types::modifier::ModifierScope::SelfScope);
+                if scope_matches {
+                    for r in granted {
+                        if !resistances.contains(r) {
+                            resistances.push(*r);
+                        }
+                    }
+                }
+            }
+        }
+        resistances
+    };
+
+    let damage_result = combat_resolution::calculate_unit_damage(
+        effective_damage,
+        attack_element,
+        is_poison,
+        is_paralyze,
+        unit.level,
+        unit.wounded,
+        unit.used_resistance_this_combat,
+        &unit_resistances,
+    );
+
+    // Apply result to unit
+    if damage_result.unit_destroyed {
+        state.players[player_idx].units.remove(unit_idx);
+    } else {
+        let unit = &mut state.players[player_idx].units[unit_idx];
+        if damage_result.unit_wounded {
+            unit.wounded = true;
+        }
+        if damage_result.resistance_used {
+            unit.used_resistance_this_combat = true;
+        }
+    }
+
+    // Mark attack as assigned
+    let combat = state.combat.as_mut().unwrap();
+    combat.enemies[enemy_index].attacks_damage_assigned[attack_index] = true;
+    combat.enemies[enemy_index].damage_assigned = true;
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+// =============================================================================
+// Skill activation
+// =============================================================================
+
+fn apply_use_skill(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_data::skills::{get_skill, is_motivation_skill, SkillUsageType};
+
+    let def = get_skill(skill_id.as_str()).ok_or_else(|| {
+        ApplyError::InternalError(format!("Unknown skill: {}", skill_id.as_str()))
+    })?;
+
+    let effect = def.effect.ok_or_else(|| {
+        ApplyError::InternalError(format!("Skill {} has no effect", skill_id.as_str()))
+    })?;
+
+    // Mark cooldown
+    let player = &mut state.players[player_idx];
+    match def.usage_type {
+        SkillUsageType::OncePerTurn => {
+            player
+                .skill_cooldowns
+                .used_this_turn
+                .push(skill_id.clone());
+        }
+        SkillUsageType::OncePerRound => {
+            player
+                .skill_cooldowns
+                .used_this_round
+                .push(skill_id.clone());
+        }
+        _ => {}
+    }
+
+    // Motivation cross-hero cooldown: mark all motivation skill IDs as used this round
+    // so no other player (or this player) can use any motivation until round end.
+    if def.is_motivation {
+        // The skill itself is already marked above. The cross-player check happens
+        // in enumeration by scanning all players' used_this_round for motivation skills.
+        // No extra action needed here.
+    }
+
+    // Create effect queue and resolve
+    let mut queue = effect_queue::EffectQueue::new();
+    queue.push(effect, None);
+    let drain_result = queue.drain(state, player_idx);
+
+    match drain_result {
+        effect_queue::DrainResult::Complete => {}
+        effect_queue::DrainResult::NeedsChoice {
+            options,
+            continuation,
+            resolution,
+        } => {
+            let cont_entries: Vec<mk_types::pending::ContinuationEntry> = continuation
+                .into_iter()
+                .map(|qe| mk_types::pending::ContinuationEntry {
+                    effect: qe.effect,
+                    source_card_id: qe.source_card_id,
+                })
+                .collect();
+            state.players[player_idx].pending.active =
+                Some(ActivePending::Choice(mk_types::pending::PendingChoice {
+                    card_id: None,
+                    skill_id: Some(skill_id.clone()),
+                    unit_instance_id: None,
+                    options,
+                    continuation: cont_entries,
+                    movement_bonus_applied: false,
+                    resolution,
+                }));
+        }
+        effect_queue::DrainResult::PendingSet => {
+            // A custom pending was set directly (e.g., SelectCombatEnemy).
+        }
+    }
+
+    // Note: skills do NOT set HAS_TAKEN_ACTION_THIS_TURN or PLAYED_CARD_FROM_HAND_THIS_TURN
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
 /// End combat: remove defeated enemies from map hex, discard tokens, clean up state.
 fn end_combat(state: &mut GameState, player_idx: usize) {
     if let Some(ref combat) = state.combat {
@@ -1525,10 +2216,23 @@ fn end_combat(state: &mut GameState, player_idx: usize) {
         }
     }
 
-    // Conquest marking: if all enemies defeated and hex has an unconquered site
+    // Conquest marking: if all required-for-conquest enemies defeated and hex has an unconquered site.
+    // Rampaging enemies provoked during an assault have is_required_for_conquest=false,
+    // so they don't need to be defeated for the site to be conquered.
     if let Some(ref combat) = state.combat {
+        let all_required_defeated = combat
+            .enemies
+            .iter()
+            .filter(|e| e.is_required_for_conquest)
+            .all(|e| e.is_defeated);
+        let has_any_required = combat
+            .enemies
+            .iter()
+            .any(|e| e.is_required_for_conquest);
         let all_defeated = combat.enemies.iter().all(|e| e.is_defeated);
-        if all_defeated {
+        // Conquest if: (1) all required enemies defeated (when there are required enemies), OR
+        // (2) all enemies defeated (fallback for non-assault combats with no required markers)
+        if (has_any_required && all_required_defeated) || (!has_any_required && all_defeated) {
             if let Some(hex_coord) = combat.combat_hex_coord {
                 if let Some(hex) = state.map.hexes.get_mut(&hex_coord.key()) {
                     if let Some(ref mut site) = hex.site {
@@ -1544,12 +2248,952 @@ fn end_combat(state: &mut GameState, player_idx: usize) {
         }
     }
 
+    // Expire combat-duration modifiers
+    expire_modifiers_combat(&mut state.active_modifiers);
+
     // Clear combat state
     state.combat = None;
     let player = &mut state.players[player_idx];
     player.combat_accumulator = Default::default();
     player.flags.insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
     player.flags.insert(PlayerFlags::HAS_COMBATTED_THIS_TURN);
+
+    // Reset unit combat-specific state
+    for unit in &mut player.units {
+        unit.used_resistance_this_combat = false;
+    }
+
+    // Clear combat-scoped skill cooldowns
+    player.skill_cooldowns.used_this_combat.clear();
+}
+
+// =============================================================================
+// Modifier expiration
+// =============================================================================
+
+/// Expire all modifiers with `Combat` duration.
+fn expire_modifiers_combat(modifiers: &mut Vec<mk_types::modifier::ActiveModifier>) {
+    modifiers.retain(|m| m.duration != mk_types::modifier::ModifierDuration::Combat);
+}
+
+/// Expire `Turn` duration modifiers created by the given player.
+pub fn expire_modifiers_turn_end(modifiers: &mut Vec<mk_types::modifier::ActiveModifier>, player_id: &mk_types::ids::PlayerId) {
+    modifiers.retain(|m| {
+        !(m.duration == mk_types::modifier::ModifierDuration::Turn
+            && m.created_by_player_id == *player_id)
+    });
+}
+
+/// Expire `UntilNextTurn` modifiers created by the given player (at their turn start).
+pub fn expire_modifiers_turn_start(modifiers: &mut Vec<mk_types::modifier::ActiveModifier>, player_id: &mk_types::ids::PlayerId) {
+    modifiers.retain(|m| {
+        !(m.duration == mk_types::modifier::ModifierDuration::UntilNextTurn
+            && m.created_by_player_id == *player_id)
+    });
+}
+
+/// Expire all modifiers with `Round` duration.
+pub fn expire_modifiers_round_end(modifiers: &mut Vec<mk_types::modifier::ActiveModifier>) {
+    modifiers.retain(|m| m.duration != mk_types::modifier::ModifierDuration::Round);
+}
+
+// =============================================================================
+// Unit recruitment
+// =============================================================================
+
+fn apply_recruit_unit(
+    state: &mut GameState,
+    player_idx: usize,
+    unit_id: &mk_types::ids::UnitId,
+    influence_cost: u32,
+) -> Result<ApplyResult, ApplyError> {
+    let player = &mut state.players[player_idx];
+
+    if player.influence_points < influence_cost {
+        return Err(ApplyError::InternalError(
+            "RecruitUnit: insufficient influence".into(),
+        ));
+    }
+    player.influence_points -= influence_cost;
+
+    let instance_id =
+        mk_types::ids::UnitInstanceId::from(format!("unit_{}", state.next_instance_counter));
+    state.next_instance_counter += 1;
+
+    let level = mk_data::units::get_unit(unit_id.as_str())
+        .map(|u| u.level)
+        .unwrap_or(1);
+
+    let unit = PlayerUnit {
+        instance_id,
+        unit_id: unit_id.clone(),
+        level,
+        state: UnitState::Ready,
+        wounded: false,
+        used_resistance_this_combat: false,
+        used_ability_indices: Vec::new(),
+        mana_token: None,
+    };
+
+    // Push unit — ArrayVec panics if over capacity, but enumeration
+    // already checked command_slots so this should always fit.
+    state.players[player_idx].units.push(unit);
+    state.players[player_idx]
+        .units_recruited_this_interaction
+        .push(unit_id.clone());
+    state.players[player_idx]
+        .flags
+        .insert(PlayerFlags::HAS_RECRUITED_UNIT_THIS_TURN);
+    state.players[player_idx]
+        .flags
+        .insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+
+    mk_data::unit_offers::take_from_unit_offer(&mut state.offers.units, unit_id.as_str());
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+fn consume_mana_for_unit(
+    state: &mut GameState,
+    player_idx: usize,
+    color: BasicManaColor,
+) -> Result<(), ApplyError> {
+    let target_mana = ManaColor::from(color);
+    let player = &mut state.players[player_idx];
+
+    // 1. Try matching-color mana token
+    if let Some(idx) = player.pure_mana.iter().position(|t| t.color == target_mana) {
+        player.pure_mana.remove(idx);
+        return Ok(());
+    }
+
+    // 2. Try gold mana token (wild)
+    if let Some(idx) = player
+        .pure_mana
+        .iter()
+        .position(|t| t.color == ManaColor::Gold)
+    {
+        player.pure_mana.remove(idx);
+        return Ok(());
+    }
+
+    // 3. Try matching-color crystal
+    let crystal = match color {
+        BasicManaColor::Red => &mut player.crystals.red,
+        BasicManaColor::Blue => &mut player.crystals.blue,
+        BasicManaColor::Green => &mut player.crystals.green,
+        BasicManaColor::White => &mut player.crystals.white,
+    };
+    if *crystal > 0 {
+        *crystal -= 1;
+        return Ok(());
+    }
+
+    Err(ApplyError::InternalError(format!(
+        "ActivateUnit: cannot afford mana cost {:?}",
+        color
+    )))
+}
+
+fn apply_activate_unit(
+    state: &mut GameState,
+    player_idx: usize,
+    unit_instance_id: &mk_types::ids::UnitInstanceId,
+    ability_index: usize,
+) -> Result<ApplyResult, ApplyError> {
+    // Find the unit
+    let unit_idx = state.players[player_idx]
+        .units
+        .iter()
+        .position(|u| u.instance_id == *unit_instance_id)
+        .ok_or_else(|| {
+            ApplyError::InternalError(format!(
+                "ActivateUnit: unit '{}' not found",
+                unit_instance_id.as_str()
+            ))
+        })?;
+
+    let unit_id = state.players[player_idx].units[unit_idx].unit_id.clone();
+    let unit_def = mk_data::units::get_unit(unit_id.as_str()).ok_or_else(|| {
+        ApplyError::InternalError(format!("ActivateUnit: unknown unit def '{}'", unit_id.as_str()))
+    })?;
+
+    if ability_index >= unit_def.abilities.len() {
+        return Err(ApplyError::InternalError(format!(
+            "ActivateUnit: ability_index {} out of range (unit '{}' has {} abilities)",
+            ability_index,
+            unit_id.as_str(),
+            unit_def.abilities.len()
+        )));
+    }
+
+    let slot = &unit_def.abilities[ability_index];
+
+    // Consume mana if needed
+    if let Some(color) = slot.mana_cost {
+        consume_mana_for_unit(state, player_idx, color)?;
+    }
+
+    // Apply the ability effect
+    use mk_data::units::UnitAbility;
+    match slot.ability {
+        UnitAbility::Attack { value, element } => {
+            let acc = &mut state.players[player_idx].combat_accumulator.attack;
+            acc.normal += value;
+            add_to_elemental(&mut acc.normal_elements, element, value);
+        }
+        UnitAbility::Block { value, element } => {
+            let acc = &mut state.players[player_idx].combat_accumulator;
+            acc.block += value;
+            add_to_elemental(&mut acc.block_elements, element, value);
+        }
+        UnitAbility::RangedAttack { value, element } => {
+            let acc = &mut state.players[player_idx].combat_accumulator.attack;
+            acc.ranged += value;
+            add_to_elemental(&mut acc.ranged_elements, element, value);
+        }
+        UnitAbility::SiegeAttack { value, element } => {
+            let acc = &mut state.players[player_idx].combat_accumulator.attack;
+            acc.siege += value;
+            add_to_elemental(&mut acc.siege_elements, element, value);
+        }
+        UnitAbility::Move { value } => {
+            state.players[player_idx].move_points += value;
+        }
+        UnitAbility::Influence { value } => {
+            state.players[player_idx].influence_points += value;
+        }
+        UnitAbility::Heal { value } => {
+            let player = &mut state.players[player_idx];
+            let wound_count = player
+                .hand
+                .iter()
+                .filter(|c| c.as_str() == "wound")
+                .count() as u32;
+            let to_heal = value.min(wound_count);
+            let mut healed = 0u32;
+            player.hand.retain(|c| {
+                if healed < to_heal && c.as_str() == "wound" {
+                    healed += 1;
+                    false
+                } else {
+                    true
+                }
+            });
+            player.healing_points += value.saturating_sub(to_heal);
+            player.wounds_healed_from_hand_this_turn += healed;
+        }
+        UnitAbility::GainMana { color } => {
+            state.players[player_idx].pure_mana.push(ManaToken {
+                color: ManaColor::from(color),
+                source: ManaTokenSource::Effect,
+                cannot_power_spells: false,
+            });
+        }
+        UnitAbility::GainCrystal { color } => {
+            mana::gain_crystal(&mut state.players[player_idx], color);
+        }
+        UnitAbility::GainManaAndCrystal { color } => {
+            state.players[player_idx].pure_mana.push(ManaToken {
+                color: ManaColor::from(color),
+                source: ManaTokenSource::Effect,
+                cannot_power_spells: false,
+            });
+            mana::gain_crystal(&mut state.players[player_idx], color);
+        }
+        UnitAbility::AttackWithRepCost { value, element, rep_change } => {
+            let acc = &mut state.players[player_idx].combat_accumulator.attack;
+            acc.normal += value;
+            add_to_elemental(&mut acc.normal_elements, element, value);
+            let new_rep = (state.players[player_idx].reputation as i16 + rep_change as i16)
+                .clamp(-7, 7) as i8;
+            state.players[player_idx].reputation = new_rep;
+        }
+        UnitAbility::InfluenceWithRepCost { value, rep_change } => {
+            state.players[player_idx].influence_points += value;
+            let new_rep = (state.players[player_idx].reputation as i16 + rep_change as i16)
+                .clamp(-7, 7) as i8;
+            state.players[player_idx].reputation = new_rep;
+        }
+        UnitAbility::MoveOrInfluence { value } => {
+            use mk_types::pending::{ActivePending, UnitAbilityChoiceOption};
+            // Mark unit spent first, then create pending choice
+            state.players[player_idx].units[unit_idx].state = UnitState::Spent;
+            state.players[player_idx].pending.active =
+                Some(ActivePending::UnitAbilityChoice {
+                    unit_instance_id: unit_instance_id.clone(),
+                    options: vec![
+                        UnitAbilityChoiceOption::GainMove { value },
+                        UnitAbilityChoiceOption::GainInfluence { value },
+                    ],
+                    wound_self: false,
+                });
+            // Return early — unit already marked spent
+            return Ok(ApplyResult {
+                needs_reenumeration: true,
+                game_ended: false,
+            });
+        }
+        UnitAbility::AttackOrBlockWoundSelf { value, element } => {
+            use mk_types::pending::{ActivePending, UnitAbilityChoiceOption};
+            // Mark unit spent first, then create pending choice
+            state.players[player_idx].units[unit_idx].state = UnitState::Spent;
+            state.players[player_idx].pending.active =
+                Some(ActivePending::UnitAbilityChoice {
+                    unit_instance_id: unit_instance_id.clone(),
+                    options: vec![
+                        UnitAbilityChoiceOption::GainAttack { value, element },
+                        UnitAbilityChoiceOption::GainBlock { value, element },
+                    ],
+                    wound_self: true,
+                });
+            // Return early — unit already marked spent
+            return Ok(ApplyResult {
+                needs_reenumeration: true,
+                game_ended: false,
+            });
+        }
+        UnitAbility::ReadyUnit { max_level } => {
+            // Find spent units at or below max_level
+            let eligible: Vec<usize> = state.players[player_idx]
+                .units
+                .iter()
+                .enumerate()
+                .filter(|(_, u)| u.state == UnitState::Spent && u.level <= max_level)
+                .map(|(i, _)| i)
+                .collect();
+
+            match eligible.len() {
+                0 => {
+                    // No eligible units — should not reach here due to enumeration guard
+                }
+                1 => {
+                    // Auto-ready the single eligible unit
+                    let target_idx = eligible[0];
+                    state.players[player_idx].units[target_idx].state = UnitState::Ready;
+                }
+                _ => {
+                    use mk_types::pending::ActivePending;
+                    use mk_types::effect::CardEffect;
+                    use mk_types::pending::{ChoiceResolution, PendingChoice};
+                    // Multiple eligible — present choice via existing ReadyUnitTarget mechanism
+                    let options: Vec<CardEffect> =
+                        eligible.iter().map(|_| CardEffect::Noop).collect();
+                    state.players[player_idx].pending.active =
+                        Some(ActivePending::Choice(PendingChoice {
+                            card_id: None,
+                            skill_id: None,
+                            unit_instance_id: Some(unit_instance_id.clone()),
+                            options,
+                            continuation: vec![],
+                            movement_bonus_applied: false,
+                            resolution: ChoiceResolution::ReadyUnitTarget {
+                                eligible_unit_indices: eligible,
+                            },
+                        }));
+                }
+            }
+        }
+        UnitAbility::SelectCombatEnemy(template) => {
+            return apply_select_combat_enemy_activation(
+                state, player_idx, unit_idx, unit_instance_id, template,
+            );
+        }
+        UnitAbility::CoordinatedFire { ranged_value, element, unit_attack_bonus } => {
+            // Add ranged attack to accumulator
+            let acc = &mut state.players[player_idx].combat_accumulator.attack;
+            acc.ranged += ranged_value;
+            add_to_elemental(&mut acc.ranged_elements, element, ranged_value);
+
+            // Add UnitAttackBonus modifier
+            use mk_types::modifier::{
+                ActiveModifier, ModifierDuration, ModifierEffect, ModifierScope, ModifierSource,
+            };
+            use mk_types::ids::ModifierId;
+            let player_id = state.players[player_idx].id.clone();
+            let modifier_count = state.active_modifiers.len();
+            let modifier_id = format!(
+                "mod_{}_r{}_t{}",
+                modifier_count, state.round, state.current_player_index
+            );
+            state.active_modifiers.push(ActiveModifier {
+                id: ModifierId::from(modifier_id.as_str()),
+                source: ModifierSource::Unit {
+                    unit_index: unit_idx as u32,
+                    player_id: player_id.clone(),
+                },
+                duration: ModifierDuration::Combat,
+                scope: ModifierScope::AllUnits,
+                effect: ModifierEffect::UnitAttackBonus {
+                    amount: unit_attack_bonus,
+                },
+                created_at_round: state.round,
+                created_by_player_id: player_id,
+            });
+        }
+        UnitAbility::GrantAllResistances => {
+            use mk_types::modifier::{
+                ActiveModifier, ModifierDuration, ModifierEffect, ModifierScope, ModifierSource,
+            };
+            use mk_types::ids::ModifierId;
+            let player_id = state.players[player_idx].id.clone();
+            let modifier_count = state.active_modifiers.len();
+            let modifier_id = format!(
+                "mod_{}_r{}_t{}",
+                modifier_count, state.round, state.current_player_index
+            );
+            state.active_modifiers.push(ActiveModifier {
+                id: ModifierId::from(modifier_id.as_str()),
+                source: ModifierSource::Unit {
+                    unit_index: unit_idx as u32,
+                    player_id: player_id.clone(),
+                },
+                duration: ModifierDuration::Turn,
+                scope: ModifierScope::AllUnits,
+                effect: ModifierEffect::GrantResistances {
+                    resistances: vec![
+                        ResistanceElement::Physical,
+                        ResistanceElement::Fire,
+                        ResistanceElement::Ice,
+                    ],
+                },
+                created_at_round: state.round,
+                created_by_player_id: player_id,
+            });
+        }
+        UnitAbility::MoveWithTerrainReduction { move_value, terrain_reductions } => {
+            state.players[player_idx].move_points += move_value;
+            // Push terrain cost reduction modifiers
+            use mk_types::modifier::{
+                ActiveModifier, ModifierDuration, ModifierEffect, ModifierScope, ModifierSource,
+                TerrainOrAll,
+            };
+            use mk_types::ids::ModifierId;
+            let player_id = state.players[player_idx].id.clone();
+            for &(terrain, amount, minimum) in terrain_reductions {
+                let modifier_count = state.active_modifiers.len();
+                let modifier_id = format!(
+                    "mod_{}_r{}_t{}",
+                    modifier_count, state.round, state.current_player_index
+                );
+                state.active_modifiers.push(ActiveModifier {
+                    id: ModifierId::from(modifier_id.as_str()),
+                    source: ModifierSource::Unit {
+                        unit_index: unit_idx as u32,
+                        player_id: player_id.clone(),
+                    },
+                    duration: ModifierDuration::Turn,
+                    scope: ModifierScope::SelfScope,
+                    effect: ModifierEffect::TerrainCost {
+                        terrain: TerrainOrAll::Specific(terrain),
+                        amount,
+                        minimum,
+                        replace_cost: None,
+                    },
+                    created_at_round: state.round,
+                    created_by_player_id: player_id.clone(),
+                });
+            }
+        }
+        UnitAbility::Other { .. } => {
+            return Err(ApplyError::InternalError(
+                "ActivateUnit: Other abilities not executable".into(),
+            ));
+        }
+    }
+
+    // Mark unit spent
+    state.players[player_idx].units[unit_idx].state = UnitState::Spent;
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+/// Resolve a UnitAbilityChoice pending (MoveOrInfluence, AttackOrBlockWoundSelf).
+fn apply_resolve_unit_ability_choice(
+    state: &mut GameState,
+    player_idx: usize,
+    choice_index: usize,
+) -> Result<ApplyResult, ApplyError> {
+    // Extract the pending
+    let pending = state.players[player_idx]
+        .pending
+        .active
+        .take()
+        .ok_or_else(|| ApplyError::InternalError("No active pending".into()))?;
+
+    if let ActivePending::UnitAbilityChoice {
+        unit_instance_id,
+        options,
+        wound_self,
+    } = pending
+    {
+        if choice_index >= options.len() {
+            return Err(ApplyError::InternalError(format!(
+                "UnitAbilityChoice: invalid choice_index {} (options len {})",
+                choice_index,
+                options.len()
+            )));
+        }
+
+        let chosen = options[choice_index];
+
+        // Apply the chosen option
+        use mk_types::pending::UnitAbilityChoiceOption;
+        match chosen {
+            UnitAbilityChoiceOption::GainMove { value } => {
+                state.players[player_idx].move_points += value;
+            }
+            UnitAbilityChoiceOption::GainInfluence { value } => {
+                state.players[player_idx].influence_points += value;
+            }
+            UnitAbilityChoiceOption::GainAttack { value, element } => {
+                let acc = &mut state.players[player_idx].combat_accumulator.attack;
+                acc.normal += value;
+                add_to_elemental(&mut acc.normal_elements, element, value);
+            }
+            UnitAbilityChoiceOption::GainBlock { value, element } => {
+                let acc = &mut state.players[player_idx].combat_accumulator;
+                acc.block += value;
+                add_to_elemental(&mut acc.block_elements, element, value);
+            }
+        }
+
+        // Wound the unit if needed (AttackOrBlockWoundSelf)
+        if wound_self {
+            if let Some(unit) = state.players[player_idx]
+                .units
+                .iter_mut()
+                .find(|u| u.instance_id == unit_instance_id)
+            {
+                unit.wounded = true;
+            }
+        }
+
+        Ok(ApplyResult {
+            needs_reenumeration: true,
+            game_ended: false,
+        })
+    } else {
+        // Put back what we took and error
+        state.players[player_idx].pending.active = Some(pending);
+        Err(ApplyError::InternalError(
+            "Expected UnitAbilityChoice pending".into(),
+        ))
+    }
+}
+
+// =============================================================================
+// SelectCombatEnemy activation + resolution
+// =============================================================================
+
+/// Activate a SelectCombatEnemy ability: filter eligible enemies, auto-resolve or create pending.
+fn apply_select_combat_enemy_activation(
+    state: &mut GameState,
+    player_idx: usize,
+    unit_idx: usize,
+    unit_instance_id: &mk_types::ids::UnitInstanceId,
+    template: mk_types::pending::SelectEnemyTemplate,
+) -> Result<ApplyResult, ApplyError> {
+    // Mark unit spent first
+    state.players[player_idx].units[unit_idx].state = UnitState::Spent;
+
+    let combat = state
+        .combat
+        .as_ref()
+        .ok_or_else(|| ApplyError::InternalError("SelectCombatEnemy: no combat".into()))?;
+
+    // Filter eligible enemies
+    let mut eligible_ids: Vec<String> = Vec::new();
+    for enemy in &combat.enemies {
+        if enemy.is_defeated || enemy.is_summoner_hidden {
+            continue;
+        }
+
+        let def = match get_enemy(enemy.enemy_id.as_str()) {
+            Some(d) => d,
+            None => continue,
+        };
+
+        // Apply template filters
+        if template.exclude_fortified
+            && combat_resolution::is_effectively_fortified(
+                def,
+                enemy.instance_id.as_str(),
+                combat.is_at_fortified_site,
+                &state.active_modifiers,
+            )
+        {
+            continue;
+        }
+
+        if template.exclude_arcane_immune
+            && combat_resolution::has_ability(def, EnemyAbilityType::ArcaneImmunity)
+        {
+            continue;
+        }
+
+        if let Some(resist) = template.exclude_resistance {
+            if def.resistances.contains(&resist) {
+                continue;
+            }
+        }
+
+        eligible_ids.push(enemy.instance_id.as_str().to_string());
+    }
+
+    match eligible_ids.len() {
+        0 => {
+            // No eligible enemies — ability fizzles (unit still spent)
+        }
+        1 => {
+            // Auto-resolve with the single eligible enemy
+            let uid_opt = Some(unit_instance_id.clone());
+            apply_select_enemy_effects(state, player_idx, &uid_opt, &eligible_ids[0], &template)?;
+        }
+        _ => {
+            // Multiple eligible — create pending
+            state.players[player_idx].pending.active =
+                Some(ActivePending::SelectCombatEnemy {
+                    unit_instance_id: Some(unit_instance_id.clone()),
+                    eligible_enemy_ids: eligible_ids,
+                    template,
+                    continuation: Vec::new(),
+                });
+        }
+    }
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+/// Resolve a SelectCombatEnemy pending choice.
+fn apply_resolve_select_enemy(
+    state: &mut GameState,
+    player_idx: usize,
+    choice_index: usize,
+) -> Result<ApplyResult, ApplyError> {
+    let pending = state.players[player_idx]
+        .pending
+        .active
+        .take()
+        .ok_or_else(|| ApplyError::InternalError("No active pending".into()))?;
+
+    if let ActivePending::SelectCombatEnemy {
+        unit_instance_id,
+        eligible_enemy_ids,
+        template,
+        continuation,
+    } = pending
+    {
+        if choice_index >= eligible_enemy_ids.len() {
+            return Err(ApplyError::InternalError(format!(
+                "SelectCombatEnemy: invalid choice_index {} (eligible len {})",
+                choice_index,
+                eligible_enemy_ids.len()
+            )));
+        }
+
+        let enemy_id = &eligible_enemy_ids[choice_index];
+        apply_select_enemy_effects(state, player_idx, &unit_instance_id, enemy_id, &template)?;
+
+        // Replay any continuation effects from the effect queue
+        if !continuation.is_empty() {
+            use crate::effect_queue::{EffectQueue, QueuedEffect, DrainResult};
+            use mk_types::pending::{ContinuationEntry, PendingChoice};
+
+            let mut queue = EffectQueue::new();
+            queue.push_continuation(
+                continuation
+                    .into_iter()
+                    .map(|c| QueuedEffect {
+                        effect: c.effect,
+                        source_card_id: c.source_card_id,
+                    })
+                    .collect(),
+            );
+
+            match queue.drain(state, player_idx) {
+                DrainResult::Complete => {}
+                DrainResult::NeedsChoice {
+                    options,
+                    continuation: cont,
+                    resolution,
+                } => {
+                    state.players[player_idx].pending.active =
+                        Some(ActivePending::Choice(PendingChoice {
+                            card_id: None,
+                            skill_id: None,
+                            unit_instance_id: None,
+                            options,
+                            continuation: cont
+                                .into_iter()
+                                .map(|q| ContinuationEntry {
+                                    effect: q.effect,
+                                    source_card_id: q.source_card_id,
+                                })
+                                .collect(),
+                            movement_bonus_applied: false,
+                            resolution,
+                        }));
+                }
+                DrainResult::PendingSet => {}
+            }
+        }
+
+        Ok(ApplyResult {
+            needs_reenumeration: true,
+            game_ended: false,
+        })
+    } else {
+        state.players[player_idx].pending.active = Some(pending);
+        Err(ApplyError::InternalError(
+            "Expected SelectCombatEnemy pending".into(),
+        ))
+    }
+}
+
+/// Public wrapper for apply_select_enemy_effects (used by effect_queue).
+pub fn apply_select_enemy_effects_pub(
+    state: &mut GameState,
+    player_idx: usize,
+    unit_instance_id: &Option<mk_types::ids::UnitInstanceId>,
+    enemy_instance_id: &str,
+    template: &mk_types::pending::SelectEnemyTemplate,
+) -> Result<(), ApplyError> {
+    apply_select_enemy_effects(state, player_idx, unit_instance_id, enemy_instance_id, template)
+}
+
+/// Apply the template effects to a chosen enemy.
+fn apply_select_enemy_effects(
+    state: &mut GameState,
+    player_idx: usize,
+    unit_instance_id: &Option<mk_types::ids::UnitInstanceId>,
+    enemy_instance_id: &str,
+    template: &mk_types::pending::SelectEnemyTemplate,
+) -> Result<(), ApplyError> {
+    use mk_types::modifier::{
+        ActiveModifier, ModifierDuration, ModifierEffect, ModifierScope, ModifierSource,
+        EnemyStat as ModEnemyStat,
+    };
+    use mk_types::ids::ModifierId;
+
+    let player_id = state.players[player_idx].id.clone();
+
+    // Determine source: unit or card
+    let source = if let Some(uid) = unit_instance_id {
+        let unit_idx = state.players[player_idx]
+            .units
+            .iter()
+            .position(|u| u.instance_id == *uid)
+            .unwrap_or(0) as u32;
+        ModifierSource::Unit {
+            unit_index: unit_idx,
+            player_id: player_id.clone(),
+        }
+    } else {
+        ModifierSource::Card {
+            card_id: mk_types::ids::CardId::from("select_combat_enemy"),
+            player_id: player_id.clone(),
+        }
+    };
+
+    // Check if target has ArcaneImmunity
+    let has_ai = {
+        let combat = state.combat.as_ref().ok_or_else(|| {
+            ApplyError::InternalError("SelectCombatEnemy: no combat".into())
+        })?;
+        combat
+            .enemies
+            .iter()
+            .find(|e| e.instance_id.as_str() == enemy_instance_id)
+            .and_then(|e| get_enemy(e.enemy_id.as_str()))
+            .map_or(false, |def| {
+                combat_resolution::has_ability(def, EnemyAbilityType::ArcaneImmunity)
+            })
+    };
+
+    // Check if target is fortified (for fortified_armor_change)
+    let is_fortified = {
+        let combat = state.combat.as_ref().unwrap();
+        combat
+            .enemies
+            .iter()
+            .find(|e| e.instance_id.as_str() == enemy_instance_id)
+            .and_then(|e| get_enemy(e.enemy_id.as_str()))
+            .map_or(false, |def| {
+                combat_resolution::is_effectively_fortified(
+                    def,
+                    enemy_instance_id,
+                    combat.is_at_fortified_site,
+                    &state.active_modifiers,
+                )
+            })
+    };
+
+    let mut push_modifier = |effect: ModifierEffect| {
+        let modifier_count = state.active_modifiers.len();
+        let modifier_id = format!(
+            "mod_{}_r{}_t{}",
+            modifier_count, state.round, state.current_player_index
+        );
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from(modifier_id.as_str()),
+            source: source.clone(),
+            duration: ModifierDuration::Combat,
+            scope: ModifierScope::OneEnemy {
+                enemy_id: enemy_instance_id.to_string(),
+            },
+            effect,
+            created_at_round: state.round,
+            created_by_player_id: player_id.clone(),
+        });
+    };
+
+    // skip_attack — blocked by ArcaneImmunity
+    if template.skip_attack && !has_ai {
+        push_modifier(ModifierEffect::EnemySkipAttack);
+    }
+
+    // armor_change — blocked by ArcaneImmunity
+    if template.armor_change != 0 && !has_ai {
+        // Use fortified_armor_change when enemy is fortified and template specifies it
+        let effective_amount = if is_fortified {
+            template.fortified_armor_change.unwrap_or(template.armor_change)
+        } else {
+            template.armor_change
+        };
+        push_modifier(ModifierEffect::EnemyStat {
+            stat: ModEnemyStat::Armor,
+            amount: effective_amount,
+            minimum: template.armor_minimum,
+            attack_index: None,
+            per_resistance: false,
+            fortified_amount: template.fortified_armor_change,
+        });
+    }
+
+    // attack_change — NOT blocked by ArcaneImmunity (FAQ S1)
+    if template.attack_change != 0 {
+        push_modifier(ModifierEffect::EnemyStat {
+            stat: ModEnemyStat::Attack,
+            amount: template.attack_change,
+            minimum: template.attack_minimum,
+            attack_index: None,
+            per_resistance: false,
+            fortified_amount: None,
+        });
+    }
+
+    // nullify_fortified — blocked by ArcaneImmunity
+    if template.nullify_fortified && !has_ai {
+        push_modifier(ModifierEffect::AbilityNullifier {
+            ability: Some(EnemyAbilityType::Fortified),
+            ignore_arcane_immunity: false,
+        });
+    }
+
+    // remove_resistances — blocked by ArcaneImmunity
+    if template.remove_resistances && !has_ai {
+        push_modifier(ModifierEffect::RemoveResistances);
+    }
+
+    // defeat_if_blocked — blocked by ArcaneImmunity
+    if template.defeat_if_blocked && !has_ai {
+        push_modifier(ModifierEffect::DefeatIfBlocked);
+    }
+
+    // damage_redirect — NOT blocked by ArcaneImmunity (defensive effect)
+    if template.damage_redirect_from_unit {
+        if let Some(uid) = unit_instance_id {
+            let combat = state.combat.as_mut().ok_or_else(|| {
+                ApplyError::InternalError("SelectCombatEnemy: no combat for redirect".into())
+            })?;
+            combat.damage_redirects.insert(
+                enemy_instance_id.to_string(),
+                uid.as_str().to_string(),
+            );
+        }
+    }
+
+    // bundled_ranged_attack — NOT blocked by ArcaneImmunity (always resolves)
+    if template.bundled_ranged_attack > 0 {
+        let acc = &mut state.players[player_idx].combat_accumulator.attack;
+        acc.ranged += template.bundled_ranged_attack;
+        acc.ranged_elements.physical += template.bundled_ranged_attack;
+    }
+
+    // remove_fire_resistance — blocked by ArcaneImmunity
+    if template.remove_fire_resistance && !has_ai {
+        push_modifier(ModifierEffect::RemoveFireResistance);
+    }
+
+    // defeat — NOT blocked by ArcaneImmunity (physical destruction)
+    if template.defeat {
+        // Mark enemy as defeated and grant fame
+        let (fame_gain, rep_bonus) = {
+            let combat = state.combat.as_ref().unwrap();
+            if let Some(enemy) = combat.enemies.iter().find(|e| e.instance_id.as_str() == enemy_instance_id) {
+                let is_summoned = enemy.summoned_by_instance_id.is_some();
+                if !is_summoned {
+                    if let Some(def) = get_enemy(enemy.enemy_id.as_str()) {
+                        (def.fame, def.reputation_bonus.map(|b| b as i8).unwrap_or(0))
+                    } else {
+                        (0, 0)
+                    }
+                } else {
+                    (0, 0)
+                }
+            } else {
+                (0, 0)
+            }
+        };
+
+        if let Some(combat) = state.combat.as_mut() {
+            if let Some(enemy) = combat.enemies.iter_mut().find(|e| e.instance_id.as_str() == enemy_instance_id) {
+                enemy.is_defeated = true;
+            }
+        }
+
+        state.players[player_idx].fame += fame_gain;
+        if rep_bonus != 0 {
+            state.players[player_idx].reputation = (state.players[player_idx].reputation + rep_bonus)
+                .max(-7).min(7);
+        }
+    }
+
+    // nullify_all_attack_abilities — bypasses ArcaneImmunity (ignore_arcane_immunity: true)
+    if template.nullify_all_attack_abilities {
+        use mk_types::enums::EnemyAbilityType as EAT;
+        for ability in &[
+            EAT::Swift, EAT::Brutal, EAT::Poison, EAT::Paralyze,
+            EAT::Vampiric, EAT::Assassination, EAT::Cumbersome,
+        ] {
+            push_modifier(ModifierEffect::AbilityNullifier {
+                ability: Some(*ability),
+                ignore_arcane_immunity: true,
+            });
+        }
+    }
+
+    Ok(())
+}
+
+/// Helper to add elemental damage values.
+fn add_to_elemental(ev: &mut ElementalValues, element: Element, amount: u32) {
+    match element {
+        Element::Physical => ev.physical += amount,
+        Element::Fire => ev.fire += amount,
+        Element::Ice => ev.ice += amount,
+        Element::ColdFire => ev.cold_fire += amount,
+    }
 }
 
 fn apply_undo(
@@ -2014,6 +3658,9 @@ mod tests {
         apply_legal_action(&mut state, &mut undo, 0, &LegalAction::DeclareRest, epoch).unwrap();
 
         assert!(state.players[0].flags.contains(PlayerFlags::IS_RESTING));
+        assert!(state.players[0]
+            .flags
+            .contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN));
         assert!(undo.can_undo());
     }
 
@@ -2024,12 +3671,192 @@ mod tests {
         let mut undo = UndoStack::new();
         let epoch = state.action_epoch;
 
-        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::CompleteRest, epoch).unwrap();
+        apply_legal_action(
+            &mut state,
+            &mut undo,
+            0,
+            &LegalAction::CompleteRest {
+                discard_hand_index: Some(0),
+            },
+            epoch,
+        )
+        .unwrap();
 
         assert!(!state.players[0].flags.contains(PlayerFlags::IS_RESTING));
         assert!(state.players[0]
             .flags
             .contains(PlayerFlags::HAS_RESTED_THIS_TURN));
+        assert!(state.players[0]
+            .flags
+            .contains(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN));
+        // march (non-wound) discarded + no wounds → hand empty, discard has march
+        assert!(state.players[0].hand.is_empty());
+        assert!(state.players[0]
+            .discard
+            .iter()
+            .any(|c| c.as_str() == "march"));
+    }
+
+    #[test]
+    fn complete_rest_standard_discards_non_wound_and_wounds() {
+        // Hand: march, wound → standard rest discarding march (index 0)
+        // should remove march + all wounds from hand.
+        let mut state = setup_playing_game(vec!["march", "wound"]);
+        state.players[0].flags.insert(PlayerFlags::IS_RESTING);
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+
+        apply_legal_action(
+            &mut state,
+            &mut undo,
+            0,
+            &LegalAction::CompleteRest {
+                discard_hand_index: Some(0),
+            },
+            epoch,
+        )
+        .unwrap();
+
+        assert!(state.players[0].hand.is_empty());
+        assert_eq!(state.players[0].discard.len(), 2); // march + wound
+        assert!(state.players[0]
+            .discard
+            .iter()
+            .any(|c| c.as_str() == "march"));
+        assert!(state.players[0]
+            .discard
+            .iter()
+            .any(|c| c.as_str() == "wound"));
+    }
+
+    #[test]
+    fn complete_rest_slow_recovery_discards_one_wound() {
+        // Hand: wound, wound → slow recovery discarding index 0
+        // should remove only that wound.
+        let mut state = setup_playing_game(vec!["wound", "wound"]);
+        state.players[0].flags.insert(PlayerFlags::IS_RESTING);
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+
+        apply_legal_action(
+            &mut state,
+            &mut undo,
+            0,
+            &LegalAction::CompleteRest {
+                discard_hand_index: Some(0),
+            },
+            epoch,
+        )
+        .unwrap();
+
+        assert_eq!(state.players[0].hand.len(), 1); // one wound remains
+        assert_eq!(state.players[0].hand[0].as_str(), "wound");
+        assert_eq!(state.players[0].discard.len(), 1);
+        assert_eq!(state.players[0].discard[0].as_str(), "wound");
+    }
+
+    #[test]
+    fn complete_rest_empty_hand_sets_flags() {
+        let mut state = setup_playing_game(vec![]);
+        state.players[0].flags.insert(PlayerFlags::IS_RESTING);
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+
+        apply_legal_action(
+            &mut state,
+            &mut undo,
+            0,
+            &LegalAction::CompleteRest {
+                discard_hand_index: None,
+            },
+            epoch,
+        )
+        .unwrap();
+
+        assert!(!state.players[0].flags.contains(PlayerFlags::IS_RESTING));
+        assert!(state.players[0]
+            .flags
+            .contains(PlayerFlags::HAS_RESTED_THIS_TURN));
+        assert!(state.players[0]
+            .flags
+            .contains(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN));
+        assert!(state.players[0].hand.is_empty());
+        assert!(state.players[0].discard.is_empty());
+    }
+
+    #[test]
+    fn undo_complete_rest_restores_hand() {
+        // DeclareRest + CompleteRest, then undo both.
+        let mut state = setup_playing_game(vec!["march", "wound"]);
+        let original_hand = state.players[0].hand.clone();
+        let mut undo = UndoStack::new();
+
+        // DeclareRest
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::DeclareRest, epoch).unwrap();
+        let epoch = state.action_epoch;
+
+        // CompleteRest
+        apply_legal_action(
+            &mut state,
+            &mut undo,
+            0,
+            &LegalAction::CompleteRest {
+                discard_hand_index: Some(0),
+            },
+            epoch,
+        )
+        .unwrap();
+
+        assert!(state.players[0].hand.is_empty());
+
+        // Undo CompleteRest
+        state = undo.undo().expect("should have undo snapshot");
+        assert!(state.players[0].flags.contains(PlayerFlags::IS_RESTING));
+        assert_eq!(state.players[0].hand, original_hand);
+
+        // Undo DeclareRest
+        state = undo.undo().expect("should have undo snapshot");
+        assert!(!state.players[0].flags.contains(PlayerFlags::IS_RESTING));
+        assert!(!state.players[0]
+            .flags
+            .contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN));
+    }
+
+    #[test]
+    fn full_rest_flow_declare_complete_end() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+
+        // DeclareRest
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::DeclareRest, epoch).unwrap();
+        assert!(state.players[0].flags.contains(PlayerFlags::IS_RESTING));
+
+        // CompleteRest
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state,
+            &mut undo,
+            0,
+            &LegalAction::CompleteRest {
+                discard_hand_index: Some(0),
+            },
+            epoch,
+        )
+        .unwrap();
+        assert!(!state.players[0].flags.contains(PlayerFlags::IS_RESTING));
+        assert!(state.players[0]
+            .flags
+            .contains(PlayerFlags::HAS_RESTED_THIS_TURN));
+
+        // EndTurn should now be available via legal actions
+        let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        let has_end = legal
+            .actions
+            .iter()
+            .any(|a| matches!(a, LegalAction::EndTurn));
+        assert!(has_end, "EndTurn should be available after resting");
     }
 
     #[test]
@@ -3957,7 +5784,7 @@ mod tests {
         let mut undo = UndoStack::new();
         let epoch = state.action_epoch;
 
-        // Select tactic — in solo, only 1 player, but turn order should still be set
+        // Select tactic — solo has human + dummy in turn_order
         apply_legal_action(
             &mut state,
             &mut undo,
@@ -3969,8 +5796,13 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(state.current_player_index, 0);
-        assert_eq!(state.turn_order.len(), 1);
+        // Turn order has 2 entries: human + dummy
+        assert_eq!(state.turn_order.len(), 2);
+        // Dummy also selected a tactic
+        assert!(state.dummy_player_tactic.is_some());
+        // current_player_index should point to the human's position
+        let human_id = state.players[0].id.clone();
+        assert_eq!(state.turn_order[state.current_player_index as usize], human_id);
     }
 
     #[test]
@@ -4220,7 +6052,8 @@ mod tests {
         .unwrap();
 
         assert!(!state.available_tactics.contains(&tactic));
-        assert_eq!(state.available_tactics.len(), 5);
+        // Human tactic + dummy auto-selected tactic = 2 removed from 6
+        assert_eq!(state.available_tactics.len(), 4);
     }
 
     #[test]

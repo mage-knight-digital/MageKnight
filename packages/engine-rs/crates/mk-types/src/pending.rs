@@ -40,6 +40,74 @@ pub const MAX_UNIT_MAINTENANCE: usize = 8;
 // Sub-types used by pending variants
 // =============================================================================
 
+/// Template describing the effects of a SelectCombatEnemy ability (unit or card).
+///
+/// All SelectCombatEnemy abilities are expressible as a combination of
+/// scalar/bool fields. No dynamic modifier lists needed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SelectEnemyTemplate {
+    // Filters — which enemies are eligible targets
+    pub exclude_fortified: bool,
+    pub exclude_arcane_immune: bool,
+    pub exclude_resistance: Option<ResistanceElement>,
+    // Effects on target
+    pub skip_attack: bool,
+    pub armor_change: i32,      // 0 = no change
+    pub armor_minimum: u32,
+    /// Different armor change when enemy is fortified (tremor powered).
+    pub fortified_armor_change: Option<i32>,
+    pub attack_change: i32,     // 0 = no change
+    pub attack_minimum: u32,
+    pub nullify_fortified: bool,
+    pub remove_resistances: bool,
+    /// Remove only fire resistance (chill basic).
+    pub remove_fire_resistance: bool,
+    pub defeat_if_blocked: bool,
+    /// Outright defeat the targeted enemy (whirlwind powered).
+    pub defeat: bool,
+    /// Nullify all attack abilities: Swift, Brutal, Poison, Paralyze,
+    /// Vampiric, Assassination, Cumbersome (chilling_stare basic).
+    pub nullify_all_attack_abilities: bool,
+    // Damage redirect (Taunt) — redirects damage from activating unit
+    pub damage_redirect_from_unit: bool,
+    // Bundled ranged attack (Sorcerers) — 0 = none
+    pub bundled_ranged_attack: u32,
+}
+
+impl SelectEnemyTemplate {
+    pub const fn new() -> Self {
+        Self {
+            exclude_fortified: false,
+            exclude_arcane_immune: false,
+            exclude_resistance: None,
+            skip_attack: false,
+            armor_change: 0,
+            armor_minimum: 0,
+            fortified_armor_change: None,
+            attack_change: 0,
+            attack_minimum: 0,
+            nullify_fortified: false,
+            remove_resistances: false,
+            remove_fire_resistance: false,
+            defeat_if_blocked: false,
+            defeat: false,
+            nullify_all_attack_abilities: false,
+            damage_redirect_from_unit: false,
+            bundled_ranged_attack: 0,
+        }
+    }
+}
+
+/// Option for a unit ability choice (MoveOrInfluence, AttackOrBlockWoundSelf).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum UnitAbilityChoiceOption {
+    GainMove { value: u32 },
+    GainInfluence { value: u32 },
+    GainAttack { value: u32, element: Element },
+    GainBlock { value: u32, element: Element },
+}
+
 /// An effect waiting to be resolved after a pending choice completes.
 /// Mirror of mk-engine's `QueuedEffect` but owned by mk-types for persistence.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -311,6 +379,22 @@ pub enum ActivePending {
     TerrainCostReduction(PendingTerrainCostReduction),
     CrystalJoyReclaim(PendingCrystalJoyReclaim),
     SteadyTempoDeckPlacement(PendingSteadyTempoDeckPlacement),
+    /// Unit ability that requires player choice (MoveOrInfluence, AttackOrBlockWoundSelf).
+    UnitAbilityChoice {
+        unit_instance_id: UnitInstanceId,
+        options: Vec<UnitAbilityChoiceOption>,
+        /// If true, wound the unit after choice is resolved (AttackOrBlockWoundSelf).
+        wound_self: bool,
+    },
+    /// Unit ability that targets a combat enemy (cancel attack, weaken, freeze, etc.).
+    SelectCombatEnemy {
+        /// None for card-sourced, Some for unit-sourced.
+        unit_instance_id: Option<UnitInstanceId>,
+        eligible_enemy_ids: Vec<String>,
+        template: SelectEnemyTemplate,
+        /// Remaining effect queue entries to replay after resolution.
+        continuation: Vec<ContinuationEntry>,
+    },
 }
 
 // =============================================================================

@@ -187,7 +187,7 @@ pub fn get_valid_actions_with_undo(
     let can_complete_rest = legal
         .actions
         .iter()
-        .any(|a| matches!(a, mk_types::legal_action::LegalAction::CompleteRest));
+        .any(|a| matches!(a, mk_types::legal_action::LegalAction::CompleteRest { .. }));
     let can_undo = legal
         .actions
         .iter()

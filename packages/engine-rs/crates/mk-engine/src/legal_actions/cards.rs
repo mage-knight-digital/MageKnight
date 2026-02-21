@@ -15,11 +15,8 @@ pub(super) fn enumerate_normal_cards(
     actions: &mut Vec<LegalAction>,
 ) {
     let player = &state.players[player_idx];
-
-    // If resting, no cards can be played.
-    if player.flags.contains(PlayerFlags::IS_RESTING) {
-        return;
-    }
+    let is_resting = player.flags.contains(PlayerFlags::IS_RESTING);
+    let has_rested = player.flags.contains(PlayerFlags::HAS_RESTED_THIS_TURN);
 
     // Collect basic, powered, sideways separately to emit in category order.
     let mut basic_actions = Vec::new();
@@ -32,7 +29,7 @@ pub(super) fn enumerate_normal_cards(
             None => continue,
         };
 
-        // Category 2: PlayCardBasic.
+        // Category 2: PlayCardBasic — allowed during rest (FAQ S3).
         if is_effect_playable_for_enumeration(state, player_idx, hand_index, &card_def.basic_effect)
         {
             basic_actions.push(LegalAction::PlayCardBasic {
@@ -41,7 +38,7 @@ pub(super) fn enumerate_normal_cards(
             });
         }
 
-        // Category 3: PlayCardPowered.
+        // Category 3: PlayCardPowered — allowed during rest (FAQ S3).
         if let Some(color) = card_def.powered_by {
             if is_effect_playable_for_enumeration(
                 state,
@@ -59,18 +56,30 @@ pub(super) fn enumerate_normal_cards(
         }
 
         // Category 4: PlayCardSideways.
-        if card_def.sideways_value > 0 {
-            // Normal turn: Move and Influence.
-            sideways_actions.push(LegalAction::PlayCardSideways {
-                hand_index,
-                card_id: card_id.clone(),
-                sideways_as: SidewaysAs::Move,
-            });
-            sideways_actions.push(LegalAction::PlayCardSideways {
-                hand_index,
-                card_id: card_id.clone(),
-                sideways_as: SidewaysAs::Influence,
-            });
+        // While resting: NO sideways at all.
+        // After rest: influence only (no move).
+        // Normal: both move and influence.
+        if !is_resting && card_def.sideways_value > 0 {
+            if has_rested {
+                // After rest: influence only.
+                sideways_actions.push(LegalAction::PlayCardSideways {
+                    hand_index,
+                    card_id: card_id.clone(),
+                    sideways_as: SidewaysAs::Influence,
+                });
+            } else {
+                // Normal: both move and influence.
+                sideways_actions.push(LegalAction::PlayCardSideways {
+                    hand_index,
+                    card_id: card_id.clone(),
+                    sideways_as: SidewaysAs::Move,
+                });
+                sideways_actions.push(LegalAction::PlayCardSideways {
+                    hand_index,
+                    card_id: card_id.clone(),
+                    sideways_as: SidewaysAs::Influence,
+                });
+            }
         }
     }
 

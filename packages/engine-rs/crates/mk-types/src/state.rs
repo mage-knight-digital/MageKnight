@@ -418,6 +418,9 @@ pub struct CombatState {
     pub declared_attack_targets: Option<Vec<CombatInstanceId>>,
     pub declared_block_target: Option<CombatInstanceId>,
     pub declared_block_attack_index: Option<u32>,
+
+    // Damage assignment tracking
+    pub has_paralyze_damage_to_hero: bool,
 }
 
 impl Default for CombatState {
@@ -451,6 +454,7 @@ impl Default for CombatState {
             declared_attack_targets: None,
             declared_block_target: None,
             declared_block_attack_index: None,
+            has_paralyze_damage_to_hero: false,
         }
     }
 }
@@ -587,6 +591,8 @@ pub struct GameOffers {
     pub advanced_actions: Vec<CardId>,
     pub units: Vec<UnitId>,
     pub artifacts: Vec<CardId>,
+    /// Common skill pool — unchosen skills from level-up rewards.
+    pub common_skills: Vec<SkillId>,
 }
 
 /// Card draw decks.
@@ -639,16 +645,55 @@ pub struct SourceOpeningCenter {
     pub used_die_count_at_return: u32,
 }
 
+/// A single pre-computed dummy turn.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrecomputedDummyTurn {
+    pub cards_flipped: u32,
+    pub bonus_flipped: u32,
+    pub matched_color: Option<BasicManaColor>,
+    pub deck_remaining_after: usize,
+}
+
 /// Dummy player for solo mode.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DummyPlayer {
-    pub tactic_id: Option<TacticId>,
+    pub hero: Hero,
+    pub deck: Vec<CardId>,
+    pub discard: Vec<CardId>,
+    pub crystals: BTreeMap<BasicManaColor, u32>,
+    pub precomputed_turns: Vec<PrecomputedDummyTurn>,
+    pub current_turn_index: usize,
 }
 
-/// Scenario configuration (placeholder — full definition in mk-data).
+/// Scenario configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScenarioConfig {
+    // Map setup
+    pub countryside_tile_count: u32,
+    pub core_tile_count: u32,
+    pub city_tile_count: u32,
+    pub map_shape: MapShape,
+
+    // Round limits
+    pub day_rounds: u32,
+    pub night_rounds: u32,
+    pub total_rounds: u32,
+
+    // Special rules
+    pub skills_enabled: bool,
+    pub elite_units_enabled: bool,
+    pub spells_available: bool,
+    pub advanced_actions_available: bool,
+    pub fame_per_tile_explored: u32,
+    pub cities_can_be_entered: bool,
     pub default_city_level: u32,
+
+    // Tactic handling
+    pub tactic_removal_mode: TacticRemovalMode,
+    pub dummy_tactic_order: DummyTacticOrder,
+
+    // End condition
+    pub end_trigger: ScenarioEndTrigger,
 }
 
 /// Final score result.
@@ -699,6 +744,9 @@ pub struct GameState {
 
     // Action epoch — incremented after every action for stale-detection
     pub action_epoch: u64,
+
+    // Instance counter for generating unique unit instance IDs
+    pub next_instance_counter: u64,
 
     // RNG
     pub rng: RngState,

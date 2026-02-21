@@ -5,6 +5,7 @@
 //! It has no game logic — just data definitions.
 
 pub mod action;
+pub mod client_state;
 pub mod effect;
 pub mod enums;
 pub mod hex;

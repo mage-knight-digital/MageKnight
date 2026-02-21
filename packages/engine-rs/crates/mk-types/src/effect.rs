@@ -443,7 +443,22 @@ pub enum CardEffect {
         base_effect: Box<CardEffect>,
         /// Per-count bonus added (default 1).
         bonus_per_count: Option<u32>,
+        /// Cap the scaled result at this value.
+        maximum: Option<u32>,
     },
+
+    /// Select a combat enemy and apply template effects.
+    /// Used by cards like ice_shield, chill, tremor, expose, whirlwind.
+    SelectCombatEnemy {
+        template: crate::pending::SelectEnemyTemplate,
+    },
+
+    /// Cure: heal up to `amount` wounds from hand, draw 1 card per wound healed.
+    Cure {
+        amount: u32,
+    },
+    /// Disease: set armor to 1 for all fully-blocked enemies in combat.
+    Disease,
 
     /// Catch-all for effect types not yet fully modeled.
     /// Stores the effect type discriminant for routing.

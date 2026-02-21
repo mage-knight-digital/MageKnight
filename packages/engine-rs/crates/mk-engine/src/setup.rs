@@ -11,12 +11,15 @@ use mk_data::heroes::{
 };
 use mk_data::enemy_piles::create_enemy_token_piles;
 use mk_data::offers::{create_aa_deck_and_offer, create_spell_deck_and_offer};
+use mk_data::unit_offers::create_unit_deck_and_offer;
 use mk_data::tiles::{find_portal, starting_tile_hexes};
 use mk_types::enums::*;
 use mk_types::hex::HexCoord;
 use mk_types::ids::*;
 use mk_types::rng::RngState;
 use mk_types::state::*;
+
+use crate::dummy_player;
 
 // =============================================================================
 // Day tactic IDs (matches TS DAY_TACTIC_IDS)
@@ -143,7 +146,10 @@ fn create_player(id: &str, hero: Hero, position: HexCoord, rng: &mut RngState) -
         skills: Vec::new(),
         skill_cooldowns: SkillCooldowns::default(),
         skill_flip_state: SkillFlipState::default(),
-        remaining_hero_skills: Vec::new(), // TODO: populate from skill data
+        remaining_hero_skills: mk_data::skills::get_hero_skill_ids(hero)
+            .iter()
+            .map(|&s| SkillId::from(s))
+            .collect(),
         master_of_chaos_state: None,
 
         kept_enemy_tokens: ArrayVec::new(),
@@ -238,19 +244,22 @@ fn place_starting_tile(tile_id: TileId) -> MapState {
 
 /// Create a solo game (1 player) with the given seed and hero.
 ///
-/// This is a simplified setup matching the First Reconnaissance scenario:
+/// Uses the First Reconnaissance scenario:
 /// - Starting Tile A placed at origin
 /// - 3 mana source dice (1 player + 2)
 /// - 6 day tactics available
 /// - Round 1, daytime, tactics selection phase
-///
-/// Tile deck, enemy tokens, offers, and decks are left empty for now.
-/// These will be populated as more data definitions are added to mk-data.
+/// - Tile deck created from scenario config (8 countryside + 2 core + 1 city)
 pub fn create_solo_game(seed: u32, hero: Hero) -> GameState {
     let mut rng = RngState::new(seed);
 
+    let scenario_config = mk_data::scenarios::first_reconnaissance();
+
     // Place starting tile
-    let map = place_starting_tile(TileId::StartingA);
+    let mut map = place_starting_tile(TileId::StartingA);
+
+    // Create tile deck from scenario config
+    map.tile_deck = mk_data::tiles::create_tile_deck(&scenario_config, &mut rng);
 
     // Find portal hex for player start position
     let hexes_def = starting_tile_hexes(TileId::StartingA).unwrap();
@@ -270,18 +279,24 @@ pub fn create_solo_game(seed: u32, hero: Hero) -> GameState {
     // Create offers and decks
     let (aa_deck, aa_offer) = create_aa_deck_and_offer(&mut rng);
     let (spell_deck, spell_offer) = create_spell_deck_and_offer(&mut rng);
+    let (unit_deck, unit_offer) = create_unit_deck_and_offer(&mut rng, 1);
+
+    // Create dummy player for solo mode
+    let dummy_hero = dummy_player::select_dummy_hero(&[hero], &mut rng);
+    let dummy = dummy_player::create_dummy_player(dummy_hero, &mut rng);
 
     // Day tactics
     let available_tactics: Vec<TacticId> =
         DAY_TACTIC_IDS.iter().map(|&s| TacticId::from(s)).collect();
 
     let player_id_owned = PlayerId::from(player_id);
+    let dummy_id = PlayerId::from(dummy_player::DUMMY_PLAYER_ID);
 
     GameState {
         phase: GamePhase::Round,
         time_of_day: TimeOfDay::Day,
         round: 1,
-        turn_order: vec![player_id_owned.clone()],
+        turn_order: vec![player_id_owned.clone(), dummy_id],
         current_player_index: 0,
         end_of_round_announced_by: None,
         players_with_final_turn: Vec::new(),
@@ -300,6 +315,7 @@ pub fn create_solo_game(seed: u32, hero: Hero) -> GameState {
         offers: GameOffers {
             advanced_actions: aa_offer,
             spells: spell_offer,
+            units: unit_offer,
             ..GameOffers::default()
         },
         enemy_tokens,
@@ -307,23 +323,23 @@ pub fn create_solo_game(seed: u32, hero: Hero) -> GameState {
         decks: GameDecks {
             advanced_action_deck: aa_deck,
             spell_deck,
+            unit_deck,
             ..GameDecks::default()
         },
 
-        city_level: 1,
+        city_level: scenario_config.default_city_level,
         cities: BTreeMap::new(),
 
         active_modifiers: Vec::new(),
         action_epoch: 0,
+        next_instance_counter: 1,
 
         rng,
 
         wound_pile_count: None, // unlimited
 
         scenario_id: ScenarioId::from("first_reconnaissance"),
-        scenario_config: ScenarioConfig {
-            default_city_level: 1,
-        },
+        scenario_config,
         scenario_end_triggered: false,
         final_turns_remaining: None,
         game_ended: false,
@@ -336,7 +352,7 @@ pub fn create_solo_game(seed: u32, hero: Hero) -> GameState {
         mana_enhancement_center: None,
         source_opening_center: None,
 
-        dummy_player: None,
+        dummy_player: Some(dummy),
     }
 }
 

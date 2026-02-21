@@ -425,6 +425,78 @@ pub fn calculate_hero_wounds_with_damage(
     (wounds, is_poison)
 }
 
+// =============================================================================
+// Unit damage calculation
+// =============================================================================
+
+/// Result of assigning an attack to a unit.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnitDamageResult {
+    pub unit_destroyed: bool,
+    pub unit_wounded: bool,
+    /// Whether a resistance was consumed for this damage calculation.
+    pub resistance_used: bool,
+}
+
+/// Calculate result of assigning an enemy attack to a unit.
+///
+/// - Poison → instant destruction
+/// - Unit armor = unit level
+/// - If unit has matching resistance and hasn't used it: halve damage (ceiling)
+/// - If effective_damage <= armor → fully absorbed
+/// - If not wounded → becomes wounded
+/// - If already wounded → destroyed
+pub fn calculate_unit_damage(
+    attack_damage: u32,
+    attack_element: Element,
+    is_poison: bool,
+    is_paralyze: bool,
+    unit_level: u8,
+    unit_wounded: bool,
+    used_resistance_this_combat: bool,
+    unit_resistances: &[ResistanceElement],
+) -> UnitDamageResult {
+    if is_poison || is_paralyze {
+        return UnitDamageResult {
+            unit_destroyed: true,
+            unit_wounded: false,
+            resistance_used: false,
+        };
+    }
+
+    let armor = unit_level as u32;
+
+    // Check if unit has matching resistance and can use it
+    let can_resist = !used_resistance_this_combat
+        && is_attack_resisted(attack_element, unit_resistances);
+
+    let effective_damage = if can_resist {
+        attack_damage.div_ceil(2)
+    } else {
+        attack_damage
+    };
+
+    if effective_damage <= armor {
+        UnitDamageResult {
+            unit_destroyed: false,
+            unit_wounded: false,
+            resistance_used: can_resist && attack_damage > 0,
+        }
+    } else if !unit_wounded {
+        UnitDamageResult {
+            unit_destroyed: false,
+            unit_wounded: true,
+            resistance_used: can_resist && attack_damage > 0,
+        }
+    } else {
+        UnitDamageResult {
+            unit_destroyed: true,
+            unit_wounded: false,
+            resistance_used: can_resist && attack_damage > 0,
+        }
+    }
+}
+
 /// Subtract element-wise: a - b, clamped to 0.
 pub fn subtract_elements(a: &ElementalValues, b: &ElementalValues) -> ElementalValues {
     ElementalValues {
@@ -443,6 +515,102 @@ pub fn add_elements(a: &ElementalValues, b: &ElementalValues) -> ElementalValues
         ice: a.ice + b.ice,
         cold_fire: a.cold_fire + b.cold_fire,
     }
+}
+
+// =============================================================================
+// Modifier query helpers (for SelectCombatEnemy abilities)
+// =============================================================================
+
+use mk_types::modifier::{ActiveModifier, ModifierEffect, ModifierScope, EnemyStat as ModEnemyStat};
+
+/// Check if an enemy's attacks are skipped via EnemySkipAttack modifier.
+pub fn is_enemy_attacks_skipped(modifiers: &[ActiveModifier], enemy_id: &str) -> bool {
+    modifiers.iter().any(|m| {
+        matches!(&m.effect, ModifierEffect::EnemySkipAttack)
+            && matches!(&m.scope, ModifierScope::OneEnemy { enemy_id: id } if id == enemy_id)
+    })
+}
+
+/// Get armor adjustment from EnemyStat(Armor) modifiers. Returns (total_change, max_minimum).
+pub fn get_enemy_armor_modifier(modifiers: &[ActiveModifier], enemy_id: &str) -> (i32, u32) {
+    let mut total_change = 0i32;
+    let mut max_minimum = 0u32;
+    for m in modifiers {
+        if let ModifierEffect::EnemyStat { stat: ModEnemyStat::Armor, amount, minimum, .. } = &m.effect {
+            if matches!(&m.scope, ModifierScope::OneEnemy { enemy_id: id } if id == enemy_id)
+                || matches!(&m.scope, ModifierScope::AllEnemies)
+            {
+                total_change += amount;
+                if *minimum > max_minimum {
+                    max_minimum = *minimum;
+                }
+            }
+        }
+    }
+    (total_change, max_minimum)
+}
+
+/// Get attack adjustment from EnemyStat(Attack) modifiers. Returns (total_change, max_minimum).
+pub fn get_enemy_attack_modifier(modifiers: &[ActiveModifier], enemy_id: &str) -> (i32, u32) {
+    let mut total_change = 0i32;
+    let mut max_minimum = 0u32;
+    for m in modifiers {
+        if let ModifierEffect::EnemyStat { stat: ModEnemyStat::Attack, amount, minimum, .. } = &m.effect {
+            if matches!(&m.scope, ModifierScope::OneEnemy { enemy_id: id } if id == enemy_id)
+                || matches!(&m.scope, ModifierScope::AllEnemies)
+            {
+                total_change += amount;
+                if *minimum > max_minimum {
+                    max_minimum = *minimum;
+                }
+            }
+        }
+    }
+    (total_change, max_minimum)
+}
+
+/// Check if enemy's fortification is nullified (AbilityNullifier).
+pub fn is_fortification_nullified(modifiers: &[ActiveModifier], enemy_id: &str) -> bool {
+    modifiers.iter().any(|m| {
+        if let ModifierEffect::AbilityNullifier { ability, .. } = &m.effect {
+            *ability == Some(EnemyAbilityType::Fortified)
+                && (matches!(&m.scope, ModifierScope::OneEnemy { enemy_id: id } if id == enemy_id)
+                    || matches!(&m.scope, ModifierScope::AllEnemies))
+        } else {
+            false
+        }
+    })
+}
+
+/// Check if enemy's resistances are removed (RemoveResistances modifier).
+pub fn are_resistances_removed(modifiers: &[ActiveModifier], enemy_id: &str) -> bool {
+    modifiers.iter().any(|m| {
+        matches!(&m.effect, ModifierEffect::RemoveResistances)
+            && (matches!(&m.scope, ModifierScope::OneEnemy { enemy_id: id } if id == enemy_id)
+                || matches!(&m.scope, ModifierScope::AllEnemies))
+    })
+}
+
+/// Check if enemy has DefeatIfBlocked modifier.
+pub fn has_defeat_if_blocked(modifiers: &[ActiveModifier], enemy_id: &str) -> bool {
+    modifiers.iter().any(|m| {
+        matches!(&m.effect, ModifierEffect::DefeatIfBlocked)
+            && matches!(&m.scope, ModifierScope::OneEnemy { enemy_id: id } if id == enemy_id)
+    })
+}
+
+/// Check effective fortification: base ability/site + nullifier check.
+pub fn is_effectively_fortified(
+    def: &EnemyDefinition,
+    enemy_id: &str,
+    is_at_fortified_site: bool,
+    modifiers: &[ActiveModifier],
+) -> bool {
+    let base_fortified = has_ability(def, EnemyAbilityType::Fortified) || is_at_fortified_site;
+    if !base_fortified {
+        return false;
+    }
+    !is_fortification_nullified(modifiers, enemy_id)
 }
 
 // =============================================================================

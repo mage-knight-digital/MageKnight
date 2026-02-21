@@ -93,6 +93,11 @@ enum ResolveResult {
     Skipped,
     /// A custom pending was set directly on the player. Queue should stop.
     PendingSet,
+    /// SelectCombatEnemy needs player to choose a target. Queue should stop + save continuation.
+    NeedsSelectCombatEnemy {
+        eligible_enemy_ids: Vec<String>,
+        template: mk_types::pending::SelectEnemyTemplate,
+    },
 }
 
 /// The effect queue. Created per-action, not persisted in game state.
@@ -174,6 +179,22 @@ impl EffectQueue {
                     // Custom pending was set directly. Discard remaining queue.
                     // (DiscardForBonus is always the entire card effect.)
                     self.queue.clear();
+                    return DrainResult::PendingSet;
+                }
+                ResolveResult::NeedsSelectCombatEnemy { eligible_enemy_ids, template } => {
+                    // Save remaining queue as continuation before setting pending.
+                    let continuation: Vec<mk_types::pending::ContinuationEntry> =
+                        self.queue.drain(..).map(|q| mk_types::pending::ContinuationEntry {
+                            effect: q.effect,
+                            source_card_id: q.source_card_id,
+                        }).collect();
+                    state.players[player_idx].pending.active =
+                        Some(ActivePending::SelectCombatEnemy {
+                            unit_instance_id: None,
+                            eligible_enemy_ids,
+                            template,
+                            continuation,
+                        });
                     return DrainResult::PendingSet;
                 }
             }
@@ -752,7 +773,17 @@ fn resolve_one(state: &mut GameState, player_idx: usize, effect: &CardEffect) ->
             factor,
             base_effect,
             bonus_per_count,
-        } => resolve_scaling(state, player_idx, factor, base_effect, *bonus_per_count),
+            maximum,
+        } => resolve_scaling(state, player_idx, factor, base_effect, *bonus_per_count, *maximum),
+
+        // === Combat targeting ===
+        CardEffect::SelectCombatEnemy { template } => {
+            resolve_select_combat_enemy(state, player_idx, template)
+        }
+
+        // === Healing spells ===
+        CardEffect::Cure { amount } => resolve_cure(state, player_idx, *amount),
+        CardEffect::Disease => resolve_disease(state, player_idx),
 
         // === Unimplemented complex effects ===
         CardEffect::Other { .. } => ResolveResult::Skipped,
@@ -1608,10 +1639,12 @@ fn resolve_scaling(
     factor: &ScalingFactor,
     base_effect: &CardEffect,
     bonus_per_count: Option<u32>,
+    maximum: Option<u32>,
 ) -> ResolveResult {
     let count = evaluate_scaling(state, player_idx, factor);
     let per_count = bonus_per_count.unwrap_or(1);
     let bonus = count * per_count;
+    let bonus = bonus.min(maximum.unwrap_or(u32::MAX));
     let scaled = scale_effect(base_effect, bonus);
     ResolveResult::Decomposed(vec![scaled])
 }
@@ -1826,6 +1859,180 @@ fn count_units_with_filter(player: &PlayerState, filter: Option<&UnitFilter>) ->
 }
 
 // =============================================================================
+// Cure / Disease resolvers
+// =============================================================================
+
+/// Cure: remove up to `amount` wounds from hand, draw 1 card per wound removed.
+fn resolve_cure(state: &mut GameState, player_idx: usize, amount: u32) -> ResolveResult {
+    let player = &mut state.players[player_idx];
+
+    // Remove wounds from hand (up to amount)
+    let mut wounds_removed = 0u32;
+    let mut i = 0;
+    while i < player.hand.len() && wounds_removed < amount {
+        if player.hand[i].as_str() == WOUND_CARD_ID {
+            player.hand.remove(i);
+            wounds_removed += 1;
+        } else {
+            i += 1;
+        }
+    }
+
+    if wounds_removed == 0 {
+        return ResolveResult::Skipped;
+    }
+
+    // Draw 1 card per wound healed
+    let actual_draw = (wounds_removed as usize).min(player.deck.len());
+    let drawn: Vec<CardId> = player.deck.drain(..actual_draw).collect();
+    player.hand.extend(drawn);
+
+    ResolveResult::Applied
+}
+
+/// Disease: for each fully-blocked enemy, set armor to 1 for rest of combat.
+fn resolve_disease(state: &mut GameState, player_idx: usize) -> ResolveResult {
+    use mk_types::modifier::{
+        ActiveModifier, EnemyStat as ModEnemyStat, ModifierDuration, ModifierEffect,
+        ModifierScope, ModifierSource,
+    };
+    use mk_types::ids::ModifierId;
+
+    let combat = match state.combat.as_ref() {
+        Some(c) => c,
+        None => return ResolveResult::Skipped,
+    };
+
+    let player_id = state.players[player_idx].id.clone();
+
+    // Find all enemies where ALL attacks are blocked (is_blocked = true)
+    let blocked_enemy_ids: Vec<String> = combat
+        .enemies
+        .iter()
+        .filter(|e| !e.is_defeated && !e.is_summoner_hidden && e.is_blocked)
+        .map(|e| e.instance_id.as_str().to_string())
+        .collect();
+
+    if blocked_enemy_ids.is_empty() {
+        return ResolveResult::Skipped;
+    }
+
+    // For each blocked enemy, push a modifier that sets armor to minimum 0 with a
+    // large negative change (effectively reducing to 1).
+    // We model this as EnemyStat Armor with a very large negative amount and minimum 1.
+    for enemy_id in &blocked_enemy_ids {
+        let modifier_count = state.active_modifiers.len();
+        let modifier_id = format!(
+            "mod_{}_r{}_t{}",
+            modifier_count, state.round, state.current_player_index
+        );
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from(modifier_id.as_str()),
+            source: ModifierSource::Card {
+                card_id: CardId::from("cure"),
+                player_id: player_id.clone(),
+            },
+            duration: ModifierDuration::Combat,
+            scope: ModifierScope::OneEnemy {
+                enemy_id: enemy_id.clone(),
+            },
+            effect: ModifierEffect::EnemyStat {
+                stat: ModEnemyStat::Armor,
+                amount: -100, // large enough to reduce any armor to minimum
+                minimum: 1,
+                attack_index: None,
+                per_resistance: false,
+                fortified_amount: None,
+            },
+            created_at_round: state.round,
+            created_by_player_id: player_id.clone(),
+        });
+    }
+
+    ResolveResult::Applied
+}
+
+// =============================================================================
+// SelectCombatEnemy resolver (card-sourced)
+// =============================================================================
+
+/// Resolve a SelectCombatEnemy effect from a card.
+/// Filters eligible enemies, auto-resolves if 0 or 1, or signals pending if N.
+fn resolve_select_combat_enemy(
+    state: &mut GameState,
+    player_idx: usize,
+    template: &mk_types::pending::SelectEnemyTemplate,
+) -> ResolveResult {
+    let combat = match state.combat.as_ref() {
+        Some(c) => c,
+        None => return ResolveResult::Skipped,
+    };
+
+    // Filter eligible enemies (same logic as unit-ability version in action_pipeline)
+    let mut eligible_ids: Vec<String> = Vec::new();
+    for enemy in &combat.enemies {
+        if enemy.is_defeated || enemy.is_summoner_hidden {
+            continue;
+        }
+
+        let def = match mk_data::enemies::get_enemy(enemy.enemy_id.as_str()) {
+            Some(d) => d,
+            None => continue,
+        };
+
+        // Apply template filters
+        if template.exclude_fortified
+            && crate::combat_resolution::is_effectively_fortified(
+                def,
+                enemy.instance_id.as_str(),
+                combat.is_at_fortified_site,
+                &state.active_modifiers,
+            )
+        {
+            continue;
+        }
+
+        if template.exclude_arcane_immune
+            && crate::combat_resolution::has_ability(def, EnemyAbilityType::ArcaneImmunity)
+        {
+            continue;
+        }
+
+        if let Some(resist) = template.exclude_resistance {
+            if def.resistances.contains(&resist) {
+                continue;
+            }
+        }
+
+        eligible_ids.push(enemy.instance_id.as_str().to_string());
+    }
+
+    match eligible_ids.len() {
+        0 => {
+            // No eligible enemies — effect fizzles
+            ResolveResult::Skipped
+        }
+        1 => {
+            // Auto-resolve with the single eligible enemy
+            let uid: Option<mk_types::ids::UnitInstanceId> = None;
+            if let Err(_) = crate::action_pipeline::apply_select_enemy_effects_pub(
+                state, player_idx, &uid, &eligible_ids[0], template,
+            ) {
+                return ResolveResult::Skipped;
+            }
+            ResolveResult::Applied
+        }
+        _ => {
+            // Multiple eligible — need player to choose
+            ResolveResult::NeedsSelectCombatEnemy {
+                eligible_enemy_ids: eligible_ids,
+                template: *template,
+            }
+        }
+    }
+}
+
+// =============================================================================
 // Resolvability check
 // =============================================================================
 
@@ -1884,6 +2091,15 @@ pub(crate) fn is_resolvable(state: &GameState, player_idx: usize, effect: &CardE
         | CardEffect::Decompose { .. }
         | CardEffect::DiscardForAttack { .. }
         | CardEffect::PureMagic { .. } => true,
+
+        // SelectCombatEnemy: only in combat
+        CardEffect::SelectCombatEnemy { .. } => state.combat.is_some(),
+
+        // Cure: need wounds in hand
+        CardEffect::Cure { .. } => player.hand.iter().any(|c| c.as_str() == WOUND_CARD_ID),
+
+        // Disease: only in combat (sets armor for blocked enemies)
+        CardEffect::Disease => state.combat.is_some(),
 
         // Unknown: default resolvable
         CardEffect::Other { .. } => true,
@@ -1979,10 +2195,12 @@ fn scale_effect(effect: &CardEffect, bonus: u32) -> CardEffect {
             factor,
             base_effect,
             bonus_per_count,
+            maximum,
         } => CardEffect::Scaling {
             factor: factor.clone(),
             base_effect: Box::new(scale_effect(base_effect, bonus)),
             bonus_per_count: *bonus_per_count,
+            maximum: *maximum,
         },
         // For effects without a simple "amount", return unchanged.
         other => other.clone(),
@@ -2029,12 +2247,11 @@ mod tests {
             cities: Default::default(),
             active_modifiers: vec![],
             action_epoch: 0,
+            next_instance_counter: 1,
             rng: RngState::new(42),
             wound_pile_count: None,
             scenario_id: mk_types::ids::ScenarioId::from("solo"),
-            scenario_config: ScenarioConfig {
-                default_city_level: 0,
-            },
+            scenario_config: mk_data::scenarios::first_reconnaissance(),
             scenario_end_triggered: false,
             final_turns_remaining: None,
             game_ended: false,
@@ -2295,6 +2512,7 @@ mod tests {
             declared_attack_targets: None,
             declared_block_target: None,
             declared_block_attack_index: None,
+            ..Default::default()
         }));
 
         let mut queue = EffectQueue::new();
@@ -2521,6 +2739,7 @@ mod tests {
                 factor: ScalingFactor::PerWoundInHand,
                 base_effect: Box::new(CardEffect::GainMove { amount: 1 }),
                 bonus_per_count: Some(2),
+                maximum: None,
             },
             None,
         );
@@ -2544,6 +2763,7 @@ mod tests {
                 factor: ScalingFactor::PerCrystalColor,
                 base_effect: Box::new(CardEffect::GainInfluence { amount: 0 }),
                 bonus_per_count: None, // default 1
+                maximum: None,
             },
             None,
         );

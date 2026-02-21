@@ -4,8 +4,10 @@
 
 pub mod action_pipeline;
 pub mod card_play;
+pub mod client_state;
 pub mod combat;
 pub mod combat_resolution;
+pub mod dummy_player;
 pub mod effect_queue;
 pub mod end_turn;
 pub mod legal_actions;
