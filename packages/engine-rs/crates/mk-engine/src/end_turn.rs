@@ -394,8 +394,7 @@ fn advance_turn(state: &mut GameState, current_player_idx: usize) -> EndTurnResu
         if let Some(ref mut remaining) = state.final_turns_remaining {
             *remaining = remaining.saturating_sub(1);
             if *remaining == 0 {
-                state.game_ended = true;
-                state.phase = GamePhase::End;
+                finalize_game_end(state);
                 return EndTurnResult::GameEnded;
             }
         }
@@ -506,6 +505,45 @@ fn check_round_end(state: &mut GameState, current_player_idx: usize) -> bool {
 }
 
 // =============================================================================
+// Game end finalization
+// =============================================================================
+
+/// Finalize game end: set game_ended, phase, winning_player_id, final_score_result.
+///
+/// Matches TS scoring in `endRound/gameEnd.ts` and `endTurn/index.ts`:
+/// - Determines winner by highest fame
+/// - Populates final_score_result with per-player fame
+fn finalize_game_end(state: &mut GameState) {
+    state.game_ended = true;
+    state.phase = GamePhase::End;
+    state.final_turns_remaining = Some(0);
+
+    // Calculate winning player (highest fame, None if tied)
+    let mut best_fame = 0u32;
+    let mut best_player_id: Option<PlayerId> = None;
+    let mut is_tied = false;
+
+    for player in &state.players {
+        if player.fame > best_fame {
+            best_fame = player.fame;
+            best_player_id = Some(player.id.clone());
+            is_tied = false;
+        } else if player.fame == best_fame && best_player_id.is_some() {
+            is_tied = true;
+        }
+    }
+
+    state.winning_player_id = if is_tied { None } else { best_player_id };
+
+    // Build simple fame-based score result
+    let mut scores = std::collections::BTreeMap::new();
+    for player in &state.players {
+        scores.insert(player.id.as_str().to_string(), player.fame);
+    }
+    state.final_score_result = Some(FinalScoreResult { scores });
+}
+
+// =============================================================================
 // End round
 // =============================================================================
 
@@ -513,12 +551,15 @@ fn check_round_end(state: &mut GameState, current_player_idx: usize) -> bool {
 ///
 /// Matches TS `createEndRoundCommand()` in `endRound/index.ts`.
 fn end_round(state: &mut GameState) {
-    // Game end check: scenario total rounds reached.
-    // state.round is 1-based and hasn't been incremented yet,
-    // so round == total_rounds means we just finished the last round.
-    if state.round >= state.scenario_config.total_rounds {
-        state.game_ended = true;
-        state.phase = GamePhase::End;
+    let reached_round_limit = state.round >= state.scenario_config.total_rounds;
+
+    // Rulebook: "If the Round ends during [final turns], the game ends immediately."
+    // This matches TS `checkGameEnd()` in `endRound/gameEnd.ts`.
+    let should_end_from_final_turns = state.scenario_end_triggered
+        && state.final_turns_remaining.is_some_and(|r| r > 0);
+
+    if reached_round_limit || should_end_from_final_turns {
+        finalize_game_end(state);
         return;
     }
 
@@ -1842,5 +1883,117 @@ mod tests {
 
         assert!(!state.players[0].units[0].used_resistance_this_combat,
             "used_resistance_this_combat should reset after combat");
+    }
+
+    // =========================================================================
+    // Scenario ending — game end finalization
+    // =========================================================================
+
+    #[test]
+    fn round_end_during_final_turns_ends_game() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck.clear(); // Force round end on end_turn
+
+        // Simulate scenario end triggered with 2 final turns remaining
+        state.scenario_end_triggered = true;
+        state.final_turns_remaining = Some(2);
+
+        // Play a card and end turn — deck+hand empty triggers round end,
+        // and round end during final turns should end game immediately
+        play_card(&mut state, 0, 0, false).unwrap();
+        let result = end_turn(&mut state, 0).unwrap();
+
+        assert!(
+            matches!(result, EndTurnResult::GameEnded),
+            "Should end game when round ends during final turns, got {:?}",
+            result
+        );
+        assert!(state.game_ended);
+        assert_eq!(state.phase, GamePhase::End);
+    }
+
+    #[test]
+    fn finalize_sets_winning_player_id() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("card_{}", i))).collect();
+        state.players[0].fame = 15;
+        state.players[0].level = 4; // Match level to fame to avoid pending level-up rewards
+
+        // Trigger game end via final turns countdown
+        state.scenario_end_triggered = true;
+        state.final_turns_remaining = Some(1);
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        assert!(state.game_ended);
+        assert_eq!(
+            state.winning_player_id.as_ref().map(|id| id.as_str()),
+            Some(state.players[0].id.as_str()),
+            "Solo player should be winning player"
+        );
+    }
+
+    #[test]
+    fn finalize_populates_final_score_result() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("card_{}", i))).collect();
+        state.players[0].fame = 20;
+        state.players[0].level = 4; // Match level to fame to avoid pending level-up rewards
+
+        // Trigger game end via final turns countdown
+        state.scenario_end_triggered = true;
+        state.final_turns_remaining = Some(1);
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        assert!(state.game_ended);
+        let score_result = state.final_score_result.as_ref()
+            .expect("final_score_result should be populated");
+        let player_id = state.players[0].id.as_str().to_string();
+        assert_eq!(
+            score_result.scores.get(&player_id),
+            Some(&20),
+            "Score should equal player fame"
+        );
+    }
+
+    #[test]
+    fn round_limit_game_end_sets_scores() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck.clear();
+        state.players[0].fame = 12;
+        state.players[0].level = 3; // Match level to fame to avoid pending level-up rewards
+
+        // Set round to total_rounds so end_round triggers game end
+        state.round = state.scenario_config.total_rounds;
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        let result = end_turn(&mut state, 0).unwrap();
+
+        assert!(matches!(result, EndTurnResult::GameEnded));
+        assert!(state.game_ended);
+        assert!(state.winning_player_id.is_some(), "Should set winning player");
+        assert!(state.final_score_result.is_some(), "Should set final scores");
+    }
+
+    #[test]
+    fn finalize_sets_final_turns_remaining_to_zero() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck.clear();
+
+        state.scenario_end_triggered = true;
+        state.final_turns_remaining = Some(2);
+
+        play_card(&mut state, 0, 0, false).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        assert!(state.game_ended);
+        assert_eq!(
+            state.final_turns_remaining,
+            Some(0),
+            "final_turns_remaining should be set to 0 on game end"
+        );
     }
 }
