@@ -1801,8 +1801,6 @@ fn learning() -> CardDefinition {
 }
 
 /// Chivalry: Attack 3 or Attack 2 + rep +1/defeat / Attack 6 or Attack 4 + rep +1 + fame +1/defeat
-// --- Green Advanced Actions (continued) ---
-
 fn stout_resolve() -> CardDefinition {
     CardDefinition {
         id: "stout_resolve",

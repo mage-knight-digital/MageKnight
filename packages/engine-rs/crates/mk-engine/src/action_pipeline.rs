@@ -1880,8 +1880,7 @@ fn apply_auto_damage(
 
             // Apply attack modifier (weaken, taunt, etc.)
             let modified_damage = if atk_change != 0 {
-                let d = (base_damage as i32 + atk_change).max(atk_minimum as i32) as u32;
-                d
+                (base_damage as i32 + atk_change).max(atk_minimum as i32) as u32
             } else {
                 base_damage
             };
@@ -3597,7 +3596,7 @@ fn apply_curse(
         .iter()
         .filter(|e| {
             !e.is_defeated
-                && !(is_ranged_siege && is_enemy_fortified(e.enemy_id.as_str()))
+                && (!is_ranged_siege || !is_enemy_fortified(e.enemy_id.as_str()))
         })
         .map(|e| e.instance_id.as_str().to_string())
         .collect();
@@ -3655,7 +3654,7 @@ pub(crate) fn setup_curse_mode(
         .map(|d| d.abilities.contains(&EnemyAbilityType::ArcaneImmunity))
         .unwrap_or(false);
     let num_attacks = enemy_def
-        .map(|d| mk_data::enemies::attack_count(d))
+        .map(mk_data::enemies::attack_count)
         .unwrap_or(1);
     let has_multi_attack = num_attacks > 1;
 
@@ -3727,7 +3726,7 @@ pub(crate) fn execute_curse_mode(
                     .unwrap();
                 mk_data::enemies::get_enemy(enemy.enemy_id.as_str())
             };
-            let num_attacks = enemy_def.map(|d| mk_data::enemies::attack_count(d)).unwrap_or(1);
+            let num_attacks = enemy_def.map(mk_data::enemies::attack_count).unwrap_or(1);
             let options: Vec<CardEffect> = (0..num_attacks).map(|_| CardEffect::Noop).collect();
             state.players[player_idx].pending.active =
                 Some(ActivePending::Choice(PendingChoice {
@@ -5144,7 +5143,7 @@ fn apply_select_enemy_effects(
             .iter()
             .find(|e| e.instance_id.as_str() == enemy_instance_id)
             .and_then(|e| get_enemy(e.enemy_id.as_str()))
-            .map_or(false, |def| {
+            .is_some_and(|def| {
                 combat_resolution::has_ability(def, EnemyAbilityType::ArcaneImmunity)
             })
     };
@@ -5157,7 +5156,7 @@ fn apply_select_enemy_effects(
             .iter()
             .find(|e| e.instance_id.as_str() == enemy_instance_id)
             .and_then(|e| get_enemy(e.enemy_id.as_str()))
-            .map_or(false, |def| {
+            .is_some_and(|def| {
                 combat_resolution::is_effectively_fortified(
                     def,
                     enemy_instance_id,
@@ -5309,7 +5308,7 @@ fn apply_select_enemy_effects(
         state.players[player_idx].fame += fame_gain;
         if rep_bonus != 0 {
             state.players[player_idx].reputation = (state.players[player_idx].reputation + rep_bonus)
-                .max(-7).min(7);
+                .clamp(-7, 7);
         }
     }
 

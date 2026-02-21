@@ -78,6 +78,12 @@ pub struct SelectEnemyTemplate {
     pub armor_per_resistance: bool,
 }
 
+impl Default for SelectEnemyTemplate {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SelectEnemyTemplate {
     pub const fn new() -> Self {
         Self {

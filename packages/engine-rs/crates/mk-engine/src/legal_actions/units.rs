@@ -333,7 +333,7 @@ pub(super) fn enumerate_unit_activations(
     }
 
     let combat_phase = state.combat.as_ref().map(|c| c.phase);
-    let is_fortified = state.combat.as_ref().map_or(false, |c| c.is_at_fortified_site);
+    let is_fortified = state.combat.as_ref().is_some_and(|c| c.is_at_fortified_site);
 
     for unit in &player.units {
         // Skip spent or wounded units

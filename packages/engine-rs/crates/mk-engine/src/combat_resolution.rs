@@ -446,6 +446,7 @@ pub struct UnitDamageResult {
 /// - If effective_damage <= armor → fully absorbed
 /// - If not wounded → becomes wounded
 /// - If already wounded → destroyed
+#[allow(clippy::too_many_arguments)] // attack + unit properties are cohesive
 pub fn calculate_unit_damage(
     attack_damage: u32,
     attack_element: Element,

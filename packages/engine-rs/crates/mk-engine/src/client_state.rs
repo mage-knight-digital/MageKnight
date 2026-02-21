@@ -202,7 +202,7 @@ fn pending_options(active: &ActivePending) -> Vec<String> {
         ActivePending::Choice(choice) => choice
             .options
             .iter()
-            .map(|effect| effect_summary(effect))
+            .map(effect_summary)
             .collect(),
         ActivePending::UnitAbilityChoice { options, .. } => {
             options.iter().map(|o| format!("{:?}", o)).collect()
@@ -337,7 +337,7 @@ fn to_client_source(source: &ManaSource, players: &[PlayerState]) -> ClientManaS
 
 fn to_client_offers(offers: &GameOffers) -> ClientOffers {
     ClientOffers {
-        units: offers.units.iter().cloned().collect(),
+        units: offers.units.to_vec(),
         advanced_actions: offers.advanced_actions.clone(),
         spells: offers.spells.clone(),
     }
@@ -363,7 +363,7 @@ fn to_client_combat(combat: &CombatState) -> ClientCombatState {
             .enemies
             .iter()
             .filter(|e| !e.is_summoner_hidden)
-            .map(|e| hydrate_combat_enemy(e))
+            .map(hydrate_combat_enemy)
             .collect(),
         wounds_this_combat: combat.wounds_this_combat,
         fame_gained: combat.fame_gained,

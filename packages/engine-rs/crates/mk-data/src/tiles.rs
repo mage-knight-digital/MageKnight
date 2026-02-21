@@ -711,25 +711,7 @@ mod tests {
 
     #[test]
     fn create_tile_deck_correct_counts() {
-        let config = mk_types::state::ScenarioConfig {
-            countryside_tile_count: 8,
-            core_tile_count: 2,
-            city_tile_count: 1,
-            map_shape: mk_types::enums::MapShape::Wedge,
-            day_rounds: 2,
-            night_rounds: 2,
-            total_rounds: 4,
-            skills_enabled: false,
-            elite_units_enabled: false,
-            spells_available: true,
-            advanced_actions_available: true,
-            fame_per_tile_explored: 1,
-            cities_can_be_entered: false,
-            default_city_level: 1,
-            tactic_removal_mode: mk_types::enums::TacticRemovalMode::AllUsed,
-            dummy_tactic_order: mk_types::enums::DummyTacticOrder::AfterHumans,
-            end_trigger: mk_types::enums::ScenarioEndTrigger::CityRevealed,
-        };
+        let config = crate::scenarios::first_reconnaissance();
         let mut rng = mk_types::rng::RngState::new(42);
         let deck = create_tile_deck(&config, &mut rng);
 
@@ -739,25 +721,7 @@ mod tests {
 
     #[test]
     fn create_tile_deck_city_at_bottom() {
-        let config = mk_types::state::ScenarioConfig {
-            countryside_tile_count: 8,
-            core_tile_count: 2,
-            city_tile_count: 1,
-            map_shape: mk_types::enums::MapShape::Wedge,
-            day_rounds: 2,
-            night_rounds: 2,
-            total_rounds: 4,
-            skills_enabled: false,
-            elite_units_enabled: false,
-            spells_available: true,
-            advanced_actions_available: true,
-            fame_per_tile_explored: 1,
-            cities_can_be_entered: false,
-            default_city_level: 1,
-            tactic_removal_mode: mk_types::enums::TacticRemovalMode::AllUsed,
-            dummy_tactic_order: mk_types::enums::DummyTacticOrder::AfterHumans,
-            end_trigger: mk_types::enums::ScenarioEndTrigger::CityRevealed,
-        };
+        let config = crate::scenarios::first_reconnaissance();
         let mut rng = mk_types::rng::RngState::new(42);
         let deck = create_tile_deck(&config, &mut rng);
 

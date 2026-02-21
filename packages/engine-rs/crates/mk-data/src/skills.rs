@@ -173,7 +173,7 @@ pub fn get_hero_skill_ids(hero: Hero) -> &'static [&'static str] {
 
 /// Check if a skill ID is a motivation skill.
 pub fn is_motivation_skill(id: &str) -> bool {
-    get_skill(id).map_or(false, |s| s.is_motivation)
+    get_skill(id).is_some_and(|s| s.is_motivation)
 }
 
 /// Get passive modifiers for a skill (always-on while skill is owned).

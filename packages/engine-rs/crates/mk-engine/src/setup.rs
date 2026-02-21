@@ -68,7 +68,7 @@ pub fn create_mana_source(
     rng: &mut RngState,
 ) -> ManaSource {
     let dice_count = (player_count + 2) as usize;
-    let min_basic = (dice_count + 1) / 2; // ceil(dice_count / 2)
+    let min_basic = dice_count.div_ceil(2); // ceil(dice_count / 2)
 
     // Initial roll
     let mut colors: Vec<ManaColor> = (0..dice_count).map(|_| roll_die_color(rng)).collect();
@@ -112,7 +112,14 @@ pub fn create_mana_source(
 // =============================================================================
 
 /// Create a player with shuffled deck and drawn hand.
-fn create_player(id: &str, hero: Hero, position: HexCoord, rng: &mut RngState) -> PlayerState {
+fn create_player(
+    id: &str,
+    hero: Hero,
+    position: HexCoord,
+    starting_fame: u32,
+    starting_reputation: i8,
+    rng: &mut RngState,
+) -> PlayerState {
     // Build and shuffle the 16-card starting deck
     let mut deck = build_starting_deck(hero);
     rng.shuffle(&mut deck);
@@ -125,9 +132,9 @@ fn create_player(id: &str, hero: Hero, position: HexCoord, rng: &mut RngState) -
         hero,
         position: Some(position),
 
-        fame: 0,
-        level: 1,
-        reputation: 0,
+        fame: starting_fame,
+        level: mk_data::levels::get_level_from_fame(starting_fame),
+        reputation: starting_reputation,
 
         armor: LEVEL_1_ARMOR,
         hand_limit: LEVEL_1_HAND_LIMIT,
@@ -271,7 +278,14 @@ pub fn create_solo_game(seed: u32, hero: Hero) -> GameState {
 
     // Create player
     let player_id = "player_0";
-    let player = create_player(player_id, hero, player_pos, &mut rng);
+    let player = create_player(
+        player_id,
+        hero,
+        player_pos,
+        scenario_config.starting_fame,
+        scenario_config.starting_reputation,
+        &mut rng,
+    );
 
     // Create mana source
     let source = create_mana_source(1, TimeOfDay::Day, &mut rng);

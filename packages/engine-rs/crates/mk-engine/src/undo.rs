@@ -1,4 +1,4 @@
-//! Snapshot-based undo — `Box::new(state.clone())` before reversible actions.
+//! Snapshot-based undo — `state.clone()` before reversible actions.
 //!
 //! Replaces the TS closure-based undo mechanism with a simpler snapshot approach.
 //! Before each reversible action, the full game state is cloned and pushed onto
@@ -13,7 +13,7 @@ use mk_types::state::GameState;
 #[derive(Debug, Clone)]
 pub struct UndoStack {
     /// Stack of saved game states (most recent on top).
-    snapshots: Vec<Box<GameState>>,
+    snapshots: Vec<GameState>,
     /// Whether a checkpoint has been set (irreversible action occurred).
     checkpoint_active: bool,
 }
@@ -29,7 +29,7 @@ impl UndoStack {
 
     /// Save a snapshot of the current state before a reversible action.
     pub fn save(&mut self, state: &GameState) {
-        self.snapshots.push(Box::new(state.clone()));
+        self.snapshots.push(state.clone());
     }
 
     /// Whether undo is available (at least one snapshot, no checkpoint blocking).
@@ -44,7 +44,7 @@ impl UndoStack {
 
     /// Pop the most recent snapshot. Returns `None` if stack is empty.
     pub fn undo(&mut self) -> Option<GameState> {
-        self.snapshots.pop().map(|boxed| *boxed)
+        self.snapshots.pop()
     }
 
     /// Set a checkpoint — clears the entire stack.

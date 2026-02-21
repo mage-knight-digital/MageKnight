@@ -827,7 +827,7 @@ fn resolve_one(state: &mut GameState, player_idx: usize, effect: &CardEffect) ->
         }
         CardEffect::ChangeReputation { amount } => {
             let player = &mut state.players[player_idx];
-            let new_rep = (player.reputation as i32 + *amount as i32)
+            let new_rep = (player.reputation as i32 + *amount)
                 .clamp(MIN_REPUTATION as i32, MAX_REPUTATION as i32);
             player.reputation = new_rep as i8;
             ResolveResult::Applied
@@ -1715,6 +1715,7 @@ fn pure_magic_effect_for_color(
     }
 }
 
+#[allow(clippy::too_many_arguments)] // attack + per-defeat bonus params are cohesive
 fn apply_attack_with_defeat_bonus(
     state: &mut GameState,
     player_idx: usize,
@@ -2199,9 +2200,9 @@ fn resolve_select_combat_enemy(
         1 => {
             // Auto-resolve with the single eligible enemy
             let uid: Option<mk_types::ids::UnitInstanceId> = None;
-            if let Err(_) = crate::action_pipeline::apply_select_enemy_effects_pub(
+            if crate::action_pipeline::apply_select_enemy_effects_pub(
                 state, player_idx, &uid, &eligible_ids[0], template,
-            ) {
+            ).is_err() {
                 return ResolveResult::Skipped;
             }
             ResolveResult::Applied
