@@ -80,7 +80,7 @@ pub fn draw_enemy_token(
         return None;
     }
 
-    let mut reshuffled: Vec<EnemyTokenId> = discard.drain(..).collect();
+    let mut reshuffled: Vec<EnemyTokenId> = std::mem::take(discard);
     rng.shuffle(&mut reshuffled);
 
     let draw = get_draw_pile_mut(piles, color);

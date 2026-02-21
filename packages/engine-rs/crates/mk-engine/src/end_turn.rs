@@ -466,7 +466,7 @@ fn advance_turn(state: &mut GameState, current_player_idx: usize) -> EndTurnResu
     }
 
     EndTurnResult::NextPlayer {
-        next_player_idx: next_player_idx,
+        next_player_idx,
     }
 }
 
@@ -725,7 +725,7 @@ fn reset_player_round(state: &mut GameState, player_idx: usize) {
 // =============================================================================
 
 /// Helper: get the hex state at the player's position.
-fn player_hex<'a>(state: &'a GameState, player_idx: usize) -> Option<&'a HexState> {
+fn player_hex(state: &GameState, player_idx: usize) -> Option<&HexState> {
     let pos = state.players[player_idx].position?;
     state.map.hexes.get(&pos.key())
 }

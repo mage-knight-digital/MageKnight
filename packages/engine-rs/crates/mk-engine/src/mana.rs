@@ -119,7 +119,7 @@ pub fn return_player_dice(state: &mut GameState, player_idx: usize) {
                 .tactic_state
                 .stored_mana_die
                 .as_ref()
-                .map_or(false, |s| s.die_id == die.id);
+                .is_some_and(|s| s.die_id == die.id);
             if !is_stored_steal {
                 die.taken_by_player_id = None;
             }

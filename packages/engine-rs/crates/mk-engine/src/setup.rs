@@ -68,7 +68,7 @@ pub fn create_mana_source(
     rng: &mut RngState,
 ) -> ManaSource {
     let dice_count = (player_count + 2) as usize;
-    let min_basic = (dice_count + 1) / 2; // ceil(dice_count / 2)
+    let min_basic = dice_count.div_ceil(2); // ceil(dice_count / 2)
 
     // Initial roll
     let mut colors: Vec<ManaColor> = (0..dice_count).map(|_| roll_die_color(rng)).collect();

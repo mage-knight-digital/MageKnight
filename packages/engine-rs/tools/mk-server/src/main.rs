@@ -59,7 +59,7 @@ fn default_seed() -> u32 {
 #[serde(tag = "type", rename_all = "snake_case")]
 enum ServerMessage {
     GameUpdate {
-        state: ClientGameState,
+        state: Box<ClientGameState>,
         legal_actions: Vec<LegalAction>,
         epoch: u64,
     },
@@ -98,7 +98,7 @@ impl GameSession {
         ServerMessage::GameUpdate {
             epoch: action_set.epoch,
             legal_actions: action_set.actions,
-            state: client_state,
+            state: Box::new(client_state),
         }
     }
 

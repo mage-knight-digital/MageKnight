@@ -30,7 +30,7 @@ pub struct LevelStats {
 /// Get stats for a level (1-10). Levels outside range clamp.
 pub fn get_level_stats(level: u32) -> LevelStats {
     match level {
-        0 | 1 | 2 => LevelStats {
+        0..=2 => LevelStats {
             armor: 2,
             hand_limit: 5,
             command_slots: 1,
@@ -90,7 +90,7 @@ pub fn is_stat_level_up(level: u32) -> bool {
 /// Whether this level grants a skill choice (even levels: 2, 4, 6, 8, 10).
 /// Even-level rewards: choose 1 of 2 drawn skills.
 pub fn is_skill_level_up(level: u32) -> bool {
-    level >= 2 && level % 2 == 0
+    level >= 2 && level.is_multiple_of(2)
 }
 
 #[cfg(test)]

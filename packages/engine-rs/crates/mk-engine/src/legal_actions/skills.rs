@@ -148,17 +148,15 @@ pub(super) fn enumerate_skill_activations(
         }
 
         // Invocation requires: at least one card in hand.
-        if skill_id.as_str() == "arythea_invocation" {
-            if player.hand.is_empty() {
-                continue;
-            }
+        if skill_id.as_str() == "arythea_invocation" && player.hand.is_empty() {
+            continue;
         }
 
         // Polarization requires: at least one convertible mana source.
-        if skill_id.as_str() == "arythea_polarization" {
-            if !crate::action_pipeline::has_polarization_options(state, player_idx) {
-                continue;
-            }
+        if skill_id.as_str() == "arythea_polarization"
+            && !crate::action_pipeline::has_polarization_options(state, player_idx)
+        {
+            continue;
         }
 
         // Curse requires: at least one eligible (alive, not fortified in R/S) enemy.
@@ -167,8 +165,8 @@ pub(super) fn enumerate_skill_activations(
                 let is_ranged_siege = combat.phase == CombatPhase::RangedSiege;
                 let has_eligible = combat.enemies.iter().any(|e| {
                     !e.is_defeated
-                        && !(is_ranged_siege
-                            && mk_data::enemies::get_enemy(e.enemy_id.as_str())
+                        && (!is_ranged_siege
+                            || !mk_data::enemies::get_enemy(e.enemy_id.as_str())
                                 .map(|d| d.abilities.contains(&mk_types::enums::EnemyAbilityType::Fortified))
                                 .unwrap_or(false))
                 });

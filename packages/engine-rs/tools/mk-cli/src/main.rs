@@ -95,7 +95,7 @@ fn main() {
     let mut undo = UndoStack::new();
     let player_idx = 0;
 
-    println!("\n  {} playing as {}, seed {}\n", ">>", hero_name, seed);
+    println!("\n  >> playing as {}, seed {}\n", hero_name, seed);
 
     loop {
         if state.game_ended {
