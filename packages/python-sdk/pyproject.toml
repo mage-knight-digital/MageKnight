@@ -15,6 +15,7 @@ dependencies = [
 mage-knight-viewer = "mage_knight_sdk.viewer.__main__:main"
 mage-knight-run-game = "mage_knight_sdk.cli.run_game:main"
 mage-knight-run-sweep = "mage_knight_sdk.cli.run_sweep:main"
+mage-knight-run-native = "mage_knight_sdk.cli.run_native:main"
 mage-knight-scan-fame = "mage_knight_sdk.tools.scan_fame:main"
 mage-knight-train-rl = "mage_knight_sdk.cli.train_rl:main"
 mage-knight-import-tb = "mage_knight_sdk.tools.import_tensorboard:main"
