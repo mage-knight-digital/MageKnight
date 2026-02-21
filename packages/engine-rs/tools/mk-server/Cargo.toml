@@ -1,0 +1,19 @@
+[package]
+name = "mk-server"
+description = "WebSocket game server for Mage Knight"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "mk-server"
+path = "src/main.rs"
+
+[dependencies]
+mk-types = { workspace = true }
+mk-data = { workspace = true }
+mk-engine = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+axum = { version = "0.8", features = ["ws"] }
+tokio = { version = "1", features = ["full"] }
+tower-http = { version = "0.6", features = ["cors"] }

@@ -172,6 +172,48 @@ fn apply_terrain_cost_modifiers(
     cost.max(min_floor).max(0) as u32
 }
 
+/// Check if any modifier provides a `replace_cost` for a normally-impassable terrain.
+/// Returns the effective cost if found (applying all matching modifiers), None otherwise.
+pub fn find_replace_cost_for_terrain(
+    terrain: Terrain,
+    modifiers: &[mk_types::modifier::ActiveModifier],
+) -> Option<u32> {
+    use mk_types::modifier::{ModifierEffect, TerrainOrAll};
+
+    let has_replace = modifiers.iter().any(|m| {
+        if let ModifierEffect::TerrainCost { terrain: t, replace_cost: Some(_), .. } = &m.effect {
+            match t {
+                TerrainOrAll::All => true,
+                TerrainOrAll::Specific(tt) => *tt == terrain,
+            }
+        } else {
+            false
+        }
+    });
+
+    if has_replace {
+        // Use 0 as base — replace_cost will override it
+        Some(apply_terrain_cost_modifiers(0, terrain, modifiers))
+    } else {
+        None
+    }
+}
+
+/// Get the effective explore cost after applying ExploreCostReduction modifiers.
+pub fn get_effective_explore_cost(
+    modifiers: &[mk_types::modifier::ActiveModifier],
+) -> u32 {
+    use mk_types::modifier::ModifierEffect;
+
+    let mut cost = EXPLORE_BASE_COST as i32;
+    for m in modifiers {
+        if let ModifierEffect::ExploreCostReduction { amount } = &m.effect {
+            cost -= amount;
+        }
+    }
+    cost.max(0) as u32
+}
+
 // =============================================================================
 // evaluate_move_entry — single source of truth
 // =============================================================================
@@ -195,13 +237,18 @@ pub fn evaluate_move_entry(
     };
 
     // 2. Check terrain passability
-    let base_cost = match get_terrain_cost(hex.terrain, state.time_of_day) {
-        Some(c) => c,
-        None => return MoveEntryResult::blocked(MoveBlockReason::Impassable),
+    let base_cost = get_terrain_cost(hex.terrain, state.time_of_day);
+    let cost = if let Some(c) = base_cost {
+        // Normal passable terrain — apply modifiers
+        apply_terrain_cost_modifiers(c, hex.terrain, &state.active_modifiers)
+    } else {
+        // Normally impassable — check if a modifier provides a replacement cost
+        // (e.g., Secret Ways makes mountains cost 5)
+        match find_replace_cost_for_terrain(hex.terrain, &state.active_modifiers) {
+            Some(c) => c,
+            None => return MoveEntryResult::blocked(MoveBlockReason::Impassable),
+        }
     };
-
-    // Apply terrain cost modifiers (e.g., Foresters terrain reduction)
-    let cost = apply_terrain_cost_modifiers(base_cost, hex.terrain, &state.active_modifiers);
 
     // 3. Check rampaging enemies
     // Both rampaging_enemies (type slots from tile) and enemies (drawn tokens) must be non-empty.
@@ -646,7 +693,7 @@ pub fn is_player_near_explore_edge(
 }
 
 /// Place a tile's hexes onto the map at a given center coordinate.
-fn place_tile_on_map(
+pub(crate) fn place_tile_on_map(
     map: &mut MapState,
     tile_id: TileId,
     center: HexCoord,
@@ -702,7 +749,7 @@ fn place_tile_on_map(
 ///   Rampaging enemies are always face-up (revealed).
 /// - For sites with defenders (Keep, MageTower, Maze, Labyrinth), draw
 ///   tokens based on site_defender_config. Fortified sites are face-down.
-fn draw_enemies_on_tile(
+pub(crate) fn draw_enemies_on_tile(
     state: &mut GameState,
     center: HexCoord,
     tile_hexes: &[mk_data::tiles::TileHex],
@@ -782,8 +829,8 @@ pub fn execute_explore(
         .position
         .ok_or(ExploreError::NoPosition)?;
 
-    // TODO: apply explore cost modifiers (EFFECT_EXPLORE_COST_REDUCTION)
-    if state.players[player_idx].move_points < EXPLORE_BASE_COST {
+    let explore_cost = get_effective_explore_cost(&state.active_modifiers);
+    if state.players[player_idx].move_points < explore_cost {
         return Err(ExploreError::InsufficientMovePoints);
     }
 
@@ -829,7 +876,7 @@ pub fn execute_explore(
     });
 
     // Deduct move points
-    state.players[player_idx].move_points -= EXPLORE_BASE_COST;
+    state.players[player_idx].move_points -= explore_cost;
 
     // Draw enemies from piles for rampaging hexes and site defenders
     draw_enemies_on_tile(state, new_center, tile_hexes);
@@ -864,15 +911,16 @@ pub fn execute_explore(
 mod tests {
     use super::*;
     use crate::setup::create_solo_game;
-    use mk_types::ids::*;
 
     /// Helper: create a solo game with specified move points.
+    /// Resets map to just the starting tile and clears the tile deck,
+    /// so explore tests start from a clean slate.
     fn setup_game_with_move_points(move_pts: u32) -> GameState {
         let mut state = create_solo_game(42, Hero::Arythea);
         state.round_phase = RoundPhase::PlayerTurns;
         state.players[0].move_points = move_pts;
-        // Clear tile deck so explore tests start from a clean slate
-        // (tests push specific tiles they need)
+        // Reset map to just the starting tile (initial countryside tiles removed)
+        state.map = crate::setup::place_starting_tile(TileId::StartingA);
         state.map.tile_deck = TileDeck::default();
         state
     }

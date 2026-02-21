@@ -130,14 +130,17 @@ pub fn create_spell_deck_and_offer(rng: &mut RngState) -> (Vec<CardId>, Vec<Card
 /// Remove a card from the offer by ID and replenish from the top of the deck.
 /// If the card is not in the offer, this is a no-op.
 /// If the deck is empty, the offer shrinks by one.
+///
+/// Replenishment matches TypeScript: the new card is appended at the end of the
+/// offer (oldest position, removed first at round refresh), not at index 0.
+/// TS: `spells: { cards: [...newCards, newCard] }`.
 pub fn take_from_offer(offer: &mut Vec<CardId>, deck: &mut Vec<CardId>, card_id: &str) {
     if let Some(pos) = offer.iter().position(|c| c.as_str() == card_id) {
         offer.remove(pos);
-        // Replenish from deck top (index 0)
+        // Replenish from deck top (index 0); new card goes at end (oldest), matching TS
         if !deck.is_empty() {
             let new_card = deck.remove(0);
-            // Insert at position 0 (newest = top)
-            offer.insert(0, new_card);
+            offer.push(new_card);
         }
     }
 }
@@ -233,12 +236,11 @@ mod tests {
 
         take_from_offer(&mut offer, &mut deck, "b");
 
-        // Offer should still have 3 cards: d (new from deck), a, c
+        // Offer should still have 3 cards; replenishment at end (oldest), matching TS
         assert_eq!(offer.len(), 3);
-        assert_eq!(offer[0].as_str(), "d"); // new card at top
-        assert_eq!(offer[1].as_str(), "a");
-        assert_eq!(offer[2].as_str(), "c");
-        // Deck should have 1 card left
+        assert_eq!(offer[0].as_str(), "a");
+        assert_eq!(offer[1].as_str(), "c");
+        assert_eq!(offer[2].as_str(), "d"); // new card at end (oldest)
         assert_eq!(deck.len(), 1);
         assert_eq!(deck[0].as_str(), "e");
     }
@@ -266,6 +268,40 @@ mod tests {
 
         assert_eq!(offer.len(), 1);
         assert_eq!(deck.len(), 1);
+    }
+
+    /// Regression: match TypeScript behavior. When you take from the offer, the
+    /// replacement from the deck goes at the END of the offer (oldest position),
+    /// not at the start. TS: [...newCards, newCard]; index 0 = newest, last = oldest.
+    #[test]
+    fn take_from_offer_replenished_card_at_oldest_position_matches_ts() {
+        let mut offer = vec![
+            CardId::from("newest"),
+            CardId::from("middle"),
+            CardId::from("oldest"),
+        ];
+        let mut deck = vec![CardId::from("from_deck")];
+
+        take_from_offer(&mut offer, &mut deck, "middle");
+
+        // Offer must still have 3 cards. Replacement must be at end (oldest), not at 0.
+        assert_eq!(offer.len(), 3, "offer should stay size 3 when deck replenishes");
+        assert_eq!(
+            offer[0].as_str(),
+            "newest",
+            "newest stays at index 0 (top)"
+        );
+        assert_eq!(
+            offer[1].as_str(),
+            "oldest",
+            "oldest slides to index 1"
+        );
+        assert_eq!(
+            offer[2].as_str(),
+            "from_deck",
+            "replenishment from deck must be at end (oldest position), matching TS"
+        );
+        assert!(deck.is_empty());
     }
 
     #[test]

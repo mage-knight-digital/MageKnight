@@ -162,9 +162,12 @@ pub(super) fn enumerate_unit_actions(
         return;
     }
 
-    // Command limit check
-    let command_slots = get_level_stats(player.level).command_slots;
-    if player.units.len() >= command_slots as usize {
+    // Command limit check (bonds_of_loyalty adds +1 slot)
+    let mut command_slots = get_level_stats(player.level).command_slots as usize;
+    if player.skills.iter().any(|s| s.as_str() == "norowas_bonds_of_loyalty") {
+        command_slots += 1;
+    }
+    if player.units.len() >= command_slots {
         return;
     }
 
@@ -222,7 +225,14 @@ pub(super) fn enumerate_unit_actions(
             0
         };
 
-        let total_cost = (base_cost + rep_mod + camp_mod).max(0) as u32;
+        let mut total_cost = (base_cost + rep_mod + camp_mod).max(0) as u32;
+
+        // Bonds of Loyalty: -5 influence when the bonds slot is empty
+        if player.skills.iter().any(|s| s.as_str() == "norowas_bonds_of_loyalty")
+            && player.bonds_of_loyalty_unit_instance_id.is_none()
+        {
+            total_cost = total_cost.saturating_sub(5);
+        }
 
         // Check player can afford
         if player.influence_points < total_cost {

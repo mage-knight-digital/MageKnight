@@ -8,6 +8,7 @@ use mk_types::effect::{CardEffect, EffectCondition, ScalingFactor, UnitFilter};
 use mk_types::enums::{
     BasicManaColor, CombatPhase, CombatType, Element, Hero, ManaColor, UnitState,
 };
+use mk_types::enums::Terrain;
 use mk_types::modifier::{
     CombatValueType, LeadershipBonusType, ModifierDuration, ModifierEffect, ModifierScope,
     RuleOverride, TerrainOrAll,
@@ -175,6 +176,36 @@ pub fn is_motivation_skill(id: &str) -> bool {
     get_skill(id).map_or(false, |s| s.is_motivation)
 }
 
+/// Get passive modifiers for a skill (always-on while skill is owned).
+/// Returns empty vec for skills without passive effects.
+/// These are pushed as Permanent modifiers when the skill is acquired.
+pub fn get_passive_modifiers(skill_id: &str) -> Vec<ModifierEffect> {
+    match skill_id {
+        "braevalar_secret_ways" => vec![
+            // Mountains always cost exactly 5 move points
+            ModifierEffect::TerrainCost {
+                terrain: TerrainOrAll::Specific(Terrain::Mountain),
+                amount: 0,
+                minimum: 0,
+                replace_cost: Some(5),
+            },
+            // Mountains are safe spaces
+            ModifierEffect::TerrainSafe {
+                terrain: TerrainOrAll::Specific(Terrain::Mountain),
+            },
+        ],
+        "braevalar_feral_allies" => vec![
+            // Explore cost reduced by 1
+            ModifierEffect::ExploreCostReduction { amount: 1 },
+        ],
+        "norowas_bonds_of_loyalty" => vec![
+            // -5 influence discount on next recruited unit
+            ModifierEffect::RecruitDiscount { discount: 5, reputation_change: 0 },
+        ],
+        _ => vec![],
+    }
+}
+
 /// Look up a skill definition by ID.
 pub fn get_skill(id: &str) -> Option<SkillDefinition> {
     match id {
@@ -268,9 +299,27 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
                 ],
             }),
         }),
-        "arythea_power_of_pain" => Some(stub("arythea_power_of_pain", SkillUsageType::OncePerTurn, SkillPhaseRestriction::CombatOnly)),
-        "arythea_invocation" => Some(stub("arythea_invocation", SkillUsageType::OncePerRound, SkillPhaseRestriction::NoCombat)),
-        "arythea_polarization" => Some(stub("arythea_polarization", SkillUsageType::OncePerRound, SkillPhaseRestriction::NoCombat)),
+        "arythea_power_of_pain" => Some(SkillDefinition {
+            id: "arythea_power_of_pain",
+            usage_type: SkillUsageType::OncePerTurn,
+            phase_restriction: SkillPhaseRestriction::None,
+            is_motivation: false,
+            effect: Some(CardEffect::Noop),
+        }),
+        "arythea_invocation" => Some(SkillDefinition {
+            id: "arythea_invocation",
+            usage_type: SkillUsageType::OncePerTurn,
+            phase_restriction: SkillPhaseRestriction::NoCombat,
+            is_motivation: false,
+            effect: Some(CardEffect::Noop), // Custom handler
+        }),
+        "arythea_polarization" => Some(SkillDefinition {
+            id: "arythea_polarization",
+            usage_type: SkillUsageType::OncePerTurn,
+            phase_restriction: SkillPhaseRestriction::NoCombat,
+            is_motivation: false,
+            effect: Some(CardEffect::Noop), // Custom handler
+        }),
         "arythea_motivation" => Some(SkillDefinition {
             id: "arythea_motivation",
             usage_type: SkillUsageType::OncePerRound,
@@ -388,8 +437,20 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
                 then_effect: Box::new(CardEffect::DrawCards { count: 1 }),
             }),
         }),
-        "tovak_i_dont_give_a_damn" => Some(stub("tovak_i_dont_give_a_damn", SkillUsageType::OncePerTurn, SkillPhaseRestriction::NoCombat)),
-        "tovak_who_needs_magic" => Some(stub("tovak_who_needs_magic", SkillUsageType::OncePerTurn, SkillPhaseRestriction::NoCombat)),
+        "tovak_i_dont_give_a_damn" => Some(SkillDefinition {
+            id: "tovak_i_dont_give_a_damn",
+            usage_type: SkillUsageType::OncePerTurn,
+            phase_restriction: SkillPhaseRestriction::NoCombat,
+            is_motivation: false,
+            effect: Some(CardEffect::Noop),
+        }),
+        "tovak_who_needs_magic" => Some(SkillDefinition {
+            id: "tovak_who_needs_magic",
+            usage_type: SkillUsageType::OncePerTurn,
+            phase_restriction: SkillPhaseRestriction::NoCombat,
+            is_motivation: false,
+            effect: Some(CardEffect::Noop),
+        }),
         "tovak_motivation" => Some(SkillDefinition {
             id: "tovak_motivation",
             usage_type: SkillUsageType::OncePerRound,
@@ -560,7 +621,13 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
                 ],
             }),
         }),
-        "goldyx_universal_power" => Some(stub("goldyx_universal_power", SkillUsageType::OncePerRound, SkillPhaseRestriction::NoCombat)),
+        "goldyx_universal_power" => Some(SkillDefinition {
+            id: "goldyx_universal_power",
+            usage_type: SkillUsageType::OncePerRound,
+            phase_restriction: SkillPhaseRestriction::NoCombat,
+            is_motivation: false,
+            effect: Some(CardEffect::Noop),
+        }),
         "goldyx_motivation" => Some(SkillDefinition {
             id: "goldyx_motivation",
             usage_type: SkillUsageType::OncePerRound,
@@ -715,7 +782,13 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
                 ],
             }),
         }),
-        "norowas_bonds_of_loyalty" => Some(stub("norowas_bonds_of_loyalty", SkillUsageType::Passive, SkillPhaseRestriction::None)),
+        "norowas_bonds_of_loyalty" => Some(SkillDefinition {
+            id: "norowas_bonds_of_loyalty",
+            usage_type: SkillUsageType::Passive,
+            phase_restriction: SkillPhaseRestriction::None,
+            is_motivation: false,
+            effect: Some(CardEffect::Noop), // Passive — handled via get_passive_modifiers + command slot logic
+        }),
         "norowas_motivation" => Some(SkillDefinition {
             id: "norowas_motivation",
             usage_type: SkillUsageType::OncePerRound,
@@ -828,7 +901,13 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
                 })),
             }),
         }),
-        "wolfhawk_know_your_prey" => Some(stub("wolfhawk_know_your_prey", SkillUsageType::OncePerTurn, SkillPhaseRestriction::CombatOnly)),
+        "wolfhawk_know_your_prey" => Some(SkillDefinition {
+            id: "wolfhawk_know_your_prey",
+            usage_type: SkillUsageType::OncePerTurn,
+            phase_restriction: SkillPhaseRestriction::CombatOnly,
+            is_motivation: false,
+            effect: Some(CardEffect::Noop), // Custom handler
+        }),
         // Taunt: Choice A: reduce enemy attack by 1. Choice B: increase enemy attack by 2, reduce armor by 2 (min 1).
         "wolfhawk_taunt" => Some(SkillDefinition {
             id: "wolfhawk_taunt",
@@ -856,7 +935,15 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
                 ],
             }),
         }),
-        "wolfhawk_dueling" => Some(stub("wolfhawk_dueling", SkillUsageType::OncePerTurn, SkillPhaseRestriction::CombatOnly)),
+        // Dueling: Block phase only. Block 1 + target enemy → deferred Attack 1 at Attack phase.
+        // +1 fame if target defeated without unit involvement.
+        "wolfhawk_dueling" => Some(SkillDefinition {
+            id: "wolfhawk_dueling",
+            usage_type: SkillUsageType::OncePerTurn,
+            phase_restriction: SkillPhaseRestriction::BlockOnly,
+            is_motivation: false,
+            effect: Some(CardEffect::Noop), // Custom handler
+        }),
         "wolfhawk_motivation" => Some(SkillDefinition {
             id: "wolfhawk_motivation",
             usage_type: SkillUsageType::OncePerRound,
@@ -963,7 +1050,15 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
                 ],
             }),
         }),
-        "krang_regenerate" => Some(stub("krang_regenerate", SkillUsageType::OncePerRound, SkillPhaseRestriction::NoCombat)),
+        // Regenerate: pay 1 mana of any color, remove 1 wound from hand,
+        // draw 1 card if mana color is Red (bonus) or player has strictly lowest fame.
+        "krang_regenerate" => Some(SkillDefinition {
+            id: "krang_regenerate",
+            usage_type: SkillUsageType::OncePerRound,
+            phase_restriction: SkillPhaseRestriction::NoCombat,
+            is_motivation: false,
+            effect: Some(CardEffect::Noop), // Custom handler
+        }),
         "krang_arcane_disguise" => Some(SkillDefinition {
             id: "krang_arcane_disguise",
             usage_type: SkillUsageType::OncePerTurn,
@@ -984,7 +1079,13 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
         }),
         "krang_puppet_master" => Some(stub("krang_puppet_master", SkillUsageType::OncePerRound, SkillPhaseRestriction::CombatOnly)),
         "krang_master_of_chaos" => Some(stub("krang_master_of_chaos", SkillUsageType::Interactive, SkillPhaseRestriction::NoCombat)),
-        "krang_curse" => Some(stub("krang_curse", SkillUsageType::OncePerRound, SkillPhaseRestriction::CombatOnly)),
+        "krang_curse" => Some(SkillDefinition {
+            id: "krang_curse",
+            usage_type: SkillUsageType::OncePerTurn,
+            phase_restriction: SkillPhaseRestriction::CombatOnly,
+            is_motivation: false,
+            effect: Some(CardEffect::Noop), // Custom handler
+        }),
         "krang_mana_enhancement" => Some(stub("krang_mana_enhancement", SkillUsageType::Interactive, SkillPhaseRestriction::NoCombat)),
 
         // =====================================================================
@@ -1017,7 +1118,30 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
                 ],
             }),
         }),
-        "braevalar_feral_allies" => Some(stub("braevalar_feral_allies", SkillUsageType::Passive, SkillPhaseRestriction::None)),
+        // Feral Allies: passive explore cost -1, active: Attack 1 or enemy attack -1
+        // Note: exclude_arcane_immune is false — FAQ S2 says AI enemies CAN be targeted
+        "braevalar_feral_allies" => Some(SkillDefinition {
+            id: "braevalar_feral_allies",
+            usage_type: SkillUsageType::OncePerTurn,
+            phase_restriction: SkillPhaseRestriction::CombatOnly,
+            is_motivation: false,
+            effect: Some(CardEffect::Choice {
+                options: vec![
+                    CardEffect::GainAttack {
+                        amount: 1,
+                        combat_type: CombatType::Melee,
+                        element: Element::Physical,
+                    },
+                    CardEffect::SelectCombatEnemy {
+                        template: mk_types::pending::SelectEnemyTemplate {
+                            attack_change: -1,
+                            attack_minimum: 0,
+                            ..mk_types::pending::SelectEnemyTemplate::new()
+                        },
+                    },
+                ],
+            }),
+        }),
         // Thunderstorm: gain (Green OR Blue) AND (Green OR White) mana tokens
         "braevalar_thunderstorm" => Some(SkillDefinition {
             id: "braevalar_thunderstorm",
@@ -1080,10 +1204,31 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
                 })),
             }),
         }),
-        "braevalar_forked_lightning" => Some(stub("braevalar_forked_lightning", SkillUsageType::OncePerRound, SkillPhaseRestriction::CombatOnly)),
+        "braevalar_forked_lightning" => Some(SkillDefinition {
+            id: "braevalar_forked_lightning",
+            usage_type: SkillUsageType::OncePerTurn,
+            phase_restriction: SkillPhaseRestriction::CombatOnly,
+            is_motivation: false,
+            effect: Some(CardEffect::Noop), // Custom handler
+        }),
         "braevalar_shapeshift" => Some(stub("braevalar_shapeshift", SkillUsageType::OncePerRound, SkillPhaseRestriction::CombatOnly)),
-        "braevalar_secret_ways" => Some(stub("braevalar_secret_ways", SkillUsageType::Passive, SkillPhaseRestriction::None)),
-        "braevalar_regenerate" => Some(stub("braevalar_regenerate", SkillUsageType::OncePerRound, SkillPhaseRestriction::NoCombat)),
+        // Secret Ways: passive mountain cost 5 + safe, active: Move 1 + optional blue mana for lake access
+        "braevalar_secret_ways" => Some(SkillDefinition {
+            id: "braevalar_secret_ways",
+            usage_type: SkillUsageType::OncePerTurn,
+            phase_restriction: SkillPhaseRestriction::NoCombat,
+            is_motivation: false,
+            effect: Some(CardEffect::Noop), // Custom handler
+        }),
+        // Regenerate: pay 1 mana of any color, remove 1 wound from hand,
+        // draw 1 card if mana color is Green (bonus) or player has strictly lowest fame.
+        "braevalar_regenerate" => Some(SkillDefinition {
+            id: "braevalar_regenerate",
+            usage_type: SkillUsageType::OncePerRound,
+            phase_restriction: SkillPhaseRestriction::NoCombat,
+            is_motivation: false,
+            effect: Some(CardEffect::Noop), // Custom handler
+        }),
         "braevalar_natures_vengeance" => Some(stub("braevalar_natures_vengeance", SkillUsageType::Interactive, SkillPhaseRestriction::NoCombat)),
 
         _ => None,
@@ -1214,6 +1359,19 @@ mod tests {
             "wolfhawk_hawk_eyes",
             "norowas_inspiration",
             "krang_battle_frenzy",
+            // Tier 4 (custom handlers)
+            "braevalar_feral_allies",
+            "braevalar_secret_ways",
+            "krang_regenerate",
+            "braevalar_regenerate",
+            "wolfhawk_dueling",
+            // Tier A+B (custom handlers)
+            "arythea_invocation",
+            "arythea_polarization",
+            "norowas_bonds_of_loyalty",
+            "wolfhawk_know_your_prey",
+            "krang_curse",
+            "braevalar_forked_lightning",
         ];
         for id in implemented {
             let skill = get_skill(id).unwrap_or_else(|| panic!("Missing: {}", id));
@@ -1288,10 +1446,27 @@ mod tests {
     }
 
     #[test]
+    fn passive_modifiers_correct() {
+        // Secret Ways has 2 passive modifiers
+        let passives = get_passive_modifiers("braevalar_secret_ways");
+        assert_eq!(passives.len(), 2, "Secret Ways should have 2 passive modifiers");
+
+        // Feral Allies has 1 passive modifier
+        let passives = get_passive_modifiers("braevalar_feral_allies");
+        assert_eq!(passives.len(), 1, "Feral Allies should have 1 passive modifier");
+
+        // Bonds of Loyalty has 1 passive modifier
+        let passives = get_passive_modifiers("norowas_bonds_of_loyalty");
+        assert_eq!(passives.len(), 1, "Bonds of Loyalty should have 1 passive modifier");
+
+        // Non-passive skill has 0
+        let passives = get_passive_modifiers("arythea_dark_paths");
+        assert!(passives.is_empty());
+    }
+
+    #[test]
     fn stub_skills_have_no_effect() {
         let stubs = [
-            "arythea_power_of_pain",
-            "arythea_invocation",
             "braevalar_shapeshift",
             "krang_puppet_master",
         ];

@@ -399,20 +399,13 @@ fn format_action(action: &LegalAction, state: &GameState, player_idx: usize) -> 
             let enemy_name = combat_enemy_name(state, enemy_instance_id.as_str());
             format!("Block {} attack #{}", enemy_name, attack_index + 1)
         }
-        LegalAction::DeclareAttack {
-            target_instance_ids,
-            attack_type,
-        } => {
-            let targets: Vec<String> = target_instance_ids
-                .iter()
-                .map(|id| combat_enemy_name(state, id.as_str()))
-                .collect();
+        LegalAction::InitiateAttack { attack_type } => {
             let atype = match attack_type {
                 CombatType::Melee => "melee",
                 CombatType::Ranged => "ranged",
                 CombatType::Siege => "siege",
             };
-            format!("Attack [{}] ({})", targets.join(", "), atype)
+            format!("Declare {} attack", atype)
         }
         LegalAction::SpendMoveOnCumbersome { enemy_instance_id } => {
             let name = combat_enemy_name(state, enemy_instance_id.as_str());
@@ -420,14 +413,7 @@ fn format_action(action: &LegalAction, state: &GameState, player_idx: usize) -> 
         }
         LegalAction::ResolveTacticDecision { data } => format_tactic_decision(data),
         LegalAction::ActivateTactic => "Activate tactic".into(),
-        LegalAction::RerollSourceDice { die_indices } => {
-            let colors: Vec<String> = die_indices
-                .iter()
-                .filter_map(|&i| state.source.dice.get(i))
-                .map(|d| mana_color_str(d.color))
-                .collect();
-            format!("Reroll source dice: {}", colors.join(", "))
-        }
+        LegalAction::InitiateManaSearch => "Mana Search (reroll dice)".into(),
         LegalAction::EnterSite => {
             let site_name = player_site_name(state, player_idx);
             format!("Enter {}", site_name)
@@ -486,6 +472,10 @@ fn format_action(action: &LegalAction, state: &GameState, player_idx: usize) -> 
             }
             None => "Complete rest".into(),
         },
+        LegalAction::SubsetSelect { index } => {
+            format!("Select card #{}", index + 1)
+        }
+        LegalAction::SubsetConfirm => "Confirm selection".into(),
         LegalAction::EndCombatPhase => "End combat phase".into(),
         LegalAction::AssignDamageToHero { enemy_index, attack_index } => {
             format!("Assign damage to hero (enemy {}, attack {})", enemy_index, attack_index)
@@ -523,17 +513,11 @@ fn format_resolve_choice(
 
 fn format_tactic_decision(data: &TacticDecisionData) -> String {
     match data {
-        TacticDecisionData::Rethink { hand_indices } => {
-            format!("Rethink: swap cards {:?}", hand_indices)
-        }
         TacticDecisionData::ManaSteal { die_index } => {
             format!("Mana Steal: take die #{}", die_index + 1)
         }
         TacticDecisionData::Preparation { deck_card_index } => {
             format!("Preparation: take deck card #{}", deck_card_index + 1)
-        }
-        TacticDecisionData::MidnightMeditation { hand_indices } => {
-            format!("Midnight Meditation: swap cards {:?}", hand_indices)
         }
         TacticDecisionData::SparingPowerStash => "Sparing Power: stash top card".into(),
         TacticDecisionData::SparingPowerTake => "Sparing Power: take all stored cards".into(),
@@ -693,6 +677,12 @@ fn pending_label(active: &ActivePending) -> &'static str {
         ActivePending::CrystalJoyReclaim(_) => "Crystal joy reclaim",
         ActivePending::SteadyTempoDeckPlacement(_) => "Steady tempo placement",
         ActivePending::UnitAbilityChoice { .. } => "Unit ability choice",
+        ActivePending::SubsetSelection(ss) => match &ss.kind {
+            mk_types::pending::SubsetSelectionKind::ManaSearch { .. } => "Select dice to reroll",
+            mk_types::pending::SubsetSelectionKind::AttackTargets { .. } => "Select attack targets",
+            mk_types::pending::SubsetSelectionKind::RestWoundDiscard { .. } => "Select wounds to discard",
+            _ => "Select cards",
+        },
         ActivePending::SelectCombatEnemy { .. } => "Select combat enemy",
     }
 }

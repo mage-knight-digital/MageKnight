@@ -397,40 +397,66 @@ pub type MineColor = BasicManaColor;
 // =============================================================================
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum TileId {
     // Starting tiles
+    #[serde(rename = "starting_a")]
     StartingA,
+    #[serde(rename = "starting_b")]
     StartingB,
     // Countryside (green back) — Base game
+    #[serde(rename = "countryside_1")]
     Countryside1,
+    #[serde(rename = "countryside_2")]
     Countryside2,
+    #[serde(rename = "countryside_3")]
     Countryside3,
+    #[serde(rename = "countryside_4")]
     Countryside4,
+    #[serde(rename = "countryside_5")]
     Countryside5,
+    #[serde(rename = "countryside_6")]
     Countryside6,
+    #[serde(rename = "countryside_7")]
     Countryside7,
+    #[serde(rename = "countryside_8")]
     Countryside8,
+    #[serde(rename = "countryside_9")]
     Countryside9,
+    #[serde(rename = "countryside_10")]
     Countryside10,
+    #[serde(rename = "countryside_11")]
     Countryside11,
     // Countryside — Lost Legion
+    #[serde(rename = "countryside_12")]
     Countryside12,
+    #[serde(rename = "countryside_13")]
     Countryside13,
+    #[serde(rename = "countryside_14")]
     Countryside14,
     // Core (brown back) — Non-city
+    #[serde(rename = "core_1")]
     Core1,
+    #[serde(rename = "core_2")]
     Core2,
+    #[serde(rename = "core_3")]
     Core3,
+    #[serde(rename = "core_4")]
     Core4,
     // Core — City tiles
+    #[serde(rename = "core_5_green_city")]
     Core5GreenCity,
+    #[serde(rename = "core_6_blue_city")]
     Core6BlueCity,
+    #[serde(rename = "core_7_white_city")]
     Core7WhiteCity,
+    #[serde(rename = "core_8_red_city")]
     Core8RedCity,
     // Core — Lost Legion
+    #[serde(rename = "core_9")]
     Core9,
+    #[serde(rename = "core_10")]
     Core10,
+    #[serde(rename = "core_volkare")]
     CoreVolkare,
 }
 

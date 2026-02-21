@@ -13,14 +13,10 @@ use crate::ids::{CardId, CombatInstanceId, SkillId, TacticId, UnitId, UnitInstan
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum TacticDecisionData {
-    /// Rethink: swap these hand cards for random draws.
-    Rethink { hand_indices: Vec<usize> },
     /// Mana Steal: take this die from the source.
     ManaSteal { die_index: usize },
     /// Preparation: take this card from deck to hand.
     Preparation { deck_card_index: usize },
-    /// Midnight Meditation: swap these hand cards for random draws.
-    MidnightMeditation { hand_indices: Vec<usize> },
     /// Sparing Power: stash top deck card.
     SparingPowerStash,
     /// Sparing Power: take all stashed cards to hand.
@@ -76,8 +72,8 @@ pub enum LegalAction {
         enemy_instance_id: CombatInstanceId,
         attack_index: usize,
     },
-    DeclareAttack {
-        target_instance_ids: Vec<CombatInstanceId>,
+    /// Initiate an attack declaration — enters SubsetSelection for target enemies.
+    InitiateAttack {
         attack_type: CombatType,
     },
     SpendMoveOnCumbersome {
@@ -87,9 +83,8 @@ pub enum LegalAction {
         data: TacticDecisionData,
     },
     ActivateTactic,
-    RerollSourceDice {
-        die_indices: Vec<usize>,
-    },
+    /// Initiate mana search — enters SubsetSelection for rerollable dice.
+    InitiateManaSearch,
     EnterSite,
     InteractSite {
         healing: u32,
@@ -125,6 +120,10 @@ pub enum LegalAction {
         /// AA to take from the offer row.
         advanced_action_id: CardId,
     },
+    /// Pick one item in an ongoing subset selection.
+    SubsetSelect { index: usize },
+    /// Confirm the current subset selection (execute it).
+    SubsetConfirm,
     EndTurn,
     DeclareRest,
     CompleteRest {

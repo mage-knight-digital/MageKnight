@@ -219,6 +219,8 @@ pub enum ResolveChoiceError {
     NoPendingChoice,
     /// Choice index out of bounds.
     InvalidChoiceIndex,
+    /// Internal error during resolution.
+    InternalError(String),
 }
 
 /// Resolve a pending choice by picking one of the available options.
@@ -352,6 +354,133 @@ pub fn resolve_pending_choice(
                 if let Some(idx) = player.pure_mana.iter().position(|t| t.color == color) {
                     player.pure_mana.remove(idx);
                 }
+            }
+        }
+        ChoiceResolution::UniversalPowerMana { available_colors } => {
+            // Consume the basic mana token of the chosen color and push modifiers.
+            if choice_index < available_colors.len() {
+                let color = available_colors[choice_index];
+                let mana_color = ManaColor::from(color);
+                let player = &mut state.players[player_idx];
+                if let Some(idx) = player.pure_mana.iter().position(|t| t.color == mana_color) {
+                    player.pure_mana.remove(idx);
+                }
+                // Push Universal Power modifiers via the action_pipeline helper
+                let skill_id = choice.skill_id.clone().unwrap_or_else(|| {
+                    mk_types::ids::SkillId::from("goldyx_universal_power")
+                });
+                crate::action_pipeline::push_universal_power_modifiers(
+                    state, player_idx, &skill_id, color,
+                );
+            }
+        }
+        ChoiceResolution::SecretWaysLake => {
+            // Choice 1 = pay Blue mana for lake modifiers. Choice 0 = decline (Noop).
+            if choice_index == 1 {
+                // Consume 1 Blue mana: token > crystal > die
+                let player = &mut state.players[player_idx];
+                if let Some(idx) = player.pure_mana.iter().position(|t| t.color == ManaColor::Blue) {
+                    player.pure_mana.remove(idx);
+                } else if player.crystals.blue > 0 {
+                    player.crystals.blue -= 1;
+                    player.spent_crystals_this_turn.blue += 1;
+                } else if let Some(die) = state.source.dice.iter_mut().find(|d| {
+                    d.color == ManaColor::Blue && !d.is_depleted && d.taken_by_player_id.is_none()
+                }) {
+                    die.taken_by_player_id = Some(state.players[player_idx].id.clone());
+                    die.is_depleted = true;
+                }
+            }
+        }
+        ChoiceResolution::RegenerateMana { available_colors, bonus_color } => {
+            // Consume mana of chosen color, remove wound, conditionally draw
+            if choice_index < available_colors.len() {
+                let color = available_colors[choice_index];
+                crate::action_pipeline::execute_regenerate(state, player_idx, color, *bonus_color)
+                    .map_err(|e| ResolveChoiceError::InternalError(format!("{:?}", e)))?;
+            }
+        }
+        ChoiceResolution::DuelingTarget { eligible_enemy_ids } => {
+            // Target the chosen enemy for dueling
+            if choice_index < eligible_enemy_ids.len() {
+                let enemy_id = eligible_enemy_ids[choice_index].clone();
+                let skill_id = choice.skill_id.clone().unwrap_or_else(|| {
+                    mk_types::ids::SkillId::from("wolfhawk_dueling")
+                });
+                crate::action_pipeline::apply_dueling_target_pub(
+                    state, player_idx, &skill_id, &enemy_id,
+                );
+            }
+        }
+        ChoiceResolution::InvocationDiscard { ref options } => {
+            if choice_index < options.len() {
+                let opt = options[choice_index].clone();
+                crate::action_pipeline::execute_invocation(state, player_idx, &opt);
+            }
+        }
+        ChoiceResolution::PolarizationConvert { ref options } => {
+            if choice_index < options.len() {
+                let opt = options[choice_index].clone();
+                crate::action_pipeline::execute_polarization(state, player_idx, &opt);
+            }
+        }
+        ChoiceResolution::CurseTarget { ref eligible_enemy_ids } => {
+            if choice_index < eligible_enemy_ids.len() {
+                let enemy_id = eligible_enemy_ids[choice_index].clone();
+                let skill_id = choice.skill_id.clone().unwrap_or_else(|| {
+                    mk_types::ids::SkillId::from("krang_curse")
+                });
+                crate::action_pipeline::setup_curse_mode(state, player_idx, &skill_id, &enemy_id);
+            }
+        }
+        ChoiceResolution::CurseMode { ref enemy_instance_id, has_arcane_immunity: _, has_multi_attack } => {
+            let skill_id = choice.skill_id.clone().unwrap_or_else(|| {
+                mk_types::ids::SkillId::from("krang_curse")
+            });
+            let eid = enemy_instance_id.clone();
+            crate::action_pipeline::execute_curse_mode(
+                state, player_idx, &skill_id, &eid, *has_multi_attack, choice_index,
+            );
+        }
+        ChoiceResolution::CurseAttackIndex { ref enemy_instance_id, .. } => {
+            let skill_id = choice.skill_id.clone().unwrap_or_else(|| {
+                mk_types::ids::SkillId::from("krang_curse")
+            });
+            let eid = enemy_instance_id.clone();
+            crate::action_pipeline::execute_curse_attack_index(
+                state, player_idx, &skill_id, &eid, choice_index,
+            );
+        }
+        ChoiceResolution::ForkedLightningTarget { remaining, ref already_targeted } => {
+            let skill_id = choice.skill_id.clone().unwrap_or_else(|| {
+                mk_types::ids::SkillId::from("braevalar_forked_lightning")
+            });
+            let targeted = already_targeted.clone();
+            crate::action_pipeline::execute_forked_lightning_target(
+                state, player_idx, &skill_id, *remaining, &targeted, choice_index,
+            );
+        }
+        ChoiceResolution::KnowYourPreyTarget { ref eligible_enemy_ids } => {
+            if choice_index < eligible_enemy_ids.len() {
+                let enemy_id = eligible_enemy_ids[choice_index].clone();
+                let skill_id = choice.skill_id.clone().unwrap_or_else(|| {
+                    mk_types::ids::SkillId::from("wolfhawk_know_your_prey")
+                });
+                crate::action_pipeline::setup_know_your_prey_options(
+                    state, player_idx, &skill_id, &enemy_id,
+                );
+            }
+        }
+        ChoiceResolution::KnowYourPreyOption { ref enemy_instance_id, ref options } => {
+            if choice_index < options.len() {
+                let skill_id = choice.skill_id.clone().unwrap_or_else(|| {
+                    mk_types::ids::SkillId::from("wolfhawk_know_your_prey")
+                });
+                let eid = enemy_instance_id.clone();
+                let opt = options[choice_index].clone();
+                crate::action_pipeline::execute_know_your_prey_option(
+                    state, player_idx, &skill_id, &eid, &opt,
+                );
             }
         }
     }

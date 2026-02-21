@@ -4,6 +4,7 @@
 
 use mk_data::cards::get_card;
 use mk_types::enums::*;
+use mk_types::modifier::{ModifierEffect, ModifierSource, RuleOverride, SidewaysCondition};
 use mk_types::pending::{ActivePending, ContinuationEntry, PendingChoice};
 use mk_types::state::*;
 
@@ -188,6 +189,72 @@ fn consume_mana_payment(
 }
 
 // =============================================================================
+// Sideways value resolution
+// =============================================================================
+
+/// Check if a rule override is active for the given player.
+pub fn is_rule_active(state: &GameState, player_idx: usize, rule: RuleOverride) -> bool {
+    let player_id = &state.players[player_idx].id;
+    state.active_modifiers.iter().any(|m| {
+        m.created_by_player_id == *player_id
+            && matches!(&m.effect, ModifierEffect::RuleOverride { rule: r } if *r == rule)
+    })
+}
+
+/// Compute the effective sideways value for a card, considering active modifiers.
+///
+/// Base value: 0 for wounds, `card_def.sideways_value` for others.
+/// Modifiers can increase the value via `ModifierEffect::SidewaysValue`.
+pub fn get_effective_sideways_value(
+    state: &GameState,
+    player_idx: usize,
+    is_wound: bool,
+    card_type: DeedCardType,
+    card_powered_by: Option<BasicManaColor>,
+) -> u32 {
+    let base_value: u32 = if is_wound { 0 } else { 1 };
+    let player_id = &state.players[player_idx].id;
+    let used_mana = state.players[player_idx]
+        .flags
+        .contains(PlayerFlags::USED_MANA_FROM_SOURCE);
+    let mut best = base_value;
+    for m in &state.active_modifiers {
+        if m.created_by_player_id != *player_id {
+            continue;
+        }
+        if let ModifierEffect::SidewaysValue {
+            new_value,
+            for_wounds,
+            condition,
+            mana_color,
+            ref for_card_types,
+        } = m.effect
+        {
+            if is_wound && !for_wounds {
+                continue;
+            }
+            if !is_wound && for_wounds {
+                continue;
+            }
+            if !for_card_types.is_empty() && !for_card_types.contains(&card_type) {
+                continue;
+            }
+            match condition {
+                Some(SidewaysCondition::NoManaUsed) if used_mana => continue,
+                Some(SidewaysCondition::WithManaMatchingColor) => {
+                    if card_powered_by != mana_color {
+                        continue;
+                    }
+                }
+                _ => {}
+            }
+            best = best.max(new_value);
+        }
+    }
+    best
+}
+
+// =============================================================================
 // Play card sideways
 // =============================================================================
 
@@ -214,7 +281,14 @@ pub fn play_card_sideways(
 
     // Look up card definition for sideways value
     let card_def = get_card(card_id.as_str()).ok_or(CardPlayError::CardNotFound)?;
-    let value = card_def.sideways_value;
+    let is_wound = card_id.as_str() == "wound";
+    let value = get_effective_sideways_value(
+        state,
+        player_idx,
+        is_wound,
+        card_def.card_type,
+        card_def.powered_by,
+    );
 
     // Move card from hand to play area
     let player = &mut state.players[player_idx];
@@ -226,6 +300,15 @@ pub fn play_card_sideways(
 
     // Apply sideways effect
     apply_sideways_effect(state, player_idx, sideways_as, value);
+
+    // Power of Pain: one-shot consumption after wound sideways play
+    if is_wound {
+        let pid = state.players[player_idx].id.clone();
+        state.active_modifiers.retain(|m| {
+            !matches!(&m.source, ModifierSource::Skill { skill_id, player_id }
+                if skill_id.as_str() == "arythea_power_of_pain" && *player_id == pid)
+        });
+    }
 
     Ok(())
 }
@@ -731,5 +814,146 @@ mod tests {
         give_mana(&mut state, ManaColor::Red); // march needs green, not red
         let result = play_card(&mut state, 0, 0, true);
         assert_eq!(result.unwrap_err(), CardPlayError::ManaSourceRequired);
+    }
+
+    // ---- get_effective_sideways_value tests ----
+
+    #[test]
+    fn get_effective_sideways_value_base_returns_1() {
+        let state = setup_game(vec!["march"]);
+        let val = get_effective_sideways_value(&state, 0, false, DeedCardType::BasicAction, Some(BasicManaColor::Green));
+        assert_eq!(val, 1);
+    }
+
+    #[test]
+    fn get_effective_sideways_value_wound_returns_0() {
+        let state = setup_game(vec!["wound"]);
+        let val = get_effective_sideways_value(&state, 0, true, DeedCardType::Wound, None);
+        assert_eq!(val, 0);
+    }
+
+    #[test]
+    fn get_effective_sideways_value_with_modifier() {
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+        let mut state = setup_game(vec!["march"]);
+        let pid = state.players[0].id.clone();
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("test_1"),
+            source: ModifierSource::Skill { skill_id: mk_types::ids::SkillId::from("test"), player_id: pid.clone() },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::SidewaysValue {
+                new_value: 2, for_wounds: false, condition: None, mana_color: None, for_card_types: vec![],
+            },
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+        let val = get_effective_sideways_value(&state, 0, false, DeedCardType::BasicAction, Some(BasicManaColor::Green));
+        assert_eq!(val, 2);
+    }
+
+    #[test]
+    fn get_effective_sideways_value_wound_with_for_wounds() {
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+        let mut state = setup_game(vec!["wound"]);
+        let pid = state.players[0].id.clone();
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("test_1"),
+            source: ModifierSource::Skill { skill_id: mk_types::ids::SkillId::from("test"), player_id: pid.clone() },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::SidewaysValue {
+                new_value: 2, for_wounds: true, condition: None, mana_color: None, for_card_types: vec![],
+            },
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+        let val = get_effective_sideways_value(&state, 0, true, DeedCardType::Wound, None);
+        assert_eq!(val, 2);
+    }
+
+    #[test]
+    fn get_effective_sideways_value_card_type_filter() {
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+        let mut state = setup_game(vec!["march"]);
+        let pid = state.players[0].id.clone();
+        // Modifier only for AA/Spell/Artifact
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("test_1"),
+            source: ModifierSource::Skill { skill_id: mk_types::ids::SkillId::from("test"), player_id: pid.clone() },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::SidewaysValue {
+                new_value: 3, for_wounds: false, condition: None, mana_color: None,
+                for_card_types: vec![DeedCardType::AdvancedAction, DeedCardType::Spell, DeedCardType::Artifact],
+            },
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+        // BasicAction: doesn't match filter, stays at base 1
+        let val = get_effective_sideways_value(&state, 0, false, DeedCardType::BasicAction, Some(BasicManaColor::Green));
+        assert_eq!(val, 1);
+        // AdvancedAction: matches filter, gets 3
+        let val = get_effective_sideways_value(&state, 0, false, DeedCardType::AdvancedAction, Some(BasicManaColor::Red));
+        assert_eq!(val, 3);
+    }
+
+    #[test]
+    fn get_effective_sideways_value_no_mana_condition() {
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+        let mut state = setup_game(vec!["march"]);
+        let pid = state.players[0].id.clone();
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("test_1"),
+            source: ModifierSource::Skill { skill_id: mk_types::ids::SkillId::from("test"), player_id: pid.clone() },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::SidewaysValue {
+                new_value: 3, for_wounds: false, condition: Some(SidewaysCondition::NoManaUsed), mana_color: None, for_card_types: vec![],
+            },
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+        // No mana used: value = 3
+        let val = get_effective_sideways_value(&state, 0, false, DeedCardType::BasicAction, None);
+        assert_eq!(val, 3);
+        // After mana used: value = 1 (base)
+        state.players[0].flags.insert(PlayerFlags::USED_MANA_FROM_SOURCE);
+        let val = get_effective_sideways_value(&state, 0, false, DeedCardType::BasicAction, None);
+        assert_eq!(val, 1);
+    }
+
+    #[test]
+    fn power_of_pain_wound_sideways_enhanced() {
+        use crate::action_pipeline;
+        let mut state = setup_game(vec!["wound"]);
+        let skill_id = mk_types::ids::SkillId::from("arythea_power_of_pain");
+        state.players[0].skills.push(skill_id.clone());
+        // Activate skill
+        action_pipeline::apply_power_of_pain_pub(&mut state, 0, &skill_id);
+        // Wound sideways value should now be 2
+        let val = get_effective_sideways_value(&state, 0, true, DeedCardType::Wound, None);
+        assert_eq!(val, 2);
+        assert!(is_rule_active(&state, 0, RuleOverride::WoundsPlayableSideways));
+    }
+
+    #[test]
+    fn power_of_pain_consumed_after_wound_play() {
+        use crate::action_pipeline;
+        let mut state = setup_game(vec!["wound"]);
+        let skill_id = mk_types::ids::SkillId::from("arythea_power_of_pain");
+        state.players[0].skills.push(skill_id.clone());
+        // Activate skill
+        action_pipeline::apply_power_of_pain_pub(&mut state, 0, &skill_id);
+        assert_eq!(state.active_modifiers.len(), 2); // RuleOverride + SidewaysValue
+        // Play wound sideways
+        play_card_sideways(&mut state, 0, 0, SidewaysAs::Move).unwrap();
+        assert_eq!(state.players[0].move_points, 2); // wound sideways = 2
+        // Modifiers consumed (one-shot)
+        assert_eq!(state.active_modifiers.len(), 0);
     }
 }

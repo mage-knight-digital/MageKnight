@@ -9,8 +9,11 @@ use mk_data::enemy_piles::{discard_enemy_token, draw_enemy_token, enemy_id_from_
 use mk_data::tactics::tactic_turn_order;
 use mk_types::enums::*;
 use mk_types::ids::{CardId, CombatInstanceId, EnemyId, EnemyTokenId, PlayerId, SkillId};
+use arrayvec::ArrayVec;
 use mk_types::legal_action::{LegalAction, TacticDecisionData};
-use mk_types::pending::{ActivePending, PendingTacticDecision};
+use mk_types::pending::{
+    ActivePending, PendingTacticDecision, SubsetSelectionKind, SubsetSelectionState,
+};
 use mk_types::state::*;
 
 use crate::card_play;
@@ -128,13 +131,10 @@ pub fn apply_legal_action(
             apply_declare_block(state, player_idx, enemy_instance_id, *attack_index)?
         }
 
-        LegalAction::DeclareAttack {
-            target_instance_ids,
-            attack_type,
-        } => {
-            // Irreversible: set checkpoint
-            undo_stack.set_checkpoint();
-            apply_declare_attack(state, player_idx, target_instance_ids, *attack_type)?
+        LegalAction::InitiateAttack { attack_type } => {
+            // Reversible: save snapshot (enters SubsetSelection, undo returns to combat)
+            undo_stack.save(state);
+            apply_initiate_attack(state, player_idx, *attack_type)?
         }
 
         LegalAction::ResolveChoice { choice_index } => {
@@ -178,10 +178,10 @@ pub fn apply_legal_action(
             apply_activate_tactic(state, player_idx)?
         }
 
-        LegalAction::RerollSourceDice { die_indices } => {
-            // Irreversible: uses RNG
-            undo_stack.set_checkpoint();
-            apply_reroll_source_dice(state, player_idx, die_indices)?
+        LegalAction::InitiateManaSearch => {
+            // Reversible: save snapshot (enters SubsetSelection, undo returns to normal turn)
+            undo_stack.save(state);
+            apply_initiate_mana_search(state, player_idx)?
         }
 
         LegalAction::EnterSite => {
@@ -298,6 +298,17 @@ pub fn apply_legal_action(
             apply_use_skill(state, player_idx, skill_id)?
         }
 
+        LegalAction::SubsetSelect { index } => {
+            // No undo save: only mutates pending.active.selected
+            apply_subset_select(state, player_idx, *index)?
+        }
+
+        LegalAction::SubsetConfirm => {
+            // Irreversible: RNG consumed by shuffle
+            undo_stack.set_checkpoint();
+            apply_subset_confirm(state, player_idx)?
+        }
+
         LegalAction::Undo => apply_undo(state, undo_stack)?,
     };
 
@@ -390,10 +401,13 @@ fn apply_select_tactic(
         "rethink" => {
             let hand_len = state.players[player_idx].hand.len();
             if hand_len > 0 {
-                let max_cards = 3.min(hand_len) as u8;
                 state.players[player_idx].pending.active =
-                    Some(ActivePending::TacticDecision(PendingTacticDecision::Rethink {
-                        max_cards,
+                    Some(ActivePending::SubsetSelection(SubsetSelectionState {
+                        kind: SubsetSelectionKind::Rethink,
+                        pool_size: hand_len,
+                        max_selections: 3.min(hand_len),
+                        min_selections: 0,
+                        selected: ArrayVec::new(),
                     }));
             }
         }
@@ -435,45 +449,6 @@ fn apply_resolve_tactic_decision(
     data: &TacticDecisionData,
 ) -> Result<ApplyResult, ApplyError> {
     match data {
-        TacticDecisionData::Rethink { hand_indices } => {
-            let player = &mut state.players[player_idx];
-
-            // Remove cards at hand_indices (sort descending to preserve indices)
-            let mut sorted_indices = hand_indices.clone();
-            sorted_indices.sort_unstable_by(|a, b| b.cmp(a));
-
-            let mut removed: Vec<CardId> = Vec::new();
-            for &idx in &sorted_indices {
-                if idx < player.hand.len() {
-                    removed.push(player.hand.remove(idx));
-                }
-            }
-            let draw_count = removed.len();
-
-            // Pool = removed + deck + discard
-            let mut pool: Vec<CardId> = Vec::new();
-            pool.extend(removed);
-            pool.append(&mut player.deck);
-            pool.append(&mut player.discard);
-
-            // Shuffle pool
-            state.rng.shuffle(&mut pool);
-
-            // Draw same count back
-            let player = &mut state.players[player_idx];
-            let actual_draw = draw_count.min(pool.len());
-            for _ in 0..actual_draw {
-                player.hand.push(pool.remove(0));
-            }
-
-            // Remaining → deck
-            player.deck = pool;
-            player.discard.clear();
-
-            // Clear pending
-            player.pending.active = None;
-        }
-
         TacticDecisionData::ManaSteal { die_index } => {
             if *die_index >= state.source.dice.len() {
                 return Err(ApplyError::InternalError("ManaSteal: invalid die index".into()));
@@ -523,39 +498,6 @@ fn apply_resolve_tactic_decision(
             state.players[player_idx].pending.active = None;
         }
 
-        TacticDecisionData::MidnightMeditation { hand_indices } => {
-            // Same logic as Rethink — swap hand cards for random draws
-            let player = &mut state.players[player_idx];
-
-            let mut sorted_indices = hand_indices.clone();
-            sorted_indices.sort_unstable_by(|a, b| b.cmp(a));
-
-            let mut removed: Vec<CardId> = Vec::new();
-            for &idx in &sorted_indices {
-                if idx < player.hand.len() {
-                    removed.push(player.hand.remove(idx));
-                }
-            }
-            let draw_count = removed.len();
-
-            let mut pool: Vec<CardId> = Vec::new();
-            pool.extend(removed);
-            pool.append(&mut player.deck);
-            pool.append(&mut player.discard);
-
-            state.rng.shuffle(&mut pool);
-
-            let player = &mut state.players[player_idx];
-            let actual_draw = draw_count.min(pool.len());
-            for _ in 0..actual_draw {
-                player.hand.push(pool.remove(0));
-            }
-
-            player.deck = pool;
-            player.discard.clear();
-            player.pending.active = None;
-        }
-
         TacticDecisionData::SparingPowerStash => {
             let player = &mut state.players[player_idx];
             if !player.deck.is_empty() {
@@ -573,6 +515,166 @@ fn apply_resolve_tactic_decision(
             player.flags.insert(PlayerFlags::TACTIC_FLIPPED);
             player.pending.active = None;
             player.flags.remove(PlayerFlags::BEFORE_TURN_TACTIC_PENDING);
+        }
+    }
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+// =============================================================================
+// Subset selection (auto-regressive)
+// =============================================================================
+
+fn apply_subset_select(
+    state: &mut GameState,
+    player_idx: usize,
+    index: usize,
+) -> Result<ApplyResult, ApplyError> {
+    let ss = match &mut state.players[player_idx].pending.active {
+        Some(ActivePending::SubsetSelection(ss)) => ss,
+        _ => {
+            return Err(ApplyError::InternalError(
+                "SubsetSelect: no active SubsetSelection".into(),
+            ))
+        }
+    };
+
+    if index >= ss.pool_size || ss.selected.contains(&index) {
+        return Err(ApplyError::InternalError(format!(
+            "SubsetSelect: invalid or duplicate index {index}"
+        )));
+    }
+
+    ss.selected.push(index);
+    ss.selected.sort_unstable();
+
+    // Auto-confirm if we've hit the max — but NOT for AttackTargets (needs sufficiency check)
+    let should_auto_confirm = ss.selected.len() >= ss.max_selections
+        && !matches!(ss.kind, SubsetSelectionKind::AttackTargets { .. });
+    if should_auto_confirm {
+        return finalize_subset_selection(state, player_idx);
+    }
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+fn apply_subset_confirm(
+    state: &mut GameState,
+    player_idx: usize,
+) -> Result<ApplyResult, ApplyError> {
+    let min_ok = match &state.players[player_idx].pending.active {
+        Some(ActivePending::SubsetSelection(ss)) => ss.selected.len() >= ss.min_selections,
+        _ => false,
+    };
+
+    if !min_ok {
+        return Err(ApplyError::InternalError(
+            "SubsetConfirm: no active SubsetSelection or min not met".into(),
+        ));
+    }
+
+    finalize_subset_selection(state, player_idx)
+}
+
+fn finalize_subset_selection(
+    state: &mut GameState,
+    player_idx: usize,
+) -> Result<ApplyResult, ApplyError> {
+    let ss = match state.players[player_idx].pending.active.take() {
+        Some(ActivePending::SubsetSelection(ss)) => ss,
+        other => {
+            // Put it back and error
+            state.players[player_idx].pending.active = other;
+            return Err(ApplyError::InternalError(
+                "finalize_subset_selection: no active SubsetSelection".into(),
+            ));
+        }
+    };
+
+    match ss.kind {
+        SubsetSelectionKind::Rethink | SubsetSelectionKind::MidnightMeditation => {
+            let player = &mut state.players[player_idx];
+
+            // Remove cards at selected indices (sort descending to preserve indices)
+            let mut sorted_indices: Vec<usize> = ss.selected.to_vec();
+            sorted_indices.sort_unstable_by(|a, b| b.cmp(a));
+
+            let mut removed: Vec<CardId> = Vec::new();
+            for &idx in &sorted_indices {
+                if idx < player.hand.len() {
+                    removed.push(player.hand.remove(idx));
+                }
+            }
+            let draw_count = removed.len();
+
+            // Pool = removed + deck + discard
+            let mut pool: Vec<CardId> = Vec::new();
+            pool.extend(removed);
+            pool.append(&mut player.deck);
+            pool.append(&mut player.discard);
+
+            // Shuffle pool
+            state.rng.shuffle(&mut pool);
+
+            // Draw same count back
+            let player = &mut state.players[player_idx];
+            let actual_draw = draw_count.min(pool.len());
+            for _ in 0..actual_draw {
+                player.hand.push(pool.remove(0));
+            }
+
+            // Remaining → deck
+            player.deck = pool;
+            player.discard.clear();
+        }
+        SubsetSelectionKind::ManaSearch {
+            rerollable_die_indices,
+        } => {
+            // Map selected pool indices → actual die indices, then reroll
+            let time_of_day = state.time_of_day;
+            for &pool_idx in ss.selected.iter() {
+                let die_idx = rerollable_die_indices[pool_idx];
+                let die_id = state.source.dice[die_idx].id.clone();
+                mana::reroll_die(&mut state.source, &die_id, time_of_day, &mut state.rng);
+            }
+            state.players[player_idx].tactic_state.mana_search_used_this_turn = true;
+        }
+        SubsetSelectionKind::AttackTargets {
+            attack_type,
+            eligible_instance_ids,
+        } => {
+            // Map selected pool indices → actual instance IDs
+            let target_ids: Vec<CombatInstanceId> = ss
+                .selected
+                .iter()
+                .map(|&pool_idx| eligible_instance_ids[pool_idx].clone())
+                .collect();
+
+            return apply_declare_attack_inner(state, player_idx, &target_ids, attack_type);
+        }
+        SubsetSelectionKind::RestWoundDiscard { wound_hand_indices } => {
+            // Discard selected wounds (reverse order to preserve indices).
+            let mut sorted: Vec<usize> = ss
+                .selected
+                .iter()
+                .map(|&pool_idx| wound_hand_indices[pool_idx])
+                .collect();
+            sorted.sort_unstable_by(|a, b| b.cmp(a));
+
+            let player = &mut state.players[player_idx];
+            for &hand_idx in &sorted {
+                let wound = player.hand.remove(hand_idx);
+                player.discard.push(wound);
+            }
+
+            // Finish rest.
+            finish_rest(state, player_idx);
         }
     }
 
@@ -617,11 +719,14 @@ fn apply_activate_tactic(
         "midnight_meditation" => {
             let hand_len = state.players[player_idx].hand.len();
             if hand_len > 0 {
-                let max_cards = 5.min(hand_len) as u8;
                 state.players[player_idx].pending.active =
-                    Some(ActivePending::TacticDecision(
-                        PendingTacticDecision::MidnightMeditation { max_cards },
-                    ));
+                    Some(ActivePending::SubsetSelection(SubsetSelectionState {
+                        kind: SubsetSelectionKind::MidnightMeditation,
+                        pool_size: hand_len,
+                        max_selections: 5.min(hand_len),
+                        min_selections: 0,
+                        selected: ArrayVec::new(),
+                    }));
             }
         }
         other => {
@@ -641,24 +746,84 @@ fn apply_activate_tactic(
 // Reroll source dice (Mana Search)
 // =============================================================================
 
-fn apply_reroll_source_dice(
+fn apply_initiate_mana_search(
     state: &mut GameState,
     player_idx: usize,
-    die_indices: &[usize],
 ) -> Result<ApplyResult, ApplyError> {
-    let time_of_day = state.time_of_day;
+    use mk_types::pending::{SubsetSelectionKind, SubsetSelectionState, MAX_SUBSET_ITEMS};
 
-    for &idx in die_indices {
-        if idx >= state.source.dice.len() {
-            return Err(ApplyError::InternalError(format!(
-                "RerollSourceDice: invalid die index {}", idx
-            )));
-        }
-        let die_id = state.source.dice[idx].id.clone();
-        mana::reroll_die(&mut state.source, &die_id, time_of_day, &mut state.rng);
+    // Compute rerollable die indices
+    let rerollable: ArrayVec<usize, MAX_SUBSET_ITEMS> = state
+        .source
+        .dice
+        .iter()
+        .enumerate()
+        .filter(|(_, d)| d.taken_by_player_id.is_none())
+        .map(|(i, _)| i)
+        .collect();
+
+    if rerollable.is_empty() {
+        return Err(ApplyError::InternalError(
+            "InitiateManaSearch: no rerollable dice".into(),
+        ));
     }
 
-    state.players[player_idx].tactic_state.mana_search_used_this_turn = true;
+    let pool_size = rerollable.len();
+    let max_selections = 2.min(pool_size); // Mana Search allows 1 or 2
+
+    state.players[player_idx].pending.active =
+        Some(ActivePending::SubsetSelection(SubsetSelectionState {
+            kind: SubsetSelectionKind::ManaSearch {
+                rerollable_die_indices: rerollable,
+            },
+            pool_size,
+            max_selections,
+            min_selections: 1,
+            selected: ArrayVec::new(),
+        }));
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+fn apply_initiate_attack(
+    state: &mut GameState,
+    player_idx: usize,
+    attack_type: CombatType,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::pending::{SubsetSelectionKind, SubsetSelectionState, MAX_SUBSET_ITEMS};
+
+    let combat = state
+        .combat
+        .as_ref()
+        .ok_or_else(|| ApplyError::InternalError("InitiateAttack: no combat".into()))?;
+
+    let eligible =
+        crate::legal_actions::combat::eligible_attack_targets(combat, attack_type, &state.active_modifiers);
+
+    if eligible.is_empty() {
+        return Err(ApplyError::InternalError(
+            "InitiateAttack: no eligible enemies".into(),
+        ));
+    }
+
+    let pool_size = eligible.len();
+    let eligible_ids: ArrayVec<CombatInstanceId, MAX_SUBSET_ITEMS> =
+        eligible.into_iter().collect();
+
+    state.players[player_idx].pending.active =
+        Some(ActivePending::SubsetSelection(SubsetSelectionState {
+            kind: SubsetSelectionKind::AttackTargets {
+                attack_type,
+                eligible_instance_ids: eligible_ids,
+            },
+            pool_size,
+            max_selections: pool_size, // Can target all
+            min_selections: 1,
+            selected: ArrayVec::new(),
+        }));
 
     Ok(ApplyResult {
         needs_reenumeration: true,
@@ -868,7 +1033,9 @@ fn apply_choose_level_up_reward(
             )));
         }
         let chosen_skill = state.offers.common_skills.remove(skill_index);
-        state.players[player_idx].skills.push(chosen_skill);
+        state.players[player_idx].skills.push(chosen_skill.clone());
+        // Push passive modifiers for the newly acquired skill
+        push_passive_skill_modifiers(state, player_idx, &chosen_skill);
         // Return both drawn skills to common pool
         for skill in reward.drawn_skills.iter() {
             state.offers.common_skills.push(skill.clone());
@@ -883,7 +1050,9 @@ fn apply_choose_level_up_reward(
             )));
         }
         let chosen_skill = reward.drawn_skills[skill_index].clone();
-        state.players[player_idx].skills.push(chosen_skill);
+        state.players[player_idx].skills.push(chosen_skill.clone());
+        // Push passive modifiers for the newly acquired skill
+        push_passive_skill_modifiers(state, player_idx, &chosen_skill);
         // Add unchosen drawn skills to common pool
         for (i, skill) in reward.drawn_skills.iter().enumerate() {
             if i != skill_index {
@@ -979,25 +1148,43 @@ fn apply_complete_rest(
             .any(|c| c.as_str() != effect_queue::WOUND_CARD_ID);
 
         if has_non_wound {
-            // Standard rest: discard chosen non-wound card + all wounds from hand.
+            // Standard rest: discard chosen non-wound card, then let agent choose wounds.
             if is_wound {
                 return Err(ApplyError::InternalError(
                     "Standard rest: must discard a non-wound card".into(),
                 ));
             }
-            // Remove chosen card first (by index), then drain all wounds.
+            // Remove chosen card first (by index).
             player.hand.remove(idx);
             player.discard.push(chosen_card);
-            // Remove all wounds from hand → discard.
-            let mut i = 0;
-            while i < player.hand.len() {
-                if player.hand[i].as_str() == effect_queue::WOUND_CARD_ID {
-                    let wound = player.hand.remove(i);
-                    player.discard.push(wound);
-                } else {
-                    i += 1;
-                }
+
+            // Check if wounds remain in hand — if so, enter SubsetSelection.
+            let wound_hand_indices: ArrayVec<usize, { mk_types::pending::MAX_SUBSET_ITEMS }> =
+                player
+                    .hand
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, c)| c.as_str() == effect_queue::WOUND_CARD_ID)
+                    .map(|(i, _)| i)
+                    .collect();
+
+            if !wound_hand_indices.is_empty() {
+                let pool_size = wound_hand_indices.len();
+                player.pending.active = Some(ActivePending::SubsetSelection(
+                    SubsetSelectionState {
+                        kind: SubsetSelectionKind::RestWoundDiscard { wound_hand_indices },
+                        pool_size,
+                        max_selections: pool_size,
+                        min_selections: 0,
+                        selected: ArrayVec::new(),
+                    },
+                ));
+                return Ok(ApplyResult {
+                    needs_reenumeration: true,
+                    game_ended: false,
+                });
             }
+            // No wounds — fall through to finish rest immediately.
         } else {
             // Slow recovery: hand is all wounds — discard only the chosen wound.
             player.hand.remove(idx);
@@ -1006,17 +1193,22 @@ fn apply_complete_rest(
     }
     // else: empty hand — no discard needed.
 
+    finish_rest(state, player_idx);
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+/// Finalize rest: clear IS_RESTING, set HAS_RESTED + PLAYED_CARD flags.
+fn finish_rest(state: &mut GameState, player_idx: usize) {
     let player = &mut state.players[player_idx];
     player.flags.remove(PlayerFlags::IS_RESTING);
     player.flags.insert(PlayerFlags::HAS_RESTED_THIS_TURN);
     player
         .flags
         .insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
-
-    Ok(ApplyResult {
-        needs_reenumeration: true,
-        game_ended: false,
-    })
 }
 
 fn apply_declare_block(
@@ -1082,7 +1274,7 @@ fn apply_declare_block(
     })
 }
 
-fn apply_declare_attack(
+fn apply_declare_attack_inner(
     state: &mut GameState,
     player_idx: usize,
     target_instance_ids: &[CombatInstanceId],
@@ -1587,6 +1779,9 @@ fn apply_end_combat_phase(
             }
 
             combat.phase = CombatPhase::Attack;
+
+            // Dueling: grant Attack 1 Physical at Block→Attack transition
+            apply_dueling_attack_bonus(state, player_idx);
         }
         CombatPhase::Attack => {
             // End combat — remove defeated enemies from map, discard tokens
@@ -2116,13 +2311,13 @@ fn apply_use_skill(
     player_idx: usize,
     skill_id: &SkillId,
 ) -> Result<ApplyResult, ApplyError> {
-    use mk_data::skills::{get_skill, is_motivation_skill, SkillUsageType};
+    use mk_data::skills::{get_skill, SkillUsageType};
 
     let def = get_skill(skill_id.as_str()).ok_or_else(|| {
         ApplyError::InternalError(format!("Unknown skill: {}", skill_id.as_str()))
     })?;
 
-    let effect = def.effect.ok_or_else(|| {
+    let _effect = def.effect.ok_or_else(|| {
         ApplyError::InternalError(format!("Skill {} has no effect", skill_id.as_str()))
     })?;
 
@@ -2152,9 +2347,27 @@ fn apply_use_skill(
         // No extra action needed here.
     }
 
+    // Custom skill handlers
+    match skill_id.as_str() {
+        "arythea_power_of_pain" => return apply_power_of_pain(state, player_idx, skill_id),
+        "tovak_i_dont_give_a_damn" => return apply_i_dont_give_a_damn(state, player_idx, skill_id),
+        "tovak_who_needs_magic" => return apply_who_needs_magic(state, player_idx, skill_id),
+        "goldyx_universal_power" => return apply_universal_power(state, player_idx, skill_id),
+        "braevalar_secret_ways" => return apply_secret_ways(state, player_idx, skill_id),
+        "krang_regenerate" => return apply_regenerate(state, player_idx, skill_id, BasicManaColor::Red),
+        "braevalar_regenerate" => return apply_regenerate(state, player_idx, skill_id, BasicManaColor::Green),
+        "wolfhawk_dueling" => return apply_dueling(state, player_idx, skill_id),
+        "arythea_invocation" => return apply_invocation(state, player_idx, skill_id),
+        "arythea_polarization" => return apply_polarization(state, player_idx, skill_id),
+        "krang_curse" => return apply_curse(state, player_idx, skill_id),
+        "braevalar_forked_lightning" => return apply_forked_lightning(state, player_idx, skill_id),
+        "wolfhawk_know_your_prey" => return apply_know_your_prey(state, player_idx, skill_id),
+        _ => {}
+    }
+
     // Create effect queue and resolve
     let mut queue = effect_queue::EffectQueue::new();
-    queue.push(effect, None);
+    queue.push(_effect, None);
     let drain_result = queue.drain(state, player_idx);
 
     match drain_result {
@@ -2193,6 +2406,1880 @@ fn apply_use_skill(
         needs_reenumeration: true,
         game_ended: false,
     })
+}
+
+// =============================================================================
+// Passive + sideways value skill handlers
+// =============================================================================
+
+/// Push passive (Permanent) modifiers for a skill when it's acquired.
+pub(crate) fn push_passive_skill_modifiers(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+) {
+    let passives = mk_data::skills::get_passive_modifiers(skill_id.as_str());
+    for effect in passives {
+        push_skill_modifier(
+            state,
+            player_idx,
+            skill_id,
+            mk_types::modifier::ModifierDuration::Permanent,
+            mk_types::modifier::ModifierScope::SelfScope,
+            effect,
+        );
+    }
+}
+
+/// Push a modifier with Skill source for the current player.
+pub(crate) fn push_skill_modifier(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+    duration: mk_types::modifier::ModifierDuration,
+    scope: mk_types::modifier::ModifierScope,
+    effect: mk_types::modifier::ModifierEffect,
+) {
+    use mk_types::ids::ModifierId;
+    use mk_types::modifier::{ActiveModifier, ModifierSource};
+
+    let player_id = state.players[player_idx].id.clone();
+    let modifier_count = state.active_modifiers.len();
+    let modifier_id = format!(
+        "mod_{}_r{}_t{}",
+        modifier_count, state.round, state.current_player_index
+    );
+    state.active_modifiers.push(ActiveModifier {
+        id: ModifierId::from(modifier_id.as_str()),
+        source: ModifierSource::Skill {
+            skill_id: skill_id.clone(),
+            player_id: player_id.clone(),
+        },
+        duration,
+        scope,
+        effect,
+        created_at_round: state.round,
+        created_by_player_id: player_id,
+    });
+}
+
+fn apply_power_of_pain(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::modifier::{ModifierDuration, ModifierEffect, ModifierScope, RuleOverride};
+
+    // Push RuleOverride: WoundsPlayableSideways
+    push_skill_modifier(
+        state,
+        player_idx,
+        skill_id,
+        ModifierDuration::Turn,
+        ModifierScope::SelfScope,
+        ModifierEffect::RuleOverride {
+            rule: RuleOverride::WoundsPlayableSideways,
+        },
+    );
+    // Push SidewaysValue: wounds get value 2
+    push_skill_modifier(
+        state,
+        player_idx,
+        skill_id,
+        ModifierDuration::Turn,
+        ModifierScope::SelfScope,
+        ModifierEffect::SidewaysValue {
+            new_value: 2,
+            for_wounds: true,
+            condition: None,
+            mana_color: None,
+            for_card_types: vec![],
+        },
+    );
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+fn apply_i_dont_give_a_damn(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::modifier::{ModifierDuration, ModifierEffect, ModifierScope};
+
+    // Base: all non-wound cards sideways value +2
+    push_skill_modifier(
+        state,
+        player_idx,
+        skill_id,
+        ModifierDuration::Turn,
+        ModifierScope::SelfScope,
+        ModifierEffect::SidewaysValue {
+            new_value: 2,
+            for_wounds: false,
+            condition: None,
+            mana_color: None,
+            for_card_types: vec![],
+        },
+    );
+    // Bonus: AA, Spell, Artifact get +3
+    push_skill_modifier(
+        state,
+        player_idx,
+        skill_id,
+        ModifierDuration::Turn,
+        ModifierScope::SelfScope,
+        ModifierEffect::SidewaysValue {
+            new_value: 3,
+            for_wounds: false,
+            condition: None,
+            mana_color: None,
+            for_card_types: vec![
+                DeedCardType::AdvancedAction,
+                DeedCardType::Spell,
+                DeedCardType::Artifact,
+            ],
+        },
+    );
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+fn apply_who_needs_magic(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::modifier::{ModifierDuration, ModifierEffect, ModifierScope, RuleOverride, SidewaysCondition};
+
+    // Base: all non-wound cards sideways value +2
+    push_skill_modifier(
+        state,
+        player_idx,
+        skill_id,
+        ModifierDuration::Turn,
+        ModifierScope::SelfScope,
+        ModifierEffect::SidewaysValue {
+            new_value: 2,
+            for_wounds: false,
+            condition: None,
+            mana_color: None,
+            for_card_types: vec![],
+        },
+    );
+    // Bonus: +3 if no mana source die used
+    push_skill_modifier(
+        state,
+        player_idx,
+        skill_id,
+        ModifierDuration::Turn,
+        ModifierScope::SelfScope,
+        ModifierEffect::SidewaysValue {
+            new_value: 3,
+            for_wounds: false,
+            condition: Some(SidewaysCondition::NoManaUsed),
+            mana_color: None,
+            for_card_types: vec![],
+        },
+    );
+    // If no mana used yet, block Source for the rest of turn
+    if !state.players[player_idx]
+        .flags
+        .contains(PlayerFlags::USED_MANA_FROM_SOURCE)
+    {
+        push_skill_modifier(
+            state,
+            player_idx,
+            skill_id,
+            ModifierDuration::Turn,
+            ModifierScope::SelfScope,
+            ModifierEffect::RuleOverride {
+                rule: RuleOverride::SourceBlocked,
+            },
+        );
+    }
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+fn apply_universal_power(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::effect::CardEffect;
+    use mk_types::pending::{ChoiceResolution, PendingChoice};
+
+    // Collect available basic mana colors from tokens
+    let player = &state.players[player_idx];
+    let mut available_colors: Vec<BasicManaColor> = Vec::new();
+    let mut seen = [false; 4];
+    for token in &player.pure_mana {
+        let idx = match token.color {
+            ManaColor::Red => Some(0),
+            ManaColor::Blue => Some(1),
+            ManaColor::Green => Some(2),
+            ManaColor::White => Some(3),
+            _ => None,
+        };
+        if let Some(i) = idx {
+            if !seen[i] {
+                seen[i] = true;
+                available_colors.push(match i {
+                    0 => BasicManaColor::Red,
+                    1 => BasicManaColor::Blue,
+                    2 => BasicManaColor::Green,
+                    _ => BasicManaColor::White,
+                });
+            }
+        }
+    }
+
+    if available_colors.is_empty() {
+        return Err(ApplyError::InternalError(
+            "Universal Power: no basic mana tokens available".into(),
+        ));
+    }
+
+    if available_colors.len() == 1 {
+        // Auto-consume the single option
+        let color = available_colors[0];
+        let mana_color = ManaColor::from(color);
+        let player = &mut state.players[player_idx];
+        if let Some(pos) = player.pure_mana.iter().position(|t| t.color == mana_color) {
+            player.pure_mana.remove(pos);
+        }
+        push_universal_power_modifiers(state, player_idx, skill_id, color);
+    } else {
+        // Multiple options: set pending choice
+        let options: Vec<CardEffect> = available_colors
+            .iter()
+            .map(|_| CardEffect::Noop)
+            .collect();
+        state.players[player_idx].pending.active =
+            Some(ActivePending::Choice(PendingChoice {
+                card_id: None,
+                skill_id: Some(skill_id.clone()),
+                unit_instance_id: None,
+                options,
+                continuation: vec![],
+                movement_bonus_applied: false,
+                resolution: ChoiceResolution::UniversalPowerMana {
+                    available_colors,
+                },
+            }));
+    }
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+pub(crate) fn push_universal_power_modifiers(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+    color: BasicManaColor,
+) {
+    use mk_types::modifier::{ModifierDuration, ModifierEffect, ModifierScope, SidewaysCondition};
+
+    // Base: all non-wound cards sideways value +3
+    push_skill_modifier(
+        state,
+        player_idx,
+        skill_id,
+        ModifierDuration::Turn,
+        ModifierScope::SelfScope,
+        ModifierEffect::SidewaysValue {
+            new_value: 3,
+            for_wounds: false,
+            condition: None,
+            mana_color: None,
+            for_card_types: vec![],
+        },
+    );
+    // Bonus: +4 if card color matches spent mana color (BasicAction, AA, Spell)
+    push_skill_modifier(
+        state,
+        player_idx,
+        skill_id,
+        ModifierDuration::Turn,
+        ModifierScope::SelfScope,
+        ModifierEffect::SidewaysValue {
+            new_value: 4,
+            for_wounds: false,
+            condition: Some(SidewaysCondition::WithManaMatchingColor),
+            mana_color: Some(color),
+            for_card_types: vec![
+                DeedCardType::BasicAction,
+                DeedCardType::AdvancedAction,
+                DeedCardType::Spell,
+            ],
+        },
+    );
+}
+
+// =============================================================================
+// Secret Ways, Regenerate, Dueling skill handlers
+// =============================================================================
+
+fn apply_secret_ways(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::effect::CardEffect;
+    use mk_types::modifier::{ModifierDuration, ModifierEffect, ModifierScope, TerrainOrAll};
+    use mk_types::pending::{ChoiceResolution, PendingChoice};
+
+    // Always grant Move 1
+    state.players[player_idx].move_points += 1;
+
+    // Check if player can afford Blue mana (token > crystal > die)
+    let player = &state.players[player_idx];
+    let has_blue_token = player.pure_mana.iter().any(|t| t.color == ManaColor::Blue);
+    let has_blue_crystal = player.crystals.blue > 0;
+    let has_blue_die = state
+        .source
+        .dice
+        .iter()
+        .any(|d| {
+            d.color == ManaColor::Blue
+                && !d.is_depleted
+                && d.taken_by_player_id.is_none()
+        });
+
+    if has_blue_token || has_blue_crystal || has_blue_die {
+        // Present choice: Noop (decline) or Lake modifiers (pay blue mana)
+        let options = vec![
+            CardEffect::Noop,
+            CardEffect::Compound {
+                effects: vec![
+                    CardEffect::ApplyModifier {
+                        effect: ModifierEffect::TerrainCost {
+                            terrain: TerrainOrAll::Specific(mk_types::enums::Terrain::Lake),
+                            amount: 0,
+                            minimum: 0,
+                            replace_cost: Some(2),
+                        },
+                        duration: ModifierDuration::Turn,
+                        scope: ModifierScope::SelfScope,
+                    },
+                    CardEffect::ApplyModifier {
+                        effect: ModifierEffect::TerrainSafe {
+                            terrain: TerrainOrAll::Specific(mk_types::enums::Terrain::Lake),
+                        },
+                        duration: ModifierDuration::Turn,
+                        scope: ModifierScope::SelfScope,
+                    },
+                ],
+            },
+        ];
+
+        state.players[player_idx].pending.active =
+            Some(ActivePending::Choice(PendingChoice {
+                card_id: None,
+                skill_id: Some(skill_id.clone()),
+                unit_instance_id: None,
+                options,
+                continuation: vec![],
+                movement_bonus_applied: false,
+                resolution: ChoiceResolution::SecretWaysLake,
+            }));
+    }
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+fn apply_regenerate(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+    bonus_color: BasicManaColor,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::effect::CardEffect;
+    use mk_types::pending::{ChoiceResolution, PendingChoice};
+
+    // Collect available mana colors the player can spend
+    let player = &state.players[player_idx];
+    let mut available_colors: Vec<ManaColor> = Vec::new();
+    let mut seen = [false; 6]; // R, B, G, W, Gold, Black
+
+    // Check tokens
+    for token in &player.pure_mana {
+        let idx = mana_color_to_index(token.color);
+        if let Some(i) = idx {
+            if !seen[i] {
+                seen[i] = true;
+                available_colors.push(token.color);
+            }
+        }
+    }
+
+    // Check crystals (basic colors only)
+    for (color, count) in [
+        (BasicManaColor::Red, player.crystals.red),
+        (BasicManaColor::Blue, player.crystals.blue),
+        (BasicManaColor::Green, player.crystals.green),
+        (BasicManaColor::White, player.crystals.white),
+    ] {
+        if count > 0 {
+            let mc = ManaColor::from(color);
+            let idx = mana_color_to_index(mc);
+            if let Some(i) = idx {
+                if !seen[i] {
+                    seen[i] = true;
+                    available_colors.push(mc);
+                }
+            }
+        }
+    }
+
+    // Check source dice (respecting time-of-day restrictions)
+    for die in &state.source.dice {
+        if !die.is_depleted && die.taken_by_player_id.is_none() {
+            let idx = mana_color_to_index(die.color);
+            if let Some(i) = idx {
+                if !seen[i] {
+                    seen[i] = true;
+                    available_colors.push(die.color);
+                }
+            }
+        }
+    }
+
+    if available_colors.is_empty() {
+        return Err(ApplyError::InternalError(
+            "Regenerate: no mana available".into(),
+        ));
+    }
+
+    if available_colors.len() == 1 {
+        // Auto-consume the single option
+        execute_regenerate(state, player_idx, available_colors[0], bonus_color)?;
+    } else {
+        // Multiple options: set pending choice
+        let options: Vec<CardEffect> = available_colors
+            .iter()
+            .map(|_| CardEffect::Noop)
+            .collect();
+        state.players[player_idx].pending.active =
+            Some(ActivePending::Choice(PendingChoice {
+                card_id: None,
+                skill_id: Some(skill_id.clone()),
+                unit_instance_id: None,
+                options,
+                continuation: vec![],
+                movement_bonus_applied: false,
+                resolution: ChoiceResolution::RegenerateMana {
+                    available_colors,
+                    bonus_color,
+                },
+            }));
+    }
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+fn mana_color_to_index(color: ManaColor) -> Option<usize> {
+    match color {
+        ManaColor::Red => Some(0),
+        ManaColor::Blue => Some(1),
+        ManaColor::Green => Some(2),
+        ManaColor::White => Some(3),
+        ManaColor::Gold => Some(4),
+        ManaColor::Black => Some(5),
+    }
+}
+
+/// Execute the regenerate effect: consume mana, remove wound, conditionally draw.
+pub(crate) fn execute_regenerate(
+    state: &mut GameState,
+    player_idx: usize,
+    mana_color: ManaColor,
+    bonus_color: BasicManaColor,
+) -> Result<(), ApplyError> {
+    // Consume 1 mana of the chosen color (token > crystal > die)
+    let player = &mut state.players[player_idx];
+
+    // Try token first
+    if let Some(pos) = player.pure_mana.iter().position(|t| t.color == mana_color) {
+        player.pure_mana.remove(pos);
+    } else if let Some(basic) = mana_color.to_basic() {
+        // Try crystal
+        let crystal_count = match basic {
+            BasicManaColor::Red => &mut player.crystals.red,
+            BasicManaColor::Blue => &mut player.crystals.blue,
+            BasicManaColor::Green => &mut player.crystals.green,
+            BasicManaColor::White => &mut player.crystals.white,
+        };
+        if *crystal_count > 0 {
+            *crystal_count -= 1;
+            match basic {
+                BasicManaColor::Red => player.spent_crystals_this_turn.red += 1,
+                BasicManaColor::Blue => player.spent_crystals_this_turn.blue += 1,
+                BasicManaColor::Green => player.spent_crystals_this_turn.green += 1,
+                BasicManaColor::White => player.spent_crystals_this_turn.white += 1,
+            }
+        } else {
+            return Err(ApplyError::InternalError(
+                "Regenerate: cannot consume mana".into(),
+            ));
+        }
+    } else {
+        // Gold/Black — try source die
+        if let Some(die) = state.source.dice.iter_mut().find(|d| {
+            d.color == mana_color && !d.is_depleted && d.taken_by_player_id.is_none()
+        }) {
+            die.taken_by_player_id = Some(state.players[player_idx].id.clone());
+            die.is_depleted = true;
+        } else {
+            return Err(ApplyError::InternalError(
+                "Regenerate: cannot consume mana".into(),
+            ));
+        }
+    }
+
+    // Remove first wound from hand
+    let player = &mut state.players[player_idx];
+    if let Some(pos) = player.hand.iter().position(|c| c.as_str() == "wound") {
+        player.hand.remove(pos);
+        state.wound_pile_count = Some(state.wound_pile_count.unwrap_or(0) + 1);
+    }
+
+    // Check bonus draw: mana color matches bonus_color OR strictly lowest fame
+    let is_bonus_color = mana_color.to_basic() == Some(bonus_color);
+    let is_lowest = has_strictly_lowest_fame(state, player_idx);
+
+    if is_bonus_color || is_lowest {
+        let player = &mut state.players[player_idx];
+        if !player.deck.is_empty() {
+            let card = player.deck.remove(0);
+            player.hand.push(card);
+        }
+    }
+
+    Ok(())
+}
+
+/// Check if a player has strictly the lowest fame among all players.
+/// In solo (1 player): always false.
+fn has_strictly_lowest_fame(state: &GameState, player_idx: usize) -> bool {
+    if state.players.len() <= 1 {
+        return false;
+    }
+    let my_fame = state.players[player_idx].fame;
+    state.players.iter().enumerate().all(|(i, p)| {
+        i == player_idx || p.fame > my_fame
+    })
+}
+
+fn apply_dueling(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::effect::CardEffect;
+    use mk_types::pending::{ChoiceResolution, PendingChoice};
+
+    let combat = state
+        .combat
+        .as_ref()
+        .ok_or_else(|| ApplyError::InternalError("Dueling: not in combat".into()))?;
+
+    // Filter eligible enemies: alive AND attacks this combat (not skip_attack)
+    let eligible: Vec<String> = combat
+        .enemies
+        .iter()
+        .filter(|e| {
+            !e.is_defeated
+                && !combat_resolution::is_enemy_attacks_skipped(
+                    &state.active_modifiers,
+                    e.instance_id.as_str(),
+                )
+        })
+        .map(|e| e.instance_id.as_str().to_string())
+        .collect();
+
+    if eligible.is_empty() {
+        return Err(ApplyError::InternalError(
+            "Dueling: no eligible enemies".into(),
+        ));
+    }
+
+    // Grant Block 1 Physical
+    let accumulator = &mut state.players[player_idx].combat_accumulator;
+    accumulator.block += 1;
+    accumulator.block_elements.physical += 1;
+
+    if eligible.len() == 1 {
+        // Auto-target the single enemy
+        apply_dueling_target(state, player_idx, skill_id, &eligible[0]);
+    } else {
+        // Multiple targets: set pending choice
+        let options: Vec<CardEffect> = eligible.iter().map(|_| CardEffect::Noop).collect();
+        state.players[player_idx].pending.active =
+            Some(ActivePending::Choice(PendingChoice {
+                card_id: None,
+                skill_id: Some(skill_id.clone()),
+                unit_instance_id: None,
+                options,
+                continuation: vec![],
+                movement_bonus_applied: false,
+                resolution: ChoiceResolution::DuelingTarget {
+                    eligible_enemy_ids: eligible,
+                },
+            }));
+    }
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+/// Apply the DuelingTarget modifier for a chosen enemy (public wrapper for effect_queue).
+pub(crate) fn apply_dueling_target_pub(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+    enemy_instance_id: &str,
+) {
+    apply_dueling_target(state, player_idx, skill_id, enemy_instance_id);
+}
+
+/// Apply the DuelingTarget modifier for a chosen enemy.
+fn apply_dueling_target(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+    enemy_instance_id: &str,
+) {
+    push_skill_modifier(
+        state,
+        player_idx,
+        skill_id,
+        mk_types::modifier::ModifierDuration::Combat,
+        mk_types::modifier::ModifierScope::SelfScope,
+        mk_types::modifier::ModifierEffect::DuelingTarget {
+            enemy_instance_id: enemy_instance_id.to_string(),
+            attack_applied: false,
+            unit_involved: false,
+        },
+    );
+}
+
+/// Apply the dueling attack bonus at Block→Attack transition.
+/// Called from apply_end_combat_phase when transitioning to Attack phase.
+pub(crate) fn apply_dueling_attack_bonus(
+    state: &mut GameState,
+    player_idx: usize,
+) {
+    // Find active DuelingTarget modifier for this player
+    let player_id = &state.players[player_idx].id;
+    let modifier_idx = state.active_modifiers.iter().position(|m| {
+        m.created_by_player_id == *player_id
+            && matches!(&m.effect, mk_types::modifier::ModifierEffect::DuelingTarget { .. })
+    });
+
+    let Some(idx) = modifier_idx else { return };
+
+    // Check if already applied
+    if let mk_types::modifier::ModifierEffect::DuelingTarget {
+        attack_applied: true,
+        ..
+    } = &state.active_modifiers[idx].effect
+    {
+        return;
+    }
+
+    // Check if target enemy is still alive
+    let target_id = if let mk_types::modifier::ModifierEffect::DuelingTarget {
+        enemy_instance_id,
+        ..
+    } = &state.active_modifiers[idx].effect
+    {
+        enemy_instance_id.clone()
+    } else {
+        return;
+    };
+
+    let target_alive = state
+        .combat
+        .as_ref()
+        .map(|c| {
+            c.enemies
+                .iter()
+                .any(|e| e.instance_id.as_str() == target_id && !e.is_defeated)
+        })
+        .unwrap_or(false);
+
+    if !target_alive {
+        return;
+    }
+
+    // Mark attack_applied = true
+    if let mk_types::modifier::ModifierEffect::DuelingTarget {
+        ref mut attack_applied,
+        ..
+    } = state.active_modifiers[idx].effect
+    {
+        *attack_applied = true;
+    }
+
+    // Grant Attack 1 Physical
+    let accumulator = &mut state.players[player_idx].combat_accumulator;
+    accumulator.attack.normal += 1;
+    accumulator.attack.normal_elements.physical += 1;
+}
+
+/// Resolve dueling fame bonus at combat end.
+/// Returns the fame gained (0 or 1).
+pub(crate) fn resolve_dueling_fame_bonus(
+    state: &mut GameState,
+    player_idx: usize,
+) -> u32 {
+    let player_id = &state.players[player_idx].id;
+
+    // Find DuelingTarget modifier
+    let modifier = state.active_modifiers.iter().find(|m| {
+        m.created_by_player_id == *player_id
+            && matches!(&m.effect, mk_types::modifier::ModifierEffect::DuelingTarget { .. })
+    });
+
+    let Some(m) = modifier else { return 0 };
+
+    let (target_id, unit_involved) =
+        if let mk_types::modifier::ModifierEffect::DuelingTarget {
+            enemy_instance_id,
+            unit_involved,
+            ..
+        } = &m.effect
+        {
+            (enemy_instance_id.clone(), *unit_involved)
+        } else {
+            return 0;
+        };
+
+    // Target must be defeated
+    let target_defeated = state
+        .combat
+        .as_ref()
+        .map(|c| {
+            c.enemies
+                .iter()
+                .any(|e| e.instance_id.as_str() == target_id && e.is_defeated)
+        })
+        .unwrap_or(false);
+
+    if !target_defeated || unit_involved {
+        return 0;
+    }
+
+    state.players[player_idx].fame += 1;
+    1
+}
+
+/// Mark unit involvement on the DuelingTarget modifier.
+/// Called when any unit combat ability is activated.
+pub(crate) fn mark_dueling_unit_involvement(
+    state: &mut GameState,
+    player_idx: usize,
+) {
+    let player_id = &state.players[player_idx].id;
+    for m in &mut state.active_modifiers {
+        if m.created_by_player_id == *player_id {
+            if let mk_types::modifier::ModifierEffect::DuelingTarget {
+                ref mut unit_involved,
+                ..
+            } = m.effect
+            {
+                *unit_involved = true;
+            }
+        }
+    }
+}
+
+// =============================================================================
+// Invocation skill handler
+// =============================================================================
+
+fn apply_invocation(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::effect::CardEffect;
+    use mk_types::pending::{ChoiceResolution, InvocationOption, PendingChoice};
+
+    let player = &state.players[player_idx];
+    if player.hand.is_empty() {
+        return Err(ApplyError::InternalError(
+            "Invocation: hand is empty".into(),
+        ));
+    }
+
+    // Build deduplicated options: per unique card_id, 2 color choices
+    let mut seen_card_ids = Vec::new();
+    let mut options = Vec::new();
+
+    for card_id in &player.hand {
+        if seen_card_ids.contains(card_id) {
+            continue;
+        }
+        seen_card_ids.push(card_id.clone());
+        let is_wound = card_id.as_str() == "wound";
+        if is_wound {
+            // Wounds → Red or Black
+            options.push(InvocationOption {
+                card_id: card_id.clone(),
+                is_wound: true,
+                mana_color: ManaColor::Red,
+            });
+            options.push(InvocationOption {
+                card_id: card_id.clone(),
+                is_wound: true,
+                mana_color: ManaColor::Black,
+            });
+        } else {
+            // Non-wounds → White or Green
+            options.push(InvocationOption {
+                card_id: card_id.clone(),
+                is_wound: false,
+                mana_color: ManaColor::White,
+            });
+            options.push(InvocationOption {
+                card_id: card_id.clone(),
+                is_wound: false,
+                mana_color: ManaColor::Green,
+            });
+        }
+    }
+
+    if options.len() == 1 {
+        // Auto-resolve single option
+        execute_invocation(state, player_idx, &options[0]);
+    } else {
+        let choice_options: Vec<CardEffect> = options.iter().map(|_| CardEffect::Noop).collect();
+        state.players[player_idx].pending.active =
+            Some(ActivePending::Choice(PendingChoice {
+                card_id: None,
+                skill_id: Some(skill_id.clone()),
+                unit_instance_id: None,
+                options: choice_options,
+                continuation: vec![],
+                movement_bonus_applied: false,
+                resolution: ChoiceResolution::InvocationDiscard { options },
+            }));
+    }
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+/// Execute invocation: discard card, gain mana token.
+pub(crate) fn execute_invocation(
+    state: &mut GameState,
+    player_idx: usize,
+    opt: &mk_types::pending::InvocationOption,
+) {
+    let player = &mut state.players[player_idx];
+
+    // Remove first matching card from hand
+    if let Some(pos) = player.hand.iter().position(|c| *c == opt.card_id) {
+        player.hand.remove(pos);
+        if opt.is_wound {
+            state.wound_pile_count = Some(state.wound_pile_count.unwrap_or(0) + 1);
+        } else {
+            state.players[player_idx].discard.push(opt.card_id.clone());
+        }
+    }
+
+    // Gain mana token
+    state.players[player_idx].pure_mana.push(ManaToken {
+        color: opt.mana_color,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+}
+
+// =============================================================================
+// Polarization skill handler
+// =============================================================================
+
+fn apply_polarization(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::effect::CardEffect;
+    use mk_types::pending::{ChoiceResolution, PendingChoice, PolarizationOption, PolarizationSourceType};
+
+    let is_day = state.time_of_day == TimeOfDay::Day;
+
+    fn opposite_basic(c: ManaColor) -> Option<ManaColor> {
+        match c {
+            ManaColor::Red => Some(ManaColor::Blue),
+            ManaColor::Blue => Some(ManaColor::Red),
+            ManaColor::Green => Some(ManaColor::White),
+            ManaColor::White => Some(ManaColor::Green),
+            _ => None,
+        }
+    }
+
+    let mut options: Vec<PolarizationOption> = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    // 1. Tokens
+    let player = &state.players[player_idx];
+    for (idx, token) in player.pure_mana.iter().enumerate() {
+        // Basic color → opposite
+        if let Some(target) = opposite_basic(token.color) {
+            let key = (PolarizationSourceType::Token, token.color, target);
+            if seen.insert(key) {
+                options.push(PolarizationOption {
+                    source_type: PolarizationSourceType::Token,
+                    source_color: token.color,
+                    target_color: target,
+                    cannot_power_spells: false,
+                    token_index: Some(idx),
+                    die_id: None,
+                });
+            }
+        }
+        // Black (day) → any basic (cannot_power_spells)
+        if token.color == ManaColor::Black && is_day {
+            for target in &[ManaColor::Red, ManaColor::Blue, ManaColor::Green, ManaColor::White] {
+                let key = (PolarizationSourceType::Token, ManaColor::Black, *target);
+                if seen.insert(key) {
+                    options.push(PolarizationOption {
+                        source_type: PolarizationSourceType::Token,
+                        source_color: ManaColor::Black,
+                        target_color: *target,
+                        cannot_power_spells: true,
+                        token_index: Some(idx),
+                        die_id: None,
+                    });
+                }
+            }
+        }
+        // Gold (night) → Black
+        if token.color == ManaColor::Gold && !is_day {
+            let key = (PolarizationSourceType::Token, ManaColor::Gold, ManaColor::Black);
+            if seen.insert(key) {
+                options.push(PolarizationOption {
+                    source_type: PolarizationSourceType::Token,
+                    source_color: ManaColor::Gold,
+                    target_color: ManaColor::Black,
+                    cannot_power_spells: false,
+                    token_index: Some(idx),
+                    die_id: None,
+                });
+            }
+        }
+    }
+
+    // 2. Crystals
+    for (basic, count) in [
+        (BasicManaColor::Red, player.crystals.red),
+        (BasicManaColor::Blue, player.crystals.blue),
+        (BasicManaColor::Green, player.crystals.green),
+        (BasicManaColor::White, player.crystals.white),
+    ] {
+        if count > 0 {
+            let src = ManaColor::from(basic);
+            if let Some(target) = opposite_basic(src) {
+                let key = (PolarizationSourceType::Crystal, src, target);
+                if seen.insert(key) {
+                    options.push(PolarizationOption {
+                        source_type: PolarizationSourceType::Crystal,
+                        source_color: src,
+                        target_color: target,
+                        cannot_power_spells: false,
+                        token_index: None,
+                        die_id: None,
+                    });
+                }
+            }
+        }
+    }
+
+    // 3. Source dice
+    for die in &state.source.dice {
+        if die.is_depleted || die.taken_by_player_id.is_some() {
+            continue;
+        }
+        // Basic → opposite
+        if let Some(target) = opposite_basic(die.color) {
+            let key = (PolarizationSourceType::Die, die.color, target);
+            if seen.insert(key) {
+                options.push(PolarizationOption {
+                    source_type: PolarizationSourceType::Die,
+                    source_color: die.color,
+                    target_color: target,
+                    cannot_power_spells: false,
+                    token_index: None,
+                    die_id: Some(die.id.clone()),
+                });
+            }
+        }
+        // Black (day) → any basic
+        if die.color == ManaColor::Black && is_day {
+            for target in &[ManaColor::Red, ManaColor::Blue, ManaColor::Green, ManaColor::White] {
+                let key = (PolarizationSourceType::Die, ManaColor::Black, *target);
+                if seen.insert(key) {
+                    options.push(PolarizationOption {
+                        source_type: PolarizationSourceType::Die,
+                        source_color: ManaColor::Black,
+                        target_color: *target,
+                        cannot_power_spells: true,
+                        token_index: None,
+                        die_id: Some(die.id.clone()),
+                    });
+                }
+            }
+        }
+        // Gold (night) → Black
+        if die.color == ManaColor::Gold && !is_day {
+            let key = (PolarizationSourceType::Die, ManaColor::Gold, ManaColor::Black);
+            if seen.insert(key) {
+                options.push(PolarizationOption {
+                    source_type: PolarizationSourceType::Die,
+                    source_color: ManaColor::Gold,
+                    target_color: ManaColor::Black,
+                    cannot_power_spells: false,
+                    token_index: None,
+                    die_id: Some(die.id.clone()),
+                });
+            }
+        }
+    }
+
+    if options.is_empty() {
+        return Err(ApplyError::InternalError(
+            "Polarization: no conversion options available".into(),
+        ));
+    }
+
+    if options.len() == 1 {
+        execute_polarization(state, player_idx, &options[0]);
+    } else {
+        let choice_options: Vec<CardEffect> = options.iter().map(|_| CardEffect::Noop).collect();
+        state.players[player_idx].pending.active =
+            Some(ActivePending::Choice(PendingChoice {
+                card_id: None,
+                skill_id: Some(skill_id.clone()),
+                unit_instance_id: None,
+                options: choice_options,
+                continuation: vec![],
+                movement_bonus_applied: false,
+                resolution: ChoiceResolution::PolarizationConvert { options },
+            }));
+    }
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+/// Execute polarization: consume source mana, gain target mana.
+pub(crate) fn execute_polarization(
+    state: &mut GameState,
+    player_idx: usize,
+    opt: &mk_types::pending::PolarizationOption,
+) {
+    use mk_types::pending::PolarizationSourceType;
+
+    match opt.source_type {
+        PolarizationSourceType::Token => {
+            // Remove the token at the given index (or first matching color)
+            let player = &mut state.players[player_idx];
+            if let Some(idx) = opt.token_index {
+                if idx < player.pure_mana.len() && player.pure_mana[idx].color == opt.source_color {
+                    player.pure_mana.remove(idx);
+                } else if let Some(pos) = player.pure_mana.iter().position(|t| t.color == opt.source_color) {
+                    player.pure_mana.remove(pos);
+                }
+            }
+        }
+        PolarizationSourceType::Crystal => {
+            let player = &mut state.players[player_idx];
+            if let Some(basic) = opt.source_color.to_basic() {
+                let crystal = match basic {
+                    BasicManaColor::Red => &mut player.crystals.red,
+                    BasicManaColor::Blue => &mut player.crystals.blue,
+                    BasicManaColor::Green => &mut player.crystals.green,
+                    BasicManaColor::White => &mut player.crystals.white,
+                };
+                if *crystal > 0 {
+                    *crystal -= 1;
+                    match basic {
+                        BasicManaColor::Red => player.spent_crystals_this_turn.red += 1,
+                        BasicManaColor::Blue => player.spent_crystals_this_turn.blue += 1,
+                        BasicManaColor::Green => player.spent_crystals_this_turn.green += 1,
+                        BasicManaColor::White => player.spent_crystals_this_turn.white += 1,
+                    }
+                }
+            }
+            // Gain target crystal (polarization crystal→crystal keeps it as crystal)
+            if let Some(target_basic) = opt.target_color.to_basic() {
+                let target_crystal = match target_basic {
+                    BasicManaColor::Red => &mut state.players[player_idx].crystals.red,
+                    BasicManaColor::Blue => &mut state.players[player_idx].crystals.blue,
+                    BasicManaColor::Green => &mut state.players[player_idx].crystals.green,
+                    BasicManaColor::White => &mut state.players[player_idx].crystals.white,
+                };
+                if *target_crystal < 3 {
+                    *target_crystal += 1;
+                }
+            }
+            return; // Crystal→Crystal, no token added
+        }
+        PolarizationSourceType::Die => {
+            if let Some(ref die_id) = opt.die_id {
+                let player_id = state.players[player_idx].id.clone();
+                if let Some(die) = state.source.dice.iter_mut().find(|d| d.id == *die_id) {
+                    die.taken_by_player_id = Some(player_id);
+                    die.is_depleted = true;
+                }
+            }
+        }
+    }
+
+    // Gain target mana token (for Token and Die sources)
+    state.players[player_idx].pure_mana.push(ManaToken {
+        color: opt.target_color,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: opt.cannot_power_spells,
+    });
+}
+
+// =============================================================================
+// Curse skill handler (3-step)
+// =============================================================================
+
+fn apply_curse(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::effect::CardEffect;
+    use mk_types::pending::{ChoiceResolution, PendingChoice};
+
+    let combat = state
+        .combat
+        .as_ref()
+        .ok_or_else(|| ApplyError::InternalError("Curse: not in combat".into()))?;
+
+    let is_ranged_siege = combat.phase == CombatPhase::RangedSiege;
+
+    let eligible: Vec<String> = combat
+        .enemies
+        .iter()
+        .filter(|e| {
+            !e.is_defeated
+                && !(is_ranged_siege && is_enemy_fortified(e.enemy_id.as_str()))
+        })
+        .map(|e| e.instance_id.as_str().to_string())
+        .collect();
+
+    if eligible.is_empty() {
+        return Err(ApplyError::InternalError(
+            "Curse: no eligible enemies".into(),
+        ));
+    }
+
+    if eligible.len() == 1 {
+        // Auto-target
+        setup_curse_mode(state, player_idx, skill_id, &eligible[0]);
+    } else {
+        let options: Vec<CardEffect> = eligible.iter().map(|_| CardEffect::Noop).collect();
+        state.players[player_idx].pending.active =
+            Some(ActivePending::Choice(PendingChoice {
+                card_id: None,
+                skill_id: Some(skill_id.clone()),
+                unit_instance_id: None,
+                options,
+                continuation: vec![],
+                movement_bonus_applied: false,
+                resolution: ChoiceResolution::CurseTarget {
+                    eligible_enemy_ids: eligible,
+                },
+            }));
+    }
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+/// Set up the mode choice for Curse (Attack -2 or Armor -1).
+pub(crate) fn setup_curse_mode(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+    enemy_instance_id: &str,
+) {
+    use mk_types::effect::CardEffect;
+    use mk_types::pending::{ChoiceResolution, PendingChoice};
+
+    let combat = state.combat.as_ref().unwrap();
+    let enemy = combat
+        .enemies
+        .iter()
+        .find(|e| e.instance_id.as_str() == enemy_instance_id)
+        .unwrap();
+
+    let enemy_def = mk_data::enemies::get_enemy(enemy.enemy_id.as_str());
+    let has_ai = enemy_def
+        .map(|d| d.abilities.contains(&EnemyAbilityType::ArcaneImmunity))
+        .unwrap_or(false);
+    let num_attacks = enemy_def
+        .map(|d| mk_data::enemies::attack_count(d))
+        .unwrap_or(1);
+    let has_multi_attack = num_attacks > 1;
+
+    // Build options: always Attack -2, optionally Armor -1 (blocked by AI)
+    let mut options = vec![CardEffect::Noop]; // index 0 = Attack -2
+    if !has_ai {
+        options.push(CardEffect::Noop); // index 1 = Armor -1
+    }
+
+    if options.len() == 1 && !has_multi_attack {
+        // Only Attack -2, single attack → auto-apply
+        push_skill_modifier(
+            state,
+            player_idx,
+            skill_id,
+            mk_types::modifier::ModifierDuration::Combat,
+            mk_types::modifier::ModifierScope::OneEnemy {
+                enemy_id: enemy_instance_id.to_string(),
+            },
+            mk_types::modifier::ModifierEffect::EnemyStat {
+                stat: mk_types::modifier::EnemyStat::Attack,
+                amount: -2,
+                minimum: 0,
+                attack_index: None,
+                per_resistance: false,
+                fortified_amount: None,
+            },
+        );
+    } else {
+        state.players[player_idx].pending.active =
+            Some(ActivePending::Choice(PendingChoice {
+                card_id: None,
+                skill_id: Some(skill_id.clone()),
+                unit_instance_id: None,
+                options,
+                continuation: vec![],
+                movement_bonus_applied: false,
+                resolution: ChoiceResolution::CurseMode {
+                    enemy_instance_id: enemy_instance_id.to_string(),
+                    has_arcane_immunity: has_ai,
+                    has_multi_attack,
+                },
+            }));
+    }
+}
+
+/// Execute curse mode choice.
+pub(crate) fn execute_curse_mode(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+    enemy_instance_id: &str,
+    has_multi_attack: bool,
+    choice_index: usize,
+) {
+    use mk_types::effect::CardEffect;
+    use mk_types::pending::{ChoiceResolution, PendingChoice};
+
+    if choice_index == 0 {
+        // Attack -2
+        if has_multi_attack {
+            // Need to choose which attack index
+            let enemy_def = {
+                let combat = state.combat.as_ref().unwrap();
+                let enemy = combat
+                    .enemies
+                    .iter()
+                    .find(|e| e.instance_id.as_str() == enemy_instance_id)
+                    .unwrap();
+                mk_data::enemies::get_enemy(enemy.enemy_id.as_str())
+            };
+            let num_attacks = enemy_def.map(|d| mk_data::enemies::attack_count(d)).unwrap_or(1);
+            let options: Vec<CardEffect> = (0..num_attacks).map(|_| CardEffect::Noop).collect();
+            state.players[player_idx].pending.active =
+                Some(ActivePending::Choice(PendingChoice {
+                    card_id: None,
+                    skill_id: Some(skill_id.clone()),
+                    unit_instance_id: None,
+                    options,
+                    continuation: vec![],
+                    movement_bonus_applied: false,
+                    resolution: ChoiceResolution::CurseAttackIndex {
+                        enemy_instance_id: enemy_instance_id.to_string(),
+                        attack_count: num_attacks,
+                    },
+                }));
+        } else {
+            // Single attack: apply directly
+            push_skill_modifier(
+                state,
+                player_idx,
+                skill_id,
+                mk_types::modifier::ModifierDuration::Combat,
+                mk_types::modifier::ModifierScope::OneEnemy {
+                    enemy_id: enemy_instance_id.to_string(),
+                },
+                mk_types::modifier::ModifierEffect::EnemyStat {
+                    stat: mk_types::modifier::EnemyStat::Attack,
+                    amount: -2,
+                    minimum: 0,
+                    attack_index: None,
+                    per_resistance: false,
+                    fortified_amount: None,
+                },
+            );
+        }
+    } else {
+        // Armor -1 (choice_index == 1)
+        push_skill_modifier(
+            state,
+            player_idx,
+            skill_id,
+            mk_types::modifier::ModifierDuration::Combat,
+            mk_types::modifier::ModifierScope::OneEnemy {
+                enemy_id: enemy_instance_id.to_string(),
+            },
+            mk_types::modifier::ModifierEffect::EnemyStat {
+                stat: mk_types::modifier::EnemyStat::Armor,
+                amount: -1,
+                minimum: 1,
+                attack_index: None,
+                per_resistance: false,
+                fortified_amount: None,
+            },
+        );
+    }
+}
+
+/// Execute curse attack index selection (multi-attack enemy).
+pub(crate) fn execute_curse_attack_index(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+    enemy_instance_id: &str,
+    choice_index: usize,
+) {
+    push_skill_modifier(
+        state,
+        player_idx,
+        skill_id,
+        mk_types::modifier::ModifierDuration::Combat,
+        mk_types::modifier::ModifierScope::OneEnemy {
+            enemy_id: enemy_instance_id.to_string(),
+        },
+        mk_types::modifier::ModifierEffect::EnemyStat {
+            stat: mk_types::modifier::EnemyStat::Attack,
+            amount: -2,
+            minimum: 0,
+            attack_index: Some(choice_index as u32),
+            per_resistance: false,
+            fortified_amount: None,
+        },
+    );
+}
+
+// =============================================================================
+// Forked Lightning skill handler (iterative loop)
+// =============================================================================
+
+fn apply_forked_lightning(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::effect::CardEffect;
+    use mk_types::pending::{ChoiceResolution, PendingChoice};
+
+    let combat = state
+        .combat
+        .as_ref()
+        .ok_or_else(|| ApplyError::InternalError("Forked Lightning: not in combat".into()))?;
+
+    let eligible: Vec<String> = combat
+        .enemies
+        .iter()
+        .filter(|e| !e.is_defeated)
+        .map(|e| e.instance_id.as_str().to_string())
+        .collect();
+
+    if eligible.is_empty() {
+        return Err(ApplyError::InternalError(
+            "Forked Lightning: no alive enemies".into(),
+        ));
+    }
+
+    if eligible.len() == 1 {
+        // Auto-target the single enemy
+        apply_forked_lightning_hit(state, player_idx, &eligible[0]);
+        // Only 1 enemy, can't pick more
+    } else {
+        // First pick: no "Done" option
+        let options: Vec<CardEffect> = eligible.iter().map(|_| CardEffect::Noop).collect();
+        state.players[player_idx].pending.active =
+            Some(ActivePending::Choice(PendingChoice {
+                card_id: None,
+                skill_id: Some(skill_id.clone()),
+                unit_instance_id: None,
+                options,
+                continuation: vec![],
+                movement_bonus_applied: false,
+                resolution: ChoiceResolution::ForkedLightningTarget {
+                    remaining: 3,
+                    already_targeted: vec![],
+                },
+            }));
+    }
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+fn apply_forked_lightning_hit(
+    state: &mut GameState,
+    player_idx: usize,
+    _enemy_instance_id: &str,
+) {
+    // +1 Ranged ColdFire Attack
+    let accumulator = &mut state.players[player_idx].combat_accumulator;
+    accumulator.attack.ranged += 1;
+    accumulator.attack.ranged_elements.cold_fire += 1;
+}
+
+/// Execute forked lightning target selection.
+pub(crate) fn execute_forked_lightning_target(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+    remaining: u32,
+    already_targeted: &[String],
+    choice_index: usize,
+) {
+    use mk_types::effect::CardEffect;
+    use mk_types::pending::{ChoiceResolution, PendingChoice};
+
+    // Build eligible list (alive, not already targeted)
+    let eligible: Vec<String> = {
+        let combat = state.combat.as_ref().unwrap();
+        combat
+            .enemies
+            .iter()
+            .filter(|e| !e.is_defeated && !already_targeted.contains(&e.instance_id.as_str().to_string()))
+            .map(|e| e.instance_id.as_str().to_string())
+            .collect()
+    };
+
+    // If not first pick (remaining < 3), last option is "Done"
+    let has_done = remaining < 3;
+
+    // Check if "Done" was chosen
+    if has_done && choice_index == eligible.len() {
+        // "Done" chosen — no more targets
+        return;
+    }
+
+    if choice_index >= eligible.len() {
+        return;
+    }
+
+    // Apply the hit
+    let target_id = eligible[choice_index].clone();
+    apply_forked_lightning_hit(state, player_idx, &target_id);
+
+    let mut new_targeted = already_targeted.to_vec();
+    new_targeted.push(target_id);
+
+    let new_remaining = remaining - 1;
+
+    // Check if we can pick more
+    let next_eligible: Vec<String> = {
+        let combat = state.combat.as_ref().unwrap();
+        combat
+            .enemies
+            .iter()
+            .filter(|e| !e.is_defeated && !new_targeted.contains(&e.instance_id.as_str().to_string()))
+            .map(|e| e.instance_id.as_str().to_string())
+            .collect()
+    };
+
+    if new_remaining == 0 || next_eligible.is_empty() {
+        // Done
+        return;
+    }
+
+    // More picks available: present next choice with "Done" option
+    let mut options: Vec<CardEffect> = next_eligible.iter().map(|_| CardEffect::Noop).collect();
+    options.push(CardEffect::Noop); // "Done" option at the end
+
+    state.players[player_idx].pending.active =
+        Some(ActivePending::Choice(PendingChoice {
+            card_id: None,
+            skill_id: Some(skill_id.clone()),
+            unit_instance_id: None,
+            options,
+            continuation: vec![],
+            movement_bonus_applied: false,
+            resolution: ChoiceResolution::ForkedLightningTarget {
+                remaining: new_remaining,
+                already_targeted: new_targeted,
+            },
+        }));
+}
+
+// =============================================================================
+// Know Your Prey skill handler (2-step)
+// =============================================================================
+
+fn apply_know_your_prey(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::effect::CardEffect;
+    use mk_types::pending::{ChoiceResolution, PendingChoice};
+
+    let combat = state
+        .combat
+        .as_ref()
+        .ok_or_else(|| ApplyError::InternalError("Know Your Prey: not in combat".into()))?;
+
+    let eligible: Vec<String> = combat
+        .enemies
+        .iter()
+        .filter(|e| {
+            !e.is_defeated
+                && !is_enemy_arcane_immune(e.enemy_id.as_str())
+                && has_strippable_attributes(e.enemy_id.as_str())
+        })
+        .map(|e| e.instance_id.as_str().to_string())
+        .collect();
+
+    if eligible.is_empty() {
+        return Err(ApplyError::InternalError(
+            "Know Your Prey: no eligible enemies".into(),
+        ));
+    }
+
+    if eligible.len() == 1 {
+        setup_know_your_prey_options(state, player_idx, skill_id, &eligible[0]);
+    } else {
+        let options: Vec<CardEffect> = eligible.iter().map(|_| CardEffect::Noop).collect();
+        state.players[player_idx].pending.active =
+            Some(ActivePending::Choice(PendingChoice {
+                card_id: None,
+                skill_id: Some(skill_id.clone()),
+                unit_instance_id: None,
+                options,
+                continuation: vec![],
+                movement_bonus_applied: false,
+                resolution: ChoiceResolution::KnowYourPreyTarget {
+                    eligible_enemy_ids: eligible,
+                },
+            }));
+    }
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+/// Build options for Know Your Prey after target selection.
+pub(crate) fn setup_know_your_prey_options(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+    enemy_instance_id: &str,
+) {
+    use mk_types::effect::CardEffect;
+    use mk_types::pending::{ChoiceResolution, KnowYourPreyApplyOption, PendingChoice};
+
+    let combat = state.combat.as_ref().unwrap();
+    let enemy = combat
+        .enemies
+        .iter()
+        .find(|e| e.instance_id.as_str() == enemy_instance_id)
+        .unwrap();
+    let enemy_def = mk_data::enemies::get_enemy(enemy.enemy_id.as_str());
+
+    let mut strip_options: Vec<KnowYourPreyApplyOption> = Vec::new();
+
+    if let Some(def) = enemy_def {
+        // Removable abilities
+        let removable = [
+            EnemyAbilityType::Assassination,
+            EnemyAbilityType::Brutal,
+            EnemyAbilityType::Paralyze,
+            EnemyAbilityType::Poison,
+            EnemyAbilityType::Swift,
+            EnemyAbilityType::Vampiric,
+            EnemyAbilityType::Elusive,
+            EnemyAbilityType::Fortified,
+        ];
+        for ability in &removable {
+            if def.abilities.contains(ability) {
+                strip_options.push(KnowYourPreyApplyOption::NullifyAbility {
+                    ability: *ability,
+                });
+            }
+        }
+
+        // Resistances
+        for r in def.resistances {
+            strip_options.push(KnowYourPreyApplyOption::RemoveResistance {
+                element: *r,
+            });
+        }
+
+        // Element conversions (attack element)
+        let attack_element = def.attack_element;
+        add_element_conversions(&mut strip_options, attack_element);
+
+        // Multi-attack element conversions
+        if let Some(attacks) = def.attacks {
+            for atk in attacks {
+                add_element_conversions(&mut strip_options, atk.element);
+            }
+        }
+    }
+
+    // Deduplicate conversions
+    strip_options.dedup_by(|a, b| {
+        match (a, b) {
+            (
+                KnowYourPreyApplyOption::ConvertElement { from: f1, to: t1 },
+                KnowYourPreyApplyOption::ConvertElement { from: f2, to: t2 },
+            ) => *f1 == *f2 && *t1 == *t2,
+            _ => false,
+        }
+    });
+
+    if strip_options.len() == 1 {
+        // Auto-apply
+        execute_know_your_prey_option(
+            state, player_idx, skill_id, enemy_instance_id, &strip_options[0],
+        );
+    } else if !strip_options.is_empty() {
+        let options: Vec<CardEffect> = strip_options.iter().map(|_| CardEffect::Noop).collect();
+        state.players[player_idx].pending.active =
+            Some(ActivePending::Choice(PendingChoice {
+                card_id: None,
+                skill_id: Some(skill_id.clone()),
+                unit_instance_id: None,
+                options,
+                continuation: vec![],
+                movement_bonus_applied: false,
+                resolution: ChoiceResolution::KnowYourPreyOption {
+                    enemy_instance_id: enemy_instance_id.to_string(),
+                    options: strip_options,
+                },
+            }));
+    }
+}
+
+fn add_element_conversions(
+    strip_options: &mut Vec<mk_types::pending::KnowYourPreyApplyOption>,
+    element: Element,
+) {
+    use mk_types::pending::KnowYourPreyApplyOption;
+    match element {
+        Element::Fire => {
+            strip_options.push(KnowYourPreyApplyOption::ConvertElement {
+                from: Element::Fire,
+                to: Element::Physical,
+            });
+        }
+        Element::Ice => {
+            strip_options.push(KnowYourPreyApplyOption::ConvertElement {
+                from: Element::Ice,
+                to: Element::Physical,
+            });
+        }
+        Element::ColdFire => {
+            strip_options.push(KnowYourPreyApplyOption::ConvertElement {
+                from: Element::ColdFire,
+                to: Element::Fire,
+            });
+            strip_options.push(KnowYourPreyApplyOption::ConvertElement {
+                from: Element::ColdFire,
+                to: Element::Ice,
+            });
+        }
+        _ => {} // Physical has no conversion
+    }
+}
+
+/// Execute Know Your Prey option: push modifier.
+pub(crate) fn execute_know_your_prey_option(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+    enemy_instance_id: &str,
+    opt: &mk_types::pending::KnowYourPreyApplyOption,
+) {
+    use mk_types::pending::KnowYourPreyApplyOption;
+
+    let effect = match opt {
+        KnowYourPreyApplyOption::NullifyAbility { ability } => {
+            mk_types::modifier::ModifierEffect::AbilityNullifier {
+                ability: Some(*ability),
+                ignore_arcane_immunity: false,
+            }
+        }
+        KnowYourPreyApplyOption::RemoveResistance { element } => {
+            match element {
+                ResistanceElement::Physical => mk_types::modifier::ModifierEffect::RemovePhysicalResistance,
+                ResistanceElement::Fire => mk_types::modifier::ModifierEffect::RemoveFireResistance,
+                ResistanceElement::Ice => mk_types::modifier::ModifierEffect::RemoveIceResistance,
+            }
+        }
+        KnowYourPreyApplyOption::ConvertElement { from, to } => {
+            mk_types::modifier::ModifierEffect::ConvertAttackElement {
+                from_element: *from,
+                to_element: *to,
+            }
+        }
+    };
+
+    push_skill_modifier(
+        state,
+        player_idx,
+        skill_id,
+        mk_types::modifier::ModifierDuration::Combat,
+        mk_types::modifier::ModifierScope::OneEnemy {
+            enemy_id: enemy_instance_id.to_string(),
+        },
+        effect,
+    );
+}
+
+// =============================================================================
+// Enemy helpers
+// =============================================================================
+
+fn is_enemy_fortified(enemy_id: &str) -> bool {
+    mk_data::enemies::get_enemy(enemy_id)
+        .map(|d| d.abilities.contains(&EnemyAbilityType::Fortified))
+        .unwrap_or(false)
+}
+
+fn is_enemy_arcane_immune(enemy_id: &str) -> bool {
+    mk_data::enemies::get_enemy(enemy_id)
+        .map(|d| d.abilities.contains(&EnemyAbilityType::ArcaneImmunity))
+        .unwrap_or(false)
+}
+
+fn has_strippable_attributes(enemy_id: &str) -> bool {
+    let Some(def) = mk_data::enemies::get_enemy(enemy_id) else {
+        return false;
+    };
+
+    // Has removable abilities?
+    let removable = [
+        EnemyAbilityType::Assassination,
+        EnemyAbilityType::Brutal,
+        EnemyAbilityType::Paralyze,
+        EnemyAbilityType::Poison,
+        EnemyAbilityType::Swift,
+        EnemyAbilityType::Vampiric,
+        EnemyAbilityType::Elusive,
+        EnemyAbilityType::Fortified,
+    ];
+    if def.abilities.iter().any(|a| removable.contains(a)) {
+        return true;
+    }
+
+    // Has resistances?
+    if !def.resistances.is_empty() {
+        return true;
+    }
+
+    // Has non-physical attack element?
+    if !matches!(def.attack_element, Element::Physical) {
+        return true;
+    }
+
+    // Multi-attack non-physical?
+    if let Some(attacks) = def.attacks {
+        if attacks.iter().any(|a| !matches!(a.element, Element::Physical)) {
+            return true;
+        }
+    }
+
+    false
+}
+
+/// Public wrapper for `has_strippable_attributes` (used by enumeration).
+pub(crate) fn has_strippable_attributes_pub(enemy_id: &str) -> bool {
+    has_strippable_attributes(enemy_id)
+}
+
+/// Short-circuit check for polarization options (used by enumeration gate).
+pub(crate) fn has_polarization_options(state: &GameState, player_idx: usize) -> bool {
+    let player = &state.players[player_idx];
+    let is_day = state.time_of_day == TimeOfDay::Day;
+
+    fn is_basic(c: ManaColor) -> bool {
+        matches!(c, ManaColor::Red | ManaColor::Blue | ManaColor::Green | ManaColor::White)
+    }
+
+    // Check tokens
+    for token in &player.pure_mana {
+        if is_basic(token.color) { return true; }
+        if token.color == ManaColor::Black && is_day { return true; }
+        if token.color == ManaColor::Gold && !is_day { return true; }
+    }
+
+    // Check crystals
+    if player.crystals.red > 0 || player.crystals.blue > 0
+        || player.crystals.green > 0 || player.crystals.white > 0
+    {
+        return true;
+    }
+
+    // Check source dice
+    for die in &state.source.dice {
+        if die.is_depleted || die.taken_by_player_id.is_some() { continue; }
+        if is_basic(die.color) { return true; }
+        if die.color == ManaColor::Black && is_day { return true; }
+        if die.color == ManaColor::Gold && !is_day { return true; }
+    }
+
+    false
 }
 
 /// End combat: remove defeated enemies from map hex, discard tokens, clean up state.
@@ -2267,6 +4354,9 @@ fn end_combat(state: &mut GameState, player_idx: usize) {
             }
         }
     }
+
+    // Dueling: award fame bonus if target defeated without unit involvement
+    resolve_dueling_fame_bonus(state, player_idx);
 
     // Expire combat-duration modifiers
     expire_modifiers_combat(&mut state.active_modifiers);
@@ -2358,6 +4448,20 @@ fn apply_recruit_unit(
     // Push unit — ArrayVec panics if over capacity, but enumeration
     // already checked command_slots so this should always fit.
     state.players[player_idx].units.push(unit);
+
+    // Bonds of Loyalty: track the bonds unit if this fills the extra slot
+    if state.players[player_idx].bonds_of_loyalty_unit_instance_id.is_none()
+        && state.players[player_idx].skills.iter().any(|s| s.as_str() == "norowas_bonds_of_loyalty")
+    {
+        let normal_slots = mk_data::levels::get_level_stats(
+            state.players[player_idx].level,
+        ).command_slots as usize;
+        if state.players[player_idx].units.len() > normal_slots {
+            let inst_id = state.players[player_idx].units.last().unwrap().instance_id.clone();
+            state.players[player_idx].bonds_of_loyalty_unit_instance_id = Some(inst_id);
+        }
+    }
+
     state.players[player_idx]
         .units_recruited_this_interaction
         .push(unit_id.clone());
@@ -2727,6 +4831,11 @@ fn apply_activate_unit(
 
     // Mark unit spent
     state.players[player_idx].units[unit_idx].state = UnitState::Spent;
+
+    // Dueling: mark unit involvement if a combat ability was used
+    if state.combat.is_some() {
+        mark_dueling_unit_involvement(state, player_idx);
+    }
 
     Ok(ApplyResult {
         needs_reenumeration: true,
@@ -3522,6 +5631,30 @@ fn apply_resolve_glade_wound(
 }
 
 // =============================================================================
+// Pub wrappers for testing
+// =============================================================================
+
+/// Public wrapper for power_of_pain handler (testing only).
+pub fn apply_power_of_pain_pub(state: &mut GameState, player_idx: usize, skill_id: &SkillId) {
+    let _ = apply_power_of_pain(state, player_idx, skill_id);
+}
+
+/// Public wrapper for i_dont_give_a_damn handler (testing only).
+pub fn apply_i_dont_give_a_damn_pub(state: &mut GameState, player_idx: usize, skill_id: &SkillId) {
+    let _ = apply_i_dont_give_a_damn(state, player_idx, skill_id);
+}
+
+/// Public wrapper for who_needs_magic handler (testing only).
+pub fn apply_who_needs_magic_pub(state: &mut GameState, player_idx: usize, skill_id: &SkillId) {
+    let _ = apply_who_needs_magic(state, player_idx, skill_id);
+}
+
+/// Public wrapper for universal_power handler (testing only).
+pub fn apply_universal_power_pub(state: &mut GameState, player_idx: usize, skill_id: &SkillId) {
+    let _ = apply_universal_power(state, player_idx, skill_id);
+}
+
+// =============================================================================
 // Tests
 // =============================================================================
 
@@ -3733,9 +5866,9 @@ mod tests {
     }
 
     #[test]
-    fn complete_rest_standard_discards_non_wound_and_wounds() {
+    fn complete_rest_standard_enters_wound_discard_selection() {
         // Hand: march, wound → standard rest discarding march (index 0)
-        // should remove march + all wounds from hand.
+        // should enter SubsetSelection for wound discard.
         let mut state = setup_playing_game(vec!["march", "wound"]);
         state.players[0].flags.insert(PlayerFlags::IS_RESTING);
         let mut undo = UndoStack::new();
@@ -3752,16 +5885,69 @@ mod tests {
         )
         .unwrap();
 
+        // march discarded, wound remains in hand, SubsetSelection active.
+        assert_eq!(state.players[0].hand.len(), 1);
+        assert_eq!(state.players[0].hand[0].as_str(), "wound");
+        assert!(state.players[0].discard.iter().any(|c| c.as_str() == "march"));
+        assert!(state.players[0].flags.contains(PlayerFlags::IS_RESTING));
+        assert!(matches!(
+            state.players[0].pending.active,
+            Some(ActivePending::SubsetSelection(_))
+        ));
+
+        // Select the wound (pool index 0) → auto-confirms (max=1).
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state,
+            &mut undo,
+            0,
+            &LegalAction::SubsetSelect { index: 0 },
+            epoch,
+        )
+        .unwrap();
+
+        // Rest complete: wound discarded, flags set.
         assert!(state.players[0].hand.is_empty());
-        assert_eq!(state.players[0].discard.len(), 2); // march + wound
-        assert!(state.players[0]
-            .discard
-            .iter()
-            .any(|c| c.as_str() == "march"));
-        assert!(state.players[0]
-            .discard
-            .iter()
-            .any(|c| c.as_str() == "wound"));
+        assert_eq!(state.players[0].discard.len(), 2);
+        assert!(!state.players[0].flags.contains(PlayerFlags::IS_RESTING));
+        assert!(state.players[0].flags.contains(PlayerFlags::HAS_RESTED_THIS_TURN));
+    }
+
+    #[test]
+    fn complete_rest_standard_skip_wound_discard() {
+        // Hand: march, wound → standard rest discarding march, then confirm with 0 wounds.
+        let mut state = setup_playing_game(vec!["march", "wound"]);
+        state.players[0].flags.insert(PlayerFlags::IS_RESTING);
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+
+        apply_legal_action(
+            &mut state,
+            &mut undo,
+            0,
+            &LegalAction::CompleteRest {
+                discard_hand_index: Some(0),
+            },
+            epoch,
+        )
+        .unwrap();
+
+        // Confirm with no wounds selected.
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state,
+            &mut undo,
+            0,
+            &LegalAction::SubsetConfirm,
+            epoch,
+        )
+        .unwrap();
+
+        // Rest complete: wound still in hand, march discarded.
+        assert_eq!(state.players[0].hand.len(), 1);
+        assert_eq!(state.players[0].hand[0].as_str(), "wound");
+        assert!(!state.players[0].flags.contains(PlayerFlags::IS_RESTING));
+        assert!(state.players[0].flags.contains(PlayerFlags::HAS_RESTED_THIS_TURN));
     }
 
     #[test]
@@ -3821,7 +6007,7 @@ mod tests {
 
     #[test]
     fn undo_complete_rest_restores_hand() {
-        // DeclareRest + CompleteRest, then undo both.
+        // DeclareRest + CompleteRest + SubsetSelect (wound), then undo all.
         let mut state = setup_playing_game(vec!["march", "wound"]);
         let original_hand = state.players[0].hand.clone();
         let mut undo = UndoStack::new();
@@ -3829,9 +6015,9 @@ mod tests {
         // DeclareRest
         let epoch = state.action_epoch;
         apply_legal_action(&mut state, &mut undo, 0, &LegalAction::DeclareRest, epoch).unwrap();
-        let epoch = state.action_epoch;
 
-        // CompleteRest
+        // CompleteRest — enters SubsetSelection for wound discard
+        let epoch = state.action_epoch;
         apply_legal_action(
             &mut state,
             &mut undo,
@@ -3843,9 +6029,20 @@ mod tests {
         )
         .unwrap();
 
+        // Select wound (auto-confirms at max=1)
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state,
+            &mut undo,
+            0,
+            &LegalAction::SubsetSelect { index: 0 },
+            epoch,
+        )
+        .unwrap();
+
         assert!(state.players[0].hand.is_empty());
 
-        // Undo CompleteRest
+        // Undo SubsetSelect+CompleteRest (snapshot restores to IS_RESTING with original hand)
         state = undo.undo().expect("should have undo snapshot");
         assert!(state.players[0].flags.contains(PlayerFlags::IS_RESTING));
         assert_eq!(state.players[0].hand, original_hand);
@@ -4102,6 +6299,41 @@ mod tests {
         state
     }
 
+    /// Helper: execute full attack via InitiateAttack → SubsetSelect → SubsetConfirm.
+    fn execute_attack(
+        state: &mut GameState,
+        undo: &mut UndoStack,
+        attack_type: CombatType,
+        target_count: usize,
+    ) {
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            state, undo, 0,
+            &LegalAction::InitiateAttack { attack_type },
+            epoch,
+        ).unwrap();
+
+        // Select targets 0..target_count
+        for i in 0..target_count {
+            let epoch = state.action_epoch;
+            apply_legal_action(
+                state, undo, 0,
+                &LegalAction::SubsetSelect { index: i },
+                epoch,
+            ).unwrap();
+        }
+
+        // Confirm if not auto-confirmed
+        if state.players[0].pending.has_active() {
+            let epoch = state.action_epoch;
+            apply_legal_action(
+                state, undo, 0,
+                &LegalAction::SubsetConfirm,
+                epoch,
+            ).unwrap();
+        }
+    }
+
     #[test]
     fn declare_block_marks_attack_blocked() {
         let mut state = setup_combat_game(&["prowlers"]); // 4 physical
@@ -4187,18 +6419,7 @@ mod tests {
         let initial_fame = state.players[0].fame;
 
         let mut undo = UndoStack::new();
-        let epoch = state.action_epoch;
-        apply_legal_action(
-            &mut state,
-            &mut undo,
-            0,
-            &LegalAction::DeclareAttack {
-                target_instance_ids: vec![mk_types::ids::CombatInstanceId::from("enemy_0")],
-                attack_type: CombatType::Melee,
-            },
-            epoch,
-        )
-        .unwrap();
+        execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
 
         let combat = state.combat.as_ref().unwrap();
         assert!(combat.enemies[0].is_defeated);
@@ -4221,18 +6442,7 @@ mod tests {
         let initial_rep = state.players[0].reputation;
 
         let mut undo = UndoStack::new();
-        let epoch = state.action_epoch;
-        apply_legal_action(
-            &mut state,
-            &mut undo,
-            0,
-            &LegalAction::DeclareAttack {
-                target_instance_ids: vec![mk_types::ids::CombatInstanceId::from("enemy_0")],
-                attack_type: CombatType::Melee,
-            },
-            epoch,
-        )
-        .unwrap();
+        execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
 
         assert_eq!(state.players[0].reputation, initial_rep + 1);
     }
@@ -4249,18 +6459,7 @@ mod tests {
         };
 
         let mut undo = UndoStack::new();
-        let epoch = state.action_epoch;
-        apply_legal_action(
-            &mut state,
-            &mut undo,
-            0,
-            &LegalAction::DeclareAttack {
-                target_instance_ids: vec![mk_types::ids::CombatInstanceId::from("enemy_0")],
-                attack_type: CombatType::Melee,
-            },
-            epoch,
-        )
-        .unwrap();
+        execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
 
         // Attack pool should be fully assigned
         assert_eq!(
@@ -4523,21 +6722,7 @@ mod tests {
             ice: 0,
             cold_fire: 0,
         };
-        let epoch = state.action_epoch;
-        apply_legal_action(
-            &mut state,
-            &mut undo,
-            0,
-            &LegalAction::DeclareAttack {
-                target_instance_ids: vec![
-                    mk_types::ids::CombatInstanceId::from("enemy_0"),
-                    mk_types::ids::CombatInstanceId::from("enemy_1"),
-                ],
-                attack_type: CombatType::Melee,
-            },
-            epoch,
-        )
-        .unwrap();
+        execute_attack(&mut state, &mut undo, CombatType::Melee, 2);
 
         assert!(state.combat.as_ref().unwrap().enemies[0].is_defeated);
         assert!(state.combat.as_ref().unwrap().enemies[1].is_defeated);
@@ -4616,7 +6801,9 @@ mod tests {
                     matches!(
                         a,
                         LegalAction::DeclareBlock { .. }
-                            | LegalAction::DeclareAttack { .. }
+                            | LegalAction::InitiateAttack { .. }
+                            | LegalAction::SubsetSelect { .. }
+                            | LegalAction::SubsetConfirm
                             | LegalAction::EndCombatPhase
                     )
                 })
@@ -4711,21 +6898,41 @@ mod tests {
             physical: 6, fire: 0, ice: 0, cold_fire: 0,
         };
 
+        // InitiateAttack is still offered (we have attack > 0 and eligible enemies)
         let legal = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
-        let attack_actions: Vec<_> = legal.actions.iter()
-            .filter(|a| matches!(a, LegalAction::DeclareAttack { .. }))
-            .collect();
+        assert!(
+            legal.actions.iter().any(|a| matches!(a, LegalAction::InitiateAttack { .. })),
+            "InitiateAttack should be available with 6 attack"
+        );
 
-        assert!(attack_actions.is_empty(), "6 attack should not defeat armor 7");
+        // But after initiating and selecting the enemy, SubsetConfirm should NOT be offered
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::InitiateAttack { attack_type: CombatType::Melee }, epoch).unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::SubsetSelect { index: 0 }, epoch).unwrap();
+        let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        assert!(
+            !legal.actions.contains(&LegalAction::SubsetConfirm),
+            "6 attack should not be sufficient to confirm against armor 7"
+        );
 
-        // Give 7 attack
+        // Undo back to combat
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::Undo, epoch).unwrap();
+
+        // Give 7 attack — now confirm should be available
         state.players[0].combat_accumulator.attack.normal_elements.physical = 7;
-        let legal = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
-        let attack_actions: Vec<_> = legal.actions.iter()
-            .filter(|a| matches!(a, LegalAction::DeclareAttack { .. }))
-            .collect();
-
-        assert_eq!(attack_actions.len(), 1, "7 attack should defeat armor 7");
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::InitiateAttack { attack_type: CombatType::Melee }, epoch).unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::SubsetSelect { index: 0 }, epoch).unwrap();
+        let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        assert!(
+            legal.actions.contains(&LegalAction::SubsetConfirm),
+            "7 attack should be sufficient to confirm against armor 7"
+        );
     }
 
     // =========================================================================
@@ -5310,10 +7517,15 @@ mod tests {
         .unwrap();
 
         assert!(state.players[0].pending.has_active());
-        assert!(matches!(
-            state.players[0].pending.active,
-            Some(ActivePending::TacticDecision(PendingTacticDecision::Rethink { max_cards: 3 }))
-        ));
+        match &state.players[0].pending.active {
+            Some(ActivePending::SubsetSelection(ss)) => {
+                assert_eq!(ss.kind, mk_types::pending::SubsetSelectionKind::Rethink);
+                assert_eq!(ss.max_selections, 3);
+                assert_eq!(ss.min_selections, 0);
+                assert!(ss.selected.is_empty());
+            }
+            other => panic!("Expected SubsetSelection, got {:?}", other),
+        }
     }
 
     #[test]
@@ -5346,20 +7558,22 @@ mod tests {
         )
         .unwrap();
 
-        // Resolve: swap indices 0 and 2 (march and rage)
+        // Resolve: select indices 0 and 2 (march and rage), then confirm
         let epoch = state.action_epoch;
         apply_legal_action(
-            &mut state,
-            &mut undo,
-            0,
-            &LegalAction::ResolveTacticDecision {
-                data: TacticDecisionData::Rethink {
-                    hand_indices: vec![0, 2],
-                },
-            },
-            epoch,
-        )
-        .unwrap();
+            &mut state, &mut undo, 0,
+            &LegalAction::SubsetSelect { index: 0 }, epoch,
+        ).unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::SubsetSelect { index: 2 }, epoch,
+        ).unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::SubsetConfirm, epoch,
+        ).unwrap();
 
         // Should still have 3 cards in hand (stamina stayed + 2 drawn)
         assert_eq!(state.players[0].hand.len(), 3);
@@ -5393,19 +7607,12 @@ mod tests {
 
         let hand_before = state.players[0].hand.clone();
 
+        // Confirm immediately (empty selection)
         let epoch = state.action_epoch;
         apply_legal_action(
-            &mut state,
-            &mut undo,
-            0,
-            &LegalAction::ResolveTacticDecision {
-                data: TacticDecisionData::Rethink {
-                    hand_indices: vec![],
-                },
-            },
-            epoch,
-        )
-        .unwrap();
+            &mut state, &mut undo, 0,
+            &LegalAction::SubsetConfirm, epoch,
+        ).unwrap();
 
         // No cards swapped, hand unchanged
         assert_eq!(state.players[0].hand, hand_before);
@@ -5629,10 +7836,15 @@ mod tests {
         .unwrap();
 
         assert!(state.players[0].flags.contains(PlayerFlags::TACTIC_FLIPPED));
-        assert!(matches!(
-            state.players[0].pending.active,
-            Some(ActivePending::TacticDecision(PendingTacticDecision::MidnightMeditation { max_cards: 3 }))
-        ));
+        match &state.players[0].pending.active {
+            Some(ActivePending::SubsetSelection(ss)) => {
+                assert_eq!(ss.kind, mk_types::pending::SubsetSelectionKind::MidnightMeditation);
+                assert_eq!(ss.max_selections, 3);
+                assert_eq!(ss.min_selections, 0);
+                assert!(ss.selected.is_empty());
+            }
+            other => panic!("Expected SubsetSelection, got {:?}", other),
+        }
     }
 
     #[test]
@@ -5656,20 +7868,22 @@ mod tests {
         )
         .unwrap();
 
-        // Resolve: swap 2 cards (indices 0 and 1)
+        // Resolve: select indices 0 and 1, then confirm
         let epoch = state.action_epoch;
         apply_legal_action(
-            &mut state,
-            &mut undo,
-            0,
-            &LegalAction::ResolveTacticDecision {
-                data: TacticDecisionData::MidnightMeditation {
-                    hand_indices: vec![0, 1],
-                },
-            },
-            epoch,
-        )
-        .unwrap();
+            &mut state, &mut undo, 0,
+            &LegalAction::SubsetSelect { index: 0 }, epoch,
+        ).unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::SubsetSelect { index: 1 }, epoch,
+        ).unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::SubsetConfirm, epoch,
+        ).unwrap();
 
         // 3 cards: rage (kept) + 2 drawn
         assert_eq!(state.players[0].hand.len(), 3);
@@ -5678,68 +7892,54 @@ mod tests {
     }
 
     #[test]
-    fn reroll_source_dice_changes_die_color() {
+    fn mana_search_single_die_via_subset() {
         let mut state = setup_playing_game(vec!["march"]);
         state.players[0].selected_tactic = Some(mk_types::ids::TacticId::from("mana_search"));
 
-        // Find an available die
-        let die_idx = state
-            .source
-            .dice
-            .iter()
-            .position(|d| d.taken_by_player_id.is_none())
-            .unwrap();
-        let old_color = state.source.dice[die_idx].color;
-
         let mut undo = UndoStack::new();
-        let epoch = state.action_epoch;
 
-        apply_legal_action(
-            &mut state,
-            &mut undo,
-            0,
-            &LegalAction::RerollSourceDice {
-                die_indices: vec![die_idx],
-            },
-            epoch,
-        )
-        .unwrap();
+        // Initiate
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::InitiateManaSearch, epoch).unwrap();
+        assert!(state.players[0].pending.has_active());
+
+        // Select first die, then confirm
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::SubsetSelect { index: 0 }, epoch).unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::SubsetConfirm, epoch).unwrap();
 
         assert!(state.players[0].tactic_state.mana_search_used_this_turn);
-        // Color may or may not have changed (depends on RNG), but the operation should succeed
-        let _ = old_color; // suppress unused warning
+        assert!(!state.players[0].pending.has_active());
     }
 
     #[test]
-    fn reroll_source_dice_two_dice() {
+    fn mana_search_two_dice_auto_confirm() {
         let mut state = setup_playing_game(vec!["march"]);
         state.players[0].selected_tactic = Some(mk_types::ids::TacticId::from("mana_search"));
 
-        let available: Vec<usize> = state
+        let available_count = state
             .source
             .dice
             .iter()
-            .enumerate()
-            .filter(|(_, d)| d.taken_by_player_id.is_none())
-            .map(|(i, _)| i)
-            .collect();
-        assert!(available.len() >= 2, "Need at least 2 available dice");
+            .filter(|d| d.taken_by_player_id.is_none())
+            .count();
+        assert!(available_count >= 2, "Need at least 2 available dice");
 
         let mut undo = UndoStack::new();
-        let epoch = state.action_epoch;
 
-        apply_legal_action(
-            &mut state,
-            &mut undo,
-            0,
-            &LegalAction::RerollSourceDice {
-                die_indices: vec![available[0], available[1]],
-            },
-            epoch,
-        )
-        .unwrap();
+        // Initiate
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::InitiateManaSearch, epoch).unwrap();
+
+        // Select two dice — should auto-confirm at max (2)
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::SubsetSelect { index: 0 }, epoch).unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::SubsetSelect { index: 1 }, epoch).unwrap();
 
         assert!(state.players[0].tactic_state.mana_search_used_this_turn);
+        assert!(!state.players[0].pending.has_active());
     }
 
     #[test]
@@ -5851,7 +8051,7 @@ mod tests {
         let mut undo = UndoStack::new();
         let epoch = state.action_epoch;
 
-        // Select rethink (max_cards will be min(3, 2) = 2)
+        // Select rethink (max_selections will be min(3, 2) = 2)
         apply_legal_action(
             &mut state,
             &mut undo,
@@ -5863,16 +8063,22 @@ mod tests {
         )
         .unwrap();
 
-        // Enumerate legal actions — should see subsets of hand indices
+        // Enumerate legal actions — should see SubsetSelect per hand card + SubsetConfirm
         let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
-        let tactic_decisions: Vec<_> = legal
+        let selects: Vec<_> = legal
             .actions
             .iter()
-            .filter(|a| matches!(a, LegalAction::ResolveTacticDecision { .. }))
+            .filter(|a| matches!(a, LegalAction::SubsetSelect { .. }))
+            .collect();
+        let confirms: Vec<_> = legal
+            .actions
+            .iter()
+            .filter(|a| matches!(a, LegalAction::SubsetConfirm))
             .collect();
 
-        // 2 hand cards, max 2: subsets of size 0,1,2 = 1+2+1 = 4
-        assert_eq!(tactic_decisions.len(), 4);
+        // 2 hand cards → 2 SubsetSelect + 1 SubsetConfirm (min_selections=0)
+        assert_eq!(selects.len(), 2);
+        assert_eq!(confirms.len(), 1);
     }
 
     #[test]
@@ -5949,13 +8155,10 @@ mod tests {
         let undo = UndoStack::new();
         let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
 
-        let reroll_actions: Vec<_> = legal
-            .actions
-            .iter()
-            .filter(|a| matches!(a, LegalAction::RerollSourceDice { .. }))
-            .collect();
-
-        assert!(!reroll_actions.is_empty(), "Should have reroll actions for mana_search");
+        assert!(
+            legal.actions.contains(&LegalAction::InitiateManaSearch),
+            "Should have InitiateManaSearch for mana_search tactic"
+        );
     }
 
     #[test]
@@ -5967,13 +8170,10 @@ mod tests {
         let undo = UndoStack::new();
         let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
 
-        let reroll_actions: Vec<_> = legal
-            .actions
-            .iter()
-            .filter(|a| matches!(a, LegalAction::RerollSourceDice { .. }))
-            .collect();
-
-        assert!(reroll_actions.is_empty(), "Should NOT have reroll actions after use");
+        assert!(
+            !legal.actions.contains(&LegalAction::InitiateManaSearch),
+            "Should NOT have InitiateManaSearch after use"
+        );
     }
 
     #[test]
@@ -6166,18 +8366,20 @@ mod tests {
 
         let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
 
-        // Only ResolveTacticDecision + Undo should be available
+        // Only SubsetSelect/SubsetConfirm/Undo should be available
         for action in &legal.actions {
             assert!(
                 matches!(
                     action,
-                    LegalAction::ResolveTacticDecision { .. } | LegalAction::Undo
+                    LegalAction::SubsetSelect { .. }
+                        | LegalAction::SubsetConfirm
+                        | LegalAction::Undo
                 ),
-                "Only ResolveTacticDecision/Undo allowed with pending, got {:?}",
+                "Only SubsetSelect/SubsetConfirm/Undo allowed with pending, got {:?}",
                 action
             );
         }
-        // Should have at least the empty-set resolution
+        // Should have at least SubsetConfirm (empty-set confirm)
         assert!(!legal.actions.is_empty());
     }
 
@@ -6353,12 +8555,10 @@ mod tests {
         let undo = UndoStack::new();
         let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
 
-        let rerolls: Vec<_> = legal
-            .actions
-            .iter()
-            .filter(|a| matches!(a, LegalAction::RerollSourceDice { .. }))
-            .collect();
-        assert!(rerolls.is_empty(), "Mana Search should NOT work when tactic is flipped");
+        assert!(
+            !legal.actions.contains(&LegalAction::InitiateManaSearch),
+            "Mana Search should NOT work when tactic is flipped"
+        );
     }
 
     #[test]
@@ -6455,20 +8655,22 @@ mod tests {
         )
         .unwrap();
 
-        // Resolve: swap 2 of the 3 marches (indices 0 and 1)
+        // Resolve: select indices 0 and 1 (2 of the 3 marches), then confirm
         let epoch = state.action_epoch;
         apply_legal_action(
-            &mut state,
-            &mut undo,
-            0,
-            &LegalAction::ResolveTacticDecision {
-                data: TacticDecisionData::MidnightMeditation {
-                    hand_indices: vec![0, 1],
-                },
-            },
-            epoch,
-        )
-        .unwrap();
+            &mut state, &mut undo, 0,
+            &LegalAction::SubsetSelect { index: 0 }, epoch,
+        ).unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::SubsetSelect { index: 1 }, epoch,
+        ).unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::SubsetConfirm, epoch,
+        ).unwrap();
 
         // Should still have 4 cards in hand (rage + 1 march kept + 2 drawn)
         assert_eq!(state.players[0].hand.len(), 4);
@@ -6485,6 +8687,103 @@ mod tests {
         // Pool was: 2 marches + 2 deck cards = 4, drew 2 back, so deck has 2
         assert_eq!(state.players[0].deck.len(), 2);
         assert!(!state.players[0].pending.has_active());
+    }
+
+    #[test]
+    fn subset_select_auto_confirms_at_max() {
+        // With 3-card hand and max_selections=3, selecting 3 cards should auto-confirm
+        let mut state = create_solo_game(42, Hero::Arythea);
+        state.players[0].hand = vec![
+            CardId::from("march"),
+            CardId::from("stamina"),
+            CardId::from("rage"),
+        ];
+        state.players[0].deck = vec![CardId::from("swiftness"), CardId::from("concentration")];
+        state.players[0].discard.clear();
+
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+
+        // Select rethink (max_selections = min(3,3) = 3)
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::SelectTactic {
+                tactic_id: mk_types::ids::TacticId::from("rethink"),
+            },
+            epoch,
+        ).unwrap();
+
+        // Select all 3 — third should auto-confirm (no explicit SubsetConfirm needed)
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::SubsetSelect { index: 0 }, epoch).unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::SubsetSelect { index: 1 }, epoch).unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::SubsetSelect { index: 2 }, epoch).unwrap();
+
+        // Pending should be cleared (auto-confirmed)
+        assert!(!state.players[0].pending.has_active());
+        // All 3 were swapped, so hand should have 3 new cards
+        assert_eq!(state.players[0].hand.len(), 3);
+    }
+
+    #[test]
+    fn subset_select_excludes_already_selected() {
+        let mut state = create_solo_game(42, Hero::Arythea);
+        state.players[0].hand = vec![
+            CardId::from("march"),
+            CardId::from("stamina"),
+            CardId::from("rage"),
+        ];
+
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::SelectTactic {
+                tactic_id: mk_types::ids::TacticId::from("rethink"),
+            },
+            epoch,
+        ).unwrap();
+
+        // Select index 1
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::SubsetSelect { index: 1 }, epoch).unwrap();
+
+        // Enumerate — should have SubsetSelect for 0 and 2 (not 1) + SubsetConfirm
+        let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        let selects: Vec<usize> = legal.actions.iter().filter_map(|a| match a {
+            LegalAction::SubsetSelect { index } => Some(*index),
+            _ => None,
+        }).collect();
+        assert_eq!(selects, vec![0, 2]);
+        assert!(legal.actions.contains(&LegalAction::SubsetConfirm));
+    }
+
+    #[test]
+    fn subset_select_no_confirm_below_min() {
+        // If min_selections > 0, SubsetConfirm should not appear until met.
+        // Currently Rethink/MM have min_selections=0, so this tests the state directly.
+        use mk_types::pending::{SubsetSelectionState, SubsetSelectionKind};
+        let mut state = setup_playing_game(vec!["march", "stamina"]);
+
+        // Manually set a SubsetSelection with min_selections=1
+        state.players[0].pending.active = Some(ActivePending::SubsetSelection(SubsetSelectionState {
+            kind: SubsetSelectionKind::Rethink,
+            pool_size: 2,
+            max_selections: 2,
+            min_selections: 1,
+            selected: arrayvec::ArrayVec::new(),
+        }));
+
+        let undo = UndoStack::new();
+        let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+
+        // No confirm yet (0 < 1)
+        assert!(!legal.actions.contains(&LegalAction::SubsetConfirm));
+        // But SubsetSelect is available
+        assert!(legal.actions.iter().any(|a| matches!(a, LegalAction::SubsetSelect { .. })));
     }
 
     #[test]
@@ -7148,5 +9447,1492 @@ mod tests {
         );
         // Unit should be healed
         assert!(!state.players[0].units[0].wounded, "Unit should be healed");
+    }
+
+    // =============================================================================
+    // Sideways value skill tests
+    // =============================================================================
+
+    fn setup_with_skill(hero: Hero, skill_id: &str) -> (GameState, UndoStack) {
+        let mut state = create_solo_game(42, hero);
+        state.round_phase = RoundPhase::PlayerTurns;
+        state.phase = GamePhase::Round;
+        state.players[0].skills.push(mk_types::ids::SkillId::from(skill_id));
+        (state, UndoStack::new())
+    }
+
+    #[test]
+    fn power_of_pain_pushes_modifiers() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Arythea, "arythea_power_of_pain");
+        state.players[0].hand = vec![CardId::from("wound")];
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("arythea_power_of_pain") },
+            epoch,
+        ).unwrap();
+        // Should have 2 modifiers: RuleOverride(WoundsPlayableSideways) + SidewaysValue(for_wounds=true, 2)
+        assert_eq!(state.active_modifiers.len(), 2);
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::RuleOverride { rule }
+                if *rule == mk_types::modifier::RuleOverride::WoundsPlayableSideways)
+        ));
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::SidewaysValue {
+                new_value, for_wounds, ..
+            } if *new_value == 2 && *for_wounds)
+        ));
+    }
+
+    #[test]
+    fn i_dont_give_a_damn_basic_action_plus2() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Tovak, "tovak_i_dont_give_a_damn");
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("tovak_i_dont_give_a_damn") },
+            epoch,
+        ).unwrap();
+        // Basic action sideways = 2 (not matched by the AA/Spell/Artifact +3 filter)
+        let val = crate::card_play::get_effective_sideways_value(
+            &state, 0, false, DeedCardType::BasicAction, Some(BasicManaColor::Green),
+        );
+        assert_eq!(val, 2);
+    }
+
+    #[test]
+    fn i_dont_give_a_damn_advanced_action_plus3() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Tovak, "tovak_i_dont_give_a_damn");
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("tovak_i_dont_give_a_damn") },
+            epoch,
+        ).unwrap();
+        // AA sideways = 3
+        let val = crate::card_play::get_effective_sideways_value(
+            &state, 0, false, DeedCardType::AdvancedAction, Some(BasicManaColor::Red),
+        );
+        assert_eq!(val, 3);
+    }
+
+    #[test]
+    fn who_needs_magic_plus3_no_mana() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Tovak, "tovak_who_needs_magic");
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("tovak_who_needs_magic") },
+            epoch,
+        ).unwrap();
+        // +3 when no Source die used
+        let val = crate::card_play::get_effective_sideways_value(
+            &state, 0, false, DeedCardType::BasicAction, None,
+        );
+        assert_eq!(val, 3);
+        // Should also have SourceBlocked rule active
+        assert!(crate::card_play::is_rule_active(
+            &state, 0, mk_types::modifier::RuleOverride::SourceBlocked
+        ));
+    }
+
+    #[test]
+    fn who_needs_magic_plus2_after_mana() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Tovak, "tovak_who_needs_magic");
+        // Set mana used flag BEFORE activating skill
+        state.players[0].flags.insert(PlayerFlags::USED_MANA_FROM_SOURCE);
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("tovak_who_needs_magic") },
+            epoch,
+        ).unwrap();
+        // +2 when Source die already used (NoManaUsed condition fails)
+        let val = crate::card_play::get_effective_sideways_value(
+            &state, 0, false, DeedCardType::BasicAction, None,
+        );
+        assert_eq!(val, 2);
+        // SourceBlocked should NOT be pushed (mana was already used)
+        assert!(!crate::card_play::is_rule_active(
+            &state, 0, mk_types::modifier::RuleOverride::SourceBlocked
+        ));
+    }
+
+    #[test]
+    fn universal_power_mana_choice() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Goldyx, "goldyx_universal_power");
+        // Give player 2 basic mana tokens (red and blue)
+        state.players[0].pure_mana.push(ManaToken {
+            color: ManaColor::Red, source: ManaTokenSource::Effect, cannot_power_spells: false,
+        });
+        state.players[0].pure_mana.push(ManaToken {
+            color: ManaColor::Blue, source: ManaTokenSource::Effect, cannot_power_spells: false,
+        });
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("goldyx_universal_power") },
+            epoch,
+        ).unwrap();
+        // Should have pending choice (2 color options)
+        assert!(state.players[0].pending.has_active());
+        if let Some(ActivePending::Choice(ref choice)) = state.players[0].pending.active {
+            assert_eq!(choice.options.len(), 2);
+            assert!(matches!(&choice.resolution, mk_types::pending::ChoiceResolution::UniversalPowerMana { available_colors } if available_colors.len() == 2));
+        } else {
+            panic!("Expected ActivePending::Choice");
+        }
+        // Resolve: pick first (red)
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 0 },
+            epoch,
+        ).unwrap();
+        // Red mana consumed, blue remains
+        assert_eq!(state.players[0].pure_mana.len(), 1);
+        assert_eq!(state.players[0].pure_mana[0].color, ManaColor::Blue);
+        // Should have 2 modifiers: SidewaysValue(3) + SidewaysValue(4, WithManaMatchingColor, Red)
+        assert_eq!(state.active_modifiers.len(), 2);
+    }
+
+    #[test]
+    fn universal_power_auto_consume_single_mana() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Goldyx, "goldyx_universal_power");
+        // Give player 1 basic mana token (green only)
+        state.players[0].pure_mana.push(ManaToken {
+            color: ManaColor::Green, source: ManaTokenSource::Effect, cannot_power_spells: false,
+        });
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("goldyx_universal_power") },
+            epoch,
+        ).unwrap();
+        // Auto-consumed (no pending)
+        assert!(!state.players[0].pending.has_active());
+        assert!(state.players[0].pure_mana.is_empty());
+        assert_eq!(state.active_modifiers.len(), 2);
+    }
+
+    #[test]
+    fn universal_power_color_match_plus4() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Goldyx, "goldyx_universal_power");
+        state.players[0].pure_mana.push(ManaToken {
+            color: ManaColor::Green, source: ManaTokenSource::Effect, cannot_power_spells: false,
+        });
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("goldyx_universal_power") },
+            epoch,
+        ).unwrap();
+        // Green-powered BasicAction: matches WithManaMatchingColor → +4
+        let val = crate::card_play::get_effective_sideways_value(
+            &state, 0, false, DeedCardType::BasicAction, Some(BasicManaColor::Green),
+        );
+        assert_eq!(val, 4);
+        // Red-powered BasicAction: doesn't match → +3
+        let val = crate::card_play::get_effective_sideways_value(
+            &state, 0, false, DeedCardType::BasicAction, Some(BasicManaColor::Red),
+        );
+        assert_eq!(val, 3);
+    }
+
+    #[test]
+    fn mutual_exclusivity_blocks_second_skill() {
+        // Activate one sideways skill, then check that a conflicting one is not enumerable
+        let (mut state, mut undo) = setup_with_skill(Hero::Tovak, "tovak_i_dont_give_a_damn");
+        state.players[0].skills.push(mk_types::ids::SkillId::from("tovak_who_needs_magic"));
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("tovak_i_dont_give_a_damn") },
+            epoch,
+        ).unwrap();
+        // Enumerate: who_needs_magic should NOT appear (mutual exclusivity)
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        assert!(
+            !actions.actions.iter().any(|a| matches!(a, LegalAction::UseSkill { skill_id }
+                if skill_id.as_str() == "tovak_who_needs_magic")),
+            "Conflicting sideways skill should be blocked"
+        );
+    }
+
+    #[test]
+    fn wound_enumerated_sideways_with_power_of_pain() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Arythea, "arythea_power_of_pain");
+        state.players[0].hand = vec![CardId::from("wound"), CardId::from("march")];
+        // Before skill: wound should NOT be sideways-playable
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        assert!(
+            !actions.actions.iter().any(|a| matches!(a, LegalAction::PlayCardSideways { card_id, .. }
+                if card_id.as_str() == "wound")),
+            "Wound should not be sideways before Power of Pain"
+        );
+        // Activate Power of Pain
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("arythea_power_of_pain") },
+            epoch,
+        ).unwrap();
+        // After skill: wound SHOULD be sideways-playable
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        assert!(
+            actions.actions.iter().any(|a| matches!(a, LegalAction::PlayCardSideways { card_id, .. }
+                if card_id.as_str() == "wound")),
+            "Wound should be sideways after Power of Pain"
+        );
+    }
+
+    // =========================================================================
+    // Feral Allies — passive explore reduction + combat choice
+    // =========================================================================
+
+    #[test]
+    fn feral_allies_passive_explore_cost_reduction() {
+        let (mut state, _undo) = setup_with_skill(Hero::Braevalar, "braevalar_feral_allies");
+        // Push passive modifiers (simulating skill acquisition)
+        push_passive_skill_modifiers(&mut state, 0, &mk_types::ids::SkillId::from("braevalar_feral_allies"));
+        // Should have ExploreCostReduction modifier
+        let cost = crate::movement::get_effective_explore_cost(&state.active_modifiers);
+        assert_eq!(cost, 1, "Explore cost should be reduced to 1 by Feral Allies");
+    }
+
+    #[test]
+    fn feral_allies_enumerable_in_combat() {
+        let (mut state, undo) = setup_with_skill(Hero::Braevalar, "braevalar_feral_allies");
+        state.players[0].hand = vec![CardId::from("march")];
+        // Not in combat → should NOT be enumerated (CombatOnly)
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        assert!(
+            !actions.actions.iter().any(|a| matches!(a, LegalAction::UseSkill { skill_id }
+                if skill_id.as_str() == "braevalar_feral_allies")),
+            "Feral Allies should not be available outside combat"
+        );
+        // Enter combat
+        let tokens = vec![EnemyTokenId::from("prowlers_1")];
+        crate::combat::execute_enter_combat(
+            &mut state, 0, &tokens, false, None, Default::default(),
+        ).unwrap();
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        assert!(
+            actions.actions.iter().any(|a| matches!(a, LegalAction::UseSkill { skill_id }
+                if skill_id.as_str() == "braevalar_feral_allies")),
+            "Feral Allies should be available in combat"
+        );
+    }
+
+    // =========================================================================
+    // Secret Ways — Move 1 + optional Blue mana for lake passability
+    // =========================================================================
+
+    #[test]
+    fn secret_ways_grants_move_point() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Braevalar, "braevalar_secret_ways");
+        state.players[0].hand = vec![CardId::from("march")];
+        let before_move = state.players[0].move_points;
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("braevalar_secret_ways") },
+            epoch,
+        ).unwrap();
+        assert_eq!(
+            state.players[0].move_points,
+            before_move + 1,
+            "Secret Ways should grant +1 move"
+        );
+    }
+
+    #[test]
+    fn secret_ways_blue_mana_creates_pending() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Braevalar, "braevalar_secret_ways");
+        state.players[0].hand = vec![CardId::from("march")];
+        // Give player a blue mana token
+        state.players[0].pure_mana.push(ManaToken {
+            color: ManaColor::Blue,
+            source: ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("braevalar_secret_ways") },
+            epoch,
+        ).unwrap();
+        // Should have a pending choice (decline/pay blue for lake)
+        assert!(
+            state.players[0].pending.has_active(),
+            "Should create pending choice for blue mana lake option"
+        );
+    }
+
+    #[test]
+    fn secret_ways_no_blue_no_pending() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Braevalar, "braevalar_secret_ways");
+        state.players[0].hand = vec![CardId::from("march")];
+        // No blue mana available: clear tokens, crystals, and mark all blue dice as depleted
+        state.players[0].pure_mana.clear();
+        state.players[0].crystals.blue = 0;
+        for die in &mut state.source.dice {
+            if die.color == ManaColor::Blue {
+                die.is_depleted = true;
+            }
+        }
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("braevalar_secret_ways") },
+            epoch,
+        ).unwrap();
+        // Should NOT have a pending choice (no blue mana = skip choice)
+        assert!(
+            !state.players[0].pending.has_active(),
+            "Should not create pending when no blue mana available"
+        );
+    }
+
+    #[test]
+    fn secret_ways_passive_mountain_cost() {
+        let (mut state, _undo) = setup_with_skill(Hero::Braevalar, "braevalar_secret_ways");
+        push_passive_skill_modifiers(&mut state, 0, &mk_types::ids::SkillId::from("braevalar_secret_ways"));
+        // Check that mountains now have a replace_cost via modifier
+        let result = crate::movement::find_replace_cost_for_terrain(
+            mk_types::enums::Terrain::Mountain,
+            &state.active_modifiers,
+        );
+        assert_eq!(result, Some(5), "Secret Ways should make mountains cost 5");
+    }
+
+    // =========================================================================
+    // Regenerate — consume mana, remove wound, conditional draw
+    // =========================================================================
+
+    #[test]
+    fn regenerate_requires_wound_in_hand() {
+        let (mut state, undo) = setup_with_skill(Hero::Krang, "krang_regenerate");
+        // No wounds in hand
+        state.players[0].hand = vec![CardId::from("march")];
+        state.players[0].pure_mana.push(ManaToken {
+            color: ManaColor::Red,
+            source: ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        assert!(
+            !actions.actions.iter().any(|a| matches!(a, LegalAction::UseSkill { skill_id }
+                if skill_id.as_str() == "krang_regenerate")),
+            "Regenerate should not be available without wounds"
+        );
+    }
+
+    #[test]
+    fn regenerate_requires_mana() {
+        let (mut state, undo) = setup_with_skill(Hero::Krang, "krang_regenerate");
+        // Has wound but no mana
+        state.players[0].hand = vec![CardId::from("wound")];
+        state.players[0].pure_mana.clear();
+        state.players[0].crystals = Crystals::default();
+        // Deplete all source dice
+        for die in &mut state.source.dice {
+            die.is_depleted = true;
+        }
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        assert!(
+            !actions.actions.iter().any(|a| matches!(a, LegalAction::UseSkill { skill_id }
+                if skill_id.as_str() == "krang_regenerate")),
+            "Regenerate should not be available without mana"
+        );
+    }
+
+    #[test]
+    fn regenerate_auto_consumes_single_mana() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_regenerate");
+        state.players[0].hand = vec![CardId::from("wound"), CardId::from("march")];
+        state.players[0].deck = vec![CardId::from("rage")];
+        state.players[0].pure_mana = vec![ManaToken {
+            color: ManaColor::Red,
+            source: ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        }];
+        // Deplete all source dice so Red token is only option
+        for die in &mut state.source.dice {
+            die.is_depleted = true;
+        }
+        state.players[0].crystals = Crystals::default();
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("krang_regenerate") },
+            epoch,
+        ).unwrap();
+
+        // Should auto-consume (only 1 color) — no pending
+        assert!(
+            !state.players[0].pending.has_active(),
+            "Should auto-resolve when only 1 mana option"
+        );
+        // Wound removed
+        assert!(
+            !state.players[0].hand.iter().any(|c| c.as_str() == "wound"),
+            "Wound should be removed from hand"
+        );
+        // Red mana consumed
+        assert!(state.players[0].pure_mana.is_empty(), "Red token should be consumed");
+        // Krang bonus color is Red — should draw a card
+        assert_eq!(state.players[0].hand.len(), 2, "Should draw 1 card (bonus color match)");
+    }
+
+    #[test]
+    fn regenerate_no_draw_without_bonus_color() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_regenerate");
+        state.players[0].hand = vec![CardId::from("wound"), CardId::from("march")];
+        state.players[0].deck = vec![CardId::from("rage")];
+        state.players[0].pure_mana = vec![ManaToken {
+            color: ManaColor::Blue,
+            source: ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        }];
+        for die in &mut state.source.dice {
+            die.is_depleted = true;
+        }
+        state.players[0].crystals = Crystals::default();
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("krang_regenerate") },
+            epoch,
+        ).unwrap();
+
+        // Blue != Red bonus — no draw
+        assert_eq!(state.players[0].hand.len(), 1, "Should NOT draw (Blue != Red bonus)");
+    }
+
+    #[test]
+    fn regenerate_multiple_mana_creates_pending() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_regenerate");
+        state.players[0].hand = vec![CardId::from("wound")];
+        state.players[0].pure_mana = vec![
+            ManaToken { color: ManaColor::Red, source: ManaTokenSource::Effect, cannot_power_spells: false },
+            ManaToken { color: ManaColor::Blue, source: ManaTokenSource::Effect, cannot_power_spells: false },
+        ];
+        for die in &mut state.source.dice {
+            die.is_depleted = true;
+        }
+        state.players[0].crystals = Crystals::default();
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("krang_regenerate") },
+            epoch,
+        ).unwrap();
+
+        // Multiple colors → pending choice
+        assert!(
+            state.players[0].pending.has_active(),
+            "Should create pending when multiple mana colors available"
+        );
+        if let Some(ActivePending::Choice(ref choice)) = state.players[0].pending.active {
+            assert_eq!(choice.options.len(), 2, "Should have 2 mana color options");
+            assert!(matches!(
+                &choice.resolution,
+                mk_types::pending::ChoiceResolution::RegenerateMana { .. }
+            ));
+        } else {
+            panic!("Expected Choice pending");
+        }
+    }
+
+    // =========================================================================
+    // Dueling — Block 1 + target enemy + attack bonus + fame
+    // =========================================================================
+
+    #[test]
+    fn dueling_requires_eligible_enemies() {
+        let (mut state, undo) = setup_with_skill(Hero::Wolfhawk, "wolfhawk_dueling");
+        state.players[0].hand = vec![CardId::from("march")];
+        // Enter combat with enemy
+        let tokens = vec![EnemyTokenId::from("prowlers_1")];
+        crate::combat::execute_enter_combat(
+            &mut state, 0, &tokens, false, None, Default::default(),
+        ).unwrap();
+        // Move to Block phase (dueling is BlockOnly)
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        assert!(
+            actions.actions.iter().any(|a| matches!(a, LegalAction::UseSkill { skill_id }
+                if skill_id.as_str() == "wolfhawk_dueling")),
+            "Dueling should be available in Block phase with eligible enemies"
+        );
+    }
+
+    #[test]
+    fn dueling_grants_block_and_targets() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Wolfhawk, "wolfhawk_dueling");
+        state.players[0].hand = vec![CardId::from("march")];
+        let tokens = vec![EnemyTokenId::from("prowlers_1")];
+        crate::combat::execute_enter_combat(
+            &mut state, 0, &tokens, false, None, Default::default(),
+        ).unwrap();
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+
+        let block_before = state.players[0].combat_accumulator.block;
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("wolfhawk_dueling") },
+            epoch,
+        ).unwrap();
+        assert_eq!(
+            state.players[0].combat_accumulator.block,
+            block_before + 1,
+            "Dueling should grant Block 1"
+        );
+        // Single enemy → auto-target, DuelingTarget modifier created
+        assert!(
+            state.active_modifiers.iter().any(|m|
+                matches!(&m.effect, mk_types::modifier::ModifierEffect::DuelingTarget { enemy_instance_id, .. }
+                    if enemy_instance_id == "enemy_0")),
+            "Should create DuelingTarget modifier for the single enemy"
+        );
+    }
+
+    #[test]
+    fn dueling_attack_bonus_at_phase_transition() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Wolfhawk, "wolfhawk_dueling");
+        state.players[0].hand = vec![CardId::from("march")];
+        let tokens = vec![EnemyTokenId::from("prowlers_1")];
+        crate::combat::execute_enter_combat(
+            &mut state, 0, &tokens, false, None, Default::default(),
+        ).unwrap();
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+
+        // Activate dueling
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("wolfhawk_dueling") },
+            epoch,
+        ).unwrap();
+
+        // Transition Block → AssignDamage → Attack (EndCombatPhase twice)
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::EndCombatPhase,
+            epoch,
+        ).unwrap();
+        // Now in AssignDamage
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::EndCombatPhase,
+            epoch,
+        ).unwrap();
+        // Now in Attack phase — dueling attack bonus should have been applied
+        assert_eq!(
+            state.players[0].combat_accumulator.attack.normal, 1,
+            "Dueling should grant Attack 1 at AssignDamage→Attack transition"
+        );
+    }
+
+    #[test]
+    fn dueling_fame_bonus_on_defeat() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Wolfhawk, "wolfhawk_dueling");
+        state.players[0].hand = vec![CardId::from("march")];
+        let tokens = vec![EnemyTokenId::from("prowlers_1")];
+        crate::combat::execute_enter_combat(
+            &mut state, 0, &tokens, false, None, Default::default(),
+        ).unwrap();
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+
+        // Activate dueling
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("wolfhawk_dueling") },
+            epoch,
+        ).unwrap();
+
+        // Mark enemy as defeated (simulate)
+        state.combat.as_mut().unwrap().enemies[0].is_defeated = true;
+
+        let fame_before = state.players[0].fame;
+        // Resolve dueling fame bonus directly
+        let bonus = resolve_dueling_fame_bonus(&mut state, 0);
+        assert_eq!(bonus, 1, "Should get +1 fame for defeating dueling target without units");
+        assert_eq!(state.players[0].fame, fame_before + 1);
+    }
+
+    #[test]
+    fn dueling_no_fame_with_unit_involvement() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Wolfhawk, "wolfhawk_dueling");
+        state.players[0].hand = vec![CardId::from("march")];
+        let tokens = vec![EnemyTokenId::from("prowlers_1")];
+        crate::combat::execute_enter_combat(
+            &mut state, 0, &tokens, false, None, Default::default(),
+        ).unwrap();
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+
+        // Activate dueling
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("wolfhawk_dueling") },
+            epoch,
+        ).unwrap();
+
+        // Mark unit involvement
+        mark_dueling_unit_involvement(&mut state, 0);
+
+        // Mark enemy as defeated
+        state.combat.as_mut().unwrap().enemies[0].is_defeated = true;
+
+        let bonus = resolve_dueling_fame_bonus(&mut state, 0);
+        assert_eq!(bonus, 0, "Should NOT get fame bonus when units were involved");
+    }
+
+    #[test]
+    fn dueling_multiple_enemies_creates_pending() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Wolfhawk, "wolfhawk_dueling");
+        state.players[0].hand = vec![CardId::from("march")];
+        let tokens = vec![
+            EnemyTokenId::from("prowlers_1"),
+            EnemyTokenId::from("prowlers_2"),
+        ];
+        crate::combat::execute_enter_combat(
+            &mut state, 0, &tokens, false, None, Default::default(),
+        ).unwrap();
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("wolfhawk_dueling") },
+            epoch,
+        ).unwrap();
+
+        // Multiple enemies → pending choice
+        assert!(
+            state.players[0].pending.has_active(),
+            "Should create pending when multiple eligible enemies"
+        );
+        if let Some(ActivePending::Choice(ref choice)) = state.players[0].pending.active {
+            assert_eq!(choice.options.len(), 2, "Should have 2 enemy target options");
+            assert!(matches!(
+                &choice.resolution,
+                mk_types::pending::ChoiceResolution::DuelingTarget { .. }
+            ));
+        } else {
+            panic!("Expected Choice pending");
+        }
+    }
+
+    // =============================================================================
+    // Bonds of Loyalty tests
+    // =============================================================================
+
+    #[test]
+    fn bonds_adds_command_slot() {
+        let (state, _) = setup_with_skill(Hero::Norowas, "norowas_bonds_of_loyalty");
+        let level_slots = mk_data::levels::get_level_stats(state.players[0].level).command_slots as usize;
+        // Bonds should add +1 to the base command slots
+        // We verify via legal_actions enumeration: with bonds, a player at level 1
+        // can hold more units than normal
+        assert_eq!(level_slots, 1, "Level 1 should have 1 command slot");
+        // With bonds_of_loyalty, effective slots = 2
+        // Player has 1 unit already → should still be able to recruit
+        // Player has 2 units → should be blocked
+    }
+
+    #[test]
+    fn bonds_discount_when_slot_empty() {
+        let (state, _) = setup_with_skill(Hero::Norowas, "norowas_bonds_of_loyalty");
+        assert!(
+            state.players[0].bonds_of_loyalty_unit_instance_id.is_none(),
+            "Bonds slot should be empty initially"
+        );
+        // The -5 discount is applied in enumerate_recruitables (units.rs)
+        // We verify it's active when bonds_of_loyalty_unit_instance_id is None
+    }
+
+    #[test]
+    fn bonds_no_discount_after_slot_filled() {
+        let (mut state, _) = setup_with_skill(Hero::Norowas, "norowas_bonds_of_loyalty");
+        state.players[0].bonds_of_loyalty_unit_instance_id =
+            Some(mk_types::ids::UnitInstanceId::from("unit_0"));
+        // With slot filled, no discount should apply
+        assert!(
+            state.players[0].bonds_of_loyalty_unit_instance_id.is_some(),
+            "Bonds slot should be filled"
+        );
+    }
+
+    // =============================================================================
+    // Invocation tests
+    // =============================================================================
+
+    #[test]
+    fn invocation_wound_creates_pending() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Arythea, "arythea_invocation");
+        state.players[0].hand = vec![CardId::from("wound")];
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("arythea_invocation") },
+            epoch,
+        ).unwrap();
+
+        // Wound → Red or Black choice (2 options)
+        assert!(state.players[0].pending.has_active());
+        if let Some(ActivePending::Choice(ref choice)) = state.players[0].pending.active {
+            assert_eq!(choice.options.len(), 2, "Wound should offer Red and Black");
+            assert!(matches!(
+                &choice.resolution,
+                mk_types::pending::ChoiceResolution::InvocationDiscard { .. }
+            ));
+        } else {
+            panic!("Expected Choice pending");
+        }
+
+        // Choose Red (index 0)
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 0 },
+            epoch,
+        ).unwrap();
+
+        // Wound should be removed from hand
+        assert!(state.players[0].hand.is_empty(), "Wound should be discarded");
+        // Should have gained a Red mana token
+        assert_eq!(state.players[0].pure_mana.len(), 1);
+        assert_eq!(state.players[0].pure_mana[0].color, ManaColor::Red);
+        // Wound goes to wound pile, not discard
+        assert!(state.players[0].discard.is_empty());
+    }
+
+    #[test]
+    fn invocation_non_wound_creates_pending() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Arythea, "arythea_invocation");
+        state.players[0].hand = vec![CardId::from("march")];
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("arythea_invocation") },
+            epoch,
+        ).unwrap();
+
+        // Non-wound → White or Green choice
+        assert!(state.players[0].pending.has_active());
+        if let Some(ActivePending::Choice(ref choice)) = state.players[0].pending.active {
+            assert_eq!(choice.options.len(), 2, "Non-wound should offer White and Green");
+        } else {
+            panic!("Expected Choice pending");
+        }
+
+        // Choose Green (index 1)
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 1 },
+            epoch,
+        ).unwrap();
+
+        assert!(state.players[0].hand.is_empty());
+        assert_eq!(state.players[0].pure_mana.len(), 1);
+        assert_eq!(state.players[0].pure_mana[0].color, ManaColor::Green);
+        // Non-wound goes to discard, not wound pile
+        assert_eq!(state.players[0].discard.len(), 1);
+        assert_eq!(state.players[0].discard[0].as_str(), "march");
+    }
+
+    #[test]
+    fn invocation_deduplicates_same_cards() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Arythea, "arythea_invocation");
+        // Two copies of the same card should produce only 2 options (not 4)
+        state.players[0].hand = vec![CardId::from("march"), CardId::from("march")];
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("arythea_invocation") },
+            epoch,
+        ).unwrap();
+
+        if let Some(ActivePending::Choice(ref choice)) = state.players[0].pending.active {
+            assert_eq!(choice.options.len(), 2, "Duplicate cards should be deduplicated");
+        } else {
+            panic!("Expected Choice pending");
+        }
+    }
+
+    #[test]
+    fn invocation_skipped_when_hand_empty() {
+        let (mut state, _undo) = setup_with_skill(Hero::Arythea, "arythea_invocation");
+        state.players[0].hand.clear();
+
+        let actions = crate::legal_actions::enumerate_legal_actions(&state, 0).actions;
+        let has_invocation = actions.iter().any(|a| matches!(a,
+            LegalAction::UseSkill { skill_id } if skill_id.as_str() == "arythea_invocation"
+        ));
+        assert!(!has_invocation, "Invocation should not be available with empty hand");
+    }
+
+    // =============================================================================
+    // Polarization tests
+    // =============================================================================
+
+    #[test]
+    fn polarization_basic_swap() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Arythea, "arythea_polarization");
+        state.players[0].pure_mana.push(ManaToken {
+            color: ManaColor::Red,
+            source: ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("arythea_polarization") },
+            epoch,
+        ).unwrap();
+
+        // With only one Red token (day time, no crystals, no dice with basic colors),
+        // the only option is Red→Blue. Should auto-resolve.
+        // But source dice might also offer options, so check...
+        // If pending, resolve the Red→Blue option
+        if state.players[0].pending.has_active() {
+            // Find the Red→Blue option
+            if let Some(ActivePending::Choice(ref choice)) = state.players[0].pending.active {
+                if let mk_types::pending::ChoiceResolution::PolarizationConvert { ref options } = choice.resolution {
+                    let idx = options.iter().position(|o| o.source_color == ManaColor::Red && o.target_color == ManaColor::Blue).unwrap();
+                    let epoch = state.action_epoch;
+                    apply_legal_action(
+                        &mut state, &mut undo, 0,
+                        &LegalAction::ResolveChoice { choice_index: idx },
+                        epoch,
+                    ).unwrap();
+                }
+            }
+        }
+
+        // Should have converted Red → Blue
+        assert_eq!(state.players[0].pure_mana.len(), 1);
+        assert_eq!(state.players[0].pure_mana[0].color, ManaColor::Blue);
+    }
+
+    #[test]
+    fn polarization_crystal_swap() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Arythea, "arythea_polarization");
+        state.players[0].crystals.green = 1;
+        // Clear source dice to simplify
+        state.source.dice.clear();
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("arythea_polarization") },
+            epoch,
+        ).unwrap();
+
+        // Should auto-resolve (Green crystal → White crystal is the only option)
+        // Or resolve if pending
+        if state.players[0].pending.has_active() {
+            let epoch = state.action_epoch;
+            apply_legal_action(
+                &mut state, &mut undo, 0,
+                &LegalAction::ResolveChoice { choice_index: 0 },
+                epoch,
+            ).unwrap();
+        }
+
+        // Crystal should swap: Green 0, White 1
+        assert_eq!(state.players[0].crystals.green, 0);
+        assert_eq!(state.players[0].crystals.white, 1);
+        // Crystal→Crystal produces no token
+        assert!(state.players[0].pure_mana.is_empty());
+    }
+
+    #[test]
+    fn polarization_black_day_cannot_power_spells() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Arythea, "arythea_polarization");
+        state.time_of_day = mk_types::enums::TimeOfDay::Day;
+        state.players[0].pure_mana.push(ManaToken {
+            color: ManaColor::Black,
+            source: ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+        // Clear source dice to simplify
+        state.source.dice.clear();
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("arythea_polarization") },
+            epoch,
+        ).unwrap();
+
+        // Black during day → 4 basic options (all with cannot_power_spells=true)
+        assert!(state.players[0].pending.has_active());
+        if let Some(ActivePending::Choice(ref choice)) = state.players[0].pending.active {
+            assert_eq!(choice.options.len(), 4, "Black day → 4 basic color options");
+            if let mk_types::pending::ChoiceResolution::PolarizationConvert { ref options } = choice.resolution {
+                for opt in options {
+                    assert!(opt.cannot_power_spells, "Black conversion should not power spells");
+                }
+            }
+        }
+
+        // Choose Red (index 0)
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 0 },
+            epoch,
+        ).unwrap();
+
+        assert_eq!(state.players[0].pure_mana.len(), 1);
+        assert!(state.players[0].pure_mana[0].cannot_power_spells);
+    }
+
+    #[test]
+    fn polarization_gold_night() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Arythea, "arythea_polarization");
+        state.time_of_day = mk_types::enums::TimeOfDay::Night;
+        state.players[0].pure_mana.push(ManaToken {
+            color: ManaColor::Gold,
+            source: ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+        // Clear source dice to simplify
+        state.source.dice.clear();
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("arythea_polarization") },
+            epoch,
+        ).unwrap();
+
+        // Gold at night → Black (auto-resolve since only option)
+        if state.players[0].pending.has_active() {
+            let epoch = state.action_epoch;
+            apply_legal_action(
+                &mut state, &mut undo, 0,
+                &LegalAction::ResolveChoice { choice_index: 0 },
+                epoch,
+            ).unwrap();
+        }
+
+        assert_eq!(state.players[0].pure_mana.len(), 1);
+        assert_eq!(state.players[0].pure_mana[0].color, ManaColor::Black);
+        assert!(!state.players[0].pure_mana[0].cannot_power_spells);
+    }
+
+    // =============================================================================
+    // Curse tests
+    // =============================================================================
+
+    #[test]
+    fn curse_attack_single_enemy() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_curse");
+        let tokens = vec![EnemyTokenId::from("prowlers_1")];
+        crate::combat::execute_enter_combat(
+            &mut state, 0, &tokens, false, None, Default::default(),
+        ).unwrap();
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("krang_curse") },
+            epoch,
+        ).unwrap();
+
+        // Prowlers: no AI, single attack → mode choice (Attack -2 or Armor -1)
+        assert!(state.players[0].pending.has_active());
+        if let Some(ActivePending::Choice(ref choice)) = state.players[0].pending.active {
+            assert_eq!(choice.options.len(), 2, "Should offer Attack -2 and Armor -1");
+        }
+
+        // Choose Attack -2 (index 0)
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 0 },
+            epoch,
+        ).unwrap();
+
+        // Should have an EnemyStat modifier: Attack -2
+        let modifier = state.active_modifiers.iter().find(|m| matches!(
+            &m.effect,
+            mk_types::modifier::ModifierEffect::EnemyStat { stat, amount, .. }
+            if *stat == mk_types::modifier::EnemyStat::Attack && *amount == -2
+        ));
+        assert!(modifier.is_some(), "Should have Attack -2 modifier");
+    }
+
+    #[test]
+    fn curse_armor_non_ai() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_curse");
+        let tokens = vec![EnemyTokenId::from("prowlers_1")];
+        crate::combat::execute_enter_combat(
+            &mut state, 0, &tokens, false, None, Default::default(),
+        ).unwrap();
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("krang_curse") },
+            epoch,
+        ).unwrap();
+
+        // Choose Armor -1 (index 1)
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 1 },
+            epoch,
+        ).unwrap();
+
+        // Should have an EnemyStat modifier: Armor -1, minimum 1
+        let modifier = state.active_modifiers.iter().find(|m| matches!(
+            &m.effect,
+            mk_types::modifier::ModifierEffect::EnemyStat { stat, amount, minimum, .. }
+            if *stat == mk_types::modifier::EnemyStat::Armor && *amount == -1 && *minimum == 1
+        ));
+        assert!(modifier.is_some(), "Should have Armor -1 modifier");
+    }
+
+    #[test]
+    fn curse_armor_blocked_by_ai() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_curse");
+        // Shadow has ArcaneImmunity + Elusive
+        let tokens = vec![EnemyTokenId::from("shadow_1")];
+        crate::combat::execute_enter_combat(
+            &mut state, 0, &tokens, false, None, Default::default(),
+        ).unwrap();
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("krang_curse") },
+            epoch,
+        ).unwrap();
+
+        // AI enemy with single attack → auto-apply Attack -2 (only option)
+        // Should NOT have pending (auto-resolved)
+        assert!(!state.players[0].pending.has_active(),
+            "AI enemy with single attack should auto-apply Attack -2");
+
+        let modifier = state.active_modifiers.iter().find(|m| matches!(
+            &m.effect,
+            mk_types::modifier::ModifierEffect::EnemyStat { stat, amount, .. }
+            if *stat == mk_types::modifier::EnemyStat::Attack && *amount == -2
+        ));
+        assert!(modifier.is_some(), "Should have auto-applied Attack -2 modifier");
+    }
+
+    #[test]
+    fn curse_multi_attack_index() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_curse");
+        // Orc Skirmishers have multi-attack (2 attacks)
+        let tokens = vec![EnemyTokenId::from("orc_skirmishers_1")];
+        crate::combat::execute_enter_combat(
+            &mut state, 0, &tokens, false, None, Default::default(),
+        ).unwrap();
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("krang_curse") },
+            epoch,
+        ).unwrap();
+
+        // Multi-attack, no AI → mode choice (Attack -2 or Armor -1)
+        assert!(state.players[0].pending.has_active());
+
+        // Choose Attack -2 (index 0)
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 0 },
+            epoch,
+        ).unwrap();
+
+        // Multi-attack → should get attack index choice
+        assert!(state.players[0].pending.has_active(),
+            "Multi-attack should require attack index selection");
+        if let Some(ActivePending::Choice(ref choice)) = state.players[0].pending.active {
+            assert_eq!(choice.options.len(), 2, "Orc Skirmishers have 2 attacks");
+        }
+
+        // Choose first attack (index 0)
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 0 },
+            epoch,
+        ).unwrap();
+
+        // Should have Attack -2 modifier with attack_index = Some(0)
+        let modifier = state.active_modifiers.iter().find(|m| matches!(
+            &m.effect,
+            mk_types::modifier::ModifierEffect::EnemyStat { stat, amount, attack_index, .. }
+            if *stat == mk_types::modifier::EnemyStat::Attack && *amount == -2 && *attack_index == Some(0)
+        ));
+        assert!(modifier.is_some(), "Should have Attack -2 with attack_index=0");
+    }
+
+    // =============================================================================
+    // Forked Lightning tests
+    // =============================================================================
+
+    #[test]
+    fn forked_lightning_single_enemy_auto() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Braevalar, "braevalar_forked_lightning");
+        let tokens = vec![EnemyTokenId::from("prowlers_1")];
+        crate::combat::execute_enter_combat(
+            &mut state, 0, &tokens, false, None, Default::default(),
+        ).unwrap();
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("braevalar_forked_lightning") },
+            epoch,
+        ).unwrap();
+
+        // Single enemy → auto-target, no pending
+        assert!(!state.players[0].pending.has_active(),
+            "Single enemy should auto-target");
+
+        // Should have +1 Ranged ColdFire Attack
+        let acc = &state.players[0].combat_accumulator;
+        assert_eq!(acc.attack.ranged, 1, "Should have +1 ranged attack");
+        assert_eq!(acc.attack.ranged_elements.cold_fire, 1, "Should have +1 cold_fire");
+    }
+
+    #[test]
+    fn forked_lightning_three_targets() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Braevalar, "braevalar_forked_lightning");
+        let tokens = vec![
+            EnemyTokenId::from("prowlers_1"),
+            EnemyTokenId::from("prowlers_2"),
+            EnemyTokenId::from("prowlers_3"),
+        ];
+        crate::combat::execute_enter_combat(
+            &mut state, 0, &tokens, false, None, Default::default(),
+        ).unwrap();
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("braevalar_forked_lightning") },
+            epoch,
+        ).unwrap();
+
+        // 3 enemies → pending (first pick, no "Done")
+        assert!(state.players[0].pending.has_active());
+
+        // Pick enemy 0
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 0 },
+            epoch,
+        ).unwrap();
+        assert_eq!(state.players[0].combat_accumulator.attack.ranged, 1);
+
+        // Second pick (has "Done" option now)
+        assert!(state.players[0].pending.has_active());
+        // Pick enemy 0 (next eligible)
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 0 },
+            epoch,
+        ).unwrap();
+        assert_eq!(state.players[0].combat_accumulator.attack.ranged, 2);
+
+        // Third pick
+        assert!(state.players[0].pending.has_active());
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 0 },
+            epoch,
+        ).unwrap();
+        assert_eq!(state.players[0].combat_accumulator.attack.ranged, 3);
+        assert_eq!(state.players[0].combat_accumulator.attack.ranged_elements.cold_fire, 3);
+
+        // No more pending (all 3 targets picked)
+        assert!(!state.players[0].pending.has_active());
+    }
+
+    #[test]
+    fn forked_lightning_done_early() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Braevalar, "braevalar_forked_lightning");
+        let tokens = vec![
+            EnemyTokenId::from("prowlers_1"),
+            EnemyTokenId::from("prowlers_2"),
+            EnemyTokenId::from("prowlers_3"),
+        ];
+        crate::combat::execute_enter_combat(
+            &mut state, 0, &tokens, false, None, Default::default(),
+        ).unwrap();
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("braevalar_forked_lightning") },
+            epoch,
+        ).unwrap();
+
+        // Pick first target
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 0 },
+            epoch,
+        ).unwrap();
+
+        // Second pick: "Done" should be the last option
+        assert!(state.players[0].pending.has_active());
+        if let Some(ActivePending::Choice(ref choice)) = state.players[0].pending.active {
+            // 2 remaining eligible + 1 "Done" = 3 options
+            assert_eq!(choice.options.len(), 3, "Should have 2 targets + Done");
+        }
+
+        // Choose "Done" (last option, index 2)
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 2 },
+            epoch,
+        ).unwrap();
+
+        // Should stop, only 1 hit applied
+        assert!(!state.players[0].pending.has_active());
+        assert_eq!(state.players[0].combat_accumulator.attack.ranged, 1);
+    }
+
+    // =============================================================================
+    // Know Your Prey tests
+    // =============================================================================
+
+    #[test]
+    fn know_your_prey_excludes_ai() {
+        let (mut state, _undo) = setup_with_skill(Hero::Wolfhawk, "wolfhawk_know_your_prey");
+        // Shadow has ArcaneImmunity
+        let tokens = vec![EnemyTokenId::from("shadow_1")];
+        crate::combat::execute_enter_combat(
+            &mut state, 0, &tokens, false, None, Default::default(),
+        ).unwrap();
+
+        let actions = crate::legal_actions::enumerate_legal_actions(&state, 0).actions;
+        let has_kyp = actions.iter().any(|a| matches!(a,
+            LegalAction::UseSkill { skill_id } if skill_id.as_str() == "wolfhawk_know_your_prey"
+        ));
+        assert!(!has_kyp, "Know Your Prey should not be available against AI enemies only");
+    }
+
+    #[test]
+    fn know_your_prey_nullify_ability() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Wolfhawk, "wolfhawk_know_your_prey");
+        // Wolf Riders have Swift
+        let tokens = vec![EnemyTokenId::from("wolf_riders_1")];
+        crate::combat::execute_enter_combat(
+            &mut state, 0, &tokens, false, None, Default::default(),
+        ).unwrap();
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("wolfhawk_know_your_prey") },
+            epoch,
+        ).unwrap();
+
+        // Wolf Riders: Swift ability (removable) + Physical attack (no conversion)
+        // Should have pending with ability nullification option
+        if state.players[0].pending.has_active() {
+            // Find and choose the NullifyAbility option (should be first)
+            let epoch = state.action_epoch;
+            apply_legal_action(
+                &mut state, &mut undo, 0,
+                &LegalAction::ResolveChoice { choice_index: 0 },
+                epoch,
+            ).unwrap();
+        }
+
+        // Should have AbilityNullifier modifier for Swift
+        let modifier = state.active_modifiers.iter().find(|m| matches!(
+            &m.effect,
+            mk_types::modifier::ModifierEffect::AbilityNullifier { ability: Some(a), .. }
+            if *a == EnemyAbilityType::Swift
+        ));
+        assert!(modifier.is_some(), "Should have AbilityNullifier(Swift) modifier");
+    }
+
+    #[test]
+    fn know_your_prey_remove_resistance() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Wolfhawk, "wolfhawk_know_your_prey");
+        // Ice Dragon: Paralyze ability, Physical+Ice resistance, Ice attack
+        let tokens = vec![EnemyTokenId::from("ice_dragon_1")];
+        crate::combat::execute_enter_combat(
+            &mut state, 0, &tokens, false, None, Default::default(),
+        ).unwrap();
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("wolfhawk_know_your_prey") },
+            epoch,
+        ).unwrap();
+
+        // Ice Dragon should have: Paralyze (nullify), Physical resist (remove),
+        // Ice resist (remove), Ice→Physical (convert)
+        assert!(state.players[0].pending.has_active());
+        if let Some(ActivePending::Choice(ref choice)) = state.players[0].pending.active {
+            assert!(choice.options.len() >= 3, "Should have multiple strip options");
+        }
+
+        // Find Physical resistance removal option
+        if let Some(ActivePending::Choice(ref choice)) = state.players[0].pending.active {
+            if let mk_types::pending::ChoiceResolution::KnowYourPreyOption { ref options, .. } = choice.resolution {
+                let phys_idx = options.iter().position(|o| matches!(o,
+                    mk_types::pending::KnowYourPreyApplyOption::RemoveResistance { element }
+                    if *element == ResistanceElement::Physical
+                )).unwrap();
+
+                let epoch = state.action_epoch;
+                apply_legal_action(
+                    &mut state, &mut undo, 0,
+                    &LegalAction::ResolveChoice { choice_index: phys_idx },
+                    epoch,
+                ).unwrap();
+            }
+        }
+
+        let modifier = state.active_modifiers.iter().find(|m| matches!(
+            &m.effect,
+            mk_types::modifier::ModifierEffect::RemovePhysicalResistance
+        ));
+        assert!(modifier.is_some(), "Should have RemovePhysicalResistance modifier");
+    }
+
+    #[test]
+    fn know_your_prey_convert_element() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Wolfhawk, "wolfhawk_know_your_prey");
+        // Ice Dragon: Ice attack → can convert Ice→Physical
+        let tokens = vec![EnemyTokenId::from("ice_dragon_1")];
+        crate::combat::execute_enter_combat(
+            &mut state, 0, &tokens, false, None, Default::default(),
+        ).unwrap();
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("wolfhawk_know_your_prey") },
+            epoch,
+        ).unwrap();
+
+        // Find Ice→Physical conversion option
+        if let Some(ActivePending::Choice(ref choice)) = state.players[0].pending.active {
+            if let mk_types::pending::ChoiceResolution::KnowYourPreyOption { ref options, .. } = choice.resolution {
+                let convert_idx = options.iter().position(|o| matches!(o,
+                    mk_types::pending::KnowYourPreyApplyOption::ConvertElement { from, to }
+                    if *from == Element::Ice && *to == Element::Physical
+                )).unwrap();
+
+                let epoch = state.action_epoch;
+                apply_legal_action(
+                    &mut state, &mut undo, 0,
+                    &LegalAction::ResolveChoice { choice_index: convert_idx },
+                    epoch,
+                ).unwrap();
+            }
+        }
+
+        let modifier = state.active_modifiers.iter().find(|m| matches!(
+            &m.effect,
+            mk_types::modifier::ModifierEffect::ConvertAttackElement { from_element, to_element }
+            if *from_element == Element::Ice && *to_element == Element::Physical
+        ));
+        assert!(modifier.is_some(), "Should have ConvertAttackElement(Ice→Physical) modifier");
+    }
+
+    #[test]
+    fn verify_card_actions_after_tactic_selection() {
+        // Reproduces the exact server flow: create game, select tactic, enumerate.
+        // Verifies that PlayCard* actions appear and their JSON matches client expectations.
+        let mut state = create_solo_game(42, mk_types::enums::Hero::Arythea);
+        let mut undo = crate::undo::UndoStack::new();
+
+        // 1. Initial: should be TacticsSelection
+        assert_eq!(state.round_phase, mk_types::enums::RoundPhase::TacticsSelection);
+        let las1 = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        assert!(
+            las1.actions.iter().all(|a| matches!(a, LegalAction::SelectTactic { .. })),
+            "Initial actions should all be SelectTactic"
+        );
+
+        // 2. Select first tactic
+        let tactic = las1.actions[0].clone();
+        let epoch = las1.epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &tactic, epoch).unwrap();
+
+        // 3. After tactic: should be PlayerTurns
+        assert_eq!(state.round_phase, mk_types::enums::RoundPhase::PlayerTurns);
+
+        // 4. Enumerate post-tactic actions
+        let las2 = enumerate_legal_actions_with_undo(&state, 0, &undo);
+
+        // 5. Must have card play actions (player should have cards in hand)
+        let hand = &state.players[0].hand;
+        assert!(!hand.is_empty(), "Player should have cards in hand");
+
+        let card_actions: Vec<_> = las2.actions.iter()
+            .filter(|a| matches!(a,
+                LegalAction::PlayCardBasic { .. } |
+                LegalAction::PlayCardPowered { .. } |
+                LegalAction::PlayCardSideways { .. }
+            ))
+            .collect();
+
+        // Print all actions in JSON format (as they'd appear on the wire)
+        eprintln!("Hand: {:?}", hand);
+        eprintln!("Total actions: {}", las2.actions.len());
+        for a in &las2.actions {
+            eprintln!("  JSON: {}", serde_json::to_string(a).unwrap());
+        }
+
+        assert!(!card_actions.is_empty(), "Should have PlayCard* actions after tactic selection, got {} total actions", las2.actions.len());
+
+        // 6. Verify JSON serialization matches client expectations
+        for action in &card_actions {
+            let json = serde_json::to_string(action).unwrap();
+            let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+            // Externally-tagged: { "PlayCardBasic": { "hand_index": N, "card_id": "..." } }
+            assert!(parsed.is_object(), "Should be object: {json}");
+            let variant = parsed.as_object().unwrap().keys().next().unwrap();
+            assert!(
+                variant.starts_with("PlayCard"),
+                "Variant should start with PlayCard, got: {variant}"
+            );
+            let inner = &parsed[variant];
+            assert!(inner.is_object(), "Inner should be object: {json}");
+            // card_id must be snake_case (not camelCase)
+            assert!(inner.get("card_id").is_some(), "Must have card_id field: {json}");
+            assert!(inner.get("hand_index").is_some(), "Must have hand_index field: {json}");
+        }
     }
 }

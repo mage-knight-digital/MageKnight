@@ -3,9 +3,19 @@
 //! Produces `UseSkill` legal actions for skills the player can currently activate.
 
 use mk_data::skills::{get_skill, is_motivation_skill, SkillPhaseRestriction, SkillUsageType};
-use mk_types::enums::CombatPhase;
+use mk_types::enums::{CombatPhase, ManaColor};
 use mk_types::legal_action::LegalAction;
+use mk_types::modifier::ModifierSource;
 use mk_types::state::GameState;
+
+/// Skills that modify sideways card values — mutually exclusive.
+const SIDEWAYS_SKILLS: &[&str] = &[
+    "arythea_power_of_pain",
+    "tovak_i_dont_give_a_damn",
+    "tovak_who_needs_magic",
+    "goldyx_universal_power",
+    "wolfhawk_wolfs_howl",
+];
 
 /// Enumerate all skill activations available to the player.
 pub(super) fn enumerate_skill_activations(
@@ -73,6 +83,130 @@ pub(super) fn enumerate_skill_activations(
         // Phase restriction check
         if !phase_allows_skill(def.phase_restriction, in_combat, combat_phase) {
             continue;
+        }
+
+        // Sideways skills mutual exclusivity: can't activate if another sideways skill
+        // already has active modifiers.
+        if SIDEWAYS_SKILLS.contains(&skill_id.as_str()) {
+            let has_conflict = state.active_modifiers.iter().any(|m| {
+                matches!(&m.source, ModifierSource::Skill { skill_id: sid, .. }
+                    if SIDEWAYS_SKILLS.contains(&sid.as_str()) && *sid != *skill_id)
+            });
+            if has_conflict {
+                continue;
+            }
+        }
+
+        // Universal Power requires having at least one basic mana token.
+        if skill_id.as_str() == "goldyx_universal_power" {
+            let has_basic_mana = player.pure_mana.iter().any(|t| {
+                matches!(
+                    t.color,
+                    ManaColor::Red | ManaColor::Blue | ManaColor::Green | ManaColor::White
+                )
+            });
+            if !has_basic_mana {
+                continue;
+            }
+        }
+
+        // Regenerate requires: wound in hand AND available mana (token/crystal/die).
+        if skill_id.as_str() == "krang_regenerate" || skill_id.as_str() == "braevalar_regenerate" {
+            let has_wound = player.hand.iter().any(|c| c.as_str() == "wound");
+            if !has_wound {
+                continue;
+            }
+            let has_mana = !player.pure_mana.is_empty()
+                || player.crystals.red > 0
+                || player.crystals.blue > 0
+                || player.crystals.green > 0
+                || player.crystals.white > 0
+                || state.source.dice.iter().any(|d| {
+                    !d.is_depleted && d.taken_by_player_id.is_none()
+                });
+            if !has_mana {
+                continue;
+            }
+        }
+
+        // Dueling requires: at least one alive enemy that can attack (not skip_attack).
+        if skill_id.as_str() == "wolfhawk_dueling" {
+            if let Some(ref combat) = state.combat {
+                let has_eligible = combat.enemies.iter().any(|e| {
+                    !e.is_defeated
+                        && !crate::combat_resolution::is_enemy_attacks_skipped(
+                            &state.active_modifiers,
+                            e.instance_id.as_str(),
+                        )
+                });
+                if !has_eligible {
+                    continue;
+                }
+            } else {
+                continue;
+            }
+        }
+
+        // Invocation requires: at least one card in hand.
+        if skill_id.as_str() == "arythea_invocation" {
+            if player.hand.is_empty() {
+                continue;
+            }
+        }
+
+        // Polarization requires: at least one convertible mana source.
+        if skill_id.as_str() == "arythea_polarization" {
+            if !crate::action_pipeline::has_polarization_options(state, player_idx) {
+                continue;
+            }
+        }
+
+        // Curse requires: at least one eligible (alive, not fortified in R/S) enemy.
+        if skill_id.as_str() == "krang_curse" {
+            if let Some(ref combat) = state.combat {
+                let is_ranged_siege = combat.phase == CombatPhase::RangedSiege;
+                let has_eligible = combat.enemies.iter().any(|e| {
+                    !e.is_defeated
+                        && !(is_ranged_siege
+                            && mk_data::enemies::get_enemy(e.enemy_id.as_str())
+                                .map(|d| d.abilities.contains(&mk_types::enums::EnemyAbilityType::Fortified))
+                                .unwrap_or(false))
+                });
+                if !has_eligible {
+                    continue;
+                }
+            } else {
+                continue;
+            }
+        }
+
+        // Forked Lightning requires: at least one alive enemy.
+        if skill_id.as_str() == "braevalar_forked_lightning" {
+            if let Some(ref combat) = state.combat {
+                if !combat.enemies.iter().any(|e| !e.is_defeated) {
+                    continue;
+                }
+            } else {
+                continue;
+            }
+        }
+
+        // Know Your Prey requires: at least one non-AI enemy with strippable attributes.
+        if skill_id.as_str() == "wolfhawk_know_your_prey" {
+            if let Some(ref combat) = state.combat {
+                let has_eligible = combat.enemies.iter().any(|e| {
+                    !e.is_defeated
+                        && !mk_data::enemies::get_enemy(e.enemy_id.as_str())
+                            .map(|d| d.abilities.contains(&mk_types::enums::EnemyAbilityType::ArcaneImmunity))
+                            .unwrap_or(false)
+                        && crate::action_pipeline::has_strippable_attributes_pub(e.enemy_id.as_str())
+                });
+                if !has_eligible {
+                    continue;
+                }
+            } else {
+                continue;
+            }
         }
 
         actions.push(LegalAction::UseSkill {
@@ -209,12 +343,12 @@ mod tests {
 
     #[test]
     fn unimplemented_skill_skipped() {
-        let state = test_state_with_skill("arythea_invocation");
-        // arythea_invocation has effect: None
+        let state = test_state_with_skill("braevalar_shapeshift");
+        // braevalar_shapeshift has effect: None (still a stub)
         let mut actions = Vec::new();
         enumerate_skill_activations(&state, 0, &mut actions);
         assert!(
-            !actions.iter().any(|a| matches!(a, LegalAction::UseSkill { skill_id } if skill_id.as_str() == "arythea_invocation")),
+            !actions.iter().any(|a| matches!(a, LegalAction::UseSkill { skill_id } if skill_id.as_str() == "braevalar_shapeshift")),
             "Unimplemented skills should be skipped"
         );
     }

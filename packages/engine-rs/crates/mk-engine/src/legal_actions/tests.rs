@@ -54,7 +54,7 @@ fn tactics_phase_emits_select_tactic() {
 }
 
 #[test]
-fn tactics_sorted_lexicographically() {
+fn tactics_use_canonical_turn_order() {
     let state = create_solo_game(42, Hero::Arythea);
     let legal = enumerate_legal_actions(&state, 0);
     let ids: Vec<&str> = legal
@@ -65,9 +65,11 @@ fn tactics_sorted_lexicographically() {
             _ => panic!("Expected SelectTactic"),
         })
         .collect();
-    let mut sorted = ids.clone();
-    sorted.sort();
-    assert_eq!(ids, sorted);
+    // Tactics follow canonical turn order (not lexicographic).
+    assert_eq!(
+        ids,
+        vec!["early_bird", "rethink", "mana_steal", "planning", "great_start", "the_right_moment"]
+    );
 }
 
 // =========================================================================
@@ -4269,11 +4271,12 @@ fn solo_tactics_removed_at_round_end() {
 #[test]
 fn solo_game_has_tile_deck() {
     let state = create_solo_game(42, Hero::Arythea);
-    // First Reconnaissance: 8 countryside + 2 non-city core + 1 city = 3 core total
+    // First Reconnaissance: 8 countryside + 2 non-city core + 1 city
+    // (initial tile placement is done separately via place_initial_tiles)
     assert_eq!(
         state.map.tile_deck.countryside.len(),
         8,
-        "Should have 8 countryside tiles"
+        "Should have 8 countryside tiles in deck"
     );
     assert_eq!(
         state.map.tile_deck.core.len(),
@@ -4504,6 +4507,42 @@ fn level_up_reward_enumerates_skill_x_aa_options() {
 }
 
 #[test]
+fn level_up_common_pool_forces_lowest_aa() {
+    let mut state = setup_level_up_game(3);
+    // Pre-populate common pool with 2 skills
+    state
+        .offers
+        .common_skills
+        .push(mk_types::ids::SkillId::from("common_a"));
+    state
+        .offers
+        .common_skills
+        .push(mk_types::ids::SkillId::from("common_b"));
+
+    crate::card_play::play_card(&mut state, 0, 0, false).unwrap();
+    crate::end_turn::end_turn(&mut state, 0).unwrap();
+
+    let lowest_aa = state.offers.advanced_actions.last().unwrap().clone();
+    let legal = enumerate_legal_actions(&state, 0);
+    let common_pool_actions: Vec<_> = legal
+        .actions
+        .iter()
+        .filter(|a| matches!(a, LegalAction::ChooseLevelUpReward { from_common_pool: true, .. }))
+        .collect();
+
+    // 2 common skills, each forced to lowest AA = 2 actions (not 2 × N AAs)
+    assert_eq!(common_pool_actions.len(), 2);
+    for action in &common_pool_actions {
+        if let LegalAction::ChooseLevelUpReward { advanced_action_id, .. } = action {
+            assert_eq!(
+                advanced_action_id, &lowest_aa,
+                "Common pool pick must take lowest-position AA"
+            );
+        }
+    }
+}
+
+#[test]
 fn choose_skill_from_drawn_pair() {
     let mut state = setup_level_up_game(3);
     crate::card_play::play_card(&mut state, 0, 0, false).unwrap();
@@ -4556,7 +4595,8 @@ fn choose_skill_from_common_pool() {
     };
     let drawn_0 = reward.drawn_skills[0].clone();
     let drawn_1 = reward.drawn_skills[1].clone();
-    let aa_id = state.offers.advanced_actions[0].clone();
+    // Common pool pick is forced to take lowest-position AA per rules.
+    let lowest_aa_id = state.offers.advanced_actions.last().unwrap().clone();
 
     // Choose from common pool (index 0 = test_common_skill)
     let mut undo = UndoStack::new();
@@ -4564,7 +4604,7 @@ fn choose_skill_from_common_pool() {
     let action = LegalAction::ChooseLevelUpReward {
         skill_index: 0,
         from_common_pool: true,
-        advanced_action_id: aa_id,
+        advanced_action_id: lowest_aa_id,
     };
     apply_legal_action(&mut state, &mut undo, 0, &action, legal.epoch).unwrap();
 

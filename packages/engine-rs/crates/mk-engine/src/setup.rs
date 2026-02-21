@@ -12,9 +12,9 @@ use mk_data::heroes::{
 use mk_data::enemy_piles::create_enemy_token_piles;
 use mk_data::offers::{create_aa_deck_and_offer, create_spell_deck_and_offer};
 use mk_data::unit_offers::create_unit_deck_and_offer;
-use mk_data::tiles::{find_portal, starting_tile_hexes};
+use mk_data::tiles::{find_portal, get_tile_hexes, starting_tile_hexes};
 use mk_types::enums::*;
-use mk_types::hex::HexCoord;
+use mk_types::hex::{HexCoord, HexDirection, TILE_PLACEMENT_OFFSETS};
 use mk_types::ids::*;
 use mk_types::rng::RngState;
 use mk_types::state::*;
@@ -192,7 +192,7 @@ fn create_player(id: &str, hero: Hero, position: HexCoord, rng: &mut RngState) -
 // =============================================================================
 
 /// Place the starting tile on the map at origin (0,0).
-fn place_starting_tile(tile_id: TileId) -> MapState {
+pub(crate) fn place_starting_tile(tile_id: TileId) -> MapState {
     let center = HexCoord::new(0, 0);
     let hexes_def = starting_tile_hexes(tile_id).expect("Unknown starting tile");
 
@@ -250,6 +250,9 @@ fn place_starting_tile(tile_id: TileId) -> MapState {
 /// - 6 day tactics available
 /// - Round 1, daytime, tactics selection phase
 /// - Tile deck created from scenario config (8 countryside + 2 core + 1 city)
+///
+/// Note: Does NOT place initial countryside tiles. Call `place_initial_tiles()`
+/// after this to place the scenario's starting map tiles (e.g., NE + E for Wedge).
 pub fn create_solo_game(seed: u32, hero: Hero) -> GameState {
     let mut rng = RngState::new(seed);
 
@@ -262,9 +265,9 @@ pub fn create_solo_game(seed: u32, hero: Hero) -> GameState {
     map.tile_deck = mk_data::tiles::create_tile_deck(&scenario_config, &mut rng);
 
     // Find portal hex for player start position
-    let hexes_def = starting_tile_hexes(TileId::StartingA).unwrap();
-    let portal_local = find_portal(hexes_def).expect("Starting tile must have portal");
-    let player_pos = HexCoord::new(portal_local.q, portal_local.r); // center at origin
+    let hexes_def_for_portal = starting_tile_hexes(TileId::StartingA).unwrap();
+    let portal_local = find_portal(hexes_def_for_portal).expect("Starting tile must have portal");
+    let player_pos = HexCoord::new(portal_local.q, portal_local.r);
 
     // Create player
     let player_id = "player_0";
@@ -356,6 +359,66 @@ pub fn create_solo_game(seed: u32, hero: Hero) -> GameState {
     }
 }
 
+/// Place initial countryside tiles adjacent to the starting tile.
+///
+/// For the First Reconnaissance scenario (Wedge shape), this places 2 tiles
+/// at NE and E from origin. Should be called after `create_solo_game()` for
+/// games that need the full starting map (e.g., the UI server).
+pub fn place_initial_tiles(state: &mut GameState) {
+    let initial_directions = initial_tile_directions(state.scenario_config.map_shape);
+    let starting_center = HexCoord::new(0, 0);
+
+    let mut placements: Vec<(TileId, HexCoord)> = Vec::new();
+    for &dir in initial_directions {
+        // Draw from countryside deck
+        let tile_id = if !state.map.tile_deck.countryside.is_empty() {
+            state.map.tile_deck.countryside.remove(0)
+        } else {
+            continue;
+        };
+
+        // Calculate placement position
+        let offset = TILE_PLACEMENT_OFFSETS
+            .iter()
+            .find(|(d, _)| *d == dir)
+            .map(|(_, off)| *off)
+            .expect("Invalid direction");
+        let new_center = HexCoord::new(starting_center.q + offset.q, starting_center.r + offset.r);
+
+        // Place tile hexes on map
+        if let Some(tile_hexes) = get_tile_hexes(tile_id) {
+            crate::movement::place_tile_on_map(&mut state.map, tile_id, new_center, tile_hexes);
+        }
+
+        // Track tile placement
+        state.map.tiles.push(TilePlacement {
+            tile_id,
+            center_coord: new_center,
+            revealed: true,
+        });
+
+        placements.push((tile_id, new_center));
+    }
+
+    // Draw enemies onto initial countryside tiles (requires full state for RNG + token piles)
+    for (tile_id, center) in placements {
+        if let Some(tile_hexes) = get_tile_hexes(tile_id) {
+            crate::movement::draw_enemies_on_tile(state, center, tile_hexes);
+        }
+    }
+}
+
+/// Get initial tile placement directions for a map shape.
+/// Matches TS MAP_SHAPE_CONFIGS[shape].initialTilePositions.
+fn initial_tile_directions(shape: MapShape) -> &'static [HexDirection] {
+    match shape {
+        MapShape::Wedge | MapShape::Open => &[HexDirection::NE, HexDirection::E],
+        MapShape::Open3 => &[HexDirection::NE, HexDirection::E, HexDirection::SE],
+        MapShape::Open4 => &[HexDirection::NE, HexDirection::E, HexDirection::SE, HexDirection::SW],
+        MapShape::Open5 => &[HexDirection::NE, HexDirection::E, HexDirection::SE, HexDirection::SW, HexDirection::W],
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -411,6 +474,20 @@ mod tests {
         assert_eq!(state.map.hexes.len(), 7);
         assert_eq!(state.map.tiles.len(), 1);
         assert_eq!(state.map.tiles[0].tile_id, TileId::StartingA);
+    }
+
+    #[test]
+    fn place_initial_tiles_adds_countryside() {
+        let mut state = create_solo_game(42, Hero::Arythea);
+        place_initial_tiles(&mut state);
+
+        // Starting tile (7 hexes) + 2 initial countryside tiles (7 each) = 21 hexes
+        assert_eq!(state.map.hexes.len(), 21);
+        assert_eq!(state.map.tiles.len(), 3);
+        assert_eq!(state.map.tiles[0].tile_id, TileId::StartingA);
+        // Initial tiles are placed at NE and E from origin
+        assert!(state.map.tiles[1].revealed);
+        assert!(state.map.tiles[2].revealed);
     }
 
     #[test]

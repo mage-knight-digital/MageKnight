@@ -58,6 +58,36 @@ pub(super) fn enumerate_pending(
         ActivePending::TacticDecision(td) => {
             enumerate_tactic_decision(td, state, player_idx, actions);
         }
+        ActivePending::SubsetSelection(ss) => {
+            // Auto-regressive subset selection: pick one item or confirm.
+            if ss.selected.len() < ss.max_selections {
+                for i in 0..ss.pool_size {
+                    if !ss.selected.contains(&i) {
+                        actions.push(LegalAction::SubsetSelect { index: i });
+                    }
+                }
+            }
+            // Kind-specific confirm gating
+            let can_confirm = match &ss.kind {
+                mk_types::pending::SubsetSelectionKind::AttackTargets {
+                    eligible_instance_ids,
+                    attack_type,
+                } => {
+                    !ss.selected.is_empty()
+                        && crate::legal_actions::combat::is_attack_subset_sufficient(
+                            state,
+                            player_idx,
+                            ss,
+                            eligible_instance_ids,
+                            *attack_type,
+                        )
+                }
+                _ => ss.selected.len() >= ss.min_selections,
+            };
+            if can_confirm {
+                actions.push(LegalAction::SubsetConfirm);
+            }
+        }
         ActivePending::DeepMineChoice { colors } => {
             for i in 0..colors.len() {
                 actions.push(LegalAction::ResolveChoice { choice_index: i });
@@ -118,22 +148,6 @@ fn enumerate_tactic_decision(
     actions: &mut Vec<LegalAction>,
 ) {
     match td {
-        PendingTacticDecision::Rethink { max_cards } => {
-            let hand_len = state.players[player_idx].hand.len();
-            let max = (*max_cards as usize).min(hand_len);
-            // Bitmask subset enumeration over hand indices, size 0..=max
-            // Include empty set (skip / swap 0 cards)
-            for mask in 0u32..(1u32 << hand_len) {
-                let bits_set = mask.count_ones() as usize;
-                if bits_set > max {
-                    continue;
-                }
-                let hand_indices: Vec<usize> = (0..hand_len).filter(|&i| mask & (1 << i) != 0).collect();
-                actions.push(LegalAction::ResolveTacticDecision {
-                    data: TacticDecisionData::Rethink { hand_indices },
-                });
-            }
-        }
         PendingTacticDecision::ManaSteal => {
             for (idx, die) in state.source.dice.iter().enumerate() {
                 if !die.is_depleted && die.taken_by_player_id.is_none() && die.color.is_basic() {
@@ -147,21 +161,6 @@ fn enumerate_tactic_decision(
             for idx in 0..deck_snapshot.len() {
                 actions.push(LegalAction::ResolveTacticDecision {
                     data: TacticDecisionData::Preparation { deck_card_index: idx },
-                });
-            }
-        }
-        PendingTacticDecision::MidnightMeditation { max_cards } => {
-            let hand_len = state.players[player_idx].hand.len();
-            let max = (*max_cards as usize).min(hand_len);
-            // Same bitmask subset enumeration as Rethink but with higher max
-            for mask in 0u32..(1u32 << hand_len) {
-                let bits_set = mask.count_ones() as usize;
-                if bits_set > max {
-                    continue;
-                }
-                let hand_indices: Vec<usize> = (0..hand_len).filter(|&i| mask & (1 << i) != 0).collect();
-                actions.push(LegalAction::ResolveTacticDecision {
-                    data: TacticDecisionData::MidnightMeditation { hand_indices },
                 });
             }
         }
@@ -185,7 +184,7 @@ fn enumerate_level_up_reward(
     state: &mk_types::state::GameState,
     actions: &mut Vec<LegalAction>,
 ) {
-    // Option A: Choose from drawn hero skills
+    // Option A: Choose from drawn hero skills — free AA choice.
     for (i, _skill) in reward.drawn_skills.iter().enumerate() {
         for aa in &state.offers.advanced_actions {
             actions.push(LegalAction::ChooseLevelUpReward {
@@ -195,13 +194,14 @@ fn enumerate_level_up_reward(
             });
         }
     }
-    // Option B: Choose from common skill pool
-    for (i, _skill) in state.offers.common_skills.iter().enumerate() {
-        for aa in &state.offers.advanced_actions {
+    // Option B: Choose from common skill pool — forced to take lowest-position AA.
+    // Per rules: "take the Advanced Action card from the lowest position on the offer."
+    if let Some(lowest_aa) = state.offers.advanced_actions.last() {
+        for (i, _skill) in state.offers.common_skills.iter().enumerate() {
             actions.push(LegalAction::ChooseLevelUpReward {
                 skill_index: i,
                 from_common_pool: true,
-                advanced_action_id: aa.clone(),
+                advanced_action_id: lowest_aa.clone(),
             });
         }
     }
@@ -243,6 +243,7 @@ fn active_pending_kind(pending: &ActivePending) -> &'static str {
         ActivePending::CrystalJoyReclaim(_) => "crystal_joy_reclaim",
         ActivePending::SteadyTempoDeckPlacement(_) => "steady_tempo_deck_placement",
         ActivePending::UnitAbilityChoice { .. } => "unit_ability_choice",
+        ActivePending::SubsetSelection(_) => "subset_selection",
         ActivePending::SelectCombatEnemy { .. } => "select_combat_enemy",
     }
 }

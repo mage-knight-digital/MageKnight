@@ -35,6 +35,8 @@ pub const MAX_OFFER_CARDS: usize = 8;
 pub const MAX_ATTACK_DEFEAT_FAME: usize = 4;
 /// Max unit maintenance entries.
 pub const MAX_UNIT_MAINTENANCE: usize = 8;
+/// Max items in a subset selection (hand size cap).
+pub const MAX_SUBSET_ITEMS: usize = 8;
 
 // =============================================================================
 // Sub-types used by pending variants
@@ -119,6 +121,43 @@ pub struct ContinuationEntry {
     pub source_card_id: Option<CardId>,
 }
 
+/// Option for Invocation skill: discard a card to gain a mana token.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InvocationOption {
+    pub card_id: CardId,
+    pub is_wound: bool,
+    pub mana_color: ManaColor,
+}
+
+/// Source type for Polarization conversion.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PolarizationSourceType {
+    Token,
+    Crystal,
+    Die,
+}
+
+/// Option for Polarization skill: convert one mana to opposite color.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PolarizationOption {
+    pub source_type: PolarizationSourceType,
+    pub source_color: ManaColor,
+    pub target_color: ManaColor,
+    pub cannot_power_spells: bool,
+    pub token_index: Option<usize>,
+    pub die_id: Option<SourceDieId>,
+}
+
+/// Option for Know Your Prey: what to strip from the target enemy.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum KnowYourPreyApplyOption {
+    NullifyAbility { ability: EnemyAbilityType },
+    RemoveResistance { element: ResistanceElement },
+    ConvertElement { from: Element, to: Element },
+}
+
 /// How a pending choice should be resolved beyond just enqueueing the chosen effect.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ChoiceResolution {
@@ -146,6 +185,56 @@ pub enum ChoiceResolution {
     HealUnitTarget { eligible_unit_indices: Vec<usize> },
     /// PureMagic: consume a mana token of the color at `token_colors[choice_index]`.
     PureMagicConsume { token_colors: Vec<ManaColor> },
+    /// Universal Power: consume a basic mana token of the chosen color, then push modifiers.
+    UniversalPowerMana { available_colors: Vec<BasicManaColor> },
+    /// Secret Ways: choosing option 1 consumes 1 Blue mana and applies lake modifiers.
+    SecretWaysLake,
+    /// Regenerate: consume 1 mana of the chosen color, remove wound, conditionally draw.
+    RegenerateMana {
+        available_colors: Vec<ManaColor>,
+        bonus_color: BasicManaColor,
+    },
+    /// Dueling: target enemy for dueling modifier.
+    DuelingTarget {
+        eligible_enemy_ids: Vec<String>,
+    },
+    /// Invocation: discard a card to gain a mana token.
+    InvocationDiscard {
+        options: Vec<InvocationOption>,
+    },
+    /// Polarization: convert one mana to opposite color.
+    PolarizationConvert {
+        options: Vec<PolarizationOption>,
+    },
+    /// Curse step 1: select target enemy.
+    CurseTarget {
+        eligible_enemy_ids: Vec<String>,
+    },
+    /// Curse step 2: choose Attack -2 or Armor -1.
+    CurseMode {
+        enemy_instance_id: String,
+        has_arcane_immunity: bool,
+        has_multi_attack: bool,
+    },
+    /// Curse step 3: choose which attack index to reduce (multi-attack enemies).
+    CurseAttackIndex {
+        enemy_instance_id: String,
+        attack_count: usize,
+    },
+    /// Forked Lightning: iterative target selection (up to 3).
+    ForkedLightningTarget {
+        remaining: u32,
+        already_targeted: Vec<String>,
+    },
+    /// Know Your Prey step 1: select target enemy.
+    KnowYourPreyTarget {
+        eligible_enemy_ids: Vec<String>,
+    },
+    /// Know Your Prey step 2: choose attribute to strip.
+    KnowYourPreyOption {
+        enemy_instance_id: String,
+        options: Vec<KnowYourPreyApplyOption>,
+    },
 }
 
 /// Pending choice — when a card, skill, or unit ability requires player selection.
@@ -270,14 +359,50 @@ pub struct PendingLevelUpReward {
     pub drawn_skills: ArrayVec<SkillId, MAX_DRAWN_SKILLS>,
 }
 
+/// What kind of subset selection is in progress.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SubsetSelectionKind {
+    Rethink,
+    MidnightMeditation,
+    /// Mana Search tactic: reroll 1-2 source dice.
+    ManaSearch {
+        /// Actual die indices in state.source.dice that are rerollable.
+        rerollable_die_indices: ArrayVec<usize, MAX_SUBSET_ITEMS>,
+    },
+    /// Attack declaration: pick target enemies for a single attack type.
+    AttackTargets {
+        attack_type: CombatType,
+        /// Actual CombatInstanceIds of eligible enemies.
+        eligible_instance_ids: ArrayVec<CombatInstanceId, MAX_SUBSET_ITEMS>,
+    },
+    /// Standard rest: optionally discard wounds from hand after discarding a non-wound card.
+    RestWoundDiscard {
+        /// Hand indices that contain wounds (pool indices map to these).
+        wound_hand_indices: ArrayVec<usize, MAX_SUBSET_ITEMS>,
+    },
+}
+
+/// Auto-regressive subset selection state: pick items one at a time, then confirm.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubsetSelectionState {
+    pub kind: SubsetSelectionKind,
+    /// Total items to choose from (e.g. hand.len()).
+    pub pool_size: usize,
+    /// Maximum selections allowed (e.g. 3 for Rethink, 5 for MM).
+    pub max_selections: usize,
+    /// Minimum selections before confirm is allowed (0 = can confirm empty set).
+    pub min_selections: usize,
+    /// Indices selected so far, in order.
+    pub selected: ArrayVec<usize, MAX_SUBSET_ITEMS>,
+}
+
 /// Tactic decision type.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum PendingTacticDecision {
-    Rethink { max_cards: u8 },
     ManaSteal,
     Preparation { deck_snapshot: Vec<CardId> },
-    MidnightMeditation { max_cards: u8 },
     SparingPower,
 }
 
@@ -392,6 +517,8 @@ pub enum ActivePending {
         /// If true, wound the unit after choice is resolved (AttackOrBlockWoundSelf).
         wound_self: bool,
     },
+    /// Auto-regressive subset selection (Rethink, Midnight Meditation, etc.).
+    SubsetSelection(SubsetSelectionState),
     /// Unit ability that targets a combat enemy (cancel attack, weaken, freeze, etc.).
     SelectCombatEnemy {
         /// None for card-sourced, Some for unit-sourced.

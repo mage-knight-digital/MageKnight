@@ -18,7 +18,7 @@
 //! 12. Undo
 
 mod cards;
-mod combat;
+pub(crate) mod combat;
 mod explore;
 mod movement;
 mod pending;

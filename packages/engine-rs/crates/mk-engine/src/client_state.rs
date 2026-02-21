@@ -187,6 +187,12 @@ fn pending_label(active: &ActivePending) -> &'static str {
         ActivePending::CrystalJoyReclaim(_) => "Crystal joy reclaim",
         ActivePending::SteadyTempoDeckPlacement(_) => "Steady tempo placement",
         ActivePending::UnitAbilityChoice { .. } => "Unit ability choice",
+        ActivePending::SubsetSelection(ss) => match &ss.kind {
+            mk_types::pending::SubsetSelectionKind::ManaSearch { .. } => "Select dice to reroll",
+            mk_types::pending::SubsetSelectionKind::AttackTargets { .. } => "Select attack targets",
+            mk_types::pending::SubsetSelectionKind::RestWoundDiscard { .. } => "Select wounds to discard",
+            _ => "Select cards",
+        },
         ActivePending::SelectCombatEnemy { .. } => "Select combat enemy",
     }
 }

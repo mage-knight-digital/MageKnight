@@ -18,8 +18,10 @@ pub(super) fn enumerate_turn_options(
         actions.push(LegalAction::ActivateTactic);
     }
 
-    // RerollSourceDice (Mana Search) — subset enumeration over rerollable dice.
-    enumerate_mana_search(state, player_idx, actions);
+    // InitiateManaSearch — available if mana_search tactic selected + not used + rerollable dice exist.
+    if can_initiate_mana_search(state, player_idx) {
+        actions.push(LegalAction::InitiateManaSearch);
+    }
 
     // Category 9: EndTurn — only if played a card or rested.
     if !is_resting
@@ -100,51 +102,24 @@ fn can_activate_tactic(state: &GameState, player_idx: usize) -> bool {
     }
 }
 
-fn enumerate_mana_search(
-    state: &GameState,
-    player_idx: usize,
-    actions: &mut Vec<LegalAction>,
-) {
+fn can_initiate_mana_search(state: &GameState, player_idx: usize) -> bool {
     let player = &state.players[player_idx];
 
     // Must have "mana_search" selected and not used this turn
     if player.selected_tactic.as_ref().map(|t| t.as_str()) != Some("mana_search") {
-        return;
+        return false;
     }
     if player.tactic_state.mana_search_used_this_turn {
-        return;
+        return false;
     }
     if player.flags.contains(PlayerFlags::TACTIC_FLIPPED) {
-        return;
+        return false;
     }
 
-    // Find rerollable dice indices (not taken, available in source)
-    let rerollable: Vec<usize> = state
+    // At least one rerollable die must exist
+    state
         .source
         .dice
         .iter()
-        .enumerate()
-        .filter(|(_, d)| d.taken_by_player_id.is_none())
-        .map(|(i, _)| i)
-        .collect();
-
-    if rerollable.is_empty() {
-        return;
-    }
-
-    // Subset enumeration: size 1 or 2
-    // Size 1
-    for &idx in &rerollable {
-        actions.push(LegalAction::RerollSourceDice {
-            die_indices: vec![idx],
-        });
-    }
-    // Size 2
-    for i in 0..rerollable.len() {
-        for j in (i + 1)..rerollable.len() {
-            actions.push(LegalAction::RerollSourceDice {
-                die_indices: vec![rerollable[i], rerollable[j]],
-            });
-        }
-    }
+        .any(|d| d.taken_by_player_id.is_none())
 }

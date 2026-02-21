@@ -2,7 +2,7 @@ use mk_types::hex::{HexCoord, HexDirection, TILE_HEX_OFFSETS};
 use mk_types::legal_action::LegalAction;
 use mk_types::state::{GameState, PlayerFlags};
 
-use super::utils::{must_slow_recover, EXPLORE_BASE_COST};
+use super::utils::must_slow_recover;
 
 pub(super) fn enumerate_explores(
     state: &GameState,
@@ -11,13 +11,15 @@ pub(super) fn enumerate_explores(
 ) {
     let player = &state.players[player_idx];
 
+    let explore_cost = crate::movement::get_effective_explore_cost(&state.active_modifiers);
+
     // Early exit conditions.
     if player.position.is_none()
         || player.flags.contains(PlayerFlags::IS_RESTING)
         || player
             .flags
             .contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN)
-        || player.move_points < EXPLORE_BASE_COST
+        || player.move_points < explore_cost
         || must_slow_recover(player)
     {
         return;

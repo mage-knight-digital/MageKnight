@@ -3,8 +3,10 @@ use mk_types::effect::CardEffect;
 use mk_types::enums::*;
 use mk_types::ids::CardId;
 use mk_types::legal_action::LegalAction;
+use mk_types::modifier::RuleOverride;
 use mk_types::state::{GameState, PlayerFlags};
 
+use crate::card_play::{get_effective_sideways_value, is_rule_active};
 use crate::effect_queue::is_resolvable;
 
 use super::utils::WOUND_CARD_ID;
@@ -59,26 +61,51 @@ pub(super) fn enumerate_normal_cards(
         // While resting: NO sideways at all.
         // After rest: influence only (no move).
         // Normal: both move and influence.
-        if !is_resting && card_def.sideways_value > 0 {
-            if has_rested {
-                // After rest: influence only.
-                sideways_actions.push(LegalAction::PlayCardSideways {
-                    hand_index,
-                    card_id: card_id.clone(),
-                    sideways_as: SidewaysAs::Influence,
-                });
+        // Wounds: only if WoundsPlayableSideways rule active + effective value > 0.
+        if !is_resting {
+            let is_wound = card_id.as_str() == WOUND_CARD_ID;
+            let eff_value = if is_wound {
+                if is_rule_active(state, player_idx, RuleOverride::WoundsPlayableSideways) {
+                    get_effective_sideways_value(
+                        state,
+                        player_idx,
+                        true,
+                        card_def.card_type,
+                        card_def.powered_by,
+                    )
+                } else {
+                    0
+                }
             } else {
-                // Normal: both move and influence.
-                sideways_actions.push(LegalAction::PlayCardSideways {
-                    hand_index,
-                    card_id: card_id.clone(),
-                    sideways_as: SidewaysAs::Move,
-                });
-                sideways_actions.push(LegalAction::PlayCardSideways {
-                    hand_index,
-                    card_id: card_id.clone(),
-                    sideways_as: SidewaysAs::Influence,
-                });
+                get_effective_sideways_value(
+                    state,
+                    player_idx,
+                    false,
+                    card_def.card_type,
+                    card_def.powered_by,
+                )
+            };
+            if eff_value > 0 {
+                if has_rested {
+                    // After rest: influence only.
+                    sideways_actions.push(LegalAction::PlayCardSideways {
+                        hand_index,
+                        card_id: card_id.clone(),
+                        sideways_as: SidewaysAs::Influence,
+                    });
+                } else {
+                    // Normal: both move and influence.
+                    sideways_actions.push(LegalAction::PlayCardSideways {
+                        hand_index,
+                        card_id: card_id.clone(),
+                        sideways_as: SidewaysAs::Move,
+                    });
+                    sideways_actions.push(LegalAction::PlayCardSideways {
+                        hand_index,
+                        card_id: card_id.clone(),
+                        sideways_as: SidewaysAs::Influence,
+                    });
+                }
             }
         }
     }
@@ -132,17 +159,42 @@ pub(super) fn enumerate_combat_cards(
         }
 
         // Category 4: PlayCardSideways (combat: Attack and Block).
-        if card_def.sideways_value > 0 {
-            sideways_actions.push(LegalAction::PlayCardSideways {
-                hand_index,
-                card_id: card_id.clone(),
-                sideways_as: SidewaysAs::Attack,
-            });
-            sideways_actions.push(LegalAction::PlayCardSideways {
-                hand_index,
-                card_id: card_id.clone(),
-                sideways_as: SidewaysAs::Block,
-            });
+        // Wounds: only if WoundsPlayableSideways rule active + effective value > 0.
+        {
+            let is_wound = card_id.as_str() == WOUND_CARD_ID;
+            let eff_value = if is_wound {
+                if is_rule_active(state, player_idx, RuleOverride::WoundsPlayableSideways) {
+                    get_effective_sideways_value(
+                        state,
+                        player_idx,
+                        true,
+                        card_def.card_type,
+                        card_def.powered_by,
+                    )
+                } else {
+                    0
+                }
+            } else {
+                get_effective_sideways_value(
+                    state,
+                    player_idx,
+                    false,
+                    card_def.card_type,
+                    card_def.powered_by,
+                )
+            };
+            if eff_value > 0 {
+                sideways_actions.push(LegalAction::PlayCardSideways {
+                    hand_index,
+                    card_id: card_id.clone(),
+                    sideways_as: SidewaysAs::Attack,
+                });
+                sideways_actions.push(LegalAction::PlayCardSideways {
+                    hand_index,
+                    card_id: card_id.clone(),
+                    sideways_as: SidewaysAs::Block,
+                });
+            }
         }
     }
 

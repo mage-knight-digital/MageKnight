@@ -9,8 +9,6 @@
 //! - `packages/core/src/engine/commands/dummyTurnCommand.ts`
 //! - `packages/core/src/engine/commands/endRound/dummyOfferGains.ts`
 
-use std::collections::BTreeMap;
-
 use mk_data::cards::{get_card_color, get_spell_color};
 use mk_data::heroes::{build_starting_deck, hero_starting_crystals};
 use mk_types::enums::{BasicManaColor, Hero};
@@ -167,6 +165,7 @@ pub fn process_dummy_offer_gains(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeMap;
 
     fn make_dummy_with_deck(cards: &[&str], crystals: &[(BasicManaColor, u32)]) -> DummyPlayer {
         let mut crystal_map = BTreeMap::new();

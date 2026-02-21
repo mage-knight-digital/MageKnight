@@ -165,6 +165,9 @@ pub enum ModifierEffect {
         for_wounds: bool,
         condition: Option<SidewaysCondition>,
         mana_color: Option<BasicManaColor>,
+        /// Empty = all card types match. Non-empty = only listed types match.
+        #[serde(default)]
+        for_card_types: Vec<DeedCardType>,
     },
     MovementCardBonus {
         amount: i32,

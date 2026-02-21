@@ -156,12 +156,11 @@ pub(super) fn enumerate_cumbersome_actions(
 // Attack enumeration
 // =============================================================================
 
-/// Enumerate DeclareAttack actions for RangedSiege and Attack phases.
+/// Enumerate InitiateAttack actions for RangedSiege and Attack phases.
 ///
-/// For each non-empty subset of undefeated enemies (max ~4 enemies → 15 subsets):
-/// - Get available attack elements (total - assigned) for each attack type
-/// - Check if effective attack meets combined armor
-/// - If yes, emit a DeclareAttack action
+/// For each attack type with available attack and eligible enemies, emit a single
+/// `InitiateAttack { attack_type }` action. The player then picks targets one at a
+/// time via SubsetSelection.
 pub(super) fn enumerate_attack_declarations(
     state: &GameState,
     player_idx: usize,
@@ -177,51 +176,30 @@ pub(super) fn enumerate_attack_declarations(
 
     match combat.phase {
         CombatPhase::RangedSiege => {
-            // Ranged attacks: cannot target effectively Fortified enemies
-            enumerate_attack_type(
-                combat,
-                &player.combat_accumulator,
-                CombatType::Ranged,
-                true, // exclude fortified
-                modifiers,
-                actions,
-            );
-            // Siege attacks: can target all enemies
-            enumerate_attack_type(
-                combat,
-                &player.combat_accumulator,
-                CombatType::Siege,
-                false,
-                modifiers,
-                actions,
-            );
+            if has_available_attack_and_targets(combat, &player.combat_accumulator, CombatType::Ranged, true, modifiers) {
+                actions.push(LegalAction::InitiateAttack { attack_type: CombatType::Ranged });
+            }
+            if has_available_attack_and_targets(combat, &player.combat_accumulator, CombatType::Siege, false, modifiers) {
+                actions.push(LegalAction::InitiateAttack { attack_type: CombatType::Siege });
+            }
         }
         CombatPhase::Attack => {
-            // Melee attacks: can target all enemies (Elusive armor used)
-            enumerate_attack_type(
-                combat,
-                &player.combat_accumulator,
-                CombatType::Melee,
-                false,
-                modifiers,
-                actions,
-            );
+            if has_available_attack_and_targets(combat, &player.combat_accumulator, CombatType::Melee, false, modifiers) {
+                actions.push(LegalAction::InitiateAttack { attack_type: CombatType::Melee });
+            }
         }
         _ => {}
     }
 }
 
-fn enumerate_attack_type(
+/// Check if there is available attack of the given type AND eligible enemies to target.
+fn has_available_attack_and_targets(
     combat: &CombatState,
     accumulator: &CombatAccumulator,
     attack_type: CombatType,
     exclude_fortified: bool,
     modifiers: &[mk_types::modifier::ActiveModifier],
-    actions: &mut Vec<LegalAction>,
-) {
-    let phase = combat.phase;
-
-    // Get available attack elements for this type
+) -> bool {
     let (total_elements, assigned_elements) = match attack_type {
         CombatType::Melee => (
             &accumulator.attack.normal_elements,
@@ -239,21 +217,18 @@ fn enumerate_attack_type(
 
     let available = subtract_elements(total_elements, assigned_elements);
     if available.total() == 0 {
-        return;
+        return false;
     }
 
-    // Collect eligible (undefeated) enemies
-    let mut eligible: Vec<(usize, &CombatEnemy, &mk_data::enemies::EnemyDefinition)> = Vec::new();
-    for (idx, enemy) in combat.enemies.iter().enumerate() {
+    // At least one eligible (undefeated, non-fortified-if-ranged) enemy
+    combat.enemies.iter().any(|enemy| {
         if enemy.is_defeated {
-            continue;
+            return false;
         }
-
         let def = match get_enemy(enemy.enemy_id.as_str()) {
             Some(d) => d,
-            None => continue,
+            None => return false,
         };
-
         if exclude_fortified
             && crate::combat_resolution::is_effectively_fortified(
                 def,
@@ -262,94 +237,157 @@ fn enumerate_attack_type(
                 modifiers,
             )
         {
-            continue;
+            return false;
         }
+        true
+    })
+}
 
-        eligible.push((idx, enemy, def));
+/// Compute eligible enemy instance IDs for an attack type.
+pub(crate) fn eligible_attack_targets(
+    combat: &CombatState,
+    attack_type: CombatType,
+    modifiers: &[mk_types::modifier::ActiveModifier],
+) -> Vec<mk_types::ids::CombatInstanceId> {
+    let exclude_fortified = attack_type == CombatType::Ranged;
+    combat
+        .enemies
+        .iter()
+        .filter(|enemy| {
+            if enemy.is_defeated {
+                return false;
+            }
+            let def = match get_enemy(enemy.enemy_id.as_str()) {
+                Some(d) => d,
+                None => return false,
+            };
+            if exclude_fortified
+                && crate::combat_resolution::is_effectively_fortified(
+                    def,
+                    enemy.instance_id.as_str(),
+                    combat.is_at_fortified_site,
+                    modifiers,
+                )
+            {
+                return false;
+            }
+            true
+        })
+        .map(|e| e.instance_id.clone())
+        .collect()
+}
+
+/// Check if the currently selected subset of enemies can be defeated with available attack.
+///
+/// Used by pending.rs to gate SubsetConfirm for AttackTargets.
+pub(crate) fn is_attack_subset_sufficient(
+    state: &GameState,
+    player_idx: usize,
+    ss: &mk_types::pending::SubsetSelectionState,
+    eligible_instance_ids: &[mk_types::ids::CombatInstanceId],
+    attack_type: CombatType,
+) -> bool {
+    let combat = match state.combat.as_ref() {
+        Some(c) => c,
+        None => return false,
+    };
+
+    let accumulator = &state.players[player_idx].combat_accumulator;
+    let modifiers = &state.active_modifiers;
+
+    // Get available attack for this type
+    let (total_elements, assigned_elements) = match attack_type {
+        CombatType::Melee => (
+            &accumulator.attack.normal_elements,
+            &accumulator.assigned_attack.normal_elements,
+        ),
+        CombatType::Ranged => (
+            &accumulator.attack.ranged_elements,
+            &accumulator.assigned_attack.ranged_elements,
+        ),
+        CombatType::Siege => (
+            &accumulator.attack.siege_elements,
+            &accumulator.assigned_attack.siege_elements,
+        ),
+    };
+
+    let available = subtract_elements(total_elements, assigned_elements);
+
+    // Resolve selected pool indices → actual instance IDs
+    let mut target_ids: Vec<mk_types::ids::CombatInstanceId> = Vec::new();
+    let mut targets: Vec<(&CombatEnemy, &mk_data::enemies::EnemyDefinition)> = Vec::new();
+
+    for &pool_idx in ss.selected.iter() {
+        let instance_id = match eligible_instance_ids.get(pool_idx) {
+            Some(id) => id,
+            None => return false,
+        };
+        let enemy = match combat.enemies.iter().find(|e| e.instance_id == *instance_id) {
+            Some(e) => e,
+            None => return false,
+        };
+        let def = match get_enemy(enemy.enemy_id.as_str()) {
+            Some(d) => d,
+            None => return false,
+        };
+        target_ids.push(instance_id.clone());
+        targets.push((enemy, def));
     }
 
-    if eligible.is_empty() {
-        return;
-    }
-
-    // Enumerate non-empty subsets (bit-mask over eligible enemies)
-    let n = eligible.len();
-    for mask in 1..(1u32 << n) {
-        let mut targets: Vec<(&CombatEnemy, &mk_data::enemies::EnemyDefinition)> = Vec::new();
-        let mut target_ids: Vec<mk_types::ids::CombatInstanceId> = Vec::new();
-
-        for (bit, &(_, enemy, def)) in eligible.iter().enumerate() {
-            if mask & (1 << bit) != 0 {
-                targets.push((enemy, def));
-                target_ids.push(enemy.instance_id.clone());
+    // Combine resistances (accounting for RemoveResistances modifier)
+    let combined_resistances = {
+        let mut combined = Vec::new();
+        for (enemy, def) in &targets {
+            if crate::combat_resolution::are_resistances_removed(
+                modifiers,
+                enemy.instance_id.as_str(),
+            ) {
+                continue;
+            }
+            for &res in def.resistances {
+                if !combined.contains(&res) {
+                    combined.push(res);
+                }
             }
         }
+        combined
+    };
+    let effective_attack = calculate_effective_attack(&available, &combined_resistances);
 
-        // Calculate if attack is sufficient (including vampiric + defend + modifier bonuses)
-        // Combine resistances, accounting for RemoveResistances modifier
-        let combined_resistances = {
-            let mut combined = Vec::new();
-            for (enemy, def) in &targets {
-                if crate::combat_resolution::are_resistances_removed(
+    // Compute defend assignments for this target subset
+    let defend_assignments = auto_assign_defend(
+        &combat.enemies,
+        &target_ids,
+        &combat.used_defend,
+    );
+
+    let total_armor: u32 = targets
+        .iter()
+        .map(|(enemy, def)| {
+            let vampiric = combat
+                .vampiric_armor_bonus
+                .get(enemy.instance_id.as_str())
+                .copied()
+                .unwrap_or(0);
+            let defend = defend_assignments
+                .get(enemy.instance_id.as_str())
+                .copied()
+                .unwrap_or(0);
+            let base = get_effective_armor(def, combat.phase, vampiric, defend);
+            let (armor_change, armor_min) =
+                crate::combat_resolution::get_enemy_armor_modifier(
                     modifiers,
                     enemy.instance_id.as_str(),
-                ) {
-                    continue; // This enemy contributes no resistances
-                }
-                for &res in def.resistances {
-                    if !combined.contains(&res) {
-                        combined.push(res);
-                    }
-                }
+                );
+            if armor_change != 0 {
+                (base as i32 + armor_change).max(armor_min as i32) as u32
+            } else {
+                base
             }
-            combined
-        };
-        let effective_attack = calculate_effective_attack(&available, &combined_resistances);
+        })
+        .sum();
 
-        // Compute defend assignments for this target subset
-        let defend_assignments = auto_assign_defend(
-            &combat.enemies,
-            &target_ids,
-            &combat.used_defend,
-        );
-
-        let total_armor: u32 = targets
-            .iter()
-            .map(|(enemy, def)| {
-                let vampiric = combat
-                    .vampiric_armor_bonus
-                    .get(enemy.instance_id.as_str())
-                    .copied()
-                    .unwrap_or(0);
-                let defend = defend_assignments
-                    .get(enemy.instance_id.as_str())
-                    .copied()
-                    .unwrap_or(0);
-                let base = get_effective_armor(def, phase, vampiric, defend);
-                // Apply armor modifier from SelectCombatEnemy abilities
-                let (armor_change, armor_min) =
-                    crate::combat_resolution::get_enemy_armor_modifier(
-                        modifiers,
-                        enemy.instance_id.as_str(),
-                    );
-                if armor_change != 0 {
-                    (base as i32 + armor_change).max(armor_min as i32) as u32
-                } else {
-                    base
-                }
-            })
-            .sum();
-
-        if effective_attack >= total_armor {
-            // Sort target IDs for determinism
-            target_ids.sort();
-
-            actions.push(LegalAction::DeclareAttack {
-                target_instance_ids: target_ids,
-                attack_type,
-            });
-        }
-    }
+    effective_attack >= total_armor
 }
 
 // =============================================================================
@@ -604,23 +642,17 @@ mod tests {
         assert_eq!(actions.len(), 1);
         assert!(matches!(
             &actions[0],
-            LegalAction::DeclareAttack {
-                target_instance_ids,
+            LegalAction::InitiateAttack {
                 attack_type: CombatType::Melee,
-            } if target_instance_ids.len() == 1
+            }
         ));
     }
 
     #[test]
-    fn attack_not_enumerated_when_insufficient() {
+    fn attack_not_enumerated_when_no_attack() {
         let mut state = setup_combat_game(&["prowlers"]); // armor 3
         state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
-        state.players[0].combat_accumulator.attack.normal_elements = ElementalValues {
-            physical: 2,
-            fire: 0,
-            ice: 0,
-            cold_fire: 0,
-        };
+        // No attack accumulated (all zeros)
 
         let mut actions = Vec::new();
         enumerate_attack_declarations(&state, 0, &mut actions);
@@ -645,7 +677,7 @@ mod tests {
         // Should have no Ranged actions (Fortified excluded) but Siege actions should work
         let ranged = actions
             .iter()
-            .filter(|a| matches!(a, LegalAction::DeclareAttack { attack_type: CombatType::Ranged, .. }))
+            .filter(|a| matches!(a, LegalAction::InitiateAttack { attack_type: CombatType::Ranged }))
             .count();
         assert_eq!(ranged, 0, "Fortified enemy should not be targetable by ranged");
     }
@@ -665,7 +697,7 @@ mod tests {
 
         let siege = actions
             .iter()
-            .filter(|a| matches!(a, LegalAction::DeclareAttack { attack_type: CombatType::Siege, .. }))
+            .filter(|a| matches!(a, LegalAction::InitiateAttack { attack_type: CombatType::Siege }))
             .count();
         assert!(siege > 0, "Fortified enemy should be targetable by siege");
     }
