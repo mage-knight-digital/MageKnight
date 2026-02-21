@@ -222,11 +222,21 @@ fn discard_costs_payable_with_hand(effect: &CardEffect, remaining_hand: &[CardId
         CardEffect::DiscardCost {
             count,
             filter_wounds,
+            wounds_only,
             then_effect,
         } => {
             let eligible = remaining_hand
                 .iter()
-                .filter(|id| !*filter_wounds || id.as_str() != WOUND_CARD_ID)
+                .filter(|id| {
+                    let is_wound = id.as_str() == WOUND_CARD_ID;
+                    if *wounds_only {
+                        is_wound
+                    } else if *filter_wounds {
+                        !is_wound
+                    } else {
+                        true
+                    }
+                })
                 .count() as u32;
             eligible >= *count && discard_costs_payable_with_hand(then_effect, remaining_hand)
         }

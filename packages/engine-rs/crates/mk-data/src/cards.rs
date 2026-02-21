@@ -335,6 +335,7 @@ fn improvisation() -> CardDefinition {
         basic_effect: CardEffect::DiscardCost {
             count: 1,
             filter_wounds: true,
+            wounds_only: false,
             then_effect: Box::new(CardEffect::Choice {
                 options: vec![
                     CardEffect::GainMove { amount: 3 },
@@ -354,6 +355,7 @@ fn improvisation() -> CardDefinition {
         powered_effect: CardEffect::DiscardCost {
             count: 1,
             filter_wounds: true,
+            wounds_only: false,
             then_effect: Box::new(CardEffect::Choice {
                 options: vec![
                     CardEffect::GainMove { amount: 5 },

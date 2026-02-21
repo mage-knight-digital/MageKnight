@@ -6,10 +6,11 @@
 
 use mk_types::effect::{CardEffect, EffectCondition, ScalingFactor, UnitFilter};
 use mk_types::enums::{
-    BasicManaColor, CombatType, Element, Hero, ManaColor, UnitState,
+    BasicManaColor, CombatPhase, CombatType, Element, Hero, ManaColor, UnitState,
 };
 use mk_types::modifier::{
-    CombatValueType, ModifierDuration, ModifierEffect, ModifierScope, RuleOverride,
+    CombatValueType, LeadershipBonusType, ModifierDuration, ModifierEffect, ModifierScope,
+    RuleOverride, TerrainOrAll,
 };
 
 // =============================================================================
@@ -346,9 +347,32 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
                 ],
             }),
         }),
-        "tovak_shield_mastery" => Some(stub("tovak_shield_mastery", SkillUsageType::OncePerTurn, SkillPhaseRestriction::BlockOnly)),
+        "tovak_shield_mastery" => Some(SkillDefinition {
+            id: "tovak_shield_mastery",
+            usage_type: SkillUsageType::OncePerTurn,
+            phase_restriction: SkillPhaseRestriction::BlockOnly,
+            is_motivation: false,
+            effect: Some(CardEffect::Choice {
+                options: vec![
+                    CardEffect::GainBlock { amount: 3, element: Element::Physical },
+                    CardEffect::GainBlock { amount: 2, element: Element::Fire },
+                    CardEffect::GainBlock { amount: 2, element: Element::Ice },
+                ],
+            }),
+        }),
         "tovak_resistance_break" => Some(stub("tovak_resistance_break", SkillUsageType::OncePerTurn, SkillPhaseRestriction::CombatOnly)),
-        "tovak_i_feel_no_pain" => Some(stub("tovak_i_feel_no_pain", SkillUsageType::Passive, SkillPhaseRestriction::None)),
+        "tovak_i_feel_no_pain" => Some(SkillDefinition {
+            id: "tovak_i_feel_no_pain",
+            usage_type: SkillUsageType::OncePerTurn,
+            phase_restriction: SkillPhaseRestriction::NoCombat,
+            is_motivation: false,
+            effect: Some(CardEffect::DiscardCost {
+                count: 1,
+                filter_wounds: false,
+                wounds_only: true,
+                then_effect: Box::new(CardEffect::DrawCards { count: 1 }),
+            }),
+        }),
         "tovak_i_dont_give_a_damn" => Some(stub("tovak_i_dont_give_a_damn", SkillUsageType::OncePerTurn, SkillPhaseRestriction::NoCombat)),
         "tovak_who_needs_magic" => Some(stub("tovak_who_needs_magic", SkillUsageType::OncePerTurn, SkillPhaseRestriction::NoCombat)),
         "tovak_motivation" => Some(SkillDefinition {
@@ -465,7 +489,62 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
                 maximum: None,
             }),
         }),
-        "goldyx_flight" => Some(stub("goldyx_flight", SkillUsageType::OncePerTurn, SkillPhaseRestriction::NoCombat)),
+        // Flight: Choice A = free adjacent move (all terrain 0), Choice B = 2 move (all terrain 1).
+        // Both options ignore rampaging provocation.
+        "goldyx_flight" => Some(SkillDefinition {
+            id: "goldyx_flight",
+            usage_type: SkillUsageType::OncePerRound,
+            phase_restriction: SkillPhaseRestriction::NoCombat,
+            is_motivation: false,
+            effect: Some(CardEffect::Choice {
+                options: vec![
+                    CardEffect::Compound {
+                        effects: vec![
+                            CardEffect::ApplyModifier {
+                                effect: ModifierEffect::TerrainCost {
+                                    terrain: TerrainOrAll::All,
+                                    amount: 0,
+                                    minimum: 0,
+                                    replace_cost: Some(0),
+                                },
+                                duration: ModifierDuration::Turn,
+                                scope: ModifierScope::SelfScope,
+                            },
+                            CardEffect::ApplyModifier {
+                                effect: ModifierEffect::RuleOverride {
+                                    rule: RuleOverride::IgnoreRampagingProvoke,
+                                },
+                                duration: ModifierDuration::Turn,
+                                scope: ModifierScope::SelfScope,
+                            },
+                            CardEffect::GainMove { amount: 1 },
+                        ],
+                    },
+                    CardEffect::Compound {
+                        effects: vec![
+                            CardEffect::ApplyModifier {
+                                effect: ModifierEffect::TerrainCost {
+                                    terrain: TerrainOrAll::All,
+                                    amount: 0,
+                                    minimum: 0,
+                                    replace_cost: Some(1),
+                                },
+                                duration: ModifierDuration::Turn,
+                                scope: ModifierScope::SelfScope,
+                            },
+                            CardEffect::ApplyModifier {
+                                effect: ModifierEffect::RuleOverride {
+                                    rule: RuleOverride::IgnoreRampagingProvoke,
+                                },
+                                duration: ModifierDuration::Turn,
+                                scope: ModifierScope::SelfScope,
+                            },
+                            CardEffect::GainMove { amount: 2 },
+                        ],
+                    },
+                ],
+            }),
+        }),
         "goldyx_universal_power" => Some(stub("goldyx_universal_power", SkillUsageType::OncePerRound, SkillPhaseRestriction::NoCombat)),
         "goldyx_motivation" => Some(SkillDefinition {
             id: "goldyx_motivation",
@@ -574,7 +653,41 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
                 ],
             }),
         }),
-        "norowas_leadership" => Some(stub("norowas_leadership", SkillUsageType::Passive, SkillPhaseRestriction::None)),
+        // Leadership: +3 Block, +2 Attack, or +1 Ranged Attack bonus to next unit activation
+        "norowas_leadership" => Some(SkillDefinition {
+            id: "norowas_leadership",
+            usage_type: SkillUsageType::OncePerTurn,
+            phase_restriction: SkillPhaseRestriction::CombatOnly,
+            is_motivation: false,
+            effect: Some(CardEffect::Choice {
+                options: vec![
+                    CardEffect::ApplyModifier {
+                        effect: ModifierEffect::LeadershipBonus {
+                            bonus_type: LeadershipBonusType::Block,
+                            amount: 3,
+                        },
+                        duration: ModifierDuration::Turn,
+                        scope: ModifierScope::SelfScope,
+                    },
+                    CardEffect::ApplyModifier {
+                        effect: ModifierEffect::LeadershipBonus {
+                            bonus_type: LeadershipBonusType::Attack,
+                            amount: 2,
+                        },
+                        duration: ModifierDuration::Turn,
+                        scope: ModifierScope::SelfScope,
+                    },
+                    CardEffect::ApplyModifier {
+                        effect: ModifierEffect::LeadershipBonus {
+                            bonus_type: LeadershipBonusType::RangedAttack,
+                            amount: 1,
+                        },
+                        duration: ModifierDuration::Turn,
+                        scope: ModifierScope::SelfScope,
+                    },
+                ],
+            }),
+        }),
         "norowas_bonds_of_loyalty" => Some(stub("norowas_bonds_of_loyalty", SkillUsageType::Passive, SkillPhaseRestriction::None)),
         "norowas_motivation" => Some(SkillDefinition {
             id: "norowas_motivation",
@@ -640,7 +753,28 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
                 else_effect: Some(Box::new(CardEffect::GainInfluence { amount: 1 })),
             }),
         }),
-        "wolfhawk_deadly_aim" => Some(stub("wolfhawk_deadly_aim", SkillUsageType::OncePerTurn, SkillPhaseRestriction::RangedSiegeOrAttack)),
+        // Deadly Aim: Ranged/Siege phase → Ranged Attack 1, Attack phase → Attack 2
+        "wolfhawk_deadly_aim" => Some(SkillDefinition {
+            id: "wolfhawk_deadly_aim",
+            usage_type: SkillUsageType::OncePerTurn,
+            phase_restriction: SkillPhaseRestriction::RangedSiegeOrAttack,
+            is_motivation: false,
+            effect: Some(CardEffect::Conditional {
+                condition: EffectCondition::InPhase {
+                    phases: vec![CombatPhase::Attack],
+                },
+                then_effect: Box::new(CardEffect::GainAttack {
+                    amount: 2,
+                    combat_type: CombatType::Melee,
+                    element: Element::Physical,
+                }),
+                else_effect: Some(Box::new(CardEffect::GainAttack {
+                    amount: 1,
+                    combat_type: CombatType::Ranged,
+                    element: Element::Physical,
+                })),
+            }),
+        }),
         "wolfhawk_know_your_prey" => Some(stub("wolfhawk_know_your_prey", SkillUsageType::OncePerTurn, SkillPhaseRestriction::CombatOnly)),
         "wolfhawk_taunt" => Some(stub("wolfhawk_taunt", SkillUsageType::OncePerTurn, SkillPhaseRestriction::CombatOnly)),
         "wolfhawk_dueling" => Some(stub("wolfhawk_dueling", SkillUsageType::OncePerTurn, SkillPhaseRestriction::CombatOnly)),
@@ -685,7 +819,33 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
                 ],
             }),
         }),
-        "krang_battle_hardened" => Some(stub("krang_battle_hardened", SkillUsageType::Passive, SkillPhaseRestriction::None)),
+        // Battle Hardened: -2 Physical damage OR -1 Fire/Ice/ColdFire damage
+        "krang_battle_hardened" => Some(SkillDefinition {
+            id: "krang_battle_hardened",
+            usage_type: SkillUsageType::OncePerTurn,
+            phase_restriction: SkillPhaseRestriction::CombatOnly,
+            is_motivation: false,
+            effect: Some(CardEffect::Choice {
+                options: vec![
+                    CardEffect::ApplyModifier {
+                        effect: ModifierEffect::HeroDamageReduction {
+                            amount: 2,
+                            elements: vec![Element::Physical],
+                        },
+                        duration: ModifierDuration::Combat,
+                        scope: ModifierScope::SelfScope,
+                    },
+                    CardEffect::ApplyModifier {
+                        effect: ModifierEffect::HeroDamageReduction {
+                            amount: 1,
+                            elements: vec![Element::Fire, Element::Ice, Element::ColdFire],
+                        },
+                        duration: ModifierDuration::Combat,
+                        scope: ModifierScope::SelfScope,
+                    },
+                ],
+            }),
+        }),
         "krang_battle_frenzy" => Some(stub("krang_battle_frenzy", SkillUsageType::OncePerRound, SkillPhaseRestriction::CombatOnly)),
         "krang_shamanic_ritual" => Some(SkillDefinition {
             id: "krang_shamanic_ritual",
@@ -730,11 +890,96 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
         // =====================================================================
         // Braevalar
         // =====================================================================
-        "braevalar_elemental_resistance" => Some(stub("braevalar_elemental_resistance", SkillUsageType::Passive, SkillPhaseRestriction::None)),
+        // Elemental Resistance: -2 Fire/Ice damage OR -1 Physical/ColdFire damage
+        "braevalar_elemental_resistance" => Some(SkillDefinition {
+            id: "braevalar_elemental_resistance",
+            usage_type: SkillUsageType::OncePerTurn,
+            phase_restriction: SkillPhaseRestriction::CombatOnly,
+            is_motivation: false,
+            effect: Some(CardEffect::Choice {
+                options: vec![
+                    CardEffect::ApplyModifier {
+                        effect: ModifierEffect::HeroDamageReduction {
+                            amount: 2,
+                            elements: vec![Element::Fire, Element::Ice],
+                        },
+                        duration: ModifierDuration::Combat,
+                        scope: ModifierScope::SelfScope,
+                    },
+                    CardEffect::ApplyModifier {
+                        effect: ModifierEffect::HeroDamageReduction {
+                            amount: 1,
+                            elements: vec![Element::Physical, Element::ColdFire],
+                        },
+                        duration: ModifierDuration::Combat,
+                        scope: ModifierScope::SelfScope,
+                    },
+                ],
+            }),
+        }),
         "braevalar_feral_allies" => Some(stub("braevalar_feral_allies", SkillUsageType::Passive, SkillPhaseRestriction::None)),
-        "braevalar_thunderstorm" => Some(stub("braevalar_thunderstorm", SkillUsageType::OncePerRound, SkillPhaseRestriction::CombatOnly)),
-        "braevalar_lightning_storm" => Some(stub("braevalar_lightning_storm", SkillUsageType::OncePerRound, SkillPhaseRestriction::CombatOnly)),
-        "braevalar_beguile" => Some(stub("braevalar_beguile", SkillUsageType::OncePerTurn, SkillPhaseRestriction::NoCombat)),
+        // Thunderstorm: gain (Green OR Blue) AND (Green OR White) mana tokens
+        "braevalar_thunderstorm" => Some(SkillDefinition {
+            id: "braevalar_thunderstorm",
+            usage_type: SkillUsageType::OncePerRound,
+            phase_restriction: SkillPhaseRestriction::None,
+            is_motivation: false,
+            effect: Some(CardEffect::Compound {
+                effects: vec![
+                    CardEffect::Choice {
+                        options: vec![
+                            CardEffect::GainMana { color: ManaColor::Green, amount: 1 },
+                            CardEffect::GainMana { color: ManaColor::Blue, amount: 1 },
+                        ],
+                    },
+                    CardEffect::Choice {
+                        options: vec![
+                            CardEffect::GainMana { color: ManaColor::Green, amount: 1 },
+                            CardEffect::GainMana { color: ManaColor::White, amount: 1 },
+                        ],
+                    },
+                ],
+            }),
+        }),
+        // Lightning Storm: gain (Blue OR Green) AND (Blue OR Red) mana tokens
+        "braevalar_lightning_storm" => Some(SkillDefinition {
+            id: "braevalar_lightning_storm",
+            usage_type: SkillUsageType::OncePerRound,
+            phase_restriction: SkillPhaseRestriction::None,
+            is_motivation: false,
+            effect: Some(CardEffect::Compound {
+                effects: vec![
+                    CardEffect::Choice {
+                        options: vec![
+                            CardEffect::GainMana { color: ManaColor::Blue, amount: 1 },
+                            CardEffect::GainMana { color: ManaColor::Green, amount: 1 },
+                        ],
+                    },
+                    CardEffect::Choice {
+                        options: vec![
+                            CardEffect::GainMana { color: ManaColor::Blue, amount: 1 },
+                            CardEffect::GainMana { color: ManaColor::Red, amount: 1 },
+                        ],
+                    },
+                ],
+            }),
+        }),
+        // Beguile: Influence 4 at Magical Glade, 2 at fortified sites, 3 elsewhere
+        "braevalar_beguile" => Some(SkillDefinition {
+            id: "braevalar_beguile",
+            usage_type: SkillUsageType::OncePerTurn,
+            phase_restriction: SkillPhaseRestriction::NoCombat,
+            is_motivation: false,
+            effect: Some(CardEffect::Conditional {
+                condition: EffectCondition::AtMagicalGlade,
+                then_effect: Box::new(CardEffect::GainInfluence { amount: 4 }),
+                else_effect: Some(Box::new(CardEffect::Conditional {
+                    condition: EffectCondition::AtFortifiedSite,
+                    then_effect: Box::new(CardEffect::GainInfluence { amount: 2 }),
+                    else_effect: Some(Box::new(CardEffect::GainInfluence { amount: 3 })),
+                })),
+            }),
+        }),
         "braevalar_forked_lightning" => Some(stub("braevalar_forked_lightning", SkillUsageType::OncePerRound, SkillPhaseRestriction::CombatOnly)),
         "braevalar_shapeshift" => Some(stub("braevalar_shapeshift", SkillUsageType::OncePerRound, SkillPhaseRestriction::CombatOnly)),
         "braevalar_secret_ways" => Some(stub("braevalar_secret_ways", SkillUsageType::Passive, SkillPhaseRestriction::None)),
@@ -818,8 +1063,9 @@ mod tests {
     }
 
     #[test]
-    fn tier1_skills_have_effects() {
-        let tier1 = [
+    fn implemented_skills_have_effects() {
+        let implemented = [
+            // Tier 1 (original 30)
             "arythea_dark_paths",
             "arythea_burning_power",
             "arythea_hot_swordsmanship",
@@ -850,12 +1096,24 @@ mod tests {
             "krang_shamanic_ritual",
             "krang_spirit_guides",
             "krang_arcane_disguise",
+            // Tier 2 (pure data — existing CardEffect variants)
+            "tovak_shield_mastery",
+            "tovak_i_feel_no_pain",
+            "goldyx_flight",
+            "wolfhawk_deadly_aim",
+            "braevalar_thunderstorm",
+            "braevalar_lightning_storm",
+            "braevalar_beguile",
+            // Tier 3 (existing modifier types)
+            "krang_battle_hardened",
+            "braevalar_elemental_resistance",
+            "norowas_leadership",
         ];
-        for id in tier1 {
+        for id in implemented {
             let skill = get_skill(id).unwrap_or_else(|| panic!("Missing: {}", id));
             assert!(
                 skill.effect.is_some(),
-                "Tier 1 skill {} should have an effect",
+                "Implemented skill {} should have an effect",
                 id
             );
         }
@@ -928,8 +1186,8 @@ mod tests {
         let stubs = [
             "arythea_power_of_pain",
             "arythea_invocation",
-            "tovak_shield_mastery",
             "braevalar_shapeshift",
+            "krang_puppet_master",
         ];
         for id in stubs {
             let skill = get_skill(id).unwrap();

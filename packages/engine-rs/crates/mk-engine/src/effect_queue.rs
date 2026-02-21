@@ -710,8 +710,9 @@ fn resolve_one(state: &mut GameState, player_idx: usize, effect: &CardEffect) ->
         CardEffect::DiscardCost {
             count,
             filter_wounds,
+            wounds_only,
             then_effect,
-        } => apply_discard_cost(state, player_idx, *count, *filter_wounds, then_effect),
+        } => apply_discard_cost(state, player_idx, *count, *filter_wounds, *wounds_only, then_effect),
         CardEffect::ApplyModifier {
             effect,
             duration,
@@ -1143,6 +1144,7 @@ fn apply_discard_cost(
     player_idx: usize,
     count: u32,
     filter_wounds: bool,
+    wounds_only: bool,
     then_effect: &CardEffect,
 ) -> ResolveResult {
     let player = &state.players[player_idx];
@@ -1152,7 +1154,16 @@ fn apply_discard_cost(
         .hand
         .iter()
         .enumerate()
-        .filter(|(_, c)| !filter_wounds || c.as_str() != WOUND_CARD_ID)
+        .filter(|(_, c)| {
+            let is_wound = c.as_str() == WOUND_CARD_ID;
+            if wounds_only {
+                is_wound
+            } else if filter_wounds {
+                !is_wound
+            } else {
+                true
+            }
+        })
         .map(|(i, _)| i)
         .collect();
 
@@ -3098,6 +3109,7 @@ mod tests {
             CardEffect::DiscardCost {
                 count: 1,
                 filter_wounds: true,
+                wounds_only: false,
                 then_effect: Box::new(CardEffect::GainMove { amount: 3 }),
             },
             None,
@@ -3117,6 +3129,7 @@ mod tests {
             CardEffect::DiscardCost {
                 count: 1,
                 filter_wounds: false,
+                wounds_only: false,
                 then_effect: Box::new(CardEffect::GainMove { amount: 3 }),
             },
             None,
@@ -3138,6 +3151,7 @@ mod tests {
             CardEffect::DiscardCost {
                 count: 1,
                 filter_wounds: false,
+                wounds_only: false,
                 then_effect: Box::new(CardEffect::GainMove { amount: 3 }),
             },
             None,
@@ -3176,6 +3190,7 @@ mod tests {
             CardEffect::DiscardCost {
                 count: 1,
                 filter_wounds: true,
+                wounds_only: false,
                 then_effect: Box::new(CardEffect::GainMove { amount: 3 }),
             },
             None,
@@ -3197,6 +3212,7 @@ mod tests {
             CardEffect::DiscardCost {
                 count: 1,
                 filter_wounds: true,
+                wounds_only: false,
                 then_effect: Box::new(CardEffect::Choice {
                     options: vec![
                         CardEffect::GainMove { amount: 3 },

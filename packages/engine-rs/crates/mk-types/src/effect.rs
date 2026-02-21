@@ -378,6 +378,9 @@ pub enum CardEffect {
     DiscardCost {
         count: u32,
         filter_wounds: bool,
+        /// When true, only wound cards are eligible (inverts filter_wounds).
+        #[serde(default)]
+        wounds_only: bool,
         then_effect: Box<CardEffect>,
     },
     ApplyModifier {

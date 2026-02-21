@@ -256,4 +256,123 @@ mod tests {
             "RangedSiegeOrAttack should be available in RangedSiege phase"
         );
     }
+
+    // === Tier 2+3 skill enumeration tests ===
+
+    #[test]
+    fn shield_mastery_only_in_block_phase() {
+        let mut state = test_state_with_skill("tovak_shield_mastery");
+
+        // Outside combat → not available
+        let mut actions = Vec::new();
+        enumerate_skill_activations(&state, 0, &mut actions);
+        assert!(
+            !actions.iter().any(|a| matches!(a, LegalAction::UseSkill { skill_id } if skill_id.as_str() == "tovak_shield_mastery")),
+            "BlockOnly skill should not be available outside combat"
+        );
+
+        // Block phase → available
+        state.combat = Some(Box::new(CombatState {
+            phase: CombatPhase::Block,
+            ..CombatState::default()
+        }));
+        let mut actions = Vec::new();
+        enumerate_skill_activations(&state, 0, &mut actions);
+        assert!(
+            actions.iter().any(|a| matches!(a, LegalAction::UseSkill { skill_id } if skill_id.as_str() == "tovak_shield_mastery")),
+            "BlockOnly skill should be available in Block phase"
+        );
+
+        // Attack phase → not available
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+        let mut actions = Vec::new();
+        enumerate_skill_activations(&state, 0, &mut actions);
+        assert!(
+            !actions.iter().any(|a| matches!(a, LegalAction::UseSkill { skill_id } if skill_id.as_str() == "tovak_shield_mastery")),
+            "BlockOnly skill should not be available in Attack phase"
+        );
+    }
+
+    #[test]
+    fn battle_hardened_combat_only() {
+        let mut state = test_state_with_skill("krang_battle_hardened");
+
+        // Outside combat → not available
+        let mut actions = Vec::new();
+        enumerate_skill_activations(&state, 0, &mut actions);
+        assert!(
+            !actions.iter().any(|a| matches!(a, LegalAction::UseSkill { skill_id } if skill_id.as_str() == "krang_battle_hardened")),
+            "CombatOnly skill should not be available outside combat"
+        );
+
+        // In combat → available
+        state.combat = Some(Box::new(CombatState::default()));
+        let mut actions = Vec::new();
+        enumerate_skill_activations(&state, 0, &mut actions);
+        assert!(
+            actions.iter().any(|a| matches!(a, LegalAction::UseSkill { skill_id } if skill_id.as_str() == "krang_battle_hardened")),
+            "CombatOnly skill should be available in combat"
+        );
+    }
+
+    #[test]
+    fn leadership_combat_only() {
+        let mut state = test_state_with_skill("norowas_leadership");
+
+        // Outside combat → not available (combat-only)
+        let mut actions = Vec::new();
+        enumerate_skill_activations(&state, 0, &mut actions);
+        assert!(
+            !actions.iter().any(|a| matches!(a, LegalAction::UseSkill { skill_id } if skill_id.as_str() == "norowas_leadership")),
+        );
+
+        // In combat → available
+        state.combat = Some(Box::new(CombatState::default()));
+        let mut actions = Vec::new();
+        enumerate_skill_activations(&state, 0, &mut actions);
+        assert!(
+            actions.iter().any(|a| matches!(a, LegalAction::UseSkill { skill_id } if skill_id.as_str() == "norowas_leadership")),
+        );
+    }
+
+    #[test]
+    fn tier2_skills_enumerable_outside_combat() {
+        // These Tier 2 NoCombat skills should all be enumerable during normal turn
+        let no_combat_skills = [
+            "braevalar_beguile",
+            "tovak_i_feel_no_pain",
+        ];
+        for id in no_combat_skills {
+            let state = test_state_with_skill(id);
+            let mut actions = Vec::new();
+            enumerate_skill_activations(&state, 0, &mut actions);
+            assert!(
+                actions.iter().any(|a| matches!(a, LegalAction::UseSkill { skill_id } if skill_id.as_str() == id)),
+                "{} should be enumerable during normal turn",
+                id
+            );
+        }
+    }
+
+    #[test]
+    fn tier2_no_restriction_skills_available_everywhere() {
+        // goldyx_flight is OncePerRound+NoCombat, braevalar_thunderstorm is OncePerRound+None
+        let state = test_state_with_skill("braevalar_thunderstorm");
+        let mut actions = Vec::new();
+        enumerate_skill_activations(&state, 0, &mut actions);
+        assert!(
+            actions.iter().any(|a| matches!(a, LegalAction::UseSkill { skill_id } if skill_id.as_str() == "braevalar_thunderstorm")),
+            "No-restriction skill should be available outside combat"
+        );
+
+        // Also in combat
+        let mut state = test_state_with_skill("braevalar_thunderstorm");
+        state.combat = Some(Box::new(CombatState::default()));
+        let mut actions = Vec::new();
+        enumerate_skill_activations(&state, 0, &mut actions);
+        assert!(
+            actions.iter().any(|a| matches!(a, LegalAction::UseSkill { skill_id } if skill_id.as_str() == "braevalar_thunderstorm")),
+            "No-restriction skill should be available in combat"
+        );
+    }
 }
