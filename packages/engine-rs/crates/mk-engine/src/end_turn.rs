@@ -510,37 +510,26 @@ fn check_round_end(state: &mut GameState, current_player_idx: usize) -> bool {
 
 /// Finalize game end: set game_ended, phase, winning_player_id, final_score_result.
 ///
-/// Matches TS scoring in `endRound/gameEnd.ts` and `endTurn/index.ts`:
-/// - Determines winner by highest fame
-/// - Populates final_score_result with per-player fame
+/// Uses the full scoring system (achievements, modules) from the scenario config.
 fn finalize_game_end(state: &mut GameState) {
     state.game_ended = true;
     state.phase = GamePhase::End;
     state.final_turns_remaining = Some(0);
 
-    // Calculate winning player (highest fame, None if tied)
-    let mut best_fame = 0u32;
-    let mut best_player_id: Option<PlayerId> = None;
-    let mut is_tied = false;
+    // Calculate full scoring result
+    let result = crate::scoring::calculate_final_scores(state);
 
-    for player in &state.players {
-        if player.fame > best_fame {
-            best_fame = player.fame;
-            best_player_id = Some(player.id.clone());
-            is_tied = false;
-        } else if player.fame == best_fame && best_player_id.is_some() {
-            is_tied = true;
-        }
-    }
+    // Determine winning player from rankings
+    state.winning_player_id = if result.is_tied {
+        None
+    } else {
+        result
+            .rankings
+            .first()
+            .map(|id| PlayerId::from(id.as_str()))
+    };
 
-    state.winning_player_id = if is_tied { None } else { best_player_id };
-
-    // Build simple fame-based score result
-    let mut scores = std::collections::BTreeMap::new();
-    for player in &state.players {
-        scores.insert(player.id.as_str().to_string(), player.fame);
-    }
-    state.final_score_result = Some(FinalScoreResult { scores });
+    state.final_score_result = Some(result);
 }
 
 // =============================================================================
@@ -1951,11 +1940,10 @@ mod tests {
         assert!(state.game_ended);
         let score_result = state.final_score_result.as_ref()
             .expect("final_score_result should be populated");
-        let player_id = state.players[0].id.as_str().to_string();
         assert_eq!(
-            score_result.scores.get(&player_id),
-            Some(&20),
-            "Score should equal player fame"
+            score_result.player_results[0].base_score,
+            20,
+            "Base score should equal player fame"
         );
     }
 

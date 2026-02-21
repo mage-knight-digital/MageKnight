@@ -679,11 +679,19 @@ pub struct ScenarioConfig {
     pub night_rounds: u32,
     pub total_rounds: u32,
 
+    // Player setup
+    pub min_players: u32,
+    pub max_players: u32,
+    pub starting_fame: u32,
+    pub starting_reputation: i8,
+
     // Special rules
     pub skills_enabled: bool,
     pub elite_units_enabled: bool,
+    pub pvp_enabled: bool,
     pub spells_available: bool,
     pub advanced_actions_available: bool,
+    pub enabled_expansions: Vec<crate::scoring::ExpansionId>,
     pub fame_per_tile_explored: u32,
     pub cities_can_be_entered: bool,
     pub default_city_level: u32,
@@ -694,12 +702,9 @@ pub struct ScenarioConfig {
 
     // End condition
     pub end_trigger: ScenarioEndTrigger,
-}
 
-/// Final score result.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FinalScoreResult {
-    pub scores: BTreeMap<String, u32>,
+    // Scoring
+    pub scoring_config: Option<crate::scoring::ScenarioScoringConfig>,
 }
 
 // =============================================================================
@@ -764,7 +769,7 @@ pub struct GameState {
 
     // Cooperative
     pub pending_cooperative_assault: Option<CooperativeAssaultProposal>,
-    pub final_score_result: Option<FinalScoreResult>,
+    pub final_score_result: Option<crate::scoring::FinalScoreResult>,
 
     // Interactive skill centers
     pub mana_overload_center: Option<ManaOverloadCenter>,

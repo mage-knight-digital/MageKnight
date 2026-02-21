@@ -13,6 +13,7 @@ pub mod end_turn;
 pub mod legal_actions;
 pub mod mana;
 pub mod movement;
+pub mod scoring;
 pub mod setup;
 pub mod undo;
 pub mod valid_actions;

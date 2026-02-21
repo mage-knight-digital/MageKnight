@@ -14,6 +14,7 @@ pub mod legal_action;
 pub mod modifier;
 pub mod pending;
 pub mod rng;
+pub mod scoring;
 pub mod state;
 
 // Re-export commonly used types at crate root
