@@ -19,6 +19,7 @@
 
 mod cards;
 pub(crate) mod combat;
+mod cooperative;
 mod explore;
 mod movement;
 mod pending;
@@ -89,6 +90,16 @@ pub fn enumerate_legal_actions_with_undo(
         };
     }
 
+    // Cooperative assault response — out-of-turn bypass.
+    // Invited players can respond to a proposal even when it's not their turn.
+    if let Some(response_actions) = cooperative::enumerate_cooperative_response(state, player_idx) {
+        return LegalActionSet {
+            epoch,
+            player_idx,
+            actions: response_actions,
+        };
+    }
+
     // Guard: active player check.
     if !is_active_player(state, player_idx) {
         return LegalActionSet {
@@ -125,7 +136,7 @@ pub fn enumerate_legal_actions_with_undo(
         if combat.phase == CombatPhase::AssignDamage {
             // AssignDamage phase: enumerate per-attack assignment options
             enumerate_damage_assignments(state, player_idx, &mut actions);
-            if all_damage_assigned(combat) {
+            if all_damage_assigned(combat, state.players[player_idx].id.as_str()) {
                 actions.push(LegalAction::EndCombatPhase);
             }
             if undo.can_undo() {
@@ -168,6 +179,7 @@ pub fn enumerate_legal_actions_with_undo(
     enumerate_challenges(state, player_idx, &mut actions);
     enumerate_site_actions(state, player_idx, &mut actions);
     enumerate_unit_actions(state, player_idx, &mut actions);
+    cooperative::enumerate_cooperative_actions(state, player_idx, &mut actions);
     enumerate_turn_options(state, player_idx, undo, &mut actions);
 
     LegalActionSet {

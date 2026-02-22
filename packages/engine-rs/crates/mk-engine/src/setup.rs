@@ -1,4 +1,4 @@
-//! Game setup — initial state construction for solo games.
+//! Game setup — initial state construction for solo and multiplayer games.
 //!
 //! Matches the TS `createGameWithPlayers` flow in `GameServer.ts`.
 
@@ -376,6 +376,152 @@ pub fn create_solo_game(seed: u32, hero: Hero) -> GameState {
     }
 }
 
+/// Create a multiplayer game (2-4 players) with the given seed, heroes, and scenario.
+///
+/// Key differences from solo:
+/// - `player_count = heroes.len()` (2-4)
+/// - Creates N PlayerState entries, all at the portal position
+/// - Mana dice = `player_count + 2`
+/// - No dummy player
+/// - Turn order: all human player IDs
+/// - Tactic selection order: all players (reversed — last picks first)
+pub fn create_multiplayer_game(
+    seed: u32,
+    heroes: &[Hero],
+    scenario_config: ScenarioConfig,
+    scenario_id: &str,
+) -> GameState {
+    let player_count = heroes.len();
+    assert!(
+        (2..=4).contains(&player_count),
+        "Multiplayer requires 2-4 players, got {}",
+        player_count
+    );
+
+    let mut rng = RngState::new(seed);
+
+    // Place starting tile
+    let mut map = place_starting_tile(TileId::StartingA);
+
+    // Create tile deck from scenario config
+    map.tile_deck = mk_data::tiles::create_tile_deck(&scenario_config, &mut rng);
+
+    // Find portal hex for player start position
+    let hexes_def_for_portal = starting_tile_hexes(TileId::StartingA).unwrap();
+    let portal_local = find_portal(hexes_def_for_portal).expect("Starting tile must have portal");
+    let player_pos = HexCoord::new(portal_local.q, portal_local.r);
+
+    // Create players
+    let mut players = Vec::with_capacity(player_count);
+    let mut player_ids = Vec::with_capacity(player_count);
+    for (i, &hero) in heroes.iter().enumerate() {
+        let pid = format!("player_{}", i);
+        let player = create_player(
+            &pid,
+            hero,
+            player_pos,
+            scenario_config.starting_fame,
+            scenario_config.starting_reputation,
+            &mut rng,
+        );
+        player_ids.push(PlayerId::from(pid.as_str()));
+        players.push(player);
+    }
+
+    // Create mana source (player_count + 2 dice)
+    let source = create_mana_source(player_count as u32, TimeOfDay::Day, &mut rng);
+
+    // Create enemy token piles
+    let enemy_tokens = create_enemy_token_piles(&mut rng);
+
+    // Create offers and decks
+    let (aa_deck, aa_offer) = create_aa_deck_and_offer(&mut rng);
+    let (spell_deck, spell_offer) = create_spell_deck_and_offer(&mut rng);
+    let (unit_deck, unit_offer) = create_unit_deck_and_offer(&mut rng, player_count);
+
+    // Day tactics
+    let available_tactics: Vec<TacticId> =
+        DAY_TACTIC_IDS.iter().map(|&s| TacticId::from(s)).collect();
+
+    // Turn order: all players in order
+    let turn_order = player_ids.clone();
+
+    // Tactic selection order: reversed (last player in turn order picks first)
+    let tactics_selection_order: Vec<PlayerId> = player_ids.iter().rev().cloned().collect();
+    let current_tactic_selector = tactics_selection_order.first().cloned();
+
+    GameState {
+        phase: GamePhase::Round,
+        time_of_day: TimeOfDay::Day,
+        round: 1,
+        turn_order,
+        current_player_index: 0,
+        end_of_round_announced_by: None,
+        players_with_final_turn: Vec::new(),
+        players,
+        map,
+        combat: None,
+
+        round_phase: RoundPhase::TacticsSelection,
+        available_tactics,
+        removed_tactics: Vec::new(),
+        dummy_player_tactic: None,
+        tactics_selection_order,
+        current_tactic_selector,
+
+        source,
+        offers: GameOffers {
+            advanced_actions: aa_offer,
+            spells: spell_offer,
+            units: unit_offer,
+            ..GameOffers::default()
+        },
+        enemy_tokens,
+        ruins_tokens: RuinsTokenPiles::default(),
+        decks: GameDecks {
+            advanced_action_deck: aa_deck,
+            spell_deck,
+            unit_deck,
+            ..GameDecks::default()
+        },
+
+        city_level: scenario_config.default_city_level,
+        cities: BTreeMap::new(),
+
+        active_modifiers: Vec::new(),
+        action_epoch: 0,
+        next_instance_counter: 1,
+
+        rng,
+
+        wound_pile_count: None,
+
+        scenario_id: ScenarioId::from(scenario_id),
+        scenario_config,
+        scenario_end_triggered: false,
+        final_turns_remaining: None,
+        game_ended: false,
+        winning_player_id: None,
+
+        pending_cooperative_assault: None,
+        final_score_result: None,
+
+        mana_overload_center: None,
+        mana_enhancement_center: None,
+        source_opening_center: None,
+
+        dummy_player: None,
+    }
+}
+
+/// Create a two-player game using the 2-player First Reconnaissance scenario.
+///
+/// Convenience wrapper around `create_multiplayer_game()` for tests.
+pub fn create_two_player_game(seed: u32, hero1: Hero, hero2: Hero) -> GameState {
+    let scenario_config = mk_data::scenarios::first_reconnaissance_2p();
+    create_multiplayer_game(seed, &[hero1, hero2], scenario_config, "first_reconnaissance_2p")
+}
+
 /// Place initial countryside tiles adjacent to the starting tile.
 ///
 /// For the First Reconnaissance scenario (Wedge shape), this places 2 tiles
@@ -662,5 +808,141 @@ mod tests {
                 card_id
             );
         }
+    }
+
+    // =========================================================================
+    // Multiplayer game setup tests
+    // =========================================================================
+
+    #[test]
+    fn two_player_game_creates_valid_state() {
+        let state = create_two_player_game(42, Hero::Arythea, Hero::Tovak);
+
+        assert_eq!(state.phase, GamePhase::Round);
+        assert_eq!(state.time_of_day, TimeOfDay::Day);
+        assert_eq!(state.round, 1);
+        assert_eq!(state.round_phase, RoundPhase::TacticsSelection);
+        assert_eq!(state.players.len(), 2);
+        assert!(!state.game_ended);
+        assert!(state.dummy_player.is_none());
+    }
+
+    #[test]
+    fn two_player_game_has_correct_dice_count() {
+        let state = create_two_player_game(42, Hero::Arythea, Hero::Tovak);
+
+        // 2 players + 2 = 4 dice
+        assert_eq!(state.source.dice.len(), 4);
+    }
+
+    #[test]
+    fn two_player_game_has_correct_turn_order() {
+        let state = create_two_player_game(42, Hero::Arythea, Hero::Tovak);
+
+        assert_eq!(state.turn_order.len(), 2);
+        assert_eq!(state.turn_order[0].as_str(), "player_0");
+        assert_eq!(state.turn_order[1].as_str(), "player_1");
+    }
+
+    #[test]
+    fn two_player_game_tactics_selection_order_reversed() {
+        let state = create_two_player_game(42, Hero::Arythea, Hero::Tovak);
+
+        // Last player picks first
+        assert_eq!(state.tactics_selection_order.len(), 2);
+        assert_eq!(state.tactics_selection_order[0].as_str(), "player_1");
+        assert_eq!(state.tactics_selection_order[1].as_str(), "player_0");
+        assert_eq!(
+            state.current_tactic_selector.as_ref().unwrap().as_str(),
+            "player_1"
+        );
+    }
+
+    #[test]
+    fn two_player_game_players_start_at_portal() {
+        let state = create_two_player_game(42, Hero::Arythea, Hero::Tovak);
+
+        assert_eq!(state.players[0].position, Some(HexCoord::new(0, 0)));
+        assert_eq!(state.players[1].position, Some(HexCoord::new(0, 0)));
+    }
+
+    #[test]
+    fn two_player_game_players_have_correct_heroes() {
+        let state = create_two_player_game(42, Hero::Arythea, Hero::Tovak);
+
+        assert_eq!(state.players[0].hero, Hero::Arythea);
+        assert_eq!(state.players[1].hero, Hero::Tovak);
+    }
+
+    #[test]
+    fn two_player_game_scenario_config() {
+        let state = create_two_player_game(42, Hero::Arythea, Hero::Tovak);
+
+        assert_eq!(state.scenario_config.tactic_removal_mode, TacticRemovalMode::RemoveTwo);
+        assert_eq!(state.scenario_config.dummy_tactic_order, DummyTacticOrder::None);
+    }
+
+    #[test]
+    fn three_player_game() {
+        let config = mk_data::scenarios::first_reconnaissance_3p();
+        let state = create_multiplayer_game(
+            42,
+            &[Hero::Arythea, Hero::Tovak, Hero::Goldyx],
+            config,
+            "first_reconnaissance_3p",
+        );
+
+        assert_eq!(state.players.len(), 3);
+        assert_eq!(state.source.dice.len(), 5); // 3 + 2
+        assert_eq!(state.turn_order.len(), 3);
+        assert_eq!(state.tactics_selection_order.len(), 3);
+        // Last player picks first
+        assert_eq!(state.tactics_selection_order[0].as_str(), "player_2");
+        assert_eq!(state.scenario_config.tactic_removal_mode, TacticRemovalMode::RemoveOne);
+    }
+
+    #[test]
+    fn four_player_game() {
+        let config = mk_data::scenarios::first_reconnaissance_4p();
+        let state = create_multiplayer_game(
+            42,
+            &[Hero::Arythea, Hero::Tovak, Hero::Goldyx, Hero::Norowas],
+            config,
+            "first_reconnaissance_4p",
+        );
+
+        assert_eq!(state.players.len(), 4);
+        assert_eq!(state.source.dice.len(), 6); // 4 + 2
+        assert_eq!(state.turn_order.len(), 4);
+        assert_eq!(state.tactics_selection_order.len(), 4);
+        assert_eq!(state.scenario_config.tactic_removal_mode, TacticRemovalMode::None);
+    }
+
+    #[test]
+    fn multiplayer_deterministic() {
+        let state1 = create_two_player_game(42, Hero::Arythea, Hero::Tovak);
+        let state2 = create_two_player_game(42, Hero::Arythea, Hero::Tovak);
+
+        assert_eq!(state1.players[0].hand, state2.players[0].hand);
+        assert_eq!(state1.players[1].hand, state2.players[1].hand);
+    }
+
+    #[test]
+    #[should_panic(expected = "Multiplayer requires 2-4 players")]
+    fn multiplayer_rejects_one_player() {
+        let config = mk_data::scenarios::first_reconnaissance_2p();
+        create_multiplayer_game(42, &[Hero::Arythea], config, "test");
+    }
+
+    #[test]
+    #[should_panic(expected = "Multiplayer requires 2-4 players")]
+    fn multiplayer_rejects_five_players() {
+        let config = mk_data::scenarios::first_reconnaissance_4p();
+        create_multiplayer_game(
+            42,
+            &[Hero::Arythea, Hero::Tovak, Hero::Goldyx, Hero::Norowas, Hero::Wolfhawk],
+            config,
+            "test",
+        );
     }
 }

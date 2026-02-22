@@ -620,9 +620,16 @@ pub struct CityState {
 /// Cooperative assault proposal.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CooperativeAssaultProposal {
-    pub proposer_id: PlayerId,
-    pub city_color: BasicManaColor,
+    /// Player index of the initiator.
+    pub proposer_idx: usize,
+    /// City hex being targeted.
     pub hex_coord: HexCoord,
+    /// Invited player indices.
+    pub invited_player_idxs: Vec<usize>,
+    /// Enemy distribution: (player_idx, enemy_count) pairs for all participants.
+    pub distribution: Vec<(usize, u32)>,
+    /// Player indices that have accepted so far.
+    pub accepted_player_idxs: Vec<usize>,
 }
 
 /// Mana Overload skill center state.

@@ -40,8 +40,19 @@ pub(super) fn enumerate_block_declarations(
         return;
     }
 
+    let player_id = state.players[player_idx].id.as_str();
+
     for enemy in &combat.enemies {
         if enemy.is_defeated {
+            continue;
+        }
+
+        // Filter by cooperative assault assignments
+        if !crate::cooperative_assault::is_enemy_assigned_to_player(
+            &combat.enemy_assignments,
+            player_id,
+            enemy.instance_id.as_str(),
+        ) {
             continue;
         }
 
@@ -108,8 +119,19 @@ pub(super) fn enumerate_cumbersome_actions(
         return;
     }
 
+    let player_id = player.id.as_str();
+
     for enemy in &combat.enemies {
         if enemy.is_defeated {
+            continue;
+        }
+
+        // Filter by cooperative assault assignments
+        if !crate::cooperative_assault::is_enemy_assigned_to_player(
+            &combat.enemy_assignments,
+            player_id,
+            enemy.instance_id.as_str(),
+        ) {
             continue;
         }
 
@@ -178,19 +200,20 @@ pub(super) fn enumerate_attack_declarations(
     };
 
     let player = &state.players[player_idx];
+    let player_id = player.id.as_str();
     let modifiers = &state.active_modifiers;
 
     match combat.phase {
         CombatPhase::RangedSiege => {
-            if has_available_attack_and_targets(combat, &player.combat_accumulator, CombatType::Ranged, true, modifiers) {
+            if has_available_attack_and_targets(combat, &player.combat_accumulator, CombatType::Ranged, true, modifiers, player_id) {
                 actions.push(LegalAction::InitiateAttack { attack_type: CombatType::Ranged });
             }
-            if has_available_attack_and_targets(combat, &player.combat_accumulator, CombatType::Siege, false, modifiers) {
+            if has_available_attack_and_targets(combat, &player.combat_accumulator, CombatType::Siege, false, modifiers, player_id) {
                 actions.push(LegalAction::InitiateAttack { attack_type: CombatType::Siege });
             }
         }
         CombatPhase::Attack => {
-            if has_available_attack_and_targets(combat, &player.combat_accumulator, CombatType::Melee, false, modifiers) {
+            if has_available_attack_and_targets(combat, &player.combat_accumulator, CombatType::Melee, false, modifiers, player_id) {
                 actions.push(LegalAction::InitiateAttack { attack_type: CombatType::Melee });
             }
         }
@@ -205,6 +228,7 @@ fn has_available_attack_and_targets(
     attack_type: CombatType,
     exclude_fortified: bool,
     modifiers: &[mk_types::modifier::ActiveModifier],
+    player_id: &str,
 ) -> bool {
     let (total_elements, assigned_elements) = match attack_type {
         CombatType::Melee => (
@@ -226,9 +250,17 @@ fn has_available_attack_and_targets(
         return false;
     }
 
-    // At least one eligible (undefeated, non-fortified-if-ranged) enemy
+    // At least one eligible (undefeated, assigned, non-fortified-if-ranged) enemy
     combat.enemies.iter().any(|enemy| {
         if enemy.is_defeated {
+            return false;
+        }
+        // Filter by cooperative assault assignments
+        if !crate::cooperative_assault::is_enemy_assigned_to_player(
+            &combat.enemy_assignments,
+            player_id,
+            enemy.instance_id.as_str(),
+        ) {
             return false;
         }
         let def = match get_enemy(enemy.enemy_id.as_str()) {
@@ -250,10 +282,13 @@ fn has_available_attack_and_targets(
 }
 
 /// Compute eligible enemy instance IDs for an attack type.
+///
+/// Filters by cooperative assault assignments when `player_id` is provided.
 pub(crate) fn eligible_attack_targets(
     combat: &CombatState,
     attack_type: CombatType,
     modifiers: &[mk_types::modifier::ActiveModifier],
+    player_id: Option<&str>,
 ) -> Vec<mk_types::ids::CombatInstanceId> {
     let exclude_fortified = attack_type == CombatType::Ranged;
     combat
@@ -262,6 +297,16 @@ pub(crate) fn eligible_attack_targets(
         .filter(|enemy| {
             if enemy.is_defeated {
                 return false;
+            }
+            // Filter by cooperative assault assignments
+            if let Some(pid) = player_id {
+                if !crate::cooperative_assault::is_enemy_assigned_to_player(
+                    &combat.enemy_assignments,
+                    pid,
+                    enemy.instance_id.as_str(),
+                ) {
+                    return false;
+                }
             }
             let def = match get_enemy(enemy.enemy_id.as_str()) {
                 Some(d) => d,
@@ -422,10 +467,20 @@ pub(super) fn enumerate_damage_assignments(
     }
 
     let player = &state.players[player_idx];
+    let player_id = player.id.as_str();
 
     // Find first unassigned attack (sequential)
     for (enemy_idx, enemy) in combat.enemies.iter().enumerate() {
         if enemy.is_defeated {
+            continue;
+        }
+
+        // Filter by cooperative assault assignments
+        if !crate::cooperative_assault::is_enemy_assigned_to_player(
+            &combat.enemy_assignments,
+            player_id,
+            enemy.instance_id.as_str(),
+        ) {
             continue;
         }
 
@@ -494,9 +549,20 @@ pub(super) fn enumerate_damage_assignments(
 }
 
 /// Check if all damage has been assigned (no remaining unblocked, uncancelled, unassigned attacks).
-pub(super) fn all_damage_assigned(combat: &CombatState) -> bool {
+///
+/// In cooperative assault, only considers enemies assigned to the given player.
+pub(super) fn all_damage_assigned(combat: &CombatState, player_id: &str) -> bool {
     for enemy in &combat.enemies {
         if enemy.is_defeated || enemy.is_summoner_hidden {
+            continue;
+        }
+
+        // Filter by cooperative assault assignments
+        if !crate::cooperative_assault::is_enemy_assigned_to_player(
+            &combat.enemy_assignments,
+            player_id,
+            enemy.instance_id.as_str(),
+        ) {
             continue;
         }
 

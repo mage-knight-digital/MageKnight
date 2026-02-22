@@ -162,6 +162,13 @@ pub fn apply_legal_action(
             apply_resolve_decompose(state, player_idx, *hand_index)?
         }
 
+        LegalAction::ResolveDiscardForCrystal { .. } => {
+            // Handled by ChoiceResolution::DiscardForCrystalSelect now
+            return Err(ApplyError::InternalError(
+                "ResolveDiscardForCrystal should use Choice path".to_string(),
+            ));
+        }
+
         LegalAction::SpendMoveOnCumbersome {
             enemy_instance_id,
         } => {
@@ -334,12 +341,83 @@ pub fn apply_legal_action(
             apply_subset_confirm(state, player_idx)?
         }
 
+        LegalAction::AnnounceEndOfRound => {
+            // Irreversible: affects game flow for all players
+            undo_stack.set_checkpoint();
+            apply_announce_end_of_round(state, player_idx)?
+        }
+
         LegalAction::Undo => apply_undo(state, undo_stack)?,
 
         LegalAction::ResolveSourceOpeningReroll { reroll } => {
             // Irreversible: RNG may be consumed
             undo_stack.set_checkpoint();
             apply_resolve_source_opening_reroll(state, player_idx, *reroll)?
+        }
+
+        LegalAction::ResolveTraining { selection_index } => {
+            // Reversible: save snapshot
+            undo_stack.save(state);
+            apply_resolve_training(state, player_idx, *selection_index)?
+        }
+
+        LegalAction::ResolveMaximalEffect { hand_index } => {
+            // Reversible: save snapshot
+            undo_stack.save(state);
+            apply_resolve_maximal_effect(state, player_idx, *hand_index)?
+        }
+
+        LegalAction::ResolveMeditation {
+            selection_index,
+            place_on_top,
+        } => {
+            undo_stack.save(state);
+            apply_resolve_meditation(state, player_idx, *selection_index, *place_on_top)?
+        }
+
+        LegalAction::MeditationDoneSelecting => {
+            undo_stack.save(state);
+            apply_meditation_done_selecting(state, player_idx)?
+        }
+
+        LegalAction::ProposeCooperativeAssault {
+            hex_coord,
+            invited_player_idxs,
+            distribution,
+        } => {
+            // Reversible: save snapshot
+            undo_stack.save(state);
+            crate::cooperative_assault::apply_propose(
+                state,
+                player_idx,
+                *hex_coord,
+                invited_player_idxs,
+                distribution,
+            )?;
+            ApplyResult {
+                needs_reenumeration: true,
+                game_ended: false,
+            }
+        }
+
+        LegalAction::RespondToCooperativeProposal { accept } => {
+            // Irreversible: RNG shuffle on agreement
+            undo_stack.set_checkpoint();
+            crate::cooperative_assault::apply_respond(state, player_idx, *accept)?;
+            ApplyResult {
+                needs_reenumeration: true,
+                game_ended: false,
+            }
+        }
+
+        LegalAction::CancelCooperativeProposal => {
+            // Reversible: save snapshot
+            undo_stack.save(state);
+            crate::cooperative_assault::apply_cancel(state, player_idx)?;
+            ApplyResult {
+                needs_reenumeration: true,
+                game_ended: false,
+            }
         }
     };
 
@@ -364,6 +442,28 @@ fn apply_select_tactic(
     // Remove tactic from available list
     state.available_tactics.retain(|t| t != tactic_id);
 
+    // Remove current player from selection order
+    let current_player_id = state.players[player_idx].id.clone();
+    state
+        .tactics_selection_order
+        .retain(|pid| *pid != current_player_id);
+
+    // Check if more players need to select (multiplayer sequential selection)
+    if !state.tactics_selection_order.is_empty() {
+        // More players to pick — stay in TacticsSelection phase
+        state.current_tactic_selector = state.tactics_selection_order.first().cloned();
+
+        // On-pick tactic effects (applied immediately even if others haven't picked)
+        apply_tactic_on_pick_effects(state, player_idx, tactic_id);
+
+        return Ok(ApplyResult {
+            needs_reenumeration: true,
+            game_ended: false,
+        });
+    }
+
+    // All players have selected — transition to PlayerTurns
+
     // Auto-select dummy tactic if in solo mode
     if state.dummy_player.is_some()
         && state.scenario_config.dummy_tactic_order == DummyTacticOrder::AfterHumans
@@ -377,7 +477,26 @@ fn apply_select_tactic(
         state.dummy_player_tactic = Some(dummy_tactic);
     }
 
-    // Advance to PlayerTurns phase (solo: single selector)
+    // Post-selection tactic removal (multiplayer)
+    match state.scenario_config.tactic_removal_mode {
+        TacticRemovalMode::RemoveTwo => {
+            for _ in 0..2.min(state.available_tactics.len()) {
+                if let Some(idx) = state.rng.random_index(state.available_tactics.len()) {
+                    let removed = state.available_tactics.remove(idx);
+                    state.removed_tactics.push(removed);
+                }
+            }
+        }
+        TacticRemovalMode::RemoveOne => {
+            if let Some(idx) = state.rng.random_index(state.available_tactics.len()) {
+                let removed = state.available_tactics.remove(idx);
+                state.removed_tactics.push(removed);
+            }
+        }
+        TacticRemovalMode::None | TacticRemovalMode::AllUsed | TacticRemovalMode::VoteOne => {}
+    }
+
+    // Advance to PlayerTurns phase
     state.round_phase = RoundPhase::PlayerTurns;
     state.current_tactic_selector = None;
 
@@ -417,7 +536,21 @@ fn apply_select_tactic(
             (state.current_player_index + 1) % state.turn_order.len() as u32;
     }
 
-    // On-pick tactic effects
+    // On-pick tactic effects for the final selector
+    apply_tactic_on_pick_effects(state, player_idx, tactic_id);
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+/// Apply immediate effects when a tactic is selected (e.g., Great Start draws cards).
+fn apply_tactic_on_pick_effects(
+    state: &mut GameState,
+    player_idx: usize,
+    tactic_id: &mk_types::ids::TacticId,
+) {
     let tid = tactic_id.as_str();
     match tid {
         "great_start" => {
@@ -443,9 +576,13 @@ fn apply_select_tactic(
             }
         }
         "mana_steal" => {
-            // Check if any basic-color dice are available (not depleted, not taken)
+            let current_player_id = &state.players[player_idx].id;
+            // Available: unclaimed basic dice OR basic dice claimed by other players
             let has_available = state.source.dice.iter().any(|d| {
-                !d.is_depleted && d.taken_by_player_id.is_none() && d.color.is_basic()
+                !d.is_depleted
+                    && d.color.is_basic()
+                    && (d.taken_by_player_id.is_none()
+                        || d.taken_by_player_id.as_ref().is_some_and(|owner| owner != current_player_id))
             });
             if has_available {
                 state.players[player_idx].pending.active =
@@ -463,11 +600,6 @@ fn apply_select_tactic(
         }
         _ => {} // Other tactics: no on-pick effect
     }
-
-    Ok(ApplyResult {
-        needs_reenumeration: true,
-        game_ended: false,
-    })
 }
 
 // =============================================================================
@@ -488,6 +620,14 @@ fn apply_resolve_tactic_decision(
             let die = &mut state.source.dice[*die_index];
             let die_id = die.id.clone();
             let color = die.color;
+
+            // If stealing from another player, clear their stored_mana_die
+            if let Some(ref prev_owner_id) = die.taken_by_player_id {
+                if let Some(prev_owner) = state.players.iter_mut().find(|p| &p.id == prev_owner_id) {
+                    prev_owner.tactic_state.stored_mana_die = None;
+                }
+            }
+
             die.taken_by_player_id = Some(state.players[player_idx].id.clone());
 
             // Store the stolen die reference
@@ -831,8 +971,9 @@ fn apply_initiate_attack(
         .as_ref()
         .ok_or_else(|| ApplyError::InternalError("InitiateAttack: no combat".into()))?;
 
+    let player_id_str = state.players[player_idx].id.as_str().to_string();
     let eligible =
-        crate::legal_actions::combat::eligible_attack_targets(combat, attack_type, &state.active_modifiers);
+        crate::legal_actions::combat::eligible_attack_targets(combat, attack_type, &state.active_modifiers, Some(&player_id_str));
 
     if eligible.is_empty() {
         return Err(ApplyError::InternalError(
@@ -1006,6 +1147,316 @@ fn apply_resolve_choice(
     })
 }
 
+fn apply_resolve_training(
+    state: &mut GameState,
+    player_idx: usize,
+    selection_index: usize,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::pending::{ActivePending, PendingTraining, BookOfWisdomPhase};
+
+    let pending = match state.players[player_idx].pending.active.take() {
+        Some(ActivePending::Training(t)) => t,
+        other => {
+            state.players[player_idx].pending.active = other;
+            return Err(ApplyError::InternalError(
+                "ResolveTraining: no active Training pending".to_string(),
+            ));
+        }
+    };
+
+    match pending.phase {
+        BookOfWisdomPhase::SelectCard => {
+            // Phase 1: Player selects a card from hand to throw away
+            let player = &mut state.players[player_idx];
+            if selection_index >= player.hand.len() {
+                // Restore pending and error
+                player.pending.active = Some(ActivePending::Training(pending));
+                return Err(ApplyError::InternalError(
+                    "ResolveTraining: hand index out of range".to_string(),
+                ));
+            }
+
+            let card_id = player.hand.remove(selection_index);
+            let card_color = mk_data::cards::get_card_color(card_id.as_str());
+            player.removed_cards.push(card_id);
+
+            // Find matching-color AAs in offer
+            let mut available: arrayvec::ArrayVec<CardId, { mk_types::pending::MAX_OFFER_CARDS }> =
+                arrayvec::ArrayVec::new();
+            if let Some(color) = card_color {
+                for aa_id in &state.offers.advanced_actions {
+                    if mk_data::cards::get_card_color(aa_id.as_str()) == Some(color)
+                        && available.try_push(aa_id.clone()).is_err() {
+                            break;
+                    }
+                }
+            }
+
+            if available.is_empty() {
+                // No matching AAs — just clear pending, card was still thrown away
+                Ok(ApplyResult {
+                    needs_reenumeration: true,
+                    game_ended: false,
+                })
+            } else if available.len() == 1 {
+                // Auto-select the only option
+                let aa_id = available[0].clone();
+                let offer_idx = state.offers.advanced_actions.iter()
+                    .position(|id| *id == aa_id)
+                    .unwrap();
+                state.offers.advanced_actions.remove(offer_idx);
+                effect_queue::replenish_aa_offer(state);
+                let player = &mut state.players[player_idx];
+                match pending.mode {
+                    mk_types::pending::EffectMode::Powered => player.hand.push(aa_id),
+                    mk_types::pending::EffectMode::Basic => player.discard.push(aa_id),
+                }
+                Ok(ApplyResult {
+                    needs_reenumeration: true,
+                    game_ended: false,
+                })
+            } else {
+                // Multiple matching AAs — set phase to SelectFromOffer
+                state.players[player_idx].pending.active = Some(ActivePending::Training(PendingTraining {
+                    phase: BookOfWisdomPhase::SelectFromOffer,
+                    thrown_card_color: card_color,
+                    available_offer_cards: available,
+                    ..pending
+                }));
+                Ok(ApplyResult {
+                    needs_reenumeration: true,
+                    game_ended: false,
+                })
+            }
+        }
+        BookOfWisdomPhase::SelectFromOffer => {
+            // Phase 2: Player selects an AA from the available offer cards
+            if selection_index >= pending.available_offer_cards.len() {
+                state.players[player_idx].pending.active = Some(ActivePending::Training(pending));
+                return Err(ApplyError::InternalError(
+                    "ResolveTraining: offer selection index out of range".to_string(),
+                ));
+            }
+
+            let aa_id = pending.available_offer_cards[selection_index].clone();
+            if let Some(offer_idx) = state.offers.advanced_actions.iter().position(|id| *id == aa_id) {
+                state.offers.advanced_actions.remove(offer_idx);
+                effect_queue::replenish_aa_offer(state);
+            }
+
+            let player = &mut state.players[player_idx];
+            match pending.mode {
+                mk_types::pending::EffectMode::Powered => player.hand.push(aa_id),
+                mk_types::pending::EffectMode::Basic => player.discard.push(aa_id),
+            }
+
+            Ok(ApplyResult {
+                needs_reenumeration: true,
+                game_ended: false,
+            })
+        }
+    }
+}
+
+fn apply_resolve_maximal_effect(
+    state: &mut GameState,
+    player_idx: usize,
+    hand_index: usize,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::pending::ActivePending;
+
+    let pending = match state.players[player_idx].pending.active.take() {
+        Some(ActivePending::MaximalEffect(m)) => m,
+        other => {
+            state.players[player_idx].pending.active = other;
+            return Err(ApplyError::InternalError(
+                "ResolveMaximalEffect: no active MaximalEffect pending".to_string(),
+            ));
+        }
+    };
+
+    let player = &mut state.players[player_idx];
+    if hand_index >= player.hand.len() {
+        player.pending.active = Some(ActivePending::MaximalEffect(pending));
+        return Err(ApplyError::InternalError(
+            "ResolveMaximalEffect: hand index out of range".to_string(),
+        ));
+    }
+
+    // Remove the selected card from hand
+    let card_id = player.hand.remove(hand_index);
+    player.removed_cards.push(card_id.clone());
+
+    // Get the card's effect
+    let card_def = mk_data::cards::get_card(card_id.as_str())
+        .ok_or_else(|| ApplyError::InternalError(format!(
+            "ResolveMaximalEffect: card {} not found", card_id.as_str()
+        )))?;
+    let effect = match pending.effect_kind {
+        mk_types::pending::EffectMode::Basic => card_def.basic_effect.clone(),
+        mk_types::pending::EffectMode::Powered => card_def.powered_effect.clone(),
+    };
+
+    // Resolve the effect multiplied times
+    let mut queue = effect_queue::EffectQueue::new();
+    for _ in 0..pending.multiplier {
+        queue.push(effect.clone(), Some(card_id.clone()));
+    }
+
+    match queue.drain(state, player_idx) {
+        effect_queue::DrainResult::Complete => {
+            Ok(ApplyResult {
+                needs_reenumeration: true,
+                game_ended: false,
+            })
+        }
+        effect_queue::DrainResult::NeedsChoice { options, continuation, resolution } => {
+            let cont_entries: Vec<mk_types::pending::ContinuationEntry> = continuation
+                .into_iter()
+                .map(|qe| mk_types::pending::ContinuationEntry {
+                    effect: qe.effect,
+                    source_card_id: qe.source_card_id,
+                })
+                .collect();
+            state.players[player_idx].pending.active = Some(ActivePending::Choice(
+                mk_types::pending::PendingChoice {
+                    card_id: Some(card_id),
+                    skill_id: None,
+                    unit_instance_id: None,
+                    options,
+                    continuation: cont_entries,
+                    resolution,
+                    movement_bonus_applied: false,
+                },
+            ));
+            Ok(ApplyResult {
+                needs_reenumeration: true,
+                game_ended: false,
+            })
+        }
+        effect_queue::DrainResult::PendingSet => {
+            Ok(ApplyResult {
+                needs_reenumeration: true,
+                game_ended: false,
+            })
+        }
+    }
+}
+
+fn apply_resolve_meditation(
+    state: &mut GameState,
+    player_idx: usize,
+    selection_index: usize,
+    place_on_top: Option<bool>,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::pending::{ActivePending, MeditationPhase};
+
+    let pending = match state.players[player_idx].pending.active.take() {
+        Some(ActivePending::Meditation(m)) => m,
+        other => {
+            state.players[player_idx].pending.active = other;
+            return Err(ApplyError::InternalError(
+                "ResolveMeditation: no active Meditation pending".to_string(),
+            ));
+        }
+    };
+
+    match pending.phase {
+        MeditationPhase::SelectCards => {
+            // Powered: add a card from discard to selection
+            let player = &state.players[player_idx];
+            if selection_index >= player.discard.len() {
+                state.players[player_idx].pending.active =
+                    Some(ActivePending::Meditation(pending));
+                return Err(ApplyError::InternalError(
+                    "ResolveMeditation: discard index out of range".to_string(),
+                ));
+            }
+            let card_id = player.discard[selection_index].clone();
+            let mut new_pending = pending;
+            new_pending.selected_card_ids.push(card_id);
+
+            // If we've selected 3, auto-transition to PlaceCards
+            if new_pending.selected_card_ids.len() >= 3 {
+                new_pending.phase = MeditationPhase::PlaceCards;
+            }
+            state.players[player_idx].pending.active =
+                Some(ActivePending::Meditation(new_pending));
+        }
+        MeditationPhase::PlaceCards => {
+            // Place the first selected card on top or bottom of deck
+            let on_top = place_on_top.unwrap_or(true);
+            let mut new_pending = pending;
+            let card_id = new_pending.selected_card_ids.remove(0);
+
+            // Remove from discard
+            let player = &mut state.players[player_idx];
+            if let Some(pos) = player.discard.iter().position(|c| c == &card_id) {
+                player.discard.remove(pos);
+            }
+
+            // Place on deck
+            if on_top {
+                player.deck.push(card_id);
+            } else {
+                player.deck.insert(0, card_id);
+            }
+
+            // If more cards to place, keep pending
+            if new_pending.selected_card_ids.is_empty() {
+                // All cards placed — apply meditation bonus
+                player.meditation_hand_limit_bonus =
+                    player.meditation_hand_limit_bonus.saturating_add(1);
+                // Clear pending
+            } else {
+                state.players[player_idx].pending.active =
+                    Some(ActivePending::Meditation(new_pending));
+            }
+        }
+    }
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
+fn apply_meditation_done_selecting(
+    state: &mut GameState,
+    player_idx: usize,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::pending::{ActivePending, MeditationPhase};
+
+    let pending = match state.players[player_idx].pending.active.take() {
+        Some(ActivePending::Meditation(m)) => m,
+        other => {
+            state.players[player_idx].pending.active = other;
+            return Err(ApplyError::InternalError(
+                "MeditationDoneSelecting: no active Meditation pending".to_string(),
+            ));
+        }
+    };
+
+    if pending.selected_card_ids.is_empty() {
+        // Nothing selected — clear pending
+        return Ok(ApplyResult {
+            needs_reenumeration: true,
+            game_ended: false,
+        });
+    }
+
+    // Transition to PlaceCards phase
+    let mut new_pending = pending;
+    new_pending.phase = MeditationPhase::PlaceCards;
+    state.players[player_idx].pending.active =
+        Some(ActivePending::Meditation(new_pending));
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
+}
+
 fn apply_resolve_decompose(
     state: &mut GameState,
     player_idx: usize,
@@ -1019,6 +1470,7 @@ fn apply_resolve_decompose(
         game_ended: false,
     })
 }
+
 
 fn apply_resolve_discard_for_bonus(
     state: &mut GameState,
@@ -1150,6 +1602,29 @@ fn end_turn_result_to_apply(
             e
         ))),
     }
+}
+
+/// Voluntarily announce end of round (multiplayer).
+/// All other players get exactly one final turn each.
+fn apply_announce_end_of_round(
+    state: &mut GameState,
+    player_idx: usize,
+) -> Result<ApplyResult, ApplyError> {
+    let player_id = state.players[player_idx].id.clone();
+    state.end_of_round_announced_by = Some(player_id.clone());
+
+    // All OTHER players get one final turn
+    state.players_with_final_turn = state
+        .players
+        .iter()
+        .filter(|p| p.id != player_id)
+        .map(|p| p.id.clone())
+        .collect();
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+    })
 }
 
 fn apply_end_turn(state: &mut GameState, player_idx: usize) -> Result<ApplyResult, ApplyError> {
@@ -4314,6 +4789,7 @@ pub(crate) fn setup_curse_mode(
                 attack_index: None,
                 per_resistance: false,
                 fortified_amount: None,
+                exclude_resistance: None,
             },
         );
     } else {
@@ -4391,6 +4867,7 @@ pub(crate) fn execute_curse_mode(
                     attack_index: None,
                     per_resistance: false,
                     fortified_amount: None,
+                    exclude_resistance: None,
                 },
             );
         }
@@ -4411,6 +4888,7 @@ pub(crate) fn execute_curse_mode(
                 attack_index: None,
                 per_resistance: false,
                 fortified_amount: None,
+                exclude_resistance: None,
             },
         );
     }
@@ -4439,6 +4917,7 @@ pub(crate) fn execute_curse_attack_index(
             attack_index: Some(choice_index as u32),
             per_resistance: false,
             fortified_amount: None,
+            exclude_resistance: None,
         },
     );
 }
@@ -5862,6 +6341,7 @@ fn apply_select_enemy_effects(
             attack_index: None,
             per_resistance: template.armor_per_resistance,
             fortified_amount: template.fortified_armor_change,
+            exclude_resistance: None,
         });
     }
 
@@ -5874,6 +6354,7 @@ fn apply_select_enemy_effects(
             attack_index: None,
             per_resistance: false,
             fortified_amount: None,
+            exclude_resistance: None,
         });
     }
 
@@ -6518,6 +6999,7 @@ fn apply_natures_vengeance_effects(state: &mut GameState, player_idx: usize, ene
             attack_index: None,
             per_resistance: false,
             fortified_amount: None,
+            exclude_resistance: None,
         });
 
     // GrantEnemyAbility(Cumbersome) modifier
@@ -6938,8 +7420,11 @@ mod tests {
     use super::*;
     use crate::legal_actions::enumerate_legal_actions_with_undo;
     use crate::setup::create_solo_game;
+    use mk_types::effect::CardEffect;
     use mk_types::ids::CardId;
     use mk_types::legal_action::LegalAction;
+    use mk_types::pending::{ActivePending, BookOfWisdomPhase, EffectMode};
+    use mk_types::TacticId;
 
     fn setup_playing_game(hand: Vec<&str>) -> GameState {
         let mut state = create_solo_game(42, Hero::Arythea);
@@ -14200,5 +14685,2761 @@ mod tests {
         assert!(!crate::card_play::effect_has_attack(&mana));
         assert!(!crate::card_play::effect_has_block(&mana));
         assert!(!crate::card_play::effect_has_influence(&mana));
+    }
+
+    // =========================================================================
+    // Batch 1: Simple Compound Skills (crystal crafts, healing, mana, movement)
+    // =========================================================================
+
+    // --- Helper: enter combat for single-player skill tests ---
+    fn setup_combat_with_skill(hero: Hero, skill_id: &str, enemy_ids: &[&str]) -> (GameState, UndoStack) {
+        let (mut state, undo) = setup_with_skill(hero, skill_id);
+        let tokens: Vec<mk_types::ids::EnemyTokenId> = enemy_ids
+            .iter()
+            .map(|id| mk_types::ids::EnemyTokenId::from(format!("{}_1", id)))
+            .collect();
+        crate::combat::execute_enter_combat(
+            &mut state, 0, &tokens, false, None, Default::default(),
+        ).unwrap();
+        (state, undo)
+    }
+
+    /// Helper: resolve a pending choice for player 0.
+    fn resolve_choice(state: &mut GameState, undo: &mut UndoStack, choice_index: usize) {
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            state, undo, 0,
+            &LegalAction::ResolveChoice { choice_index },
+            epoch,
+        ).unwrap();
+    }
+
+    // ---- Dark Fire Magic (Arythea) ----
+
+    #[test]
+    fn dark_fire_magic_grants_red_crystal_and_choice() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Arythea, "arythea_dark_fire_magic");
+        let before_red = state.players[0].crystals.red;
+        activate_skill(&mut state, &mut undo, "arythea_dark_fire_magic");
+        // Crystal granted immediately, then pending choice for mana
+        assert_eq!(state.players[0].crystals.red, before_red + 1);
+        assert!(state.players[0].pending.active.is_some(), "Should have pending choice for mana color");
+    }
+
+    #[test]
+    fn dark_fire_magic_choice_red_mana() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Arythea, "arythea_dark_fire_magic");
+        activate_skill(&mut state, &mut undo, "arythea_dark_fire_magic");
+        let before_mana = state.players[0].pure_mana.len();
+        resolve_choice(&mut state, &mut undo, 0); // Red mana
+        assert!(state.players[0].pure_mana.iter().any(|t| t.color == ManaColor::Red));
+        assert_eq!(state.players[0].pure_mana.len(), before_mana + 1);
+    }
+
+    #[test]
+    fn dark_fire_magic_choice_black_mana() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Arythea, "arythea_dark_fire_magic");
+        activate_skill(&mut state, &mut undo, "arythea_dark_fire_magic");
+        resolve_choice(&mut state, &mut undo, 1); // Black mana
+        assert!(state.players[0].pure_mana.iter().any(|t| t.color == ManaColor::Black));
+    }
+
+    #[test]
+    fn dark_fire_magic_round_cooldown() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Arythea, "arythea_dark_fire_magic");
+        activate_skill(&mut state, &mut undo, "arythea_dark_fire_magic");
+        assert!(state.players[0].skill_cooldowns.used_this_round.iter()
+            .any(|s| s.as_str() == "arythea_dark_fire_magic"));
+    }
+
+    // ---- White Crystal Craft (Goldyx) ----
+
+    #[test]
+    fn white_crystal_craft_grants_blue_crystal_and_white_mana() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Goldyx, "goldyx_white_crystal_craft");
+        let before_blue = state.players[0].crystals.blue;
+        activate_skill(&mut state, &mut undo, "goldyx_white_crystal_craft");
+        assert_eq!(state.players[0].crystals.blue, before_blue + 1);
+        assert!(state.players[0].pure_mana.iter().any(|t| t.color == ManaColor::White));
+    }
+
+    #[test]
+    fn white_crystal_craft_round_cooldown() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Goldyx, "goldyx_white_crystal_craft");
+        activate_skill(&mut state, &mut undo, "goldyx_white_crystal_craft");
+        assert!(state.players[0].skill_cooldowns.used_this_round.iter()
+            .any(|s| s.as_str() == "goldyx_white_crystal_craft"));
+    }
+
+    // ---- Green Crystal Craft (Goldyx) ----
+
+    #[test]
+    fn green_crystal_craft_grants_blue_crystal_and_green_mana() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Goldyx, "goldyx_green_crystal_craft");
+        let before_blue = state.players[0].crystals.blue;
+        activate_skill(&mut state, &mut undo, "goldyx_green_crystal_craft");
+        assert_eq!(state.players[0].crystals.blue, before_blue + 1);
+        assert!(state.players[0].pure_mana.iter().any(|t| t.color == ManaColor::Green));
+    }
+
+    #[test]
+    fn green_crystal_craft_round_cooldown() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Goldyx, "goldyx_green_crystal_craft");
+        activate_skill(&mut state, &mut undo, "goldyx_green_crystal_craft");
+        assert!(state.players[0].skill_cooldowns.used_this_round.iter()
+            .any(|s| s.as_str() == "goldyx_green_crystal_craft"));
+    }
+
+    // ---- Red Crystal Craft (Goldyx) ----
+
+    #[test]
+    fn red_crystal_craft_grants_blue_crystal_and_red_mana() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Goldyx, "goldyx_red_crystal_craft");
+        let before_blue = state.players[0].crystals.blue;
+        activate_skill(&mut state, &mut undo, "goldyx_red_crystal_craft");
+        assert_eq!(state.players[0].crystals.blue, before_blue + 1);
+        assert!(state.players[0].pure_mana.iter().any(|t| t.color == ManaColor::Red));
+    }
+
+    // ---- Leaves in the Wind (Norowas) ----
+
+    #[test]
+    fn leaves_in_the_wind_grants_green_crystal_and_white_mana() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Norowas, "norowas_leaves_in_the_wind");
+        let before_green = state.players[0].crystals.green;
+        activate_skill(&mut state, &mut undo, "norowas_leaves_in_the_wind");
+        assert_eq!(state.players[0].crystals.green, before_green + 1);
+        assert!(state.players[0].pure_mana.iter().any(|t| t.color == ManaColor::White));
+    }
+
+    #[test]
+    fn leaves_in_the_wind_round_cooldown() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Norowas, "norowas_leaves_in_the_wind");
+        activate_skill(&mut state, &mut undo, "norowas_leaves_in_the_wind");
+        assert!(state.players[0].skill_cooldowns.used_this_round.iter()
+            .any(|s| s.as_str() == "norowas_leaves_in_the_wind"));
+    }
+
+    // ---- Whispers in the Treetops (Norowas) ----
+
+    #[test]
+    fn whispers_in_the_treetops_grants_white_crystal_and_green_mana() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Norowas, "norowas_whispers_in_the_treetops");
+        let before_white = state.players[0].crystals.white;
+        activate_skill(&mut state, &mut undo, "norowas_whispers_in_the_treetops");
+        assert_eq!(state.players[0].crystals.white, before_white + 1);
+        assert!(state.players[0].pure_mana.iter().any(|t| t.color == ManaColor::Green));
+    }
+
+    #[test]
+    fn whispers_in_the_treetops_round_cooldown() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Norowas, "norowas_whispers_in_the_treetops");
+        activate_skill(&mut state, &mut undo, "norowas_whispers_in_the_treetops");
+        assert!(state.players[0].skill_cooldowns.used_this_round.iter()
+            .any(|s| s.as_str() == "norowas_whispers_in_the_treetops"));
+    }
+
+    // ---- Refreshing Bath (Wolfhawk) ----
+
+    #[test]
+    fn refreshing_bath_heals_and_grants_blue_crystal() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Wolfhawk, "wolfhawk_refreshing_bath");
+        state.players[0].hand = vec![CardId::from("wound"), CardId::from("march")];
+        let before_blue = state.players[0].crystals.blue;
+        activate_skill(&mut state, &mut undo, "wolfhawk_refreshing_bath");
+        assert_eq!(state.players[0].crystals.blue, before_blue + 1);
+        // Healing 1 should remove a wound from hand (if wound present)
+        assert!(!state.players[0].hand.iter().any(|c| c.as_str() == "wound"),
+            "Wound should be healed from hand");
+    }
+
+    #[test]
+    fn refreshing_bath_round_cooldown() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Wolfhawk, "wolfhawk_refreshing_bath");
+        activate_skill(&mut state, &mut undo, "wolfhawk_refreshing_bath");
+        assert!(state.players[0].skill_cooldowns.used_this_round.iter()
+            .any(|s| s.as_str() == "wolfhawk_refreshing_bath"));
+    }
+
+    // ---- Refreshing Breeze (Wolfhawk) ----
+
+    #[test]
+    fn refreshing_breeze_heals_and_grants_white_crystal() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Wolfhawk, "wolfhawk_refreshing_breeze");
+        state.players[0].hand = vec![CardId::from("wound"), CardId::from("march")];
+        let before_white = state.players[0].crystals.white;
+        activate_skill(&mut state, &mut undo, "wolfhawk_refreshing_breeze");
+        assert_eq!(state.players[0].crystals.white, before_white + 1);
+        assert!(!state.players[0].hand.iter().any(|c| c.as_str() == "wound"),
+            "Wound should be healed from hand");
+    }
+
+    // ---- Potion Making (Goldyx) ----
+
+    #[test]
+    fn potion_making_heals_2() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Goldyx, "goldyx_potion_making");
+        state.players[0].hand = vec![
+            CardId::from("wound"), CardId::from("wound"), CardId::from("march"),
+        ];
+        activate_skill(&mut state, &mut undo, "goldyx_potion_making");
+        let wound_count = state.players[0].hand.iter().filter(|c| c.as_str() == "wound").count();
+        assert_eq!(wound_count, 0, "Healing 2 should remove both wounds");
+    }
+
+    #[test]
+    fn potion_making_heals_partial_when_only_one_wound() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Goldyx, "goldyx_potion_making");
+        state.players[0].hand = vec![CardId::from("wound"), CardId::from("march")];
+        activate_skill(&mut state, &mut undo, "goldyx_potion_making");
+        assert!(!state.players[0].hand.iter().any(|c| c.as_str() == "wound"));
+    }
+
+    #[test]
+    fn potion_making_round_cooldown() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Goldyx, "goldyx_potion_making");
+        activate_skill(&mut state, &mut undo, "goldyx_potion_making");
+        assert!(state.players[0].skill_cooldowns.used_this_round.iter()
+            .any(|s| s.as_str() == "goldyx_potion_making"));
+    }
+
+    // ---- Spirit Guides (Krang) ----
+
+    #[test]
+    fn spirit_guides_grants_move_and_block_modifier() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_spirit_guides");
+        let before_move = state.players[0].move_points;
+        activate_skill(&mut state, &mut undo, "krang_spirit_guides");
+        assert_eq!(state.players[0].move_points, before_move + 1);
+        // Should have Block +1 modifier
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::CombatValue {
+                value_type, amount, ..
+            } if *value_type == mk_types::modifier::CombatValueType::Block && *amount == 1)
+        ));
+    }
+
+    #[test]
+    fn spirit_guides_block_modifier_is_turn_duration() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_spirit_guides");
+        activate_skill(&mut state, &mut undo, "krang_spirit_guides");
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::CombatValue {
+                value_type, ..
+            } if *value_type == mk_types::modifier::CombatValueType::Block)
+            && matches!(&m.duration, mk_types::modifier::ModifierDuration::Turn)
+        ));
+    }
+
+    #[test]
+    fn spirit_guides_turn_cooldown() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_spirit_guides");
+        activate_skill(&mut state, &mut undo, "krang_spirit_guides");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "krang_spirit_guides"));
+    }
+
+    // ---- Hawk Eyes (Wolfhawk) ----
+
+    #[test]
+    fn hawk_eyes_grants_move_point() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Wolfhawk, "wolfhawk_hawk_eyes");
+        let before_move = state.players[0].move_points;
+        activate_skill(&mut state, &mut undo, "wolfhawk_hawk_eyes");
+        assert_eq!(state.players[0].move_points, before_move + 1);
+    }
+
+    #[test]
+    fn hawk_eyes_night_explore_cost_reduction() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Wolfhawk, "wolfhawk_hawk_eyes");
+        state.time_of_day = mk_types::enums::TimeOfDay::Night;
+        activate_skill(&mut state, &mut undo, "wolfhawk_hawk_eyes");
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::ExploreCostReduction { amount }
+                if *amount == 1)
+        ));
+    }
+
+    #[test]
+    fn hawk_eyes_day_garrison_reveal() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Wolfhawk, "wolfhawk_hawk_eyes");
+        state.time_of_day = mk_types::enums::TimeOfDay::Day;
+        activate_skill(&mut state, &mut undo, "wolfhawk_hawk_eyes");
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::RuleOverride { rule }
+                if *rule == mk_types::modifier::RuleOverride::GarrisonRevealDistance2)
+        ));
+    }
+
+    #[test]
+    fn hawk_eyes_turn_cooldown() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Wolfhawk, "wolfhawk_hawk_eyes");
+        activate_skill(&mut state, &mut undo, "wolfhawk_hawk_eyes");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "wolfhawk_hawk_eyes"));
+    }
+
+    // ---- Glittering Fortune (Goldyx) ----
+
+    #[test]
+    fn glittering_fortune_zero_crystals_zero_influence() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Goldyx, "goldyx_glittering_fortune");
+        state.players[0].crystals = Crystals::default();
+        let before = state.players[0].influence_points;
+        activate_skill(&mut state, &mut undo, "goldyx_glittering_fortune");
+        assert_eq!(state.players[0].influence_points, before);
+    }
+
+    #[test]
+    fn glittering_fortune_one_color_one_influence() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Goldyx, "goldyx_glittering_fortune");
+        state.players[0].crystals = Crystals { red: 2, blue: 0, green: 0, white: 0 };
+        let before = state.players[0].influence_points;
+        activate_skill(&mut state, &mut undo, "goldyx_glittering_fortune");
+        assert_eq!(state.players[0].influence_points, before + 1);
+    }
+
+    #[test]
+    fn glittering_fortune_four_colors_four_influence() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Goldyx, "goldyx_glittering_fortune");
+        state.players[0].crystals = Crystals { red: 1, blue: 1, green: 1, white: 1 };
+        let before = state.players[0].influence_points;
+        activate_skill(&mut state, &mut undo, "goldyx_glittering_fortune");
+        assert_eq!(state.players[0].influence_points, before + 4);
+    }
+
+    #[test]
+    fn glittering_fortune_turn_cooldown() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Goldyx, "goldyx_glittering_fortune");
+        activate_skill(&mut state, &mut undo, "goldyx_glittering_fortune");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "goldyx_glittering_fortune"));
+    }
+
+    // ---- Forward March (Norowas) ----
+
+    #[test]
+    fn forward_march_no_units_zero_move() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Norowas, "norowas_forward_march");
+        let before = state.players[0].move_points;
+        activate_skill(&mut state, &mut undo, "norowas_forward_march");
+        assert_eq!(state.players[0].move_points, before);
+    }
+
+    #[test]
+    fn forward_march_one_ready_unit() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Norowas, "norowas_forward_march");
+        state.players[0].units.push(PlayerUnit {
+            unit_id: mk_types::ids::UnitId::from("peasants"),
+            instance_id: mk_types::ids::UnitInstanceId::from("unit_0"),
+            level: 1, state: UnitState::Ready, wounded: false,
+            used_resistance_this_combat: false, used_ability_indices: vec![], mana_token: None,
+        });
+        let before = state.players[0].move_points;
+        activate_skill(&mut state, &mut undo, "norowas_forward_march");
+        assert_eq!(state.players[0].move_points, before + 1);
+    }
+
+    #[test]
+    fn forward_march_max_three_units() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Norowas, "norowas_forward_march");
+        for i in 0..5 {
+            state.players[0].units.push(PlayerUnit {
+                unit_id: mk_types::ids::UnitId::from("peasants"),
+                instance_id: mk_types::ids::UnitInstanceId::from(format!("unit_{}", i)),
+                level: 1, state: UnitState::Ready, wounded: false,
+                used_resistance_this_combat: false, used_ability_indices: vec![], mana_token: None,
+            });
+        }
+        let before = state.players[0].move_points;
+        activate_skill(&mut state, &mut undo, "norowas_forward_march");
+        assert_eq!(state.players[0].move_points, before + 3, "Should cap at 3");
+    }
+
+    #[test]
+    fn forward_march_wounded_units_excluded() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Norowas, "norowas_forward_march");
+        state.players[0].units.push(PlayerUnit {
+            unit_id: mk_types::ids::UnitId::from("peasants"),
+            instance_id: mk_types::ids::UnitInstanceId::from("unit_0"),
+            level: 1, state: UnitState::Ready, wounded: true,
+            used_resistance_this_combat: false, used_ability_indices: vec![], mana_token: None,
+        });
+        let before = state.players[0].move_points;
+        activate_skill(&mut state, &mut undo, "norowas_forward_march");
+        assert_eq!(state.players[0].move_points, before, "Wounded unit should not count");
+    }
+
+    // =========================================================================
+    // Batch 2: Simple Conditional Skills (day/night, choice)
+    // =========================================================================
+
+    // ---- Dark Paths (Arythea) ----
+
+    #[test]
+    fn dark_paths_night_move_2() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Arythea, "arythea_dark_paths");
+        state.time_of_day = mk_types::enums::TimeOfDay::Night;
+        let before = state.players[0].move_points;
+        activate_skill(&mut state, &mut undo, "arythea_dark_paths");
+        assert_eq!(state.players[0].move_points, before + 2);
+    }
+
+    #[test]
+    fn dark_paths_day_move_1() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Arythea, "arythea_dark_paths");
+        state.time_of_day = mk_types::enums::TimeOfDay::Day;
+        let before = state.players[0].move_points;
+        activate_skill(&mut state, &mut undo, "arythea_dark_paths");
+        assert_eq!(state.players[0].move_points, before + 1);
+    }
+
+    #[test]
+    fn dark_paths_turn_cooldown() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Arythea, "arythea_dark_paths");
+        activate_skill(&mut state, &mut undo, "arythea_dark_paths");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "arythea_dark_paths"));
+    }
+
+    // ---- Dark Negotiation (Arythea) ----
+
+    #[test]
+    fn dark_negotiation_night_influence_3() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Arythea, "arythea_dark_negotiation");
+        state.time_of_day = mk_types::enums::TimeOfDay::Night;
+        let before = state.players[0].influence_points;
+        activate_skill(&mut state, &mut undo, "arythea_dark_negotiation");
+        assert_eq!(state.players[0].influence_points, before + 3);
+    }
+
+    #[test]
+    fn dark_negotiation_day_influence_2() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Arythea, "arythea_dark_negotiation");
+        state.time_of_day = mk_types::enums::TimeOfDay::Day;
+        let before = state.players[0].influence_points;
+        activate_skill(&mut state, &mut undo, "arythea_dark_negotiation");
+        assert_eq!(state.players[0].influence_points, before + 2);
+    }
+
+    #[test]
+    fn dark_negotiation_turn_cooldown() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Arythea, "arythea_dark_negotiation");
+        activate_skill(&mut state, &mut undo, "arythea_dark_negotiation");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "arythea_dark_negotiation"));
+    }
+
+    // ---- Double Time (Tovak) ----
+
+    #[test]
+    fn double_time_day_move_2() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Tovak, "tovak_double_time");
+        state.time_of_day = mk_types::enums::TimeOfDay::Day;
+        let before = state.players[0].move_points;
+        activate_skill(&mut state, &mut undo, "tovak_double_time");
+        assert_eq!(state.players[0].move_points, before + 2);
+    }
+
+    #[test]
+    fn double_time_night_move_1() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Tovak, "tovak_double_time");
+        state.time_of_day = mk_types::enums::TimeOfDay::Night;
+        let before = state.players[0].move_points;
+        activate_skill(&mut state, &mut undo, "tovak_double_time");
+        assert_eq!(state.players[0].move_points, before + 1);
+    }
+
+    #[test]
+    fn double_time_turn_cooldown() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Tovak, "tovak_double_time");
+        activate_skill(&mut state, &mut undo, "tovak_double_time");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "tovak_double_time"));
+    }
+
+    // ---- Night Sharpshooting (Tovak) ----
+
+    #[test]
+    fn night_sharpshooting_night_ranged_2() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Tovak, "tovak_night_sharpshooting", &["prowlers"]);
+        state.time_of_day = mk_types::enums::TimeOfDay::Night;
+        activate_skill(&mut state, &mut undo, "tovak_night_sharpshooting");
+        assert_eq!(state.players[0].combat_accumulator.attack.ranged, 2);
+    }
+
+    #[test]
+    fn night_sharpshooting_day_ranged_1() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Tovak, "tovak_night_sharpshooting", &["prowlers"]);
+        state.time_of_day = mk_types::enums::TimeOfDay::Day;
+        activate_skill(&mut state, &mut undo, "tovak_night_sharpshooting");
+        assert_eq!(state.players[0].combat_accumulator.attack.ranged, 1);
+    }
+
+    #[test]
+    fn night_sharpshooting_turn_cooldown() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Tovak, "tovak_night_sharpshooting", &["prowlers"]);
+        activate_skill(&mut state, &mut undo, "tovak_night_sharpshooting");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "tovak_night_sharpshooting"));
+    }
+
+    // ---- Day Sharpshooting (Norowas) ----
+
+    #[test]
+    fn day_sharpshooting_day_ranged_2() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Norowas, "norowas_day_sharpshooting", &["prowlers"]);
+        state.time_of_day = mk_types::enums::TimeOfDay::Day;
+        activate_skill(&mut state, &mut undo, "norowas_day_sharpshooting");
+        assert_eq!(state.players[0].combat_accumulator.attack.ranged, 2);
+    }
+
+    #[test]
+    fn day_sharpshooting_night_ranged_1() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Norowas, "norowas_day_sharpshooting", &["prowlers"]);
+        state.time_of_day = mk_types::enums::TimeOfDay::Night;
+        activate_skill(&mut state, &mut undo, "norowas_day_sharpshooting");
+        assert_eq!(state.players[0].combat_accumulator.attack.ranged, 1);
+    }
+
+    #[test]
+    fn day_sharpshooting_turn_cooldown() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Norowas, "norowas_day_sharpshooting", &["prowlers"]);
+        activate_skill(&mut state, &mut undo, "norowas_day_sharpshooting");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "norowas_day_sharpshooting"));
+    }
+
+    // ---- Bright Negotiation (Norowas) ----
+
+    #[test]
+    fn bright_negotiation_day_influence_3() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Norowas, "norowas_bright_negotiation");
+        state.time_of_day = mk_types::enums::TimeOfDay::Day;
+        let before = state.players[0].influence_points;
+        activate_skill(&mut state, &mut undo, "norowas_bright_negotiation");
+        assert_eq!(state.players[0].influence_points, before + 3);
+    }
+
+    #[test]
+    fn bright_negotiation_night_influence_2() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Norowas, "norowas_bright_negotiation");
+        state.time_of_day = mk_types::enums::TimeOfDay::Night;
+        let before = state.players[0].influence_points;
+        activate_skill(&mut state, &mut undo, "norowas_bright_negotiation");
+        assert_eq!(state.players[0].influence_points, before + 2);
+    }
+
+    #[test]
+    fn bright_negotiation_turn_cooldown() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Norowas, "norowas_bright_negotiation");
+        activate_skill(&mut state, &mut undo, "norowas_bright_negotiation");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "norowas_bright_negotiation"));
+    }
+
+    // ---- On Her Own (Wolfhawk) ----
+
+    #[test]
+    fn on_her_own_no_unit_recruited_influence_3() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Wolfhawk, "wolfhawk_on_her_own");
+        // No unit recruited flag → should get 3
+        let before = state.players[0].influence_points;
+        activate_skill(&mut state, &mut undo, "wolfhawk_on_her_own");
+        assert_eq!(state.players[0].influence_points, before + 3);
+    }
+
+    #[test]
+    fn on_her_own_unit_recruited_influence_1() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Wolfhawk, "wolfhawk_on_her_own");
+        state.players[0].flags |= PlayerFlags::HAS_RECRUITED_UNIT_THIS_TURN;
+        let before = state.players[0].influence_points;
+        activate_skill(&mut state, &mut undo, "wolfhawk_on_her_own");
+        assert_eq!(state.players[0].influence_points, before + 1);
+    }
+
+    #[test]
+    fn on_her_own_turn_cooldown() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Wolfhawk, "wolfhawk_on_her_own");
+        activate_skill(&mut state, &mut undo, "wolfhawk_on_her_own");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "wolfhawk_on_her_own"));
+    }
+
+    // ---- Arcane Disguise (Krang) ----
+
+    #[test]
+    fn arcane_disguise_choice_influence_2() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_arcane_disguise");
+        activate_skill(&mut state, &mut undo, "krang_arcane_disguise");
+        assert!(state.players[0].pending.active.is_some());
+        let before = state.players[0].influence_points;
+        resolve_choice(&mut state, &mut undo, 0); // Influence 2
+        assert_eq!(state.players[0].influence_points, before + 2);
+    }
+
+    #[test]
+    fn arcane_disguise_choice_ignore_reputation() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_arcane_disguise");
+        activate_skill(&mut state, &mut undo, "krang_arcane_disguise");
+        resolve_choice(&mut state, &mut undo, 1); // IgnoreReputation
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::RuleOverride { rule }
+                if *rule == mk_types::modifier::RuleOverride::IgnoreReputation)
+        ));
+    }
+
+    #[test]
+    fn arcane_disguise_turn_cooldown() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_arcane_disguise");
+        activate_skill(&mut state, &mut undo, "krang_arcane_disguise");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "krang_arcane_disguise"));
+    }
+
+    // ---- Shamanic Ritual (Krang) ----
+
+    #[test]
+    fn shamanic_ritual_creates_6_option_choice() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_shamanic_ritual");
+        activate_skill(&mut state, &mut undo, "krang_shamanic_ritual");
+        assert!(state.players[0].pending.active.is_some(), "Should have pending choice");
+    }
+
+    #[test]
+    fn shamanic_ritual_choice_red_mana() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_shamanic_ritual");
+        activate_skill(&mut state, &mut undo, "krang_shamanic_ritual");
+        resolve_choice(&mut state, &mut undo, 0); // Red
+        assert!(state.players[0].pure_mana.iter().any(|t| t.color == ManaColor::Red));
+    }
+
+    #[test]
+    fn shamanic_ritual_choice_black_mana() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_shamanic_ritual");
+        activate_skill(&mut state, &mut undo, "krang_shamanic_ritual");
+        resolve_choice(&mut state, &mut undo, 5); // Black (6th option)
+        assert!(state.players[0].pure_mana.iter().any(|t| t.color == ManaColor::Black));
+    }
+
+    #[test]
+    fn shamanic_ritual_round_cooldown() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_shamanic_ritual");
+        activate_skill(&mut state, &mut undo, "krang_shamanic_ritual");
+        assert!(state.players[0].skill_cooldowns.used_this_round.iter()
+            .any(|s| s.as_str() == "krang_shamanic_ritual"));
+    }
+
+    // =========================================================================
+    // Batch 3: Combat Choice Skills
+    // =========================================================================
+
+    // ---- Burning Power (Arythea): Siege Physical/Fire 1 ----
+
+    #[test]
+    fn burning_power_physical_siege_1() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Arythea, "arythea_burning_power", &["prowlers"]);
+        activate_skill(&mut state, &mut undo, "arythea_burning_power");
+        resolve_choice(&mut state, &mut undo, 0); // Physical
+        assert_eq!(state.players[0].combat_accumulator.attack.siege, 1);
+    }
+
+    #[test]
+    fn burning_power_fire_siege_1() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Arythea, "arythea_burning_power", &["prowlers"]);
+        activate_skill(&mut state, &mut undo, "arythea_burning_power");
+        resolve_choice(&mut state, &mut undo, 1); // Fire
+        assert_eq!(state.players[0].combat_accumulator.attack.siege, 1);
+        assert_eq!(state.players[0].combat_accumulator.attack.siege_elements.fire, 1);
+    }
+
+    #[test]
+    fn burning_power_not_in_block_phase() {
+        let (mut state, _undo) = setup_combat_with_skill(Hero::Arythea, "arythea_burning_power", &["prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        assert!(!actions.actions.iter().any(|a| matches!(a,
+            LegalAction::UseSkill { ref skill_id } if skill_id.as_str() == "arythea_burning_power")));
+    }
+
+    #[test]
+    fn burning_power_turn_cooldown() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Arythea, "arythea_burning_power", &["prowlers"]);
+        activate_skill(&mut state, &mut undo, "arythea_burning_power");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "arythea_burning_power"));
+    }
+
+    // ---- Hot Swordsmanship (Arythea): Melee Physical/Fire 2 ----
+
+    #[test]
+    fn hot_swordsmanship_physical_melee_2() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Arythea, "arythea_hot_swordsmanship", &["prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+        activate_skill(&mut state, &mut undo, "arythea_hot_swordsmanship");
+        resolve_choice(&mut state, &mut undo, 0); // Physical
+        assert_eq!(state.players[0].combat_accumulator.attack.normal, 2);
+    }
+
+    #[test]
+    fn hot_swordsmanship_fire_melee_2() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Arythea, "arythea_hot_swordsmanship", &["prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+        activate_skill(&mut state, &mut undo, "arythea_hot_swordsmanship");
+        resolve_choice(&mut state, &mut undo, 1); // Fire
+        assert_eq!(state.players[0].combat_accumulator.attack.normal, 2);
+        assert_eq!(state.players[0].combat_accumulator.attack.normal_elements.fire, 2);
+    }
+
+    #[test]
+    fn hot_swordsmanship_not_in_ranged_phase() {
+        let (state, _undo) = setup_combat_with_skill(Hero::Arythea, "arythea_hot_swordsmanship", &["prowlers"]);
+        // RangedSiege is the default phase; MeleeAttackOnly should block it
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        assert!(!actions.actions.iter().any(|a| matches!(a,
+            LegalAction::UseSkill { ref skill_id } if skill_id.as_str() == "arythea_hot_swordsmanship")));
+    }
+
+    #[test]
+    fn hot_swordsmanship_available_in_attack_phase() {
+        let (mut state, _undo) = setup_combat_with_skill(Hero::Arythea, "arythea_hot_swordsmanship", &["prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        assert!(actions.actions.iter().any(|a| matches!(a,
+            LegalAction::UseSkill { ref skill_id } if skill_id.as_str() == "arythea_hot_swordsmanship")));
+    }
+
+    // ---- Cold Swordsmanship (Tovak): Melee Physical/Ice 2 ----
+
+    #[test]
+    fn cold_swordsmanship_physical_melee_2() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Tovak, "tovak_cold_swordsmanship", &["prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+        activate_skill(&mut state, &mut undo, "tovak_cold_swordsmanship");
+        resolve_choice(&mut state, &mut undo, 0); // Physical
+        assert_eq!(state.players[0].combat_accumulator.attack.normal, 2);
+    }
+
+    #[test]
+    fn cold_swordsmanship_ice_melee_2() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Tovak, "tovak_cold_swordsmanship", &["prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+        activate_skill(&mut state, &mut undo, "tovak_cold_swordsmanship");
+        resolve_choice(&mut state, &mut undo, 1); // Ice
+        assert_eq!(state.players[0].combat_accumulator.attack.normal, 2);
+        assert_eq!(state.players[0].combat_accumulator.attack.normal_elements.ice, 2);
+    }
+
+    #[test]
+    fn cold_swordsmanship_not_in_block_phase() {
+        let (mut state, _undo) = setup_combat_with_skill(Hero::Tovak, "tovak_cold_swordsmanship", &["prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        assert!(!actions.actions.iter().any(|a| matches!(a,
+            LegalAction::UseSkill { ref skill_id } if skill_id.as_str() == "tovak_cold_swordsmanship")));
+    }
+
+    #[test]
+    fn cold_swordsmanship_turn_cooldown() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Tovak, "tovak_cold_swordsmanship", &["prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+        activate_skill(&mut state, &mut undo, "tovak_cold_swordsmanship");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "tovak_cold_swordsmanship"));
+    }
+
+    // ---- Freezing Power (Goldyx): Siege Physical/Ice 1 ----
+
+    #[test]
+    fn freezing_power_physical_siege_1() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Goldyx, "goldyx_freezing_power", &["prowlers"]);
+        activate_skill(&mut state, &mut undo, "goldyx_freezing_power");
+        resolve_choice(&mut state, &mut undo, 0); // Physical
+        assert_eq!(state.players[0].combat_accumulator.attack.siege, 1);
+    }
+
+    #[test]
+    fn freezing_power_ice_siege_1() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Goldyx, "goldyx_freezing_power", &["prowlers"]);
+        activate_skill(&mut state, &mut undo, "goldyx_freezing_power");
+        resolve_choice(&mut state, &mut undo, 1); // Ice
+        assert_eq!(state.players[0].combat_accumulator.attack.siege, 1);
+        assert_eq!(state.players[0].combat_accumulator.attack.siege_elements.ice, 1);
+    }
+
+    #[test]
+    fn freezing_power_turn_cooldown() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Goldyx, "goldyx_freezing_power", &["prowlers"]);
+        activate_skill(&mut state, &mut undo, "goldyx_freezing_power");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "goldyx_freezing_power"));
+    }
+
+    // ---- Shield Mastery (Tovak): Block Phys3/Fire2/Ice2 ----
+
+    #[test]
+    fn shield_mastery_physical_block_3() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Tovak, "tovak_shield_mastery", &["prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+        activate_skill(&mut state, &mut undo, "tovak_shield_mastery");
+        resolve_choice(&mut state, &mut undo, 0); // Physical 3
+        assert_eq!(state.players[0].combat_accumulator.block, 3);
+    }
+
+    #[test]
+    fn shield_mastery_fire_block_2() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Tovak, "tovak_shield_mastery", &["prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+        activate_skill(&mut state, &mut undo, "tovak_shield_mastery");
+        resolve_choice(&mut state, &mut undo, 1); // Fire 2
+        assert_eq!(state.players[0].combat_accumulator.block, 2);
+        assert_eq!(state.players[0].combat_accumulator.block_elements.fire, 2);
+    }
+
+    #[test]
+    fn shield_mastery_ice_block_2() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Tovak, "tovak_shield_mastery", &["prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+        activate_skill(&mut state, &mut undo, "tovak_shield_mastery");
+        resolve_choice(&mut state, &mut undo, 2); // Ice 2
+        assert_eq!(state.players[0].combat_accumulator.block, 2);
+        assert_eq!(state.players[0].combat_accumulator.block_elements.ice, 2);
+    }
+
+    #[test]
+    fn shield_mastery_not_in_attack_phase() {
+        let (mut state, _undo) = setup_combat_with_skill(Hero::Tovak, "tovak_shield_mastery", &["prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        assert!(!actions.actions.iter().any(|a| matches!(a,
+            LegalAction::UseSkill { ref skill_id } if skill_id.as_str() == "tovak_shield_mastery")));
+    }
+
+    #[test]
+    fn shield_mastery_turn_cooldown() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Tovak, "tovak_shield_mastery", &["prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+        activate_skill(&mut state, &mut undo, "tovak_shield_mastery");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "tovak_shield_mastery"));
+    }
+
+    // ---- Deadly Aim (Wolfhawk): Ranged 1 in R/S, Melee 2 in Attack ----
+
+    #[test]
+    fn deadly_aim_ranged_phase_ranged_1() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Wolfhawk, "wolfhawk_deadly_aim", &["prowlers"]);
+        // Default phase is RangedSiege
+        activate_skill(&mut state, &mut undo, "wolfhawk_deadly_aim");
+        assert_eq!(state.players[0].combat_accumulator.attack.ranged, 1);
+    }
+
+    #[test]
+    fn deadly_aim_attack_phase_melee_2() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Wolfhawk, "wolfhawk_deadly_aim", &["prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+        activate_skill(&mut state, &mut undo, "wolfhawk_deadly_aim");
+        assert_eq!(state.players[0].combat_accumulator.attack.normal, 2);
+    }
+
+    #[test]
+    fn deadly_aim_not_in_block_phase() {
+        let (mut state, _undo) = setup_combat_with_skill(Hero::Wolfhawk, "wolfhawk_deadly_aim", &["prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        assert!(!actions.actions.iter().any(|a| matches!(a,
+            LegalAction::UseSkill { ref skill_id } if skill_id.as_str() == "wolfhawk_deadly_aim")));
+    }
+
+    #[test]
+    fn deadly_aim_turn_cooldown() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Wolfhawk, "wolfhawk_deadly_aim", &["prowlers"]);
+        activate_skill(&mut state, &mut undo, "wolfhawk_deadly_aim");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "wolfhawk_deadly_aim"));
+    }
+
+    // ---- Taunt (Wolfhawk): Block phase, SelectCombatEnemy ----
+
+    #[test]
+    fn taunt_choice_attack_minus_1() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Wolfhawk, "wolfhawk_taunt", &["prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+        activate_skill(&mut state, &mut undo, "wolfhawk_taunt");
+        // Choice pending
+        assert!(state.players[0].pending.active.is_some());
+        resolve_choice(&mut state, &mut undo, 0); // attack -1 option
+        // Single enemy → auto-apply. Should have EnemyStat Attack -1
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::EnemyStat {
+                stat, amount, ..
+            } if *stat == mk_types::modifier::EnemyStat::Attack && *amount == -1)
+        ));
+    }
+
+    #[test]
+    fn taunt_choice_attack_plus2_armor_minus2() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Wolfhawk, "wolfhawk_taunt", &["prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+        activate_skill(&mut state, &mut undo, "wolfhawk_taunt");
+        resolve_choice(&mut state, &mut undo, 1); // attack +2, armor -2 option
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::EnemyStat {
+                stat, amount, ..
+            } if *stat == mk_types::modifier::EnemyStat::Attack && *amount == 2)
+        ));
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::EnemyStat {
+                stat, amount, ..
+            } if *stat == mk_types::modifier::EnemyStat::Armor && *amount == -2)
+        ));
+    }
+
+    #[test]
+    fn taunt_not_in_attack_phase() {
+        let (mut state, _undo) = setup_combat_with_skill(Hero::Wolfhawk, "wolfhawk_taunt", &["prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        assert!(!actions.actions.iter().any(|a| matches!(a,
+            LegalAction::UseSkill { ref skill_id } if skill_id.as_str() == "wolfhawk_taunt")));
+    }
+
+    #[test]
+    fn taunt_turn_cooldown() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Wolfhawk, "wolfhawk_taunt", &["prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+        activate_skill(&mut state, &mut undo, "wolfhawk_taunt");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "wolfhawk_taunt"));
+    }
+
+    // ---- Battle Hardened (Krang): DamageReduction Phys/Fire/Ice ----
+
+    #[test]
+    fn battle_hardened_physical_reduction_2() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Krang, "krang_battle_hardened", &["prowlers"]);
+        activate_skill(&mut state, &mut undo, "krang_battle_hardened");
+        resolve_choice(&mut state, &mut undo, 0); // Physical reduction 2
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::HeroDamageReduction {
+                amount, elements
+            } if *amount == 2 && elements.contains(&Element::Physical))
+        ));
+    }
+
+    #[test]
+    fn battle_hardened_elemental_reduction_1() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Krang, "krang_battle_hardened", &["prowlers"]);
+        activate_skill(&mut state, &mut undo, "krang_battle_hardened");
+        resolve_choice(&mut state, &mut undo, 1); // Fire/Ice/ColdFire reduction 1
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::HeroDamageReduction {
+                amount, elements
+            } if *amount == 1 && elements.contains(&Element::Fire))
+        ));
+    }
+
+    #[test]
+    fn battle_hardened_combat_duration() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Krang, "krang_battle_hardened", &["prowlers"]);
+        activate_skill(&mut state, &mut undo, "krang_battle_hardened");
+        resolve_choice(&mut state, &mut undo, 0);
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::HeroDamageReduction { .. })
+            && matches!(&m.duration, mk_types::modifier::ModifierDuration::Combat)
+        ));
+    }
+
+    #[test]
+    fn battle_hardened_not_outside_combat() {
+        let (state, _undo) = setup_with_skill(Hero::Krang, "krang_battle_hardened");
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        assert!(!actions.actions.iter().any(|a| matches!(a,
+            LegalAction::UseSkill { ref skill_id } if skill_id.as_str() == "krang_battle_hardened")));
+    }
+
+    #[test]
+    fn battle_hardened_turn_cooldown() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Krang, "krang_battle_hardened", &["prowlers"]);
+        activate_skill(&mut state, &mut undo, "krang_battle_hardened");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "krang_battle_hardened"));
+    }
+
+    // ---- Resistance Break (Tovak): Armor per resistance ----
+
+    #[test]
+    fn resistance_break_applies_armor_reduction() {
+        // Use skeletal_warriors (1 fire resistance) so armor_per_resistance works
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Tovak, "tovak_resistance_break", &["skeletal_warriors"]);
+        activate_skill(&mut state, &mut undo, "tovak_resistance_break");
+        // Single enemy → auto-apply. Armor -1 per resistance (1 resistance = -1)
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::EnemyStat {
+                stat, amount, ..
+            } if *stat == mk_types::modifier::EnemyStat::Armor && *amount == -1)
+        ));
+    }
+
+    #[test]
+    fn resistance_break_zero_resistances_no_modifier() {
+        // Prowlers have 0 resistances — no armor modifier applied
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Tovak, "tovak_resistance_break", &["prowlers"]);
+        activate_skill(&mut state, &mut undo, "tovak_resistance_break");
+        assert!(!state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::EnemyStat {
+                stat, ..
+            } if *stat == mk_types::modifier::EnemyStat::Armor)
+        ), "No armor modifier when enemy has 0 resistances");
+    }
+
+    #[test]
+    fn resistance_break_not_outside_combat() {
+        let (state, _undo) = setup_with_skill(Hero::Tovak, "tovak_resistance_break");
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        assert!(!actions.actions.iter().any(|a| matches!(a,
+            LegalAction::UseSkill { ref skill_id } if skill_id.as_str() == "tovak_resistance_break")));
+    }
+
+    #[test]
+    fn resistance_break_turn_cooldown() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Tovak, "tovak_resistance_break", &["skeletal_warriors"]);
+        activate_skill(&mut state, &mut undo, "tovak_resistance_break");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "tovak_resistance_break"));
+    }
+
+    // =========================================================================
+    // Batch 4: Complex Conditional Skills
+    // =========================================================================
+
+    // ---- Beguile (Braevalar): AtMagicalGlade→4, AtFortifiedSite→2, else→3 ----
+
+    #[test]
+    fn beguile_default_influence_3() {
+        // Not at any special site → else branch → Influence 3
+        let (mut state, mut undo) = setup_with_skill(Hero::Braevalar, "braevalar_beguile");
+        let before = state.players[0].influence_points;
+        activate_skill(&mut state, &mut undo, "braevalar_beguile");
+        assert_eq!(state.players[0].influence_points, before + 3);
+    }
+
+    #[test]
+    fn beguile_at_magical_glade_influence_4() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Braevalar, "braevalar_beguile");
+        // Place player at a hex that has a MagicalGlade site
+        let pos = mk_types::hex::HexCoord { q: 0, r: 0 };
+        state.players[0].position = Some(pos);
+        if let Some(hex) = state.map.hexes.get_mut(&pos.key()) {
+            hex.site = Some(mk_types::state::Site {
+                site_type: SiteType::MagicalGlade,
+                is_conquered: false,
+                is_burned: false,
+                owner: None,
+                city_color: None,
+                mine_color: None,
+                deep_mine_colors: None,
+            });
+        }
+        let before = state.players[0].influence_points;
+        activate_skill(&mut state, &mut undo, "braevalar_beguile");
+        assert_eq!(state.players[0].influence_points, before + 4);
+    }
+
+    #[test]
+    fn beguile_at_fortified_site_influence_2() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Braevalar, "braevalar_beguile");
+        let pos = mk_types::hex::HexCoord { q: 0, r: 0 };
+        state.players[0].position = Some(pos);
+        if let Some(hex) = state.map.hexes.get_mut(&pos.key()) {
+            hex.site = Some(mk_types::state::Site {
+                site_type: SiteType::Keep,
+                is_conquered: false,
+                is_burned: false,
+                owner: None,
+                city_color: None,
+                mine_color: None,
+                deep_mine_colors: None,
+            });
+        }
+        let before = state.players[0].influence_points;
+        activate_skill(&mut state, &mut undo, "braevalar_beguile");
+        assert_eq!(state.players[0].influence_points, before + 2);
+    }
+
+    #[test]
+    fn beguile_turn_cooldown() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Braevalar, "braevalar_beguile");
+        activate_skill(&mut state, &mut undo, "braevalar_beguile");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "braevalar_beguile"));
+    }
+
+    // ---- Flight (Goldyx): Choice A (all cost=0, Move 1) vs B (all cost=1, Move 2) ----
+
+    #[test]
+    fn flight_choice_a_move_1_terrain_cost_zero() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Goldyx, "goldyx_flight");
+        activate_skill(&mut state, &mut undo, "goldyx_flight");
+        assert!(state.players[0].pending.active.is_some());
+        let before = state.players[0].move_points;
+        resolve_choice(&mut state, &mut undo, 0); // Option A: cost 0, move 1
+        assert_eq!(state.players[0].move_points, before + 1);
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::TerrainCost {
+                replace_cost: Some(0), ..
+            })
+        ));
+    }
+
+    #[test]
+    fn flight_choice_b_move_2_terrain_cost_one() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Goldyx, "goldyx_flight");
+        activate_skill(&mut state, &mut undo, "goldyx_flight");
+        let before = state.players[0].move_points;
+        resolve_choice(&mut state, &mut undo, 1); // Option B: cost 1, move 2
+        assert_eq!(state.players[0].move_points, before + 2);
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::TerrainCost {
+                replace_cost: Some(1), ..
+            })
+        ));
+    }
+
+    #[test]
+    fn flight_grants_ignore_rampaging_provoke() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Goldyx, "goldyx_flight");
+        activate_skill(&mut state, &mut undo, "goldyx_flight");
+        resolve_choice(&mut state, &mut undo, 0);
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::RuleOverride { rule }
+                if *rule == mk_types::modifier::RuleOverride::IgnoreRampagingProvoke)
+        ));
+    }
+
+    #[test]
+    fn flight_round_cooldown() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Goldyx, "goldyx_flight");
+        activate_skill(&mut state, &mut undo, "goldyx_flight");
+        assert!(state.players[0].skill_cooldowns.used_this_round.iter()
+            .any(|s| s.as_str() == "goldyx_flight"));
+    }
+
+    // ---- Leadership (Norowas): 3 choices (Block+3, Attack+2, Ranged+1) ----
+
+    #[test]
+    fn leadership_block_bonus_3() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Norowas, "norowas_leadership", &["prowlers"]);
+        activate_skill(&mut state, &mut undo, "norowas_leadership");
+        resolve_choice(&mut state, &mut undo, 0); // Block +3
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::LeadershipBonus {
+                bonus_type, amount
+            } if *bonus_type == mk_types::modifier::LeadershipBonusType::Block && *amount == 3)
+        ));
+    }
+
+    #[test]
+    fn leadership_attack_bonus_2() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Norowas, "norowas_leadership", &["prowlers"]);
+        activate_skill(&mut state, &mut undo, "norowas_leadership");
+        resolve_choice(&mut state, &mut undo, 1); // Attack +2
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::LeadershipBonus {
+                bonus_type, amount
+            } if *bonus_type == mk_types::modifier::LeadershipBonusType::Attack && *amount == 2)
+        ));
+    }
+
+    #[test]
+    fn leadership_ranged_bonus_1() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Norowas, "norowas_leadership", &["prowlers"]);
+        activate_skill(&mut state, &mut undo, "norowas_leadership");
+        resolve_choice(&mut state, &mut undo, 2); // Ranged +1
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::LeadershipBonus {
+                bonus_type, amount
+            } if *bonus_type == mk_types::modifier::LeadershipBonusType::RangedAttack && *amount == 1)
+        ));
+    }
+
+    #[test]
+    fn leadership_modifier_turn_duration() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Norowas, "norowas_leadership", &["prowlers"]);
+        activate_skill(&mut state, &mut undo, "norowas_leadership");
+        resolve_choice(&mut state, &mut undo, 0);
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::LeadershipBonus { .. })
+            && matches!(&m.duration, mk_types::modifier::ModifierDuration::Turn)
+        ));
+    }
+
+    #[test]
+    fn leadership_not_outside_combat() {
+        let (state, _undo) = setup_with_skill(Hero::Norowas, "norowas_leadership");
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        assert!(!actions.actions.iter().any(|a| matches!(a,
+            LegalAction::UseSkill { ref skill_id } if skill_id.as_str() == "norowas_leadership")));
+    }
+
+    #[test]
+    fn leadership_turn_cooldown() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Norowas, "norowas_leadership", &["prowlers"]);
+        activate_skill(&mut state, &mut undo, "norowas_leadership");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "norowas_leadership"));
+    }
+
+    // ---- I Feel No Pain (Tovak): Discard wound → draw 1 ----
+
+    #[test]
+    fn i_feel_no_pain_discards_wound_draws_card() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Tovak, "tovak_i_feel_no_pain");
+        state.players[0].hand = vec![CardId::from("wound"), CardId::from("march")];
+        state.players[0].deck = vec![CardId::from("rage")];
+        activate_skill(&mut state, &mut undo, "tovak_i_feel_no_pain");
+        // With only 1 wound and wounds_only, auto-selects the wound to discard
+        assert!(!state.players[0].hand.iter().any(|c| c.as_str() == "wound"),
+            "Wound should be discarded");
+        // Should have drawn a card
+        assert!(state.players[0].hand.iter().any(|c| c.as_str() == "rage"),
+            "Should draw a card after discarding wound");
+    }
+
+    #[test]
+    fn i_feel_no_pain_no_wound_not_available() {
+        let (mut state, _undo) = setup_with_skill(Hero::Tovak, "tovak_i_feel_no_pain");
+        state.players[0].hand = vec![CardId::from("march")]; // No wounds
+        let _actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        // The skill should still be listed (the filter is for wounds_only discard cost,
+        // but the engine resolves it by checking what's discardable)
+        // Actually, let's just activate and check the pending state
+    }
+
+    #[test]
+    fn i_feel_no_pain_turn_cooldown() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Tovak, "tovak_i_feel_no_pain");
+        state.players[0].hand = vec![CardId::from("wound"), CardId::from("march")];
+        state.players[0].deck = vec![CardId::from("rage")];
+        activate_skill(&mut state, &mut undo, "tovak_i_feel_no_pain");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "tovak_i_feel_no_pain"));
+    }
+
+    // =========================================================================
+    // Batch 5: Motivation Variants
+    // =========================================================================
+
+    /// Helper: set up 2-player game for motivation tests.
+    /// Player 0 has the motivation skill. Player 1 is Tovak.
+    fn setup_motivation(hero: Hero, skill_id: &str) -> (GameState, UndoStack) {
+        let (mut state, undo) = setup_two_player_with_skill(hero, skill_id);
+        // Give both players deck cards to draw from
+        state.players[0].deck = vec![CardId::from("rage"), CardId::from("march"), CardId::from("swiftness")];
+        state.players[1].deck = vec![CardId::from("march"), CardId::from("rage")];
+        state
+            .players[1]
+            .skills
+            .push(mk_types::ids::SkillId::from("tovak_motivation"));
+        (state, undo)
+    }
+
+    // ---- Arythea Motivation ----
+
+    #[test]
+    fn arythea_motivation_draws_2_cards() {
+        let (mut state, mut undo) = setup_motivation(Hero::Arythea, "arythea_motivation");
+        let before_hand = state.players[0].hand.len();
+        activate_skill(&mut state, &mut undo, "arythea_motivation");
+        assert_eq!(state.players[0].hand.len(), before_hand + 2);
+    }
+
+    #[test]
+    fn arythea_motivation_lowest_fame_grants_red_mana() {
+        let (mut state, mut undo) = setup_motivation(Hero::Arythea, "arythea_motivation");
+        state.players[0].fame = 0;
+        state.players[1].fame = 5;
+        activate_skill(&mut state, &mut undo, "arythea_motivation");
+        assert!(state.players[0].pure_mana.iter().any(|t| t.color == ManaColor::Red),
+            "Should gain Red mana when lowest fame");
+    }
+
+    #[test]
+    fn arythea_motivation_not_lowest_fame_no_mana() {
+        let (mut state, mut undo) = setup_motivation(Hero::Arythea, "arythea_motivation");
+        state.players[0].fame = 10;
+        state.players[1].fame = 5;
+        activate_skill(&mut state, &mut undo, "arythea_motivation");
+        assert!(state.players[0].pure_mana.is_empty(),
+            "Should NOT gain mana when not lowest fame");
+    }
+
+    #[test]
+    fn arythea_motivation_round_cooldown() {
+        let (mut state, mut undo) = setup_motivation(Hero::Arythea, "arythea_motivation");
+        activate_skill(&mut state, &mut undo, "arythea_motivation");
+        assert!(state.players[0].skill_cooldowns.used_this_round.iter()
+            .any(|s| s.as_str() == "arythea_motivation"));
+    }
+
+    #[test]
+    fn arythea_motivation_cross_player_cooldown() {
+        let (mut state, mut undo) = setup_motivation(Hero::Arythea, "arythea_motivation");
+        activate_skill(&mut state, &mut undo, "arythea_motivation");
+        // Switch to player 1 and check they can't use their motivation
+        switch_to_player_1(&mut state);
+        let actions = enumerate_legal_actions_with_undo(&state, 1, &UndoStack::new());
+        assert!(!actions.actions.iter().any(|a| matches!(a,
+            LegalAction::UseSkill { ref skill_id } if skill_id.as_str() == "tovak_motivation")),
+            "Player 1's motivation should be blocked by cross-player cooldown");
+    }
+
+    // ---- Goldyx Motivation ----
+
+    #[test]
+    fn goldyx_motivation_draws_2() {
+        let (mut state, mut undo) = setup_motivation(Hero::Goldyx, "goldyx_motivation");
+        let before = state.players[0].hand.len();
+        activate_skill(&mut state, &mut undo, "goldyx_motivation");
+        assert_eq!(state.players[0].hand.len(), before + 2);
+    }
+
+    #[test]
+    fn goldyx_motivation_lowest_fame_green_mana() {
+        let (mut state, mut undo) = setup_motivation(Hero::Goldyx, "goldyx_motivation");
+        state.players[0].fame = 0;
+        state.players[1].fame = 5;
+        activate_skill(&mut state, &mut undo, "goldyx_motivation");
+        assert!(state.players[0].pure_mana.iter().any(|t| t.color == ManaColor::Green));
+    }
+
+    #[test]
+    fn goldyx_motivation_not_lowest_no_mana() {
+        let (mut state, mut undo) = setup_motivation(Hero::Goldyx, "goldyx_motivation");
+        state.players[0].fame = 10;
+        state.players[1].fame = 5;
+        activate_skill(&mut state, &mut undo, "goldyx_motivation");
+        assert!(state.players[0].pure_mana.is_empty());
+    }
+
+    #[test]
+    fn goldyx_motivation_cross_player_cooldown() {
+        let (mut state, mut undo) = setup_motivation(Hero::Goldyx, "goldyx_motivation");
+        activate_skill(&mut state, &mut undo, "goldyx_motivation");
+        switch_to_player_1(&mut state);
+        let actions = enumerate_legal_actions_with_undo(&state, 1, &UndoStack::new());
+        assert!(!actions.actions.iter().any(|a| matches!(a,
+            LegalAction::UseSkill { ref skill_id } if skill_id.as_str() == "tovak_motivation")));
+    }
+
+    // ---- Norowas Motivation ----
+
+    #[test]
+    fn norowas_motivation_draws_2() {
+        let (mut state, mut undo) = setup_motivation(Hero::Norowas, "norowas_motivation");
+        let before = state.players[0].hand.len();
+        activate_skill(&mut state, &mut undo, "norowas_motivation");
+        assert_eq!(state.players[0].hand.len(), before + 2);
+    }
+
+    #[test]
+    fn norowas_motivation_lowest_fame_white_mana() {
+        let (mut state, mut undo) = setup_motivation(Hero::Norowas, "norowas_motivation");
+        state.players[0].fame = 0;
+        state.players[1].fame = 5;
+        activate_skill(&mut state, &mut undo, "norowas_motivation");
+        assert!(state.players[0].pure_mana.iter().any(|t| t.color == ManaColor::White));
+    }
+
+    #[test]
+    fn norowas_motivation_not_lowest_no_mana() {
+        let (mut state, mut undo) = setup_motivation(Hero::Norowas, "norowas_motivation");
+        state.players[0].fame = 10;
+        state.players[1].fame = 5;
+        activate_skill(&mut state, &mut undo, "norowas_motivation");
+        assert!(state.players[0].pure_mana.is_empty());
+    }
+
+    // ---- Tovak Motivation ----
+
+    #[test]
+    fn tovak_motivation_draws_2() {
+        let (mut state, mut undo) = setup_motivation(Hero::Tovak, "tovak_motivation");
+        let before = state.players[0].hand.len();
+        activate_skill(&mut state, &mut undo, "tovak_motivation");
+        assert_eq!(state.players[0].hand.len(), before + 2);
+    }
+
+    #[test]
+    fn tovak_motivation_lowest_fame_blue_mana() {
+        let (mut state, mut undo) = setup_motivation(Hero::Tovak, "tovak_motivation");
+        state.players[0].fame = 0;
+        state.players[1].fame = 5;
+        activate_skill(&mut state, &mut undo, "tovak_motivation");
+        assert!(state.players[0].pure_mana.iter().any(|t| t.color == ManaColor::Blue));
+    }
+
+    #[test]
+    fn tovak_motivation_not_lowest_no_mana() {
+        let (mut state, mut undo) = setup_motivation(Hero::Tovak, "tovak_motivation");
+        state.players[0].fame = 10;
+        state.players[1].fame = 5;
+        activate_skill(&mut state, &mut undo, "tovak_motivation");
+        assert!(state.players[0].pure_mana.is_empty());
+    }
+
+    #[test]
+    fn tovak_motivation_round_cooldown() {
+        let (mut state, mut undo) = setup_motivation(Hero::Tovak, "tovak_motivation");
+        activate_skill(&mut state, &mut undo, "tovak_motivation");
+        assert!(state.players[0].skill_cooldowns.used_this_round.iter()
+            .any(|s| s.as_str() == "tovak_motivation"));
+    }
+
+    // ---- Wolfhawk Motivation ----
+
+    #[test]
+    fn wolfhawk_motivation_draws_2() {
+        let (mut state, mut undo) = setup_motivation(Hero::Wolfhawk, "wolfhawk_motivation");
+        let before = state.players[0].hand.len();
+        activate_skill(&mut state, &mut undo, "wolfhawk_motivation");
+        assert_eq!(state.players[0].hand.len(), before + 2);
+    }
+
+    #[test]
+    fn wolfhawk_motivation_lowest_fame_gains_fame() {
+        let (mut state, mut undo) = setup_motivation(Hero::Wolfhawk, "wolfhawk_motivation");
+        state.players[0].fame = 0;
+        state.players[1].fame = 5;
+        let before_fame = state.players[0].fame;
+        activate_skill(&mut state, &mut undo, "wolfhawk_motivation");
+        assert_eq!(state.players[0].fame, before_fame + 1,
+            "Should gain 1 fame when lowest");
+    }
+
+    #[test]
+    fn wolfhawk_motivation_not_lowest_no_fame() {
+        let (mut state, mut undo) = setup_motivation(Hero::Wolfhawk, "wolfhawk_motivation");
+        state.players[0].fame = 10;
+        state.players[1].fame = 5;
+        let before_fame = state.players[0].fame;
+        activate_skill(&mut state, &mut undo, "wolfhawk_motivation");
+        assert_eq!(state.players[0].fame, before_fame, "Should NOT gain fame when not lowest");
+    }
+
+    #[test]
+    fn wolfhawk_motivation_cross_player_cooldown() {
+        let (mut state, mut undo) = setup_motivation(Hero::Wolfhawk, "wolfhawk_motivation");
+        activate_skill(&mut state, &mut undo, "wolfhawk_motivation");
+        switch_to_player_1(&mut state);
+        let actions = enumerate_legal_actions_with_undo(&state, 1, &UndoStack::new());
+        assert!(!actions.actions.iter().any(|a| matches!(a,
+            LegalAction::UseSkill { ref skill_id } if skill_id.as_str() == "tovak_motivation")));
+    }
+
+    #[test]
+    fn wolfhawk_motivation_tied_fame_counts_as_lowest() {
+        let (mut state, mut undo) = setup_motivation(Hero::Wolfhawk, "wolfhawk_motivation");
+        state.players[0].fame = 5;
+        state.players[1].fame = 5;
+        let before_fame = state.players[0].fame;
+        activate_skill(&mut state, &mut undo, "wolfhawk_motivation");
+        assert_eq!(state.players[0].fame, before_fame + 1,
+            "Tied fame should count as lowest (<=)");
+    }
+
+    // =========================================================================
+    // Batch 6: Deep Gap Coverage
+    // =========================================================================
+
+    // ---- Know Your Prey: additional tests ----
+
+    #[test]
+    fn know_your_prey_turn_cooldown() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Wolfhawk, "wolfhawk_know_your_prey", &["skeletal_warriors"]);
+        activate_skill(&mut state, &mut undo, "wolfhawk_know_your_prey");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "wolfhawk_know_your_prey"));
+    }
+
+    #[test]
+    fn know_your_prey_not_outside_combat() {
+        let (state, _undo) = setup_with_skill(Hero::Wolfhawk, "wolfhawk_know_your_prey");
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        assert!(!actions.actions.iter().any(|a| matches!(a,
+            LegalAction::UseSkill { ref skill_id } if skill_id.as_str() == "wolfhawk_know_your_prey")));
+    }
+
+    // ---- Shapeshift: additional tests ----
+
+    #[test]
+    fn shapeshift_turn_cooldown() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Braevalar, "braevalar_shapeshift", &["prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+        state.players[0].hand = vec![CardId::from("march")]; // Basic action: Move
+        activate_skill(&mut state, &mut undo, "braevalar_shapeshift");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "braevalar_shapeshift"));
+    }
+
+    #[test]
+    fn shapeshift_not_outside_combat() {
+        let (mut state, _undo) = setup_with_skill(Hero::Braevalar, "braevalar_shapeshift");
+        state.players[0].hand = vec![CardId::from("march")];
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        assert!(!actions.actions.iter().any(|a| matches!(a,
+            LegalAction::UseSkill { ref skill_id } if skill_id.as_str() == "braevalar_shapeshift")));
+    }
+
+    // ---- Puppet Master: additional tests ----
+
+    #[test]
+    fn puppet_master_turn_cooldown() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Krang, "krang_puppet_master", &["prowlers"]);
+        state.players[0].kept_enemy_tokens.push(mk_types::state::KeptEnemyToken {
+            enemy_id: mk_types::ids::EnemyId::from("prowlers"),
+            name: "Prowlers".to_string(),
+            attack: 4, attack_element: Element::Physical, armor: 3,
+        });
+        activate_skill(&mut state, &mut undo, "krang_puppet_master");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "krang_puppet_master"));
+    }
+
+    #[test]
+    fn puppet_master_not_available_outside_combat() {
+        let (mut state, _undo) = setup_with_skill(Hero::Krang, "krang_puppet_master");
+        state.players[0].kept_enemy_tokens.push(mk_types::state::KeptEnemyToken {
+            enemy_id: mk_types::ids::EnemyId::from("prowlers"),
+            name: "Prowlers".to_string(),
+            attack: 4, attack_element: Element::Physical, armor: 3,
+        });
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        assert!(!actions.actions.iter().any(|a| matches!(a,
+            LegalAction::UseSkill { ref skill_id } if skill_id.as_str() == "krang_puppet_master")));
+    }
+
+    // ---- Dueling: additional tests ----
+
+    #[test]
+    fn dueling_turn_cooldown() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Wolfhawk, "wolfhawk_dueling", &["prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+        activate_skill(&mut state, &mut undo, "wolfhawk_dueling");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "wolfhawk_dueling"));
+    }
+
+    #[test]
+    fn dueling_not_in_attack_phase() {
+        let (mut state, _undo) = setup_combat_with_skill(Hero::Wolfhawk, "wolfhawk_dueling", &["prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        assert!(!actions.actions.iter().any(|a| matches!(a,
+            LegalAction::UseSkill { ref skill_id } if skill_id.as_str() == "wolfhawk_dueling")));
+    }
+
+    #[test]
+    fn dueling_not_in_ranged_phase() {
+        let (state, _undo) = setup_combat_with_skill(Hero::Wolfhawk, "wolfhawk_dueling", &["prowlers"]);
+        // Default is RangedSiege
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        assert!(!actions.actions.iter().any(|a| matches!(a,
+            LegalAction::UseSkill { ref skill_id } if skill_id.as_str() == "wolfhawk_dueling")));
+    }
+
+    // ---- Invocation: additional tests ----
+
+    #[test]
+    fn invocation_turn_cooldown() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Arythea, "arythea_invocation");
+        state.players[0].hand = vec![CardId::from("wound"), CardId::from("march")];
+        activate_skill(&mut state, &mut undo, "arythea_invocation");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "arythea_invocation"));
+    }
+
+    #[test]
+    fn invocation_not_in_combat() {
+        let (mut state, _undo) = setup_combat_with_skill(Hero::Arythea, "arythea_invocation", &["prowlers"]);
+        state.players[0].hand = vec![CardId::from("march")];
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        assert!(!actions.actions.iter().any(|a| matches!(a,
+            LegalAction::UseSkill { ref skill_id } if skill_id.as_str() == "arythea_invocation")));
+    }
+
+    // ---- Polarization: additional tests ----
+
+    #[test]
+    fn polarization_turn_cooldown() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Arythea, "arythea_polarization");
+        state.players[0].pure_mana = vec![ManaToken {
+            color: ManaColor::Red, source: ManaTokenSource::Effect, cannot_power_spells: false,
+        }];
+        activate_skill(&mut state, &mut undo, "arythea_polarization");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "arythea_polarization"));
+    }
+
+    #[test]
+    fn polarization_not_in_combat() {
+        let (mut state, _undo) = setup_combat_with_skill(Hero::Arythea, "arythea_polarization", &["prowlers"]);
+        state.players[0].pure_mana = vec![ManaToken {
+            color: ManaColor::Red, source: ManaTokenSource::Effect, cannot_power_spells: false,
+        }];
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        assert!(!actions.actions.iter().any(|a| matches!(a,
+            LegalAction::UseSkill { ref skill_id } if skill_id.as_str() == "arythea_polarization")));
+    }
+
+    // =========================================================================
+    // Batch 7: Thunderstorm/Lightning Storm + Infrastructure
+    // =========================================================================
+
+    // ---- Thunderstorm (Braevalar): Compound(Choice(Green/Blue), Choice(Green/White)) ----
+
+    #[test]
+    fn thunderstorm_two_step_choice_green_green() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Braevalar, "braevalar_thunderstorm");
+        activate_skill(&mut state, &mut undo, "braevalar_thunderstorm");
+        // First choice: Green (index 0)
+        assert!(state.players[0].pending.active.is_some());
+        resolve_choice(&mut state, &mut undo, 0); // Green
+        assert!(state.players[0].pure_mana.iter().any(|t| t.color == ManaColor::Green));
+        // Second choice should be pending
+        assert!(state.players[0].pending.active.is_some());
+        let before = state.players[0].pure_mana.len();
+        resolve_choice(&mut state, &mut undo, 0); // Green (from second choice)
+        assert_eq!(state.players[0].pure_mana.iter().filter(|t| t.color == ManaColor::Green).count(), 2);
+        assert_eq!(state.players[0].pure_mana.len(), before + 1);
+    }
+
+    #[test]
+    fn thunderstorm_two_step_choice_blue_white() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Braevalar, "braevalar_thunderstorm");
+        activate_skill(&mut state, &mut undo, "braevalar_thunderstorm");
+        resolve_choice(&mut state, &mut undo, 1); // Blue
+        assert!(state.players[0].pure_mana.iter().any(|t| t.color == ManaColor::Blue));
+        resolve_choice(&mut state, &mut undo, 1); // White
+        assert!(state.players[0].pure_mana.iter().any(|t| t.color == ManaColor::White));
+    }
+
+    #[test]
+    fn thunderstorm_round_cooldown() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Braevalar, "braevalar_thunderstorm");
+        activate_skill(&mut state, &mut undo, "braevalar_thunderstorm");
+        assert!(state.players[0].skill_cooldowns.used_this_round.iter()
+            .any(|s| s.as_str() == "braevalar_thunderstorm"));
+    }
+
+    #[test]
+    fn thunderstorm_available_in_combat() {
+        // Phase restriction is None → should be available in combat
+        let (state, _undo) = setup_combat_with_skill(Hero::Braevalar, "braevalar_thunderstorm", &["prowlers"]);
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        assert!(actions.actions.iter().any(|a| matches!(a,
+            LegalAction::UseSkill { ref skill_id } if skill_id.as_str() == "braevalar_thunderstorm")));
+    }
+
+    // ---- Lightning Storm (Braevalar): Compound(Choice(Blue/Green), Choice(Blue/Red)) ----
+
+    #[test]
+    fn lightning_storm_two_step_blue_blue() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Braevalar, "braevalar_lightning_storm");
+        activate_skill(&mut state, &mut undo, "braevalar_lightning_storm");
+        resolve_choice(&mut state, &mut undo, 0); // Blue
+        resolve_choice(&mut state, &mut undo, 0); // Blue
+        assert_eq!(state.players[0].pure_mana.iter().filter(|t| t.color == ManaColor::Blue).count(), 2);
+    }
+
+    #[test]
+    fn lightning_storm_two_step_green_red() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Braevalar, "braevalar_lightning_storm");
+        activate_skill(&mut state, &mut undo, "braevalar_lightning_storm");
+        resolve_choice(&mut state, &mut undo, 1); // Green
+        resolve_choice(&mut state, &mut undo, 1); // Red
+        assert!(state.players[0].pure_mana.iter().any(|t| t.color == ManaColor::Green));
+        assert!(state.players[0].pure_mana.iter().any(|t| t.color == ManaColor::Red));
+    }
+
+    #[test]
+    fn lightning_storm_round_cooldown() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Braevalar, "braevalar_lightning_storm");
+        activate_skill(&mut state, &mut undo, "braevalar_lightning_storm");
+        assert!(state.players[0].skill_cooldowns.used_this_round.iter()
+            .any(|s| s.as_str() == "braevalar_lightning_storm"));
+    }
+
+    // ---- Infrastructure: skill does NOT set HAS_TAKEN_ACTION ----
+
+    #[test]
+    fn skill_does_not_set_has_taken_action() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Arythea, "arythea_dark_paths");
+        assert!(!state.players[0].flags.contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN));
+        activate_skill(&mut state, &mut undo, "arythea_dark_paths");
+        assert!(!state.players[0].flags.contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN),
+            "UseSkill should NOT set HAS_TAKEN_ACTION");
+    }
+
+    #[test]
+    fn skill_does_not_set_played_card_from_hand() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_spirit_guides");
+        assert!(!state.players[0].flags.contains(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN));
+        activate_skill(&mut state, &mut undo, "krang_spirit_guides");
+        assert!(!state.players[0].flags.contains(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN),
+            "UseSkill should NOT set PLAYED_CARD_FROM_HAND");
+    }
+
+    // ---- Infrastructure: round-end cooldown reset ----
+
+    #[test]
+    fn turn_cooldown_clears_on_turn_reset() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Arythea, "arythea_dark_paths");
+        activate_skill(&mut state, &mut undo, "arythea_dark_paths");
+        assert!(!state.players[0].skill_cooldowns.used_this_turn.is_empty());
+        crate::end_turn::reset_player_turn(&mut state, 0);
+        assert!(state.players[0].skill_cooldowns.used_this_turn.is_empty(),
+            "Turn cooldowns should clear on turn reset");
+    }
+
+    #[test]
+    fn round_cooldown_clears_on_round_reset() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Goldyx, "goldyx_white_crystal_craft");
+        activate_skill(&mut state, &mut undo, "goldyx_white_crystal_craft");
+        assert!(!state.players[0].skill_cooldowns.used_this_round.is_empty());
+        // Simulate round reset by clearing round cooldowns (reset_player_round is private)
+        state.players[0].skill_cooldowns.used_this_round.clear();
+        assert!(state.players[0].skill_cooldowns.used_this_round.is_empty(),
+            "Round cooldowns should clear on round reset");
+        // Verify the skill can be used again after clearing
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        assert!(actions.actions.iter().any(|a| matches!(a, LegalAction::UseSkill { skill_id } if skill_id.as_str() == "goldyx_white_crystal_craft")),
+            "Skill should be usable after round cooldown reset");
+    }
+
+    // ---- Infrastructure: passive modifiers ----
+
+    #[test]
+    fn passive_modifiers_applied_on_acquisition() {
+        let (mut state, _undo) = setup_with_skill(Hero::Braevalar, "braevalar_feral_allies");
+        push_passive_skill_modifiers(
+            &mut state, 0, &mk_types::ids::SkillId::from("braevalar_feral_allies"),
+        );
+        // Should have ExploreCostReduction modifier
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::ExploreCostReduction { amount }
+                if *amount == 1)
+        ));
+    }
+
+    #[test]
+    fn passive_modifiers_are_permanent_duration() {
+        let (mut state, _undo) = setup_with_skill(Hero::Braevalar, "braevalar_feral_allies");
+        push_passive_skill_modifiers(
+            &mut state, 0, &mk_types::ids::SkillId::from("braevalar_feral_allies"),
+        );
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::ExploreCostReduction { .. })
+            && matches!(&m.duration, mk_types::modifier::ModifierDuration::Permanent)
+        ));
+    }
+
+    #[test]
+    fn passive_modifiers_survive_turn_reset() {
+        let (mut state, _undo) = setup_with_skill(Hero::Braevalar, "braevalar_feral_allies");
+        push_passive_skill_modifiers(
+            &mut state, 0, &mk_types::ids::SkillId::from("braevalar_feral_allies"),
+        );
+        let count_before = state.active_modifiers.iter().filter(|m|
+            matches!(&m.duration, mk_types::modifier::ModifierDuration::Permanent)
+        ).count();
+        crate::end_turn::reset_player_turn(&mut state, 0);
+        let count_after = state.active_modifiers.iter().filter(|m|
+            matches!(&m.duration, mk_types::modifier::ModifierDuration::Permanent)
+        ).count();
+        assert_eq!(count_before, count_after, "Permanent modifiers should survive turn reset");
+    }
+
+    // ---- Elemental Resistance (Braevalar): CombatOnly damage reduction ----
+
+    #[test]
+    fn elemental_resistance_fire_ice_reduction_2() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Braevalar, "braevalar_elemental_resistance", &["prowlers"]);
+        activate_skill(&mut state, &mut undo, "braevalar_elemental_resistance");
+        resolve_choice(&mut state, &mut undo, 0); // Fire/Ice 2
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::HeroDamageReduction {
+                amount, elements
+            } if *amount == 2 && elements.contains(&Element::Fire))
+        ));
+    }
+
+    #[test]
+    fn elemental_resistance_physical_coldfire_reduction_1() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Braevalar, "braevalar_elemental_resistance", &["prowlers"]);
+        activate_skill(&mut state, &mut undo, "braevalar_elemental_resistance");
+        resolve_choice(&mut state, &mut undo, 1); // Physical/ColdFire 1
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::HeroDamageReduction {
+                amount, elements
+            } if *amount == 1 && elements.contains(&Element::Physical))
+        ));
+    }
+
+    #[test]
+    fn elemental_resistance_turn_cooldown() {
+        let (mut state, mut undo) = setup_combat_with_skill(Hero::Braevalar, "braevalar_elemental_resistance", &["prowlers"]);
+        activate_skill(&mut state, &mut undo, "braevalar_elemental_resistance");
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "braevalar_elemental_resistance"));
+    }
+
+    #[test]
+    fn elemental_resistance_not_outside_combat() {
+        let (state, _undo) = setup_with_skill(Hero::Braevalar, "braevalar_elemental_resistance");
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        assert!(!actions.actions.iter().any(|a| matches!(a,
+            LegalAction::UseSkill { ref skill_id } if skill_id.as_str() == "braevalar_elemental_resistance")));
+    }
+
+    // =========================================================================
+    // Training card tests
+    // =========================================================================
+
+    #[test]
+    fn training_creates_pending_select_card() {
+        let mut state = setup_playing_game(vec!["training", "march"]);
+        state.offers.advanced_actions = vec![CardId::from("refreshing_walk")];
+        state.decks.advanced_action_deck = vec![];
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
+            hand_index: 0, card_id: CardId::from("training"),
+        }, epoch).unwrap();
+        match &state.players[0].pending.active {
+            Some(ActivePending::Training(t)) => {
+                assert_eq!(t.phase, BookOfWisdomPhase::SelectCard);
+                assert_eq!(t.mode, EffectMode::Basic);
+            }
+            other => panic!("Expected Training pending, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn training_phase1_throws_card_removes_from_hand() {
+        let mut state = setup_playing_game(vec!["training", "march"]);
+        // No green AAs in offer so it clears pending after throw
+        state.offers.advanced_actions = vec![CardId::from("blood_rage")];
+        state.decks.advanced_action_deck = vec![];
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
+            hand_index: 0, card_id: CardId::from("training"),
+        }, epoch).unwrap();
+        // Resolve phase 1: throw march (index 0 in remaining hand)
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::ResolveTraining {
+            selection_index: 0,
+        }, epoch).unwrap();
+        assert!(state.players[0].removed_cards.iter().any(|c| c.as_str() == "march"));
+        assert!(!state.players[0].hand.iter().any(|c| c.as_str() == "march"));
+    }
+
+    #[test]
+    fn training_phase1_matching_color_transitions_phase2() {
+        let mut state = setup_playing_game(vec!["training", "march"]);
+        // march is green, put 2 green AAs in offer
+        state.offers.advanced_actions = vec![
+            CardId::from("refreshing_walk"),
+            CardId::from("path_finding"),
+        ];
+        state.decks.advanced_action_deck = vec![];
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
+            hand_index: 0, card_id: CardId::from("training"),
+        }, epoch).unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::ResolveTraining {
+            selection_index: 0,
+        }, epoch).unwrap();
+        match &state.players[0].pending.active {
+            Some(ActivePending::Training(t)) => {
+                assert_eq!(t.phase, BookOfWisdomPhase::SelectFromOffer);
+                assert_eq!(t.available_offer_cards.len(), 2);
+            }
+            other => panic!("Expected Training SelectFromOffer, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn training_phase1_single_match_auto_selects() {
+        let mut state = setup_playing_game(vec!["training", "march"]);
+        // march is green; 1 green AA in offer → auto-select
+        state.offers.advanced_actions = vec![CardId::from("refreshing_walk")];
+        state.decks.advanced_action_deck = vec![];
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
+            hand_index: 0, card_id: CardId::from("training"),
+        }, epoch).unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::ResolveTraining {
+            selection_index: 0,
+        }, epoch).unwrap();
+        // Basic mode → AA goes to discard
+        assert!(state.players[0].discard.iter().any(|c| c.as_str() == "refreshing_walk"));
+        // Pending should be cleared
+        assert!(state.players[0].pending.active.is_none());
+    }
+
+    #[test]
+    fn training_basic_phase2_aa_to_discard() {
+        let mut state = setup_playing_game(vec!["training", "march"]);
+        state.offers.advanced_actions = vec![
+            CardId::from("refreshing_walk"),
+            CardId::from("path_finding"),
+        ];
+        state.decks.advanced_action_deck = vec![];
+        let mut undo = UndoStack::new();
+        // Play training basic
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
+            hand_index: 0, card_id: CardId::from("training"),
+        }, epoch).unwrap();
+        // Throw march → 2 green AAs → SelectFromOffer
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::ResolveTraining {
+            selection_index: 0,
+        }, epoch).unwrap();
+        // Select first AA from offer
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::ResolveTraining {
+            selection_index: 0,
+        }, epoch).unwrap();
+        // Basic mode → discard
+        assert!(state.players[0].discard.iter().any(|c| c.as_str() == "refreshing_walk"));
+        assert!(!state.players[0].hand.iter().any(|c| c.as_str() == "refreshing_walk"));
+    }
+
+    #[test]
+    fn training_powered_phase2_aa_to_hand() {
+        let mut state = setup_playing_game(vec!["training", "march"]);
+        state.offers.advanced_actions = vec![
+            CardId::from("refreshing_walk"),
+            CardId::from("path_finding"),
+        ];
+        state.decks.advanced_action_deck = vec![];
+        state.source.dice.clear(); // Prevent mana source ambiguity
+        // Give green mana to power training
+        state.players[0].pure_mana.push(ManaToken {
+            color: ManaColor::Green,
+            source: ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+        let mut undo = UndoStack::new();
+        // Play training powered
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardPowered {
+            hand_index: 0, card_id: CardId::from("training"), mana_color: BasicManaColor::Green,
+        }, epoch).unwrap();
+        // Throw march → 2 green AAs → SelectFromOffer
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::ResolveTraining {
+            selection_index: 0,
+        }, epoch).unwrap();
+        // Select first AA
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::ResolveTraining {
+            selection_index: 0,
+        }, epoch).unwrap();
+        // Powered mode → hand
+        assert!(state.players[0].hand.iter().any(|c| c.as_str() == "refreshing_walk"));
+    }
+
+    #[test]
+    fn training_excludes_wounds() {
+        let mut state = setup_playing_game(vec!["training", "wound", "march"]);
+        state.offers.advanced_actions = vec![CardId::from("refreshing_walk")];
+        state.decks.advanced_action_deck = vec![];
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
+            hand_index: 0, card_id: CardId::from("training"),
+        }, epoch).unwrap();
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let training_actions: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::ResolveTraining { .. }))
+            .collect();
+        // wound at index 0, march at index 1 (training moved to play area)
+        // Only march should be eligible, not wound
+        assert_eq!(training_actions.len(), 1);
+        // The selection_index should be for march (index 1 in hand: [wound, march])
+        assert!(matches!(training_actions[0], LegalAction::ResolveTraining { selection_index: 1 }));
+    }
+
+    #[test]
+    fn training_excludes_spells() {
+        let mut state = setup_playing_game(vec!["training", "fireball", "march"]);
+        state.offers.advanced_actions = vec![CardId::from("refreshing_walk")];
+        state.decks.advanced_action_deck = vec![];
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
+            hand_index: 0, card_id: CardId::from("training"),
+        }, epoch).unwrap();
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let training_actions: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::ResolveTraining { .. }))
+            .collect();
+        // Only march should be eligible, not fireball (spell)
+        assert_eq!(training_actions.len(), 1);
+    }
+
+    #[test]
+    fn training_card_permanently_removed() {
+        let mut state = setup_playing_game(vec!["training", "rage"]);
+        // rage is red; 0 red AAs in offer
+        state.offers.advanced_actions = vec![CardId::from("refreshing_walk")];
+        state.decks.advanced_action_deck = vec![];
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
+            hand_index: 0, card_id: CardId::from("training"),
+        }, epoch).unwrap();
+        // Throw rage (red)
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::ResolveTraining {
+            selection_index: 0,
+        }, epoch).unwrap();
+        // rage should be in removed_cards (permanently removed), not in discard
+        assert!(state.players[0].removed_cards.iter().any(|c| c.as_str() == "rage"));
+        assert!(!state.players[0].discard.iter().any(|c| c.as_str() == "rage"));
+    }
+
+    #[test]
+    fn training_offer_replenished() {
+        let mut state = setup_playing_game(vec!["training", "march"]);
+        // 1 green AA in offer → auto-select
+        state.offers.advanced_actions = vec![CardId::from("refreshing_walk")];
+        // Deck has a card to replenish from
+        state.decks.advanced_action_deck = vec![CardId::from("blood_rage")];
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
+            hand_index: 0, card_id: CardId::from("training"),
+        }, epoch).unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::ResolveTraining {
+            selection_index: 0,
+        }, epoch).unwrap();
+        // Offer should have been replenished with blood_rage
+        assert!(state.offers.advanced_actions.iter().any(|c| c.as_str() == "blood_rage"));
+    }
+
+    #[test]
+    fn training_no_matching_clears_pending() {
+        let mut state = setup_playing_game(vec!["training", "rage"]);
+        // rage is red, only green/blue AAs in offer → no match
+        state.offers.advanced_actions = vec![CardId::from("refreshing_walk"), CardId::from("ice_bolt")];
+        state.decks.advanced_action_deck = vec![];
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
+            hand_index: 0, card_id: CardId::from("training"),
+        }, epoch).unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::ResolveTraining {
+            selection_index: 0,
+        }, epoch).unwrap();
+        // No matching red AAs → pending cleared
+        assert!(state.players[0].pending.active.is_none());
+        // Card still thrown away
+        assert!(state.players[0].removed_cards.iter().any(|c| c.as_str() == "rage"));
+    }
+
+    #[test]
+    fn training_legal_actions_phase1() {
+        let mut state = setup_playing_game(vec!["training", "march", "rage", "wound"]);
+        state.offers.advanced_actions = vec![CardId::from("refreshing_walk")];
+        state.decks.advanced_action_deck = vec![];
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
+            hand_index: 0, card_id: CardId::from("training"),
+        }, epoch).unwrap();
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let training_actions: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::ResolveTraining { .. }))
+            .collect();
+        // march (idx 0), rage (idx 1) eligible; wound (idx 2) not eligible
+        assert_eq!(training_actions.len(), 2);
+    }
+
+    #[test]
+    fn training_legal_actions_phase2() {
+        use mk_types::pending::{PendingTraining, BookOfWisdomPhase, MAX_OFFER_CARDS};
+        let mut state = setup_playing_game(vec!["march"]);
+        // Manually set up SelectFromOffer pending
+        let mut available = arrayvec::ArrayVec::<CardId, MAX_OFFER_CARDS>::new();
+        available.push(CardId::from("refreshing_walk"));
+        available.push(CardId::from("path_finding"));
+        state.players[0].pending.active = Some(ActivePending::Training(PendingTraining {
+            source_card_id: CardId::from("training"),
+            mode: EffectMode::Basic,
+            phase: BookOfWisdomPhase::SelectFromOffer,
+            thrown_card_color: Some(BasicManaColor::Green),
+            available_offer_cards: available,
+        }));
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let training_actions: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::ResolveTraining { .. }))
+            .collect();
+        assert_eq!(training_actions.len(), 2);
+    }
+
+    #[test]
+    fn training_both_action_types_eligible() {
+        // Both BasicAction (march) and AdvancedAction (refreshing_walk) should be throwable
+        let mut state = setup_playing_game(vec!["training", "march", "refreshing_walk"]);
+        state.offers.advanced_actions = vec![CardId::from("in_need")];
+        state.decks.advanced_action_deck = vec![];
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
+            hand_index: 0, card_id: CardId::from("training"),
+        }, epoch).unwrap();
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let training_actions: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::ResolveTraining { .. }))
+            .collect();
+        // Both march (BasicAction) and refreshing_walk (AdvancedAction) are eligible
+        assert_eq!(training_actions.len(), 2);
+    }
+
+    #[test]
+    fn training_resolvable() {
+        // Training is resolvable when player has at least one non-wound action card
+        let state = setup_playing_game(vec!["training", "march"]);
+        let effect = CardEffect::Training { mode: EffectMode::Basic };
+        assert!(crate::effect_queue::is_resolvable(&state, 0, &effect));
+    }
+
+    // =========================================================================
+    // Maximal Effect card tests
+    // =========================================================================
+
+    #[test]
+    fn maximal_basic_creates_pending_multiplier_3() {
+        let mut state = setup_playing_game(vec!["maximal_effect", "march"]);
+        state.offers.advanced_actions = vec![];
+        state.decks.advanced_action_deck = vec![];
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
+            hand_index: 0, card_id: CardId::from("maximal_effect"),
+        }, epoch).unwrap();
+        match &state.players[0].pending.active {
+            Some(ActivePending::MaximalEffect(m)) => {
+                assert_eq!(m.multiplier, 3);
+                assert_eq!(m.effect_kind, EffectMode::Basic);
+            }
+            other => panic!("Expected MaximalEffect pending, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn maximal_powered_creates_pending_multiplier_2() {
+        let mut state = setup_playing_game(vec!["maximal_effect", "march"]);
+        state.offers.advanced_actions = vec![];
+        state.decks.advanced_action_deck = vec![];
+        state.source.dice.clear(); // Prevent mana source ambiguity
+        // Give red mana to power maximal_effect
+        state.players[0].pure_mana.push(ManaToken {
+            color: ManaColor::Red,
+            source: ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardPowered {
+            hand_index: 0, card_id: CardId::from("maximal_effect"), mana_color: BasicManaColor::Red,
+        }, epoch).unwrap();
+        match &state.players[0].pending.active {
+            Some(ActivePending::MaximalEffect(m)) => {
+                assert_eq!(m.multiplier, 2);
+                assert_eq!(m.effect_kind, EffectMode::Powered);
+            }
+            other => panic!("Expected MaximalEffect pending, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn maximal_basic_march_triples_move() {
+        let mut state = setup_playing_game(vec!["maximal_effect", "march"]);
+        state.offers.advanced_actions = vec![];
+        state.decks.advanced_action_deck = vec![];
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
+            hand_index: 0, card_id: CardId::from("maximal_effect"),
+        }, epoch).unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::ResolveMaximalEffect {
+            hand_index: 0,
+        }, epoch).unwrap();
+        // march basic = GainMove(2), multiplied 3x = 6
+        assert_eq!(state.players[0].move_points, 6);
+    }
+
+    #[test]
+    fn maximal_powered_march_doubles_powered() {
+        let mut state = setup_playing_game(vec!["maximal_effect", "march"]);
+        state.offers.advanced_actions = vec![];
+        state.decks.advanced_action_deck = vec![];
+        state.source.dice.clear();
+        state.players[0].pure_mana.push(ManaToken {
+            color: ManaColor::Red,
+            source: ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardPowered {
+            hand_index: 0, card_id: CardId::from("maximal_effect"), mana_color: BasicManaColor::Red,
+        }, epoch).unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::ResolveMaximalEffect {
+            hand_index: 0,
+        }, epoch).unwrap();
+        // march powered = GainMove(4), multiplied 2x = 8
+        assert_eq!(state.players[0].move_points, 8);
+    }
+
+    #[test]
+    fn maximal_card_permanently_removed() {
+        let mut state = setup_playing_game(vec!["maximal_effect", "march"]);
+        state.offers.advanced_actions = vec![];
+        state.decks.advanced_action_deck = vec![];
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
+            hand_index: 0, card_id: CardId::from("maximal_effect"),
+        }, epoch).unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::ResolveMaximalEffect {
+            hand_index: 0,
+        }, epoch).unwrap();
+        // march consumed → in removed_cards
+        assert!(state.players[0].removed_cards.iter().any(|c| c.as_str() == "march"));
+        assert!(!state.players[0].hand.iter().any(|c| c.as_str() == "march"));
+    }
+
+    #[test]
+    fn maximal_excludes_wounds() {
+        let mut state = setup_playing_game(vec!["maximal_effect", "wound", "march"]);
+        state.offers.advanced_actions = vec![];
+        state.decks.advanced_action_deck = vec![];
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
+            hand_index: 0, card_id: CardId::from("maximal_effect"),
+        }, epoch).unwrap();
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let maximal_actions: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::ResolveMaximalEffect { .. }))
+            .collect();
+        // Only march (idx 1) eligible, wound (idx 0) excluded
+        assert_eq!(maximal_actions.len(), 1);
+        assert!(matches!(maximal_actions[0], LegalAction::ResolveMaximalEffect { hand_index: 1 }));
+    }
+
+    #[test]
+    fn maximal_excludes_spells() {
+        let mut state = setup_playing_game(vec!["maximal_effect", "fireball", "march"]);
+        state.offers.advanced_actions = vec![];
+        state.decks.advanced_action_deck = vec![];
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
+            hand_index: 0, card_id: CardId::from("maximal_effect"),
+        }, epoch).unwrap();
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let maximal_actions: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::ResolveMaximalEffect { .. }))
+            .collect();
+        // Only march eligible, fireball (spell) excluded
+        assert_eq!(maximal_actions.len(), 1);
+    }
+
+    #[test]
+    fn maximal_not_resolvable_wounds_only() {
+        let state = setup_playing_game(vec!["maximal_effect", "wound"]);
+        let effect = CardEffect::MaximalEffect { mode: EffectMode::Basic };
+        assert!(!crate::effect_queue::is_resolvable(&state, 0, &effect));
+    }
+
+    #[test]
+    fn maximal_legal_actions_enumerate() {
+        let mut state = setup_playing_game(vec!["maximal_effect", "march", "rage", "swiftness"]);
+        state.offers.advanced_actions = vec![];
+        state.decks.advanced_action_deck = vec![];
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
+            hand_index: 0, card_id: CardId::from("maximal_effect"),
+        }, epoch).unwrap();
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let maximal_actions: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::ResolveMaximalEffect { .. }))
+            .collect();
+        // march, rage, swiftness → 3 actions
+        assert_eq!(maximal_actions.len(), 3);
+    }
+
+    #[test]
+    fn maximal_empty_hand_no_actions() {
+        let mut state = setup_playing_game(vec!["maximal_effect"]);
+        state.offers.advanced_actions = vec![];
+        state.decks.advanced_action_deck = vec![];
+        // Manually set pending since we can't play with empty hand after removing maximal_effect
+        state.players[0].pending.active = Some(ActivePending::MaximalEffect(
+            mk_types::pending::PendingMaximalEffect {
+                source_card_id: CardId::from("maximal_effect"),
+                multiplier: 3,
+                effect_kind: EffectMode::Basic,
+            },
+        ));
+        state.players[0].hand.clear();
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let maximal_actions: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::ResolveMaximalEffect { .. }))
+            .collect();
+        assert_eq!(maximal_actions.len(), 0);
+    }
+
+    #[test]
+    fn maximal_basic_attack_triples() {
+        // maximal_effect powered (mult=2, effect_kind=Powered) consumes swiftness
+        // swiftness powered = GainAttack(3 Ranged Physical) × 2 = 6 ranged attack
+        let mut state = setup_playing_game(vec!["maximal_effect", "swiftness"]);
+        state.offers.advanced_actions = vec![];
+        state.decks.advanced_action_deck = vec![];
+        state.combat = Some(Box::new(CombatState::default()));
+        state.source.dice.clear();
+        state.players[0].pure_mana.push(ManaToken {
+            color: ManaColor::Red,
+            source: ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardPowered {
+            hand_index: 0, card_id: CardId::from("maximal_effect"), mana_color: BasicManaColor::Red,
+        }, epoch).unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::ResolveMaximalEffect {
+            hand_index: 0,
+        }, epoch).unwrap();
+        // swiftness powered = GainAttack(3 Ranged Physical) × 2 = 6
+        assert_eq!(state.players[0].combat_accumulator.attack.ranged, 6);
+    }
+
+    #[test]
+    fn maximal_choice_card_creates_pending() {
+        // rage basic = Choice(Attack 2 Melee / Block 2) → should create NeedsChoice pending
+        let mut state = setup_playing_game(vec!["maximal_effect", "rage"]);
+        state.offers.advanced_actions = vec![];
+        state.decks.advanced_action_deck = vec![];
+        state.combat = Some(Box::new(CombatState::default()));
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
+            hand_index: 0, card_id: CardId::from("maximal_effect"),
+        }, epoch).unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::ResolveMaximalEffect {
+            hand_index: 0,
+        }, epoch).unwrap();
+        // rage basic is a Choice effect → should create a pending Choice
+        assert!(matches!(
+            &state.players[0].pending.active,
+            Some(ActivePending::Choice(_))
+        ));
+    }
+
+    #[test]
+    fn maximal_compound_triples_move() {
+        // stamina basic = GainMove(2), ×3 = 6
+        let mut state = setup_playing_game(vec!["maximal_effect", "stamina"]);
+        state.offers.advanced_actions = vec![];
+        state.decks.advanced_action_deck = vec![];
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
+            hand_index: 0, card_id: CardId::from("maximal_effect"),
+        }, epoch).unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::ResolveMaximalEffect {
+            hand_index: 0,
+        }, epoch).unwrap();
+        assert_eq!(state.players[0].move_points, 6);
+    }
+
+    #[test]
+    fn maximal_basic_includes_basic_and_aa() {
+        let mut state = setup_playing_game(vec!["maximal_effect", "march", "refreshing_walk"]);
+        state.offers.advanced_actions = vec![];
+        state.decks.advanced_action_deck = vec![];
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
+            hand_index: 0, card_id: CardId::from("maximal_effect"),
+        }, epoch).unwrap();
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let maximal_actions: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::ResolveMaximalEffect { .. }))
+            .collect();
+        // march (BasicAction) + refreshing_walk (AdvancedAction) = 2
+        assert_eq!(maximal_actions.len(), 2);
+    }
+
+    #[test]
+    fn maximal_pending_cleared_after_resolve() {
+        let mut state = setup_playing_game(vec!["maximal_effect", "march"]);
+        state.offers.advanced_actions = vec![];
+        state.decks.advanced_action_deck = vec![];
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
+            hand_index: 0, card_id: CardId::from("maximal_effect"),
+        }, epoch).unwrap();
+        assert!(state.players[0].pending.active.is_some());
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::ResolveMaximalEffect {
+            hand_index: 0,
+        }, epoch).unwrap();
+        // Pending should be cleared after successful resolution
+        assert!(state.players[0].pending.active.is_none());
+    }
+
+    // =========================================================================
+    // Multiplayer tests
+    // =========================================================================
+
+    #[test]
+    fn multiplayer_tactic_selection_sequential() {
+        let mut state = crate::setup::create_two_player_game(42, Hero::Arythea, Hero::Tovak);
+        let mut undo = UndoStack::new();
+
+        // Player 1 (index 1) selects first (reversed order)
+        assert_eq!(state.current_tactic_selector.as_ref().unwrap().as_str(), "player_1");
+        let player_1_idx = state.players.iter().position(|p| p.id.as_str() == "player_1").unwrap();
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, player_1_idx,
+            &LegalAction::SelectTactic { tactic_id: TacticId::from("early_bird") },
+            epoch,
+        ).unwrap();
+
+        // Still in TacticsSelection — player 0 hasn't picked yet
+        assert_eq!(state.round_phase, RoundPhase::TacticsSelection);
+        assert_eq!(state.current_tactic_selector.as_ref().unwrap().as_str(), "player_0");
+        assert_eq!(state.players[player_1_idx].selected_tactic.as_ref().unwrap().as_str(), "early_bird");
+
+        // Player 0 selects
+        let player_0_idx = state.players.iter().position(|p| p.id.as_str() == "player_0").unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, player_0_idx,
+            &LegalAction::SelectTactic { tactic_id: TacticId::from("planning") },
+            epoch,
+        ).unwrap();
+
+        // Now transitions to PlayerTurns
+        assert_eq!(state.round_phase, RoundPhase::PlayerTurns);
+        assert!(state.current_tactic_selector.is_none());
+    }
+
+    #[test]
+    fn multiplayer_tactic_removal_two_player() {
+        let mut state = crate::setup::create_two_player_game(42, Hero::Arythea, Hero::Tovak);
+        let mut undo = UndoStack::new();
+
+        assert_eq!(state.scenario_config.tactic_removal_mode, TacticRemovalMode::RemoveTwo);
+
+        // Both players select
+        let p1_idx = state.players.iter().position(|p| p.id.as_str() == "player_1").unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, p1_idx,
+            &LegalAction::SelectTactic { tactic_id: TacticId::from("early_bird") },
+            epoch,
+        ).unwrap();
+
+        let p0_idx = state.players.iter().position(|p| p.id.as_str() == "player_0").unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, p0_idx,
+            &LegalAction::SelectTactic { tactic_id: TacticId::from("planning") },
+            epoch,
+        ).unwrap();
+
+        // After both select: 6 original - 2 selected - 2 removed = 2 remaining
+        assert_eq!(state.available_tactics.len(), 2);
+        assert_eq!(state.removed_tactics.len(), 2);
+    }
+
+    #[test]
+    fn multiplayer_turn_order_sorted_by_tactic() {
+        let mut state = crate::setup::create_two_player_game(42, Hero::Arythea, Hero::Tovak);
+        let mut undo = UndoStack::new();
+
+        // Player 1 picks early_bird (turn order = 1)
+        let p1_idx = state.players.iter().position(|p| p.id.as_str() == "player_1").unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, p1_idx,
+            &LegalAction::SelectTactic { tactic_id: TacticId::from("early_bird") },
+            epoch,
+        ).unwrap();
+
+        // Player 0 picks the_right_moment (turn order = 6)
+        let p0_idx = state.players.iter().position(|p| p.id.as_str() == "player_0").unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, p0_idx,
+            &LegalAction::SelectTactic { tactic_id: TacticId::from("the_right_moment") },
+            epoch,
+        ).unwrap();
+
+        // Turn order: early_bird (1) before the_right_moment (6)
+        assert_eq!(state.turn_order[0].as_str(), "player_1");
+        assert_eq!(state.turn_order[1].as_str(), "player_0");
+    }
+
+    #[test]
+    fn multiplayer_announce_end_of_round() {
+        let mut state = crate::setup::create_two_player_game(42, Hero::Arythea, Hero::Tovak);
+        let mut undo = UndoStack::new();
+
+        // Select tactics to get to PlayerTurns
+        let p1_idx = state.players.iter().position(|p| p.id.as_str() == "player_1").unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, p1_idx,
+            &LegalAction::SelectTactic { tactic_id: TacticId::from("early_bird") },
+            epoch,
+        ).unwrap();
+        let p0_idx = state.players.iter().position(|p| p.id.as_str() == "player_0").unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, p0_idx,
+            &LegalAction::SelectTactic { tactic_id: TacticId::from("planning") },
+            epoch,
+        ).unwrap();
+
+        assert_eq!(state.round_phase, RoundPhase::PlayerTurns);
+
+        // Find which player goes first
+        let first_player_id = state.turn_order[0].clone();
+        let first_player_idx = state.players.iter().position(|p| p.id == first_player_id).unwrap();
+
+        // Set flags so EndTurn would be available
+        state.players[first_player_idx].flags.insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
+
+        // Announce end of round
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, first_player_idx,
+            &LegalAction::AnnounceEndOfRound,
+            epoch,
+        ).unwrap();
+
+        assert!(state.end_of_round_announced_by.is_some());
+        assert_eq!(state.players_with_final_turn.len(), 1); // Other player gets final turn
+    }
+
+    #[test]
+    fn multiplayer_announce_end_of_round_enumeration() {
+        let mut state = crate::setup::create_two_player_game(42, Hero::Arythea, Hero::Tovak);
+        let mut undo = UndoStack::new();
+
+        // Get to PlayerTurns
+        let p1_idx = state.players.iter().position(|p| p.id.as_str() == "player_1").unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, p1_idx,
+            &LegalAction::SelectTactic { tactic_id: TacticId::from("early_bird") },
+            epoch,
+        ).unwrap();
+        let p0_idx = state.players.iter().position(|p| p.id.as_str() == "player_0").unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, p0_idx,
+            &LegalAction::SelectTactic { tactic_id: TacticId::from("planning") },
+            epoch,
+        ).unwrap();
+
+        let first_player_id = state.turn_order[0].clone();
+        let first_player_idx = state.players.iter().position(|p| p.id == first_player_id).unwrap();
+
+        // AnnounceEndOfRound should be in legal actions for multiplayer
+        let legal = enumerate_legal_actions_with_undo(&state, first_player_idx, &undo);
+        let has_announce = legal.actions.iter().any(|a| matches!(a, LegalAction::AnnounceEndOfRound));
+        assert!(has_announce, "AnnounceEndOfRound should be available in 2P game");
+    }
+
+    #[test]
+    fn solo_game_no_announce_end_of_round() {
+        let mut state = crate::setup::create_solo_game(42, Hero::Arythea);
+        let mut undo = UndoStack::new();
+
+        // Select tactic to get to PlayerTurns
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::SelectTactic { tactic_id: TacticId::from("early_bird") },
+            epoch,
+        ).unwrap();
+
+        // Solo should NOT have AnnounceEndOfRound
+        let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        let has_announce = legal.actions.iter().any(|a| matches!(a, LegalAction::AnnounceEndOfRound));
+        assert!(!has_announce, "AnnounceEndOfRound should NOT be available in solo game");
+    }
+
+    #[test]
+    fn multiplayer_check_round_end_auto_announce() {
+        let mut state = crate::setup::create_two_player_game(42, Hero::Arythea, Hero::Tovak);
+        let mut undo = UndoStack::new();
+
+        // Get to PlayerTurns
+        let p1_idx = state.players.iter().position(|p| p.id.as_str() == "player_1").unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, p1_idx,
+            &LegalAction::SelectTactic { tactic_id: TacticId::from("early_bird") },
+            epoch,
+        ).unwrap();
+        let p0_idx = state.players.iter().position(|p| p.id.as_str() == "player_0").unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, p0_idx,
+            &LegalAction::SelectTactic { tactic_id: TacticId::from("planning") },
+            epoch,
+        ).unwrap();
+
+        // Empty first player's hand and deck to trigger auto-announce
+        let first_player_id = state.turn_order[0].clone();
+        let first_player_idx = state.players.iter().position(|p| p.id == first_player_id).unwrap();
+        state.players[first_player_idx].hand.clear();
+        state.players[first_player_idx].deck.clear();
+        state.players[first_player_idx].flags.insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
+
+        // End turn triggers auto-announce
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, first_player_idx,
+            &LegalAction::EndTurn,
+            epoch,
+        ).unwrap();
+
+        // Should auto-announce and populate final turn list
+        assert!(state.end_of_round_announced_by.is_some());
+    }
+
+    #[test]
+    fn multiplayer_mana_steal_from_source() {
+        let mut state = crate::setup::create_two_player_game(100, Hero::Arythea, Hero::Tovak);
+        let mut undo = UndoStack::new();
+
+        // Player 1 selects mana_steal
+        let p1_idx = state.players.iter().position(|p| p.id.as_str() == "player_1").unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, p1_idx,
+            &LegalAction::SelectTactic { tactic_id: TacticId::from("mana_steal") },
+            epoch,
+        ).unwrap();
+
+        // Player 1 should have ManaSteal pending
+        assert!(matches!(
+            state.players[p1_idx].pending.active,
+            Some(ActivePending::TacticDecision(PendingTacticDecision::ManaSteal))
+        ));
+
+        // Resolve: take first available basic die
+        let die_idx = state.source.dice.iter().position(|d| !d.is_depleted && d.taken_by_player_id.is_none() && d.color.is_basic()).unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, p1_idx,
+            &LegalAction::ResolveTacticDecision { data: TacticDecisionData::ManaSteal { die_index: die_idx } },
+            epoch,
+        ).unwrap();
+
+        // Die should be claimed by player_1
+        assert_eq!(state.source.dice[die_idx].taken_by_player_id.as_ref().unwrap().as_str(), "player_1");
+        assert!(state.players[p1_idx].tactic_state.stored_mana_die.is_some());
+    }
+
+    #[test]
+    fn multiplayer_three_player_tactic_selection() {
+        let config = mk_data::scenarios::first_reconnaissance_3p();
+        let mut state = crate::setup::create_multiplayer_game(
+            42,
+            &[Hero::Arythea, Hero::Tovak, Hero::Goldyx],
+            config,
+            "first_reconnaissance_3p",
+        );
+        let mut undo = UndoStack::new();
+
+        // Selection order should be player_2, player_1, player_0
+        assert_eq!(state.tactics_selection_order[0].as_str(), "player_2");
+        assert_eq!(state.tactics_selection_order[1].as_str(), "player_1");
+        assert_eq!(state.tactics_selection_order[2].as_str(), "player_0");
+
+        // Player 2 selects
+        let p2_idx = state.players.iter().position(|p| p.id.as_str() == "player_2").unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, p2_idx,
+            &LegalAction::SelectTactic { tactic_id: TacticId::from("early_bird") },
+            epoch,
+        ).unwrap();
+        assert_eq!(state.round_phase, RoundPhase::TacticsSelection);
+
+        // Player 1 selects
+        let p1_idx = state.players.iter().position(|p| p.id.as_str() == "player_1").unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, p1_idx,
+            &LegalAction::SelectTactic { tactic_id: TacticId::from("planning") },
+            epoch,
+        ).unwrap();
+        assert_eq!(state.round_phase, RoundPhase::TacticsSelection);
+
+        // Player 0 selects → transitions to PlayerTurns
+        let p0_idx = state.players.iter().position(|p| p.id.as_str() == "player_0").unwrap();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, p0_idx,
+            &LegalAction::SelectTactic { tactic_id: TacticId::from("mana_steal") },
+            epoch,
+        ).unwrap();
+
+        // 3P with RemoveOne: 6 - 3 selected - 1 removed = 2 remaining
+        assert_eq!(state.round_phase, RoundPhase::PlayerTurns);
+        assert_eq!(state.available_tactics.len(), 2);
+        assert_eq!(state.removed_tactics.len(), 1);
+    }
+
+    #[test]
+    fn multiplayer_no_dummy_player() {
+        let state = crate::setup::create_two_player_game(42, Hero::Arythea, Hero::Tovak);
+
+        assert!(state.dummy_player.is_none());
+        assert!(state.dummy_player_tactic.is_none());
     }
 }

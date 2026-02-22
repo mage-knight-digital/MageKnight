@@ -65,6 +65,11 @@ pub enum LegalAction {
         /// Index of the hand card to decompose (must be BasicAction or AdvancedAction).
         hand_index: usize,
     },
+    /// Discard a card from hand for a crystal (Offering basic), or skip if optional.
+    ResolveDiscardForCrystal {
+        /// None = skip (optional discard declined), Some(id) = discard that card.
+        card_id: Option<CardId>,
+    },
     ChallengeRampaging {
         hex: HexCoord,
     },
@@ -150,7 +155,43 @@ pub enum LegalAction {
     ResolveSourceOpeningReroll {
         reroll: bool,
     },
+    /// Training: select a card from hand to throw away, or select AA from offer.
+    ResolveTraining {
+        /// In SelectCard phase: hand index of the card to throw away.
+        /// In SelectFromOffer phase: index into available_offer_cards.
+        selection_index: usize,
+    },
+    /// Maximal Effect: select an action card from hand whose effect will be multiplied.
+    ResolveMaximalEffect {
+        /// Hand index of the card to consume.
+        hand_index: usize,
+    },
+    /// Meditation: select a card from discard, or place on top/bottom of deck.
+    ResolveMeditation {
+        /// In SelectCards phase: discard index of the card to select.
+        /// In PlaceCards phase: index into selected_card_ids.
+        selection_index: usize,
+        /// In PlaceCards phase: true = top of deck, false = bottom of deck.
+        /// None in SelectCards phase.
+        place_on_top: Option<bool>,
+    },
+    /// Meditation: done selecting cards (transition to PlaceCards phase).
+    MeditationDoneSelecting,
     EndCombatPhase,
+    /// Voluntarily announce end of round (multiplayer). Other players get one final turn each.
+    AnnounceEndOfRound,
+    /// Propose a cooperative assault on a city.
+    ProposeCooperativeAssault {
+        hex_coord: HexCoord,
+        invited_player_idxs: Vec<usize>,
+        distribution: Vec<(usize, u32)>,
+    },
+    /// Respond to a cooperative assault proposal (accept or decline).
+    RespondToCooperativeProposal {
+        accept: bool,
+    },
+    /// Cancel a cooperative assault proposal (initiator only).
+    CancelCooperativeProposal,
     Undo,
 }
 
