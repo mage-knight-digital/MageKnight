@@ -22,6 +22,7 @@ pub(crate) mod combat;
 mod explore;
 mod movement;
 mod pending;
+mod returnable_skills;
 mod sites;
 mod skills;
 mod tactics;
@@ -49,6 +50,7 @@ use self::pending::enumerate_pending;
 use self::sites::enumerate_site_actions;
 use self::tactics::enumerate_tactics;
 use self::turn_options::enumerate_turn_options;
+use self::returnable_skills::enumerate_returnable_skills;
 use self::skills::enumerate_skill_activations;
 use self::units::{enumerate_unit_actions, enumerate_unit_activations};
 
@@ -133,6 +135,7 @@ pub fn enumerate_legal_actions_with_undo(
             enumerate_combat_cards(state, player_idx, &mut actions);
             enumerate_unit_activations(state, player_idx, &mut actions);
             enumerate_skill_activations(state, player_idx, &mut actions);
+            enumerate_returnable_skills(state, player_idx, &mut actions);
             // Block/Attack declarations (categories 5-6).
             enumerate_block_declarations(state, player_idx, &mut actions);
             enumerate_cumbersome_actions(state, player_idx, &mut actions);
@@ -159,6 +162,7 @@ pub fn enumerate_legal_actions_with_undo(
     enumerate_normal_cards(state, player_idx, &mut actions);
     enumerate_unit_activations(state, player_idx, &mut actions);
     enumerate_skill_activations(state, player_idx, &mut actions);
+    enumerate_returnable_skills(state, player_idx, &mut actions);
     enumerate_moves(state, player_idx, &mut actions);
     enumerate_explores(state, player_idx, &mut actions);
     enumerate_challenges(state, player_idx, &mut actions);

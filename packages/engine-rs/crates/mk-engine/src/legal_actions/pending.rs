@@ -162,6 +162,10 @@ pub(super) fn enumerate_pending(
             actions.push(LegalAction::ResolveBannerProtection { remove_all: true });
             actions.push(LegalAction::ResolveBannerProtection { remove_all: false });
         }
+        ActivePending::SourceOpeningReroll { .. } => {
+            actions.push(LegalAction::ResolveSourceOpeningReroll { reroll: true });
+            actions.push(LegalAction::ResolveSourceOpeningReroll { reroll: false });
+        }
         // Non-choice pending states are not wired into LegalAction yet.
         // Panic instead of silently returning no actions to avoid deadlocked turns.
         other => panic!(

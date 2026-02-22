@@ -70,7 +70,8 @@ pub enum EndTurnError {
 ///   2 — Crystal Joy reclaim (may create pending)
 ///   3 — Steady Tempo deck placement (may create pending)
 ///   4 — Banner of Protection wound removal (may create pending)
-///   5+ — Automated: Mysterious Box, Crystal Mastery, Ring fame, level-ups,
+///   5 — Source Opening crystal grant + reroll (may create pending)
+///   6+ — Automated: Mysterious Box, Crystal Mastery, Ring fame, level-ups,
 ///         Mountain Lore, card flow, reset, advance
 pub fn end_turn(state: &mut GameState, player_idx: usize) -> Result<EndTurnResult, EndTurnError> {
     if player_idx >= state.players.len() {
@@ -128,7 +129,16 @@ pub fn end_turn(state: &mut GameState, player_idx: usize) -> Result<EndTurnResul
         state.players[player_idx].end_turn_step = 4;
     }
 
-    // Step 5+: All automated (no pending)
+    // Step 5: Source Opening crystal grant + reroll
+    if step < 5 {
+        if check_source_opening_crystal(state, player_idx) {
+            state.players[player_idx].end_turn_step = 5;
+            return Ok(EndTurnResult::AwaitingEndTurnChoice);
+        }
+        state.players[player_idx].end_turn_step = 5;
+    }
+
+    // Step 6+: All automated (no pending)
     apply_mysterious_box_cleanup(state, player_idx);
     apply_crystal_mastery_return(state, player_idx);
     apply_ring_fame_bonus(state, player_idx);
@@ -136,7 +146,7 @@ pub fn end_turn(state: &mut GameState, player_idx: usize) -> Result<EndTurnResul
     // Level-ups
     process_level_ups(state, player_idx);
     if promote_level_up_reward(state, player_idx) {
-        reset_player_turn(&mut state.players[player_idx]);
+        reset_player_turn_inner(&mut state.players[player_idx]);
         cleanup_end_turn_mana(state, player_idx);
         return Ok(EndTurnResult::AwaitingLevelUpRewards);
     }
@@ -148,7 +158,7 @@ pub fn end_turn(state: &mut GameState, player_idx: usize) -> Result<EndTurnResul
     process_card_flow(state, player_idx);
 
     // Reset player turn state
-    reset_player_turn(&mut state.players[player_idx]);
+    reset_player_turn_inner(&mut state.players[player_idx]);
 
     // Mana/dice/modifier cleanup
     cleanup_end_turn_mana(state, player_idx);
@@ -203,6 +213,54 @@ fn apply_banner_protection_choice(state: &mut GameState, player_idx: usize) -> b
     }
     state.players[player_idx].pending.active = Some(ActivePending::BannerProtectionChoice);
     true
+}
+
+/// Source Opening: if returning player used the extra die, grant crystal to owner + reroll pending.
+/// Returns true if a pending choice was created.
+pub(crate) fn check_source_opening_crystal(state: &mut GameState, player_idx: usize) -> bool {
+    let player_id = state.players[player_idx].id.clone();
+    let center = match &state.source_opening_center {
+        Some(c) if c.returning_player_id.as_ref() == Some(&player_id) => c.clone(),
+        _ => {
+            // Not the returning player, or no center — clear center if owner is ending turn
+            if let Some(ref c) = state.source_opening_center {
+                if c.owner_id == player_id {
+                    state.source_opening_center = None;
+                }
+            }
+            return false;
+        }
+    };
+
+    let extra_dice_used = (state.players[player_idx].used_die_ids.len() as u32)
+        .saturating_sub(center.used_die_count_at_return);
+
+    if extra_dice_used > 0 {
+        // Find the extra die (last in used_die_ids)
+        if let Some(extra_die_id) = state.players[player_idx].used_die_ids.last().cloned() {
+            // Find die color
+            if let Some(die) = state.source.dice.iter().find(|d| d.id == extra_die_id) {
+                let die_color = die.color;
+                // Grant owner a crystal if basic color
+                if let Some(basic) = crate::card_play::to_basic_mana_color(die_color) {
+                    let owner_idx = state.players.iter().position(|p| p.id == center.owner_id);
+                    if let Some(oi) = owner_idx {
+                        crate::effect_queue::gain_crystal_color(state, oi, basic);
+                    }
+                }
+                // Set up reroll pending
+                state.players[player_idx].pending.active =
+                    Some(ActivePending::SourceOpeningReroll { die_id: extra_die_id });
+                // Clear center
+                state.source_opening_center = None;
+                return true;
+            }
+        }
+    }
+
+    // No extra die used — clear center
+    state.source_opening_center = None;
+    false
 }
 
 /// Mysterious Box cleanup: return revealed artifact to deck, handle card fate.
@@ -527,7 +585,12 @@ fn process_card_flow(state: &mut GameState, player_idx: usize) {
 /// Matches TS `createResetPlayer()` in `playerReset.ts`.
 /// Fields that persist across turns (fame, level, crystals, skills, units, etc.)
 /// are left unchanged.
-fn reset_player_turn(player: &mut PlayerState) {
+#[cfg(test)]
+pub(crate) fn reset_player_turn(state: &mut GameState, player_idx: usize) {
+    reset_player_turn_inner(&mut state.players[player_idx]);
+}
+
+fn reset_player_turn_inner(player: &mut PlayerState) {
     player.move_points = 0;
     player.influence_points = 0;
     player.healing_points = 0;
@@ -577,11 +640,19 @@ fn reset_player_turn(player: &mut PlayerState) {
     player.tactic_state.mana_steal_used_this_turn = false;
     player.tactic_state.mana_search_used_this_turn = false;
 
+    // Master of Chaos: set free_rotate_available if skill was NOT used this turn
+    // Must check BEFORE clearing used_this_turn cooldowns.
+    if let Some(ref mut moc) = player.master_of_chaos_state {
+        let skill_id = SkillId::from("krang_master_of_chaos");
+        if !player.skill_cooldowns.used_this_turn.contains(&skill_id) {
+            moc.free_rotate_available = true;
+        }
+    }
+
     // Clear skill cooldowns (active_until_next_turn expires)
     player.skill_cooldowns.active_until_next_turn.clear();
     player.skill_cooldowns.used_this_turn.clear();
 
-    // TODO: pendingSourceOpeningRerollChoice, pendingMeditation
     player.mysterious_box_state = None;
     player.end_turn_step = 0;
     player.crystal_joy_reclaim_version = None;
@@ -661,6 +732,20 @@ fn advance_turn(state: &mut GameState, current_player_idx: usize) -> EndTurnResu
             &mut state.active_modifiers,
             &player_id,
         );
+    }
+
+    // Expire Mana Enhancement if the new current player is the owner
+    if let Some(ref center) = state.mana_enhancement_center {
+        let next_player_id = &state.players[next_player_idx].id;
+        if center.owner_id == *next_player_id {
+            let skill_str = center.skill_id.as_str().to_string();
+            let owner_id = center.owner_id.clone();
+            state.active_modifiers.retain(|m| {
+                !matches!(&m.source, mk_types::modifier::ModifierSource::Skill { skill_id: sid, player_id: oid }
+                    if sid.as_str() == skill_str && *oid == owner_id)
+            });
+            state.mana_enhancement_center = None;
+        }
     }
 
     // Setup next player: Magical Glade mana
@@ -1113,7 +1198,7 @@ mod tests {
     #[test]
     fn end_turn_succeeds_after_card_play() {
         let mut state = setup_playing_game(vec!["march", "rage"]);
-        play_card(&mut state, 0, 0, false).unwrap(); // play march
+        play_card(&mut state, 0, 0, false, None).unwrap(); // play march
 
         let result = end_turn(&mut state, 0).unwrap();
         // Solo player with cards remaining → next player (wraps to self)
@@ -1132,7 +1217,7 @@ mod tests {
     #[test]
     fn end_turn_moves_play_area_to_discard() {
         let mut state = setup_playing_game(vec!["march", "rage"]);
-        play_card(&mut state, 0, 0, false).unwrap(); // march → play area
+        play_card(&mut state, 0, 0, false, None).unwrap(); // march → play area
 
         assert_eq!(state.players[0].play_area.len(), 1);
         assert_eq!(state.players[0].play_area[0].as_str(), "march");
@@ -1190,7 +1275,7 @@ mod tests {
     #[test]
     fn end_turn_resets_move_points() {
         let mut state = setup_playing_game(vec!["march"]);
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         assert_eq!(state.players[0].move_points, 2);
 
         end_turn(&mut state, 0).unwrap();
@@ -1200,7 +1285,7 @@ mod tests {
     #[test]
     fn end_turn_resets_influence_points() {
         let mut state = setup_playing_game(vec!["promise"]);
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         assert_eq!(state.players[0].influence_points, 2);
 
         end_turn(&mut state, 0).unwrap();
@@ -1210,7 +1295,7 @@ mod tests {
     #[test]
     fn end_turn_clears_flags() {
         let mut state = setup_playing_game(vec!["march"]);
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         assert!(state.players[0]
             .flags
             .contains(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN));
@@ -1232,7 +1317,7 @@ mod tests {
             source: ManaTokenSource::Effect,
             cannot_power_spells: false,
         });
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
 
         end_turn(&mut state, 0).unwrap();
         assert!(state.players[0].pure_mana.is_empty());
@@ -1244,7 +1329,7 @@ mod tests {
         state.players[0].crystals.red = 2;
         state.players[0].crystals.blue = 1;
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         assert_eq!(state.players[0].crystals.red, 2);
@@ -1265,7 +1350,7 @@ mod tests {
         state.source.dice[0].taken_by_player_id = Some(player_id);
         state.players[0].used_die_ids.push(die_id);
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // Die should be released
@@ -1284,7 +1369,7 @@ mod tests {
         state.players[0].fame = 8; // Level 3 threshold
         state.players[0].level = 1; // But still at level 1
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         assert_eq!(state.players[0].level, 3);
@@ -1299,7 +1384,7 @@ mod tests {
         state.players[0].fame = 3; // Level 2
         state.players[0].level = 3; // Already higher (shouldn't happen, but be safe)
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // Level should stay at 3 (no downgrade)
@@ -1316,7 +1401,7 @@ mod tests {
         // Make deck empty so hand+deck = 0 after card flow
         state.players[0].deck.clear();
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         // After play: hand=0, play_area=1, deck=0
 
         let result = end_turn(&mut state, 0).unwrap();
@@ -1334,7 +1419,7 @@ mod tests {
         state.players[0].deck.clear();
         assert_eq!(state.time_of_day, TimeOfDay::Day);
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         assert_eq!(state.time_of_day, TimeOfDay::Night);
@@ -1346,7 +1431,7 @@ mod tests {
         state.players[0].deck.clear();
         assert_eq!(state.round, 1);
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         assert_eq!(state.round, 2);
@@ -1388,7 +1473,7 @@ mod tests {
         // Mark a die as taken
         state.source.dice[0].taken_by_player_id = Some(state.players[0].id.clone());
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // All dice should be fresh (none taken)
@@ -1407,7 +1492,7 @@ mod tests {
         state.players[0].deck.clear();
         assert_eq!(state.time_of_day, TimeOfDay::Day);
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // Now night: gold should be depleted, black available
@@ -1427,7 +1512,7 @@ mod tests {
         let mut state = setup_playing_game(vec!["march"]);
         state.players[0].deck.clear();
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         assert_eq!(state.round_phase, RoundPhase::TacticsSelection);
@@ -1440,7 +1525,7 @@ mod tests {
         // Currently day tactics
         assert_eq!(state.available_tactics[0].as_str(), "early_bird");
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // Now should have night tactics
@@ -1452,7 +1537,7 @@ mod tests {
         let mut state = setup_playing_game(vec!["march"]);
         state.players[0].deck.clear();
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         assert!(state.end_of_round_announced_by.is_none());
@@ -1474,7 +1559,7 @@ mod tests {
             mana_token: None,
         });
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // Unit should be readied but still wounded
@@ -1488,7 +1573,7 @@ mod tests {
         state.players[0].deck.clear();
         state.players[0].selected_tactic = Some(TacticId::from("planning"));
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         assert!(state.players[0].selected_tactic.is_none());
@@ -1509,7 +1594,7 @@ mod tests {
         // hand=2, deck=3
 
         // Turn 1: play march, draw up
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         // hand=1 (stamina), play_area=1 (march), deck=3
         end_turn(&mut state, 0).unwrap();
         // card_flow: play_area→discard, draw 4 from deck (to reach hand_limit=5)
@@ -1537,7 +1622,7 @@ mod tests {
         assert_eq!(state.round, 1);
         assert_eq!(state.time_of_day, TimeOfDay::Day);
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap(); // triggers round end
 
         // Round 2, Night
@@ -1629,7 +1714,7 @@ mod tests {
         let mut state = setup_playing_game(vec!["march"]);
         state.players[0].tactic_state.extra_turn_pending = true;
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         let result = end_turn(&mut state, 0).unwrap();
 
         match result {
@@ -1658,7 +1743,7 @@ mod tests {
         });
         state.source.dice[0].taken_by_player_id = Some(state.players[0].id.clone());
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // Die should be returned (rerolled)
@@ -1677,7 +1762,7 @@ mod tests {
         let mut state = setup_playing_game(vec!["march"]);
         state.players[0].selected_tactic = Some(TacticId::from("sparing_power"));
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // Since solo wraps to same player, sparing power pending should be set
@@ -1736,7 +1821,7 @@ mod tests {
         place_on_site(&mut state, SiteType::Mine);
         assert_eq!(state.players[0].crystals.red, 0);
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         assert_eq!(state.players[0].crystals.red, 1, "Mine should grant red crystal");
@@ -1748,7 +1833,7 @@ mod tests {
         let coord = place_on_site(&mut state, SiteType::Mine);
         state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_burned = true;
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         assert_eq!(state.players[0].crystals.red, 0, "Burned mine: no crystal");
@@ -1759,7 +1844,7 @@ mod tests {
         let mut state = setup_playing_game(vec!["march"]);
         place_on_site(&mut state, SiteType::DeepMine);
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         assert!(
@@ -1779,7 +1864,7 @@ mod tests {
         // Max out blue, leave green open
         state.players[0].crystals.blue = 3; // maxed
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // Should auto-grant green crystal, no pending
@@ -1801,7 +1886,7 @@ mod tests {
         state.players[0].crystals.blue = 3;
         state.players[0].crystals.green = 3;
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // Should skip — no pending, no new crystals
@@ -1839,7 +1924,7 @@ mod tests {
         // Put a wound in discard but not hand
         state.players[0].discard.push(CardId::from("wound"));
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // Wound should be auto-removed from discard
@@ -1874,7 +1959,7 @@ mod tests {
     fn glade_no_wound_no_op() {
         let mut state = setup_playing_game(vec!["march"]);
         place_on_site(&mut state, SiteType::MagicalGlade);
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         // After play: hand empty, play_area has march
         end_turn(&mut state, 0).unwrap();
 
@@ -1889,7 +1974,7 @@ mod tests {
         state.time_of_day = TimeOfDay::Day;
 
         // Trigger advance_turn by ending turn (solo wraps)
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // Should have gained gold mana token
@@ -1905,7 +1990,7 @@ mod tests {
         place_on_site(&mut state, SiteType::MagicalGlade);
         state.time_of_day = TimeOfDay::Night;
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // Should have gained black mana token
@@ -1920,7 +2005,7 @@ mod tests {
         let mut state = setup_playing_game(vec!["march"]);
         place_on_site(&mut state, SiteType::Village);
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // Solo wraps → next turn for same player → plunder decision should be set
@@ -1939,7 +2024,7 @@ mod tests {
         let coord = place_on_site(&mut state, SiteType::Village);
         state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_conquered = true;
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // No plunder decision at conquered village
@@ -1995,7 +2080,7 @@ mod tests {
 
         assert_eq!(state.active_modifiers.len(), 4);
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // Turn modifier should be expired, others remain
@@ -2016,7 +2101,7 @@ mod tests {
         assert_eq!(state.active_modifiers.len(), 2);
 
         // Make hand+deck empty to trigger round end
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         state.players[0].hand.clear();
         state.players[0].deck.clear();
         let result = end_turn(&mut state, 0).unwrap();
@@ -2107,7 +2192,7 @@ mod tests {
 
         // Play a card and end turn — deck+hand empty triggers round end,
         // and round end during final turns should end game immediately
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         let result = end_turn(&mut state, 0).unwrap();
 
         assert!(
@@ -2130,7 +2215,7 @@ mod tests {
         state.scenario_end_triggered = true;
         state.final_turns_remaining = Some(1);
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         assert!(state.game_ended);
@@ -2152,7 +2237,7 @@ mod tests {
         state.scenario_end_triggered = true;
         state.final_turns_remaining = Some(1);
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         assert!(state.game_ended);
@@ -2175,7 +2260,7 @@ mod tests {
         // Set round to total_rounds so end_round triggers game end
         state.round = state.scenario_config.total_rounds;
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         let result = end_turn(&mut state, 0).unwrap();
 
         assert!(matches!(result, EndTurnResult::GameEnded));
@@ -2192,7 +2277,7 @@ mod tests {
         state.scenario_end_triggered = true;
         state.final_turns_remaining = Some(2);
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         assert!(state.game_ended);
@@ -2223,7 +2308,7 @@ mod tests {
             white: 0,
         };
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // red: 1 + 1 = 2, blue: 0 + 2 = 2
@@ -2246,7 +2331,7 @@ mod tests {
             white: 0,
         };
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // green: 2 + 3 = 5, capped at 3
@@ -2266,7 +2351,7 @@ mod tests {
             white: 0,
         };
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // No return without flag
@@ -2308,7 +2393,7 @@ mod tests {
         state.players[0].spells_cast_by_color_this_turn = spell_map;
         state.players[0].fame = 0;
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // Should get +3 fame from ring
@@ -2341,7 +2426,7 @@ mod tests {
         // No spells cast
         state.players[0].fame = 5;
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         assert_eq!(state.players[0].fame, 5, "No bonus when no spells cast");
@@ -2497,7 +2582,7 @@ mod tests {
         });
         state.decks.artifact_deck.clear();
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // mysterious_box should be in hand (removed from play_area before card flow)
@@ -2525,7 +2610,7 @@ mod tests {
             played_card_from_hand_before_play: false,
         });
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // mysterious_box should be in removed_cards
@@ -2564,7 +2649,7 @@ mod tests {
             is_used_this_round: false,
         });
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // mysterious_box in discard (moved there before card flow, then card flow moves it again)
@@ -2600,7 +2685,7 @@ mod tests {
             played_card_from_hand_before_play: false,
         });
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // Basic: stays in play_area → card flow moves it to discard
@@ -2624,7 +2709,7 @@ mod tests {
         state.players[0].crystal_joy_reclaim_version =
             Some(mk_types::pending::EffectMode::Basic);
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         let result = end_turn(&mut state, 0).unwrap();
 
         assert!(
@@ -2651,7 +2736,7 @@ mod tests {
             CardId::from("stamina"),
         ];
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // Enumerate legal actions
@@ -2678,7 +2763,7 @@ mod tests {
             CardId::from("wound"),
         ];
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         let legal = enumerate_legal_actions(&state, 0);
@@ -2704,7 +2789,7 @@ mod tests {
             Some(mk_types::pending::EffectMode::Basic);
         state.players[0].discard = vec![CardId::from("rage"), CardId::from("stamina")];
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
         // Now pending CrystalJoyReclaim
 
@@ -2742,7 +2827,7 @@ mod tests {
             Some(mk_types::pending::EffectMode::Basic);
         state.players[0].discard = vec![CardId::from("rage")];
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         let legal = enumerate_legal_actions(&state, 0);
@@ -2774,7 +2859,7 @@ mod tests {
         let mut state = setup_playing_game(vec!["steady_tempo"]);
         state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         // play_card should set steady_tempo_version
         assert!(state.players[0].steady_tempo_version.is_some());
 
@@ -2805,7 +2890,7 @@ mod tests {
             .play_area
             .push(CardId::from("steady_tempo"));
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
         // Pending SteadyTempoDeckPlacement
 
@@ -2838,7 +2923,7 @@ mod tests {
             .play_area
             .push(CardId::from("steady_tempo"));
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         let legal = enumerate_legal_actions(&state, 0);
@@ -2874,7 +2959,7 @@ mod tests {
             .play_area
             .push(CardId::from("steady_tempo"));
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         let legal = enumerate_legal_actions(&state, 0);
@@ -2909,7 +2994,7 @@ mod tests {
             discard: 0,
         };
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         let result = end_turn(&mut state, 0).unwrap();
 
         assert!(
@@ -2935,7 +3020,7 @@ mod tests {
             discard: 0,
         };
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         let result = end_turn(&mut state, 0).unwrap();
 
         // No wounds → no pending → normal end turn
@@ -2966,7 +3051,7 @@ mod tests {
             .play_area
             .push(CardId::from("banner_of_protection"));
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
         // Pending BannerProtectionChoice
 
@@ -3014,7 +3099,7 @@ mod tests {
             .play_area
             .push(CardId::from("banner_of_protection"));
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         let legal = enumerate_legal_actions(&state, 0);
@@ -3058,7 +3143,7 @@ mod tests {
             .push(CardId::from("steady_tempo"));
         state.players[0].discard = vec![CardId::from("rage")];
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
 
         // First end_turn: should stop at Crystal Joy (step 2)
         let result = end_turn(&mut state, 0).unwrap();
@@ -3103,7 +3188,7 @@ mod tests {
         let mut state = setup_playing_game(vec!["steady_tempo"]);
         assert!(state.players[0].steady_tempo_version.is_none());
 
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         assert_eq!(
             state.players[0].steady_tempo_version,
             Some(mk_types::pending::EffectMode::Basic)
@@ -3120,7 +3205,7 @@ mod tests {
             cannot_power_spells: false,
         });
 
-        play_card(&mut state, 0, 0, true).unwrap();
+        play_card(&mut state, 0, 0, true, None).unwrap();
         assert_eq!(
             state.players[0].steady_tempo_version,
             Some(mk_types::pending::EffectMode::Powered)

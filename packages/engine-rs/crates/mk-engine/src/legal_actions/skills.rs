@@ -45,9 +45,15 @@ pub(super) fn enumerate_skill_activations(
             continue;
         }
 
-        // Skip passive and interactive skills (not manually activated)
+        // Skip passive skills (not manually activated)
         match def.usage_type {
-            SkillUsageType::Passive | SkillUsageType::Interactive => continue,
+            SkillUsageType::Passive => continue,
+            SkillUsageType::Interactive => {
+                // Interactive skills can be activated (cooldown: once per round)
+                if player.skill_cooldowns.used_this_round.contains(skill_id) {
+                    continue;
+                }
+            }
             SkillUsageType::OncePerTurn | SkillUsageType::OncePerRound => {}
         }
 
@@ -217,6 +223,22 @@ pub(super) fn enumerate_skill_activations(
         // Shapeshift requires: in combat + at least one basic action card in hand.
         if skill_id.as_str() == "braevalar_shapeshift" {
             if !crate::action_pipeline::has_shapeshift_eligible_cards(state, player_idx) {
+                continue;
+            }
+        }
+
+        // Nature's Vengeance requires: in combat + at least one alive non-summoner enemy.
+        if skill_id.as_str() == "braevalar_natures_vengeance" {
+            if let Some(ref combat) = state.combat {
+                let has_eligible = combat.enemies.iter().any(|e| {
+                    !e.is_defeated && !e.is_summoner_hidden
+                    && mk_data::enemies::get_enemy(e.enemy_id.as_str()).map_or(false, |def| {
+                        !crate::combat_resolution::has_ability(def, mk_types::enums::EnemyAbilityType::Summon)
+                        && !crate::combat_resolution::has_ability(def, mk_types::enums::EnemyAbilityType::SummonGreen)
+                    })
+                });
+                if !has_eligible { continue; }
+            } else {
                 continue;
             }
         }

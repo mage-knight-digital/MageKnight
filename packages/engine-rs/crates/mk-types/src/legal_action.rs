@@ -144,6 +144,12 @@ pub enum LegalAction {
     UseSkill {
         skill_id: SkillId,
     },
+    ReturnInteractiveSkill {
+        skill_id: SkillId,
+    },
+    ResolveSourceOpeningReroll {
+        reroll: bool,
+    },
     EndCombatPhase,
     Undo,
 }

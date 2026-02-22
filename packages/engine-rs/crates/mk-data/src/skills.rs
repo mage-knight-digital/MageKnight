@@ -339,7 +339,13 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
                 ],
             }),
         }),
-        "arythea_ritual_of_pain" => Some(stub("arythea_ritual_of_pain", SkillUsageType::Interactive, SkillPhaseRestriction::NoCombat)),
+        "arythea_ritual_of_pain" => Some(SkillDefinition {
+            id: "arythea_ritual_of_pain",
+            usage_type: SkillUsageType::Interactive,
+            phase_restriction: SkillPhaseRestriction::NoCombat,
+            is_motivation: false,
+            effect: Some(CardEffect::Noop), // Custom handler
+        }),
 
         // =====================================================================
         // Tovak
@@ -470,7 +476,13 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
                 ],
             }),
         }),
-        "tovak_mana_overload" => Some(stub("tovak_mana_overload", SkillUsageType::Interactive, SkillPhaseRestriction::NoCombat)),
+        "tovak_mana_overload" => Some(SkillDefinition {
+            id: "tovak_mana_overload",
+            usage_type: SkillUsageType::Interactive,
+            phase_restriction: SkillPhaseRestriction::NoCombat,
+            is_motivation: false,
+            effect: Some(CardEffect::Noop), // Custom handler
+        }),
 
         // =====================================================================
         // Goldyx
@@ -647,7 +659,13 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
                 ],
             }),
         }),
-        "goldyx_source_opening" => Some(stub("goldyx_source_opening", SkillUsageType::Interactive, SkillPhaseRestriction::NoCombat)),
+        "goldyx_source_opening" => Some(SkillDefinition {
+            id: "goldyx_source_opening",
+            usage_type: SkillUsageType::Interactive,
+            phase_restriction: SkillPhaseRestriction::NoCombat,
+            is_motivation: false,
+            effect: Some(CardEffect::Noop), // Custom handler
+        }),
 
         // =====================================================================
         // Norowas
@@ -808,7 +826,13 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
                 ],
             }),
         }),
-        "norowas_prayer_of_weather" => Some(stub("norowas_prayer_of_weather", SkillUsageType::Interactive, SkillPhaseRestriction::NoCombat)),
+        "norowas_prayer_of_weather" => Some(SkillDefinition {
+            id: "norowas_prayer_of_weather",
+            usage_type: SkillUsageType::Interactive,
+            phase_restriction: SkillPhaseRestriction::NoCombat,
+            is_motivation: false,
+            effect: Some(CardEffect::Noop), // Custom handler
+        }),
 
         // =====================================================================
         // Wolfhawk
@@ -1090,7 +1114,13 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
             is_motivation: false,
             effect: Some(CardEffect::Noop), // Custom handler
         }),
-        "krang_master_of_chaos" => Some(stub("krang_master_of_chaos", SkillUsageType::Interactive, SkillPhaseRestriction::NoCombat)),
+        "krang_master_of_chaos" => Some(SkillDefinition {
+            id: "krang_master_of_chaos",
+            usage_type: SkillUsageType::OncePerTurn,
+            phase_restriction: SkillPhaseRestriction::None,
+            is_motivation: false,
+            effect: Some(CardEffect::Noop), // Custom handler
+        }),
         "krang_curse" => Some(SkillDefinition {
             id: "krang_curse",
             usage_type: SkillUsageType::OncePerTurn,
@@ -1247,7 +1277,13 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
             is_motivation: false,
             effect: Some(CardEffect::Noop), // Custom handler
         }),
-        "braevalar_natures_vengeance" => Some(stub("braevalar_natures_vengeance", SkillUsageType::Interactive, SkillPhaseRestriction::NoCombat)),
+        "braevalar_natures_vengeance" => Some(SkillDefinition {
+            id: "braevalar_natures_vengeance",
+            usage_type: SkillUsageType::Interactive,
+            phase_restriction: SkillPhaseRestriction::CombatOnly,
+            is_motivation: false,
+            effect: Some(CardEffect::Noop), // Custom handler
+        }),
 
         _ => None,
     }
@@ -1394,6 +1430,14 @@ mod tests {
             "wolfhawk_wolfs_howl",
             "krang_puppet_master",
             "braevalar_shapeshift",
+            // Batch 2 interactive
+            "norowas_prayer_of_weather",
+            "arythea_ritual_of_pain",
+            "braevalar_natures_vengeance",
+            // Batch 3 — final 4
+            "tovak_mana_overload",
+            "goldyx_source_opening",
+            "krang_master_of_chaos",
         ];
         for id in implemented {
             let skill = get_skill(id).unwrap_or_else(|| panic!("Missing: {}", id));
@@ -1488,14 +1532,9 @@ mod tests {
 
     #[test]
     fn stub_skills_have_no_effect() {
+        // krang_mana_enhancement is passive-triggered, never UseSkill'd
         let stubs = [
-            "arythea_ritual_of_pain",
-            "tovak_mana_overload",
-            "goldyx_source_opening",
-            "norowas_prayer_of_weather",
-            "krang_master_of_chaos",
             "krang_mana_enhancement",
-            "braevalar_natures_vengeance",
         ];
         for id in stubs {
             let skill = get_skill(id).unwrap();

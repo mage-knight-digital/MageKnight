@@ -23,7 +23,7 @@
           "deck": [
             "concentration",
             "threaten",
-            "mana_draw",
+            "arythea_mana_pull",
             "promise",
             "rage",
             "crystallize",
@@ -109,7 +109,7 @@
           "deck": [
             "concentration",
             "threaten",
-            "mana_draw",
+            "arythea_mana_pull",
             "promise",
             "rage",
             "crystallize",
@@ -195,7 +195,7 @@
           "deck": [
             "concentration",
             "threaten",
-            "mana_draw",
+            "arythea_mana_pull",
             "promise",
             "rage",
             "crystallize",
@@ -283,7 +283,7 @@
           "deck": [
             "concentration",
             "threaten",
-            "mana_draw",
+            "arythea_mana_pull",
             "promise",
             "rage",
             "crystallize",
@@ -369,7 +369,7 @@
             "threaten"
           ],
           "deck": [
-            "mana_draw",
+            "arythea_mana_pull",
             "promise",
             "rage",
             "crystallize",

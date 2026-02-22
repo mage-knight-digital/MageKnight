@@ -52,6 +52,7 @@ pub struct SelectEnemyTemplate {
     // Filters — which enemies are eligible targets
     pub exclude_fortified: bool,
     pub exclude_arcane_immune: bool,
+    pub exclude_summoners: bool,
     pub exclude_resistance: Option<ResistanceElement>,
     // Effects on target
     pub skip_attack: bool,
@@ -90,6 +91,7 @@ impl SelectEnemyTemplate {
         Self {
             exclude_fortified: false,
             exclude_arcane_immune: false,
+            exclude_summoners: false,
             exclude_resistance: None,
             skip_attack: false,
             armor_change: 0,
@@ -275,6 +277,30 @@ pub enum ChoiceResolution {
         original_type: ShapeshiftTarget,
         amount: u32,
         element: Option<Element>,
+    },
+    /// Ritual of Pain: discard 0, 1, or 2 wounds from hand.
+    RitualOfPainDiscard {
+        max_wounds: usize,
+    },
+    /// Nature's Vengeance: select target enemy for attack reduction + cumbersome.
+    NaturesVengeanceTarget {
+        eligible_enemy_ids: Vec<String>,
+        is_return: bool,
+    },
+    /// Mana Overload: choose which non-Gold mana color to gain.
+    ManaOverloadColorSelect,
+    /// Source Opening: choose which source die to reroll (or skip).
+    SourceOpeningDieSelect {
+        die_ids: Vec<SourceDieId>,
+    },
+    /// Master of Chaos Gold position: choose from all 5 effects.
+    MasterOfChaosGoldChoice,
+    /// Mana source selection for powered card play.
+    /// Player chooses which mana source to consume (token, crystal, or source die).
+    ManaSourceSelect {
+        sources: Vec<crate::action::ManaSourceInfo>,
+        /// The powered effect to resolve after mana is consumed.
+        powered_effect: CardEffect,
     },
 }
 

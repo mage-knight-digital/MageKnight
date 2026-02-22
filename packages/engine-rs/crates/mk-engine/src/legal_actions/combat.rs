@@ -118,7 +118,13 @@ pub(super) fn enumerate_cumbersome_actions(
             None => continue,
         };
 
-        if !has_ability(def, EnemyAbilityType::Cumbersome) {
+        let has_granted_cumbersome = state.active_modifiers.iter().any(|m| {
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::GrantEnemyAbility { ability }
+                if *ability == EnemyAbilityType::Cumbersome)
+            && matches!(&m.scope, mk_types::modifier::ModifierScope::OneEnemy { enemy_id }
+                if enemy_id == enemy.instance_id.as_str())
+        });
+        if !has_ability(def, EnemyAbilityType::Cumbersome) && !has_granted_cumbersome {
             continue;
         }
 

@@ -63,8 +63,9 @@ fn valid_actions_normal_turn() {
 
 #[test]
 fn march_is_playable_basic_not_powered_without_mana() {
-    // NEW: powered is gated on can_afford_powered() — no green mana in default state
-    let state = setup_game(vec!["march"]);
+    // No tokens, crystals, or source dice — powered should be false
+    let mut state = setup_game(vec!["march"]);
+    state.source.dice.clear();
     let va = get_valid_actions(&state, 0);
     if let ValidActions::NormalTurn(actions) = va {
         assert_eq!(actions.playable_cards.len(), 1);
@@ -449,7 +450,7 @@ fn must_slow_recover_blocks_movement() {
 #[test]
 fn after_playing_card_updated_valid_actions() {
     let mut state = setup_game(vec!["march", "rage"]);
-    play_card(&mut state, 0, 0, false).unwrap(); // play march → +2 move
+    play_card(&mut state, 0, 0, false, None).unwrap(); // play march → +2 move
 
     let va = get_valid_actions(&state, 0);
     if let ValidActions::NormalTurn(actions) = va {

@@ -5,7 +5,7 @@ use crate::undo::UndoStack;
 use mk_types::effect::CardEffect;
 use mk_types::enums::ResistanceElement;
 use mk_types::hex::HexCoord;
-use mk_types::ids::CardId;
+use mk_types::ids::{CardId, PlayerId};
 use mk_types::modifier::{EnemyStat as ModEnemyStat, ModifierEffect, ModifierScope};
 use mk_types::pending::ActivePending;
 
@@ -97,8 +97,9 @@ fn game_ended_empty() {
 
 #[test]
 fn march_basic_and_sideways_no_powered() {
-    // Default state has no green mana, so powered should NOT be emitted
-    let state = setup_game(vec!["march"]);
+    // No tokens, crystals, or source dice — powered should NOT be emitted
+    let mut state = setup_game(vec!["march"]);
+    state.source.dice.clear();
     let legal = enumerate_legal_actions(&state, 0);
 
     let basic = legal.actions.iter().any(
@@ -664,9 +665,13 @@ fn pending_choice_emits_resolve_choices() {
 #[should_panic(expected = "Unsupported active pending in legal action pipeline")]
 fn pending_non_choice_panics_fast() {
     let mut state = setup_game(vec!["march"]);
-    state.players[0].pending.active = Some(ActivePending::SourceOpeningReroll {
-        die_id: mk_types::ids::SourceDieId::from("test"),
-    });
+    state.players[0].pending.active = Some(ActivePending::Meditation(
+        mk_types::pending::PendingMeditation {
+            version: mk_types::pending::EffectMode::Basic,
+            phase: mk_types::pending::MeditationPhase::SelectCards,
+            selected_card_ids: vec![],
+        },
+    ));
     let _ = enumerate_legal_actions(&state, 0);
 }
 
@@ -963,8 +968,9 @@ fn contract_combat_stub() {
 
 #[test]
 fn contract_powered_requires_mana() {
-    // Without mana: no powered actions should be emitted
-    let state = setup_game(vec!["march"]);
+    // Without mana (no tokens, crystals, or source dice): no powered actions
+    let mut state = setup_game(vec!["march"]);
+    state.source.dice.clear();
     let legal = enumerate_legal_actions(&state, 0);
     let has_powered = legal
         .actions
@@ -3521,6 +3527,7 @@ fn chill_basic_excludes_ice_resistant_enemies() {
 fn chill_powered_reduces_armor() {
     // Chill powered: skip attack + armor -4 (min 1)
     let (mut state, mut undo) = setup_card_combat("chill", &["prowlers"]);
+    state.source.dice.clear(); // control mana sources explicitly
     state.players[0].pure_mana.push(ManaToken {
         color: ManaColor::Blue,
         source: ManaTokenSource::Effect,
@@ -4141,7 +4148,7 @@ fn dummy_turn_auto_executed_on_end_turn() {
     let dummy_deck_before = state.dummy_player.as_ref().unwrap().deck.len();
 
     // Play a card and end turn
-    play_card(&mut state, 0, 0, false).unwrap();
+    play_card(&mut state, 0, 0, false, None).unwrap();
     end_turn(&mut state, 0).unwrap();
 
     // Dummy should have taken a turn (cards moved from deck to discard)
@@ -4182,7 +4189,7 @@ fn dummy_deck_exhausted_announces_round_end() {
     ];
 
     // Play a card and end turn (triggers dummy turn → announcement)
-    play_card(&mut state, 0, 0, false).unwrap();
+    play_card(&mut state, 0, 0, false, None).unwrap();
     end_turn(&mut state, 0).unwrap();
 
     // Dummy should have announced end of round
@@ -4201,7 +4208,7 @@ fn dummy_deck_exhausted_announces_round_end() {
     );
 
     // Human plays one more turn (final), then round ends
-    play_card(&mut state, 0, 0, false).unwrap();
+    play_card(&mut state, 0, 0, false, None).unwrap();
     end_turn(&mut state, 0).unwrap();
 
     // Round should have ended
@@ -4240,7 +4247,7 @@ fn solo_tactics_removed_at_round_end() {
     // Force round end: set hand to 1 card + empty deck → both empty after play
     state.players[0].hand = vec![CardId::from("march")];
     state.players[0].deck.clear();
-    play_card(&mut state, 0, 0, false).unwrap();
+    play_card(&mut state, 0, 0, false, None).unwrap();
     end_turn(&mut state, 0).unwrap();
 
     // Round ended — check tactic removal
@@ -4371,7 +4378,7 @@ fn final_turns_countdown_ends_game() {
     state.final_turns_remaining = Some(1);
 
     // Play a card and end turn — should decrement and end game
-    crate::card_play::play_card(&mut state, 0, 0, false).unwrap();
+    crate::card_play::play_card(&mut state, 0, 0, false, None).unwrap();
     let result = crate::end_turn::end_turn(&mut state, 0).unwrap();
 
     assert!(
@@ -4391,7 +4398,7 @@ fn round_limit_ends_game() {
     // Set round to total_rounds so end_round triggers game end
     state.round = state.scenario_config.total_rounds;
 
-    crate::card_play::play_card(&mut state, 0, 0, false).unwrap();
+    crate::card_play::play_card(&mut state, 0, 0, false, None).unwrap();
     let result = crate::end_turn::end_turn(&mut state, 0).unwrap();
 
     assert!(
@@ -4427,7 +4434,7 @@ fn tactic_removal_mode_drives_removal() {
     state.players[0].selected_tactic = Some(mk_types::ids::TacticId::from("early_bird"));
     assert_eq!(state.scenario_config.tactic_removal_mode, TacticRemovalMode::AllUsed);
 
-    crate::card_play::play_card(&mut state, 0, 0, false).unwrap();
+    crate::card_play::play_card(&mut state, 0, 0, false, None).unwrap();
     crate::end_turn::end_turn(&mut state, 0).unwrap();
 
     assert!(
@@ -4466,7 +4473,7 @@ fn level_up_at_level_2_queues_reward() {
     // Verify player has remaining hero skills
     assert_eq!(state.players[0].remaining_hero_skills.len(), 10);
 
-    crate::card_play::play_card(&mut state, 0, 0, false).unwrap();
+    crate::card_play::play_card(&mut state, 0, 0, false, None).unwrap();
     crate::end_turn::end_turn(&mut state, 0).unwrap();
 
     // Level should be updated to 2
@@ -4491,7 +4498,7 @@ fn level_up_at_level_2_queues_reward() {
 #[test]
 fn level_up_reward_enumerates_skill_x_aa_options() {
     let mut state = setup_level_up_game(3); // level 2
-    crate::card_play::play_card(&mut state, 0, 0, false).unwrap();
+    crate::card_play::play_card(&mut state, 0, 0, false, None).unwrap();
     crate::end_turn::end_turn(&mut state, 0).unwrap();
 
     let legal = enumerate_legal_actions(&state, 0);
@@ -4521,7 +4528,7 @@ fn level_up_common_pool_forces_lowest_aa() {
         .common_skills
         .push(mk_types::ids::SkillId::from("common_b"));
 
-    crate::card_play::play_card(&mut state, 0, 0, false).unwrap();
+    crate::card_play::play_card(&mut state, 0, 0, false, None).unwrap();
     crate::end_turn::end_turn(&mut state, 0).unwrap();
 
     let lowest_aa = state.offers.advanced_actions.last().unwrap().clone();
@@ -4547,7 +4554,7 @@ fn level_up_common_pool_forces_lowest_aa() {
 #[test]
 fn choose_skill_from_drawn_pair() {
     let mut state = setup_level_up_game(3);
-    crate::card_play::play_card(&mut state, 0, 0, false).unwrap();
+    crate::card_play::play_card(&mut state, 0, 0, false, None).unwrap();
     crate::end_turn::end_turn(&mut state, 0).unwrap();
 
     // Get the drawn skills for comparison
@@ -4588,7 +4595,7 @@ fn choose_skill_from_common_pool() {
     let common_skill = mk_types::ids::SkillId::from("test_common_skill");
     state.offers.common_skills.push(common_skill.clone());
 
-    crate::card_play::play_card(&mut state, 0, 0, false).unwrap();
+    crate::card_play::play_card(&mut state, 0, 0, false, None).unwrap();
     crate::end_turn::end_turn(&mut state, 0).unwrap();
 
     let reward = match &state.players[0].pending.active {
@@ -4629,7 +4636,7 @@ fn choose_skill_from_common_pool() {
 #[test]
 fn aa_placed_on_deck_top() {
     let mut state = setup_level_up_game(3);
-    crate::card_play::play_card(&mut state, 0, 0, false).unwrap();
+    crate::card_play::play_card(&mut state, 0, 0, false, None).unwrap();
     crate::end_turn::end_turn(&mut state, 0).unwrap();
 
     let aa_id = state.offers.advanced_actions[0].clone();
@@ -4679,7 +4686,7 @@ fn card_draw_after_last_reward() {
         .map(|i| CardId::from(format!("card_{}", i)))
         .collect();
 
-    crate::card_play::play_card(&mut state, 0, 0, false).unwrap();
+    crate::card_play::play_card(&mut state, 0, 0, false, None).unwrap();
     crate::end_turn::end_turn(&mut state, 0).unwrap();
 
     // Hand should be empty (was reset, card draw deferred)
@@ -4722,7 +4729,7 @@ fn card_draw_deferred_during_rewards() {
         .collect();
 
     // Before end_turn: note play_area and hand state
-    crate::card_play::play_card(&mut state, 0, 0, false).unwrap();
+    crate::card_play::play_card(&mut state, 0, 0, false, None).unwrap();
     // After play: hand=0, play_area=1 (march), deck=10
 
     let result = crate::end_turn::end_turn(&mut state, 0).unwrap();
@@ -4755,7 +4762,7 @@ fn multiple_level_ups_chain_rewards() {
         .map(|i| CardId::from(format!("card_{}", i)))
         .collect();
 
-    crate::card_play::play_card(&mut state, 0, 0, false).unwrap();
+    crate::card_play::play_card(&mut state, 0, 0, false, None).unwrap();
     crate::end_turn::end_turn(&mut state, 0).unwrap();
 
     // Level should jump to 4
@@ -4831,7 +4838,7 @@ fn no_level_up_reward_at_odd_levels() {
     let mut state = setup_level_up_game(8);
     state.players[0].level = 2; // Already at level 2, crossing to 3
 
-    crate::card_play::play_card(&mut state, 0, 0, false).unwrap();
+    crate::card_play::play_card(&mut state, 0, 0, false, None).unwrap();
     crate::end_turn::end_turn(&mut state, 0).unwrap();
 
     assert_eq!(state.players[0].level, 3);
@@ -4843,4 +4850,383 @@ fn no_level_up_reward_at_odd_levels() {
         ),
         "Odd level (3) should not queue a LevelUpReward"
     );
+}
+
+// =========================================================================
+// Mana source die powering
+// =========================================================================
+
+/// Helper: set up a game with a specific mana source configuration.
+/// Clears all existing dice and adds the specified ones.
+fn setup_source_dice(state: &mut GameState, dice: Vec<(ManaColor, bool)>) {
+    state.source.dice = dice
+        .into_iter()
+        .enumerate()
+        .map(|(i, (color, is_depleted))| SourceDie {
+            id: mk_types::ids::SourceDieId::from(format!("die_{}", i).as_str()),
+            color,
+            is_depleted,
+            taken_by_player_id: None,
+        })
+        .collect();
+}
+
+#[test]
+fn march_powered_available_with_green_source_die() {
+    let mut state = setup_game(vec!["march"]);
+    setup_source_dice(&mut state, vec![(ManaColor::Green, false)]);
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let powered = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "march"),
+    );
+    assert!(
+        powered,
+        "march powered should be available with green source die"
+    );
+}
+
+#[test]
+fn march_powered_available_with_gold_source_die_during_day() {
+    let mut state = setup_game(vec!["march"]);
+    state.time_of_day = TimeOfDay::Day;
+    setup_source_dice(&mut state, vec![(ManaColor::Gold, false)]);
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let powered = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "march"),
+    );
+    assert!(
+        powered,
+        "march powered should be available with gold source die during day"
+    );
+}
+
+#[test]
+fn march_powered_not_available_with_depleted_source_die() {
+    let mut state = setup_game(vec!["march"]);
+    setup_source_dice(&mut state, vec![(ManaColor::Green, true)]);
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let powered = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "march"),
+    );
+    assert!(
+        !powered,
+        "march powered should NOT be available with depleted source die"
+    );
+}
+
+#[test]
+fn march_powered_not_available_with_taken_source_die() {
+    let mut state = setup_game(vec!["march"]);
+    setup_source_dice(&mut state, vec![(ManaColor::Green, false)]);
+    // Mark die as taken by another player
+    state.source.dice[0].taken_by_player_id = Some(PlayerId::from("other_player"));
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let powered = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "march"),
+    );
+    assert!(
+        !powered,
+        "march powered should NOT be available when source die is taken by another player"
+    );
+}
+
+#[test]
+fn march_powered_not_available_with_wrong_color_source_die() {
+    let mut state = setup_game(vec!["march"]);
+    // March needs green, source only has red
+    setup_source_dice(&mut state, vec![(ManaColor::Red, false)]);
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let powered = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "march"),
+    );
+    assert!(
+        !powered,
+        "march powered should NOT be available with wrong color source die"
+    );
+}
+
+#[test]
+fn march_powered_not_available_after_source_die_already_used_this_turn() {
+    let mut state = setup_game(vec!["march"]);
+    setup_source_dice(&mut state, vec![(ManaColor::Green, false)]);
+    // Player already used a source die this turn
+    state.players[0]
+        .flags
+        .insert(PlayerFlags::USED_MANA_FROM_SOURCE);
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let powered = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "march"),
+    );
+    assert!(
+        !powered,
+        "march powered should NOT be available when source die already used this turn"
+    );
+}
+
+#[test]
+fn march_powered_not_available_with_black_source_die_for_action_card() {
+    // Black mana can only power spells, not action cards
+    let mut state = setup_game(vec!["march"]);
+    state.time_of_day = TimeOfDay::Night;
+    setup_source_dice(&mut state, vec![(ManaColor::Black, false)]);
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let powered = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "march"),
+    );
+    assert!(
+        !powered,
+        "march powered should NOT be available with black source die (action cards can't use black)"
+    );
+}
+
+#[test]
+fn gold_source_die_depleted_at_night() {
+    let mut state = setup_game(vec!["march"]);
+    state.time_of_day = TimeOfDay::Night;
+    // Gold die should be depleted at night
+    setup_source_dice(&mut state, vec![(ManaColor::Gold, true)]);
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let powered = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "march"),
+    );
+    assert!(
+        !powered,
+        "gold source die should be depleted at night and not available for powering"
+    );
+}
+
+#[test]
+fn source_die_preferred_when_token_also_available() {
+    // Both a green token and a green source die are available.
+    // Powered should definitely be available.
+    let mut state = setup_game(vec!["march"]);
+    state.players[0].pure_mana.push(ManaToken {
+        color: ManaColor::Green,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+    setup_source_dice(&mut state, vec![(ManaColor::Green, false)]);
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let powered = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "march"),
+    );
+    assert!(powered, "march powered should be available with both token and source die");
+}
+
+// =========================================================================
+// Mana source die: execution (consume_mana_payment integration)
+// =========================================================================
+
+#[test]
+fn play_card_powered_consumes_source_die() {
+    let mut state = setup_game(vec!["march"]);
+    setup_source_dice(&mut state, vec![(ManaColor::Green, false)]);
+
+    crate::card_play::play_card(&mut state, 0, 0, true, None).unwrap();
+
+    // Die should be marked as taken
+    assert_eq!(
+        state.source.dice[0].taken_by_player_id,
+        Some(state.players[0].id.clone()),
+        "source die should be marked as taken by player after powered play"
+    );
+    // Player should have the die ID tracked
+    assert!(
+        state.players[0].used_die_ids.contains(&state.source.dice[0].id),
+        "player should track used die ID"
+    );
+    // USED_MANA_FROM_SOURCE flag should be set
+    assert!(
+        state.players[0]
+            .flags
+            .contains(PlayerFlags::USED_MANA_FROM_SOURCE),
+        "USED_MANA_FROM_SOURCE flag should be set after using source die"
+    );
+    // Card effect should have resolved (march powered = 4 move)
+    assert_eq!(state.players[0].move_points, 4);
+}
+
+#[test]
+fn play_card_powered_with_token_and_die_creates_pending_choice() {
+    let mut state = setup_game(vec!["march"]);
+    state.players[0].pure_mana.push(ManaToken {
+        color: ManaColor::Green,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+    setup_source_dice(&mut state, vec![(ManaColor::Green, false)]);
+
+    let result = crate::card_play::play_card(&mut state, 0, 0, true, None).unwrap();
+
+    // Multiple mana sources → pending choice
+    assert!(
+        matches!(result, crate::card_play::CardPlayResult::PendingChoice),
+        "should create pending choice when multiple mana sources available"
+    );
+    // Pending should be a ManaSourceSelect choice
+    match &state.players[0].pending.active {
+        Some(mk_types::pending::ActivePending::Choice(choice)) => {
+            assert_eq!(choice.options.len(), 2, "should have 2 mana source options (token + die)");
+            match &choice.resolution {
+                mk_types::pending::ChoiceResolution::ManaSourceSelect { sources, .. } => {
+                    assert_eq!(sources.len(), 2);
+                    assert_eq!(sources[0].source_type, mk_types::enums::ManaSourceType::Token);
+                    assert_eq!(sources[1].source_type, mk_types::enums::ManaSourceType::Die);
+                }
+                other => panic!("Expected ManaSourceSelect resolution, got {:?}", other),
+            }
+        }
+        other => panic!("Expected Choice pending, got {:?}", other),
+    }
+    // Neither source should be consumed yet
+    assert_eq!(state.players[0].pure_mana.len(), 1, "token not consumed yet");
+    assert!(state.source.dice[0].taken_by_player_id.is_none(), "die not taken yet");
+}
+
+#[test]
+fn play_card_powered_uses_source_die_when_only_wrong_color_tokens() {
+    let mut state = setup_game(vec!["march"]);
+    // Has red token (wrong color for march which needs green)
+    state.players[0].pure_mana.push(ManaToken {
+        color: ManaColor::Red,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+    // Has green source die (correct color)
+    setup_source_dice(&mut state, vec![(ManaColor::Green, false)]);
+
+    crate::card_play::play_card(&mut state, 0, 0, true, None).unwrap();
+
+    // Red token should still be there (wrong color, not consumed)
+    assert_eq!(state.players[0].pure_mana.len(), 1);
+    assert_eq!(state.players[0].pure_mana[0].color, ManaColor::Red);
+    // Source die should be taken
+    assert_eq!(
+        state.source.dice[0].taken_by_player_id,
+        Some(state.players[0].id.clone()),
+    );
+    assert_eq!(state.players[0].move_points, 4);
+}
+
+// =========================================================================
+// Crystal Joy (PoweredBy::AnyBasic) — multi-color powered card
+// =========================================================================
+
+#[test]
+fn crystal_joy_emits_4_powered_actions_when_all_colors_affordable() {
+    let mut state = setup_game(vec!["goldyx_crystal_joy"]);
+    // Give 4 different mana tokens so all colors are affordable
+    state.players[0].pure_mana.push(ManaToken {
+        color: ManaColor::Red,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+    state.players[0].pure_mana.push(ManaToken {
+        color: ManaColor::Blue,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+    state.players[0].pure_mana.push(ManaToken {
+        color: ManaColor::Green,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+    state.players[0].pure_mana.push(ManaToken {
+        color: ManaColor::White,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let powered_count = legal
+        .actions
+        .iter()
+        .filter(|a| {
+            matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "goldyx_crystal_joy")
+        })
+        .count();
+    assert_eq!(powered_count, 4, "Crystal Joy should emit 4 powered actions (one per basic color)");
+}
+
+#[test]
+fn crystal_joy_emits_1_powered_action_when_only_1_color_affordable() {
+    let mut state = setup_game(vec!["goldyx_crystal_joy"]);
+    // Clear source dice so only tokens matter
+    state.source.dice.clear();
+    // Only give a blue mana token
+    state.players[0].pure_mana.push(ManaToken {
+        color: ManaColor::Blue,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let powered: Vec<_> = legal
+        .actions
+        .iter()
+        .filter(|a| {
+            matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "goldyx_crystal_joy")
+        })
+        .collect();
+    assert_eq!(powered.len(), 1, "Only 1 powered action when only blue mana available");
+    match &powered[0] {
+        LegalAction::PlayCardPowered { mana_color, .. } => {
+            assert_eq!(*mana_color, BasicManaColor::Blue);
+        }
+        _ => unreachable!(),
+    }
+}
+
+#[test]
+fn crystal_joy_powered_play_consumes_specified_color() {
+    let mut state = setup_game(vec!["goldyx_crystal_joy"]);
+    // Clear source dice so only tokens are mana sources
+    state.source.dice.clear();
+    state.players[0].pure_mana.push(ManaToken {
+        color: ManaColor::Red,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+    state.players[0].pure_mana.push(ManaToken {
+        color: ManaColor::Green,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+
+    // Play powered with Red override — single source for Red means auto-consume
+    crate::card_play::play_card(&mut state, 0, 0, true, Some(BasicManaColor::Red)).unwrap();
+
+    // Red token consumed, green token remains
+    assert_eq!(state.players[0].pure_mana.len(), 1);
+    assert_eq!(state.players[0].pure_mana[0].color, ManaColor::Green);
+}
+
+#[test]
+fn crystal_joy_gold_token_affords_all_colors() {
+    let mut state = setup_game(vec!["goldyx_crystal_joy"]);
+    // Only a gold token — should still enable all 4 colors
+    state.players[0].pure_mana.push(ManaToken {
+        color: ManaColor::Gold,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let powered_count = legal
+        .actions
+        .iter()
+        .filter(|a| {
+            matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "goldyx_crystal_joy")
+        })
+        .count();
+    assert_eq!(powered_count, 4, "Gold token should afford all 4 basic colors");
 }

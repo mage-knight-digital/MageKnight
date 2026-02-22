@@ -493,7 +493,13 @@ fn format_action(action: &LegalAction, state: &GameState, player_idx: usize) -> 
         LegalAction::ResolveBannerProtection { remove_all } => {
             if *remove_all { "Remove all wounds (Banner of Protection)".into() } else { "Keep wounds".into() }
         }
+        LegalAction::ReturnInteractiveSkill { skill_id } => {
+            format!("Return interactive skill: {}", skill_id.as_str())
+        }
         LegalAction::Undo => "Undo".into(),
+        LegalAction::ResolveSourceOpeningReroll { reroll } => {
+            if *reroll { "Reroll extra die (Source Opening)".into() } else { "Skip reroll (Source Opening)".into() }
+        }
     }
 }
 

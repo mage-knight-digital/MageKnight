@@ -8,7 +8,7 @@ use mk_data::enemies::{attack_count, get_enemy};
 use mk_data::enemy_piles::{discard_enemy_token, draw_enemy_token, enemy_id_from_token};
 use mk_data::tactics::tactic_turn_order;
 use mk_types::enums::*;
-use mk_types::ids::{CardId, CombatInstanceId, EnemyId, EnemyTokenId, PlayerId, SkillId};
+use mk_types::ids::{CardId, CombatInstanceId, EnemyId, EnemyTokenId, PlayerId, SkillId, SourceDieId};
 use arrayvec::ArrayVec;
 use mk_types::legal_action::{LegalAction, TacticDecisionData};
 use mk_types::pending::{
@@ -85,13 +85,17 @@ pub fn apply_legal_action(
         LegalAction::PlayCardBasic { hand_index, .. } => {
             // Reversible: save snapshot
             undo_stack.save(state);
-            apply_play_card(state, player_idx, *hand_index, false)?
+            apply_play_card(state, player_idx, *hand_index, false, None)?
         }
 
-        LegalAction::PlayCardPowered { hand_index, .. } => {
+        LegalAction::PlayCardPowered {
+            hand_index,
+            mana_color,
+            ..
+        } => {
             // Reversible: save snapshot
             undo_stack.save(state);
-            apply_play_card(state, player_idx, *hand_index, true)?
+            apply_play_card(state, player_idx, *hand_index, true, Some(*mana_color))?
         }
 
         LegalAction::PlayCardSideways {
@@ -313,6 +317,12 @@ pub fn apply_legal_action(
             apply_use_skill(state, player_idx, skill_id)?
         }
 
+        LegalAction::ReturnInteractiveSkill { skill_id } => {
+            // Reversible: save snapshot
+            undo_stack.save(state);
+            apply_return_interactive_skill(state, player_idx, skill_id)?
+        }
+
         LegalAction::SubsetSelect { index } => {
             // No undo save: only mutates pending.active.selected
             apply_subset_select(state, player_idx, *index)?
@@ -325,6 +335,12 @@ pub fn apply_legal_action(
         }
 
         LegalAction::Undo => apply_undo(state, undo_stack)?,
+
+        LegalAction::ResolveSourceOpeningReroll { reroll } => {
+            // Irreversible: RNG may be consumed
+            undo_stack.set_checkpoint();
+            apply_resolve_source_opening_reroll(state, player_idx, *reroll)?
+        }
     };
 
     // Increment epoch after every action
@@ -851,8 +867,9 @@ fn apply_play_card(
     player_idx: usize,
     hand_index: usize,
     powered: bool,
+    override_mana_color: Option<BasicManaColor>,
 ) -> Result<ApplyResult, ApplyError> {
-    card_play::play_card(state, player_idx, hand_index, powered)
+    card_play::play_card(state, player_idx, hand_index, powered, override_mana_color)
         .map(|_| ApplyResult {
             needs_reenumeration: true,
             game_ended: false,
@@ -1051,6 +1068,8 @@ fn apply_choose_level_up_reward(
         state.players[player_idx].skills.push(chosen_skill.clone());
         // Push passive modifiers for the newly acquired skill
         push_passive_skill_modifiers(state, player_idx, &chosen_skill);
+        // Initialize Master of Chaos wheel position
+        init_master_of_chaos_if_needed(state, player_idx, &chosen_skill);
         // Return both drawn skills to common pool
         for skill in reward.drawn_skills.iter() {
             state.offers.common_skills.push(skill.clone());
@@ -1068,6 +1087,8 @@ fn apply_choose_level_up_reward(
         state.players[player_idx].skills.push(chosen_skill.clone());
         // Push passive modifiers for the newly acquired skill
         push_passive_skill_modifiers(state, player_idx, &chosen_skill);
+        // Initialize Master of Chaos wheel position
+        init_master_of_chaos_if_needed(state, player_idx, &chosen_skill);
         // Add unchosen drawn skills to common pool
         for (i, skill) in reward.drawn_skills.iter().enumerate() {
             if i != skill_index {
@@ -1392,6 +1413,9 @@ fn apply_declare_block(
         if all_blocked {
             enemy.is_blocked = true;
         }
+
+        // Burning Shield / Exploding Shield: consume modifier on successful block
+        apply_burning_shield_on_block(state, player_idx, enemy_instance_id);
     }
 
     // Block is consumed (all accumulated block used for this declaration)
@@ -1405,6 +1429,75 @@ fn apply_declare_block(
         needs_reenumeration: true,
         game_ended: false,
     })
+}
+
+/// Apply Burning Shield / Exploding Shield effects after a successful block.
+///
+/// - Attack mode: adds fire attack to the player's combat accumulator
+/// - Destroy mode: attempts to defeat the blocked enemy (blocked by fire resistance
+///   or arcane immunity)
+///
+/// The modifier is consumed (removed) on any successful block, regardless of mode outcome.
+fn apply_burning_shield_on_block(
+    state: &mut GameState,
+    player_idx: usize,
+    blocked_enemy_id: &CombatInstanceId,
+) {
+    use mk_types::modifier::{BurningShieldMode, ModifierEffect, ModifierSource};
+
+    let pid = state.players[player_idx].id.clone();
+    let shield_idx = state.active_modifiers.iter().position(|m| {
+        matches!(&m.effect, ModifierEffect::BurningShieldActive { .. })
+            && matches!(
+                &m.source,
+                ModifierSource::Card { player_id, .. } if *player_id == pid
+            )
+    });
+    let Some(idx) = shield_idx else { return };
+
+    let (mode, attack_value) = match &state.active_modifiers[idx].effect {
+        ModifierEffect::BurningShieldActive {
+            mode, attack_value, ..
+        } => (*mode, *attack_value),
+        _ => return,
+    };
+    // Consumed on ANY successful block, regardless of outcome
+    state.active_modifiers.remove(idx);
+
+    match mode {
+        BurningShieldMode::Attack => {
+            // Fire attack added to accumulator for Attack phase
+            let acc = &mut state.players[player_idx].combat_accumulator;
+            acc.attack.normal += attack_value;
+            acc.attack.normal_elements.fire += attack_value;
+        }
+        BurningShieldMode::Destroy => {
+            // Attempt to destroy the blocked enemy
+            let combat = state.combat.as_mut().unwrap();
+            let enemy = combat
+                .enemies
+                .iter_mut()
+                .find(|e| e.instance_id == *blocked_enemy_id)
+                .unwrap();
+            let enemy_id_str = enemy.enemy_id.as_str().to_string();
+            let is_summoned = enemy.summoned_by_instance_id.is_some();
+            let def = get_enemy(&enemy_id_str).unwrap();
+
+            // Destroy fails if fire-resistant or arcane immune
+            let has_fire_resist = def.resistances.contains(&ResistanceElement::Fire);
+            let has_arcane_immune = def
+                .abilities
+                .contains(&EnemyAbilityType::ArcaneImmunity);
+
+            if !has_fire_resist && !has_arcane_immune {
+                enemy.is_defeated = true;
+                if !is_summoned {
+                    state.players[player_idx].fame += def.fame;
+                    state.combat.as_mut().unwrap().fame_gained += def.fame;
+                }
+            }
+        }
+    }
 }
 
 fn apply_declare_attack_inner(
@@ -1866,6 +1959,16 @@ fn apply_end_combat_phase(
             accumulator.swift_block_elements = ElementalValues::default();
             accumulator.assigned_block = 0;
             accumulator.assigned_block_elements = ElementalValues::default();
+
+            // Set all_damage_blocked_this_phase for conditional effects (e.g. BlockedSuccessfully)
+            let all_blocked = {
+                let combat = state.combat.as_ref().unwrap();
+                let undefeated: Vec<&CombatEnemy> =
+                    combat.enemies.iter().filter(|e| !e.is_defeated).collect();
+                undefeated.is_empty()
+                    || undefeated.iter().all(|e| e.is_blocked)
+            };
+            state.combat.as_mut().unwrap().all_damage_blocked_this_phase = all_blocked;
 
             // Check if there are units available and unblocked damage exists
             // If units present, enter interactive AssignDamage phase.
@@ -2462,7 +2565,7 @@ fn apply_use_skill(
                 .used_this_turn
                 .push(skill_id.clone());
         }
-        SkillUsageType::OncePerRound => {
+        SkillUsageType::OncePerRound | SkillUsageType::Interactive => {
             player
                 .skill_cooldowns
                 .used_this_round
@@ -2497,6 +2600,12 @@ fn apply_use_skill(
         "wolfhawk_wolfs_howl" => return apply_wolfs_howl(state, player_idx, skill_id),
         "krang_puppet_master" => return apply_puppet_master(state, player_idx, skill_id),
         "braevalar_shapeshift" => return apply_shapeshift(state, player_idx, skill_id),
+        "norowas_prayer_of_weather" => return apply_prayer_of_weather(state, player_idx, skill_id),
+        "arythea_ritual_of_pain" => return apply_ritual_of_pain(state, player_idx, skill_id),
+        "braevalar_natures_vengeance" => return apply_natures_vengeance(state, player_idx, skill_id),
+        "tovak_mana_overload" => return apply_mana_overload(state, player_idx, skill_id),
+        "goldyx_source_opening" => return apply_source_opening(state, player_idx, skill_id),
+        "krang_master_of_chaos" => return apply_master_of_chaos(state, player_idx, skill_id),
         _ => {}
     }
 
@@ -5007,14 +5116,14 @@ fn consume_mana_for_unit(
     state: &mut GameState,
     player_idx: usize,
     color: BasicManaColor,
-) -> Result<(), ApplyError> {
+) -> Result<ManaColor, ApplyError> {
     let target_mana = ManaColor::from(color);
     let player = &mut state.players[player_idx];
 
     // 1. Try matching-color mana token
     if let Some(idx) = player.pure_mana.iter().position(|t| t.color == target_mana) {
         player.pure_mana.remove(idx);
-        return Ok(());
+        return Ok(target_mana);
     }
 
     // 2. Try gold mana token (wild)
@@ -5024,7 +5133,7 @@ fn consume_mana_for_unit(
         .position(|t| t.color == ManaColor::Gold)
     {
         player.pure_mana.remove(idx);
-        return Ok(());
+        return Ok(ManaColor::Gold);
     }
 
     // 3. Try matching-color crystal
@@ -5036,7 +5145,7 @@ fn consume_mana_for_unit(
     };
     if *crystal > 0 {
         *crystal -= 1;
-        return Ok(());
+        return Ok(target_mana);
     }
 
     Err(ApplyError::InternalError(format!(
@@ -5081,7 +5190,9 @@ fn apply_activate_unit(
 
     // Consume mana if needed
     if let Some(color) = slot.mana_cost {
-        consume_mana_for_unit(state, player_idx, color)?;
+        let consumed_color = consume_mana_for_unit(state, player_idx, color)?;
+        // Mana Enhancement trigger on mana-powered unit activation
+        crate::card_play::check_mana_enhancement_trigger(state, player_idx, consumed_color);
     }
 
     // Apply the ability effect
@@ -5486,6 +5597,13 @@ fn apply_select_combat_enemy_activation(
 
         if template.exclude_arcane_immune
             && combat_resolution::has_ability(def, EnemyAbilityType::ArcaneImmunity)
+        {
+            continue;
+        }
+
+        if template.exclude_summoners
+            && (combat_resolution::has_ability(def, EnemyAbilityType::Summon)
+                || combat_resolution::has_ability(def, EnemyAbilityType::SummonGreen))
         {
             continue;
         }
@@ -6178,6 +6296,640 @@ pub fn apply_universal_power_pub(state: &mut GameState, player_idx: usize, skill
 }
 
 // =============================================================================
+// Interactive skill handlers
+// =============================================================================
+
+/// Public wrapper for `place_skill_in_center` (used by card_play.rs).
+pub fn place_skill_in_center_pub(state: &mut GameState, player_idx: usize, skill_id: &SkillId) {
+    place_skill_in_center(state, player_idx, skill_id);
+}
+
+/// Place an interactive skill in the center (flip + push Round/OtherPlayers markers).
+fn place_skill_in_center(state: &mut GameState, player_idx: usize, skill_id: &SkillId) {
+    use mk_types::modifier::{ModifierDuration, ModifierEffect, ModifierScope, RuleOverride, TerrainOrAll};
+
+    // Flip skill face-down
+    let player = &mut state.players[player_idx];
+    if !player.skill_flip_state.flipped_skills.contains(skill_id) {
+        player.skill_flip_state.flipped_skills.push(skill_id.clone());
+    }
+
+    // Add center marker modifiers (Round duration, OtherPlayers scope)
+    match skill_id.as_str() {
+        "norowas_prayer_of_weather" => {
+            push_skill_modifier(state, player_idx, skill_id,
+                ModifierDuration::Round, ModifierScope::OtherPlayers,
+                ModifierEffect::TerrainCost {
+                    terrain: TerrainOrAll::All, amount: 0, minimum: 0, replace_cost: None,
+                });
+        }
+        "arythea_ritual_of_pain" => {
+            push_skill_modifier(state, player_idx, skill_id,
+                ModifierDuration::Round, ModifierScope::OtherPlayers,
+                ModifierEffect::RuleOverride { rule: RuleOverride::WoundsPlayableSideways });
+            push_skill_modifier(state, player_idx, skill_id,
+                ModifierDuration::Round, ModifierScope::OtherPlayers,
+                ModifierEffect::SidewaysValue {
+                    new_value: 3, for_wounds: true, condition: None,
+                    mana_color: None, for_card_types: vec![],
+                });
+        }
+        "braevalar_natures_vengeance" => {
+            push_skill_modifier(state, player_idx, skill_id,
+                ModifierDuration::Round, ModifierScope::OtherPlayers,
+                ModifierEffect::NaturesVengeanceAttackBonus { amount: 1 });
+        }
+        "tovak_mana_overload" => {
+            // No OtherPlayers modifier — center state is in state.mana_overload_center.
+            // Auto-returns on trigger, not manually returnable.
+        }
+        "krang_mana_enhancement" => {
+            // Dummy marker for returnable_skills detection
+            push_skill_modifier(state, player_idx, skill_id,
+                ModifierDuration::Round, ModifierScope::OtherPlayers,
+                ModifierEffect::TerrainCost {
+                    terrain: TerrainOrAll::All, amount: 0, minimum: 0, replace_cost: None,
+                });
+        }
+        "goldyx_source_opening" => {
+            // Dummy marker for returnable_skills detection
+            push_skill_modifier(state, player_idx, skill_id,
+                ModifierDuration::Round, ModifierScope::OtherPlayers,
+                ModifierEffect::TerrainCost {
+                    terrain: TerrainOrAll::All, amount: 0, minimum: 0, replace_cost: None,
+                });
+        }
+        _ => {}
+    }
+}
+
+/// Prayer of Weather: terrain cost -2 for owner, place in center.
+fn apply_prayer_of_weather(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::modifier::{ModifierDuration, ModifierEffect, ModifierScope, TerrainOrAll};
+
+    // Owner benefit: all terrain costs -2 (min 1) this turn
+    push_skill_modifier(state, player_idx, skill_id,
+        ModifierDuration::Turn, ModifierScope::SelfScope,
+        ModifierEffect::TerrainCost {
+            terrain: TerrainOrAll::All, amount: -2, minimum: 1, replace_cost: None,
+        });
+
+    place_skill_in_center(state, player_idx, skill_id);
+
+    Ok(ApplyResult { needs_reenumeration: true, game_ended: false })
+}
+
+/// Ritual of Pain: optionally discard 0-2 wounds, place in center.
+fn apply_ritual_of_pain(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::effect::CardEffect;
+    use mk_types::pending::ChoiceResolution;
+
+    let wound_count = state.players[player_idx].hand.iter()
+        .filter(|c| c.as_str() == "wound")
+        .count();
+
+    if wound_count == 0 {
+        // No wounds — skip straight to center placement
+        place_skill_in_center(state, player_idx, skill_id);
+    } else {
+        // Build options: "Discard 0", "Discard 1", optionally "Discard 2"
+        let max_wounds = wound_count.min(2);
+        let mut options = Vec::new();
+        for _i in 0..=max_wounds {
+            options.push(CardEffect::Noop); // placeholder — choice_index IS the discard count
+        }
+
+        state.players[player_idx].pending.active = Some(ActivePending::Choice(
+            mk_types::pending::PendingChoice {
+                card_id: None,
+                skill_id: Some(skill_id.clone()),
+                unit_instance_id: None,
+                options,
+                continuation: vec![],
+                movement_bonus_applied: false,
+                resolution: ChoiceResolution::RitualOfPainDiscard { max_wounds },
+            },
+        ));
+    }
+
+    Ok(ApplyResult { needs_reenumeration: true, game_ended: false })
+}
+
+/// Execute Ritual of Pain discard resolution.
+pub(crate) fn execute_ritual_of_pain_discard(
+    state: &mut GameState,
+    player_idx: usize,
+    choice_index: usize,
+    _max_wounds: usize,
+) {
+    let skill_id = SkillId::from("arythea_ritual_of_pain");
+
+    // Discard `choice_index` wounds from hand
+    let mut wounds_to_remove = choice_index;
+    let player = &mut state.players[player_idx];
+    player.hand.retain(|c| {
+        if wounds_to_remove > 0 && c.as_str() == "wound" {
+            wounds_to_remove -= 1;
+            false
+        } else {
+            true
+        }
+    });
+
+    place_skill_in_center(state, player_idx, &skill_id);
+}
+
+/// Nature's Vengeance: target an enemy for attack -1 + cumbersome.
+fn apply_natures_vengeance(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::effect::CardEffect;
+    use mk_types::pending::ChoiceResolution;
+
+    let combat = state.combat.as_ref()
+        .ok_or_else(|| ApplyError::InternalError("Nature's Vengeance: no combat".into()))?;
+
+    let eligible: Vec<String> = combat.enemies.iter()
+        .filter(|e| {
+            !e.is_defeated && !e.is_summoner_hidden
+            && mk_data::enemies::get_enemy(e.enemy_id.as_str()).map_or(false, |def| {
+                !combat_resolution::has_ability(def, EnemyAbilityType::Summon)
+                && !combat_resolution::has_ability(def, EnemyAbilityType::SummonGreen)
+            })
+        })
+        .map(|e| e.instance_id.as_str().to_string())
+        .collect();
+
+    match eligible.len() {
+        0 => {
+            // Fizzle — don't place in center
+        }
+        1 => {
+            apply_natures_vengeance_effects(state, player_idx, &eligible[0]);
+            place_skill_in_center(state, player_idx, skill_id);
+        }
+        _ => {
+            let mut options = Vec::new();
+            for _ in &eligible {
+                options.push(CardEffect::Noop); // placeholder
+            }
+            state.players[player_idx].pending.active = Some(ActivePending::Choice(
+                mk_types::pending::PendingChoice {
+                    card_id: None,
+                    skill_id: Some(skill_id.clone()),
+                    unit_instance_id: None,
+                    options,
+                    continuation: vec![],
+                    movement_bonus_applied: false,
+                    resolution: ChoiceResolution::NaturesVengeanceTarget {
+                        eligible_enemy_ids: eligible,
+                        is_return: false,
+                    },
+                },
+            ));
+        }
+    }
+
+    Ok(ApplyResult { needs_reenumeration: true, game_ended: false })
+}
+
+/// Apply Nature's Vengeance effects to a target enemy: Attack -1 + Cumbersome.
+fn apply_natures_vengeance_effects(state: &mut GameState, player_idx: usize, enemy_instance_id: &str) {
+    let skill_id = SkillId::from("braevalar_natures_vengeance");
+
+    // Attack -1 modifier
+    push_skill_modifier(state, player_idx, &skill_id,
+        mk_types::modifier::ModifierDuration::Combat,
+        mk_types::modifier::ModifierScope::OneEnemy { enemy_id: enemy_instance_id.to_string() },
+        mk_types::modifier::ModifierEffect::EnemyStat {
+            stat: mk_types::modifier::EnemyStat::Attack,
+            amount: -1,
+            minimum: 0,
+            attack_index: None,
+            per_resistance: false,
+            fortified_amount: None,
+        });
+
+    // GrantEnemyAbility(Cumbersome) modifier
+    push_skill_modifier(state, player_idx, &skill_id,
+        mk_types::modifier::ModifierDuration::Combat,
+        mk_types::modifier::ModifierScope::OneEnemy { enemy_id: enemy_instance_id.to_string() },
+        mk_types::modifier::ModifierEffect::GrantEnemyAbility {
+            ability: EnemyAbilityType::Cumbersome,
+        });
+}
+
+/// Execute Nature's Vengeance target resolution (from choice).
+pub(crate) fn execute_natures_vengeance_target(
+    state: &mut GameState,
+    player_idx: usize,
+    eligible_enemy_ids: &[String],
+    choice_index: usize,
+    is_return: bool,
+) {
+    if let Some(enemy_id) = eligible_enemy_ids.get(choice_index) {
+        apply_natures_vengeance_effects(state, player_idx, enemy_id);
+        if !is_return {
+            let skill_id = SkillId::from("braevalar_natures_vengeance");
+            place_skill_in_center(state, player_idx, &skill_id);
+        }
+    }
+}
+
+/// Return an interactive skill from the center to its owner, giving the returner a benefit.
+fn apply_return_interactive_skill(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::modifier::*;
+    use mk_types::pending::ChoiceResolution;
+
+    // Find owner by scanning modifiers
+    let owner_id = state.active_modifiers.iter()
+        .find_map(|m| {
+            if let ModifierSource::Skill { skill_id: sid, player_id: owner } = &m.source {
+                if sid.as_str() == skill_id.as_str()
+                    && *owner != state.players[player_idx].id
+                {
+                    return Some(owner.clone());
+                }
+            }
+            None
+        })
+        .ok_or_else(|| ApplyError::InternalError(
+            format!("ReturnInteractiveSkill: no center modifier for {}", skill_id.as_str())
+        ))?;
+
+    // Remove ALL center modifiers matching this skill + owner
+    let skill_str = skill_id.as_str().to_string();
+    let owner_clone = owner_id.clone();
+    state.active_modifiers.retain(|m| {
+        !matches!(&m.source, ModifierSource::Skill { skill_id: sid, player_id: owner }
+            if sid.as_str() == skill_str && *owner == owner_clone)
+    });
+
+    // Apply return benefit per skill
+    match skill_id.as_str() {
+        "norowas_prayer_of_weather" => {
+            push_skill_modifier(state, player_idx, skill_id,
+                ModifierDuration::Turn, ModifierScope::SelfScope,
+                ModifierEffect::TerrainCost {
+                    terrain: TerrainOrAll::All, amount: -1, minimum: 1, replace_cost: None,
+                });
+        }
+        "arythea_ritual_of_pain" => {
+            push_skill_modifier(state, player_idx, skill_id,
+                ModifierDuration::Turn, ModifierScope::SelfScope,
+                ModifierEffect::RuleOverride { rule: RuleOverride::WoundsPlayableSideways });
+            push_skill_modifier(state, player_idx, skill_id,
+                ModifierDuration::Turn, ModifierScope::SelfScope,
+                ModifierEffect::SidewaysValue {
+                    new_value: 3, for_wounds: true, condition: None,
+                    mana_color: None, for_card_types: vec![],
+                });
+        }
+        "braevalar_natures_vengeance" => {
+            // Trigger enemy selection for returner
+            let combat = state.combat.as_ref()
+                .ok_or_else(|| ApplyError::InternalError("ReturnNaturesVengeance: no combat".into()))?;
+
+            let eligible: Vec<String> = combat.enemies.iter()
+                .filter(|e| {
+                    !e.is_defeated && !e.is_summoner_hidden
+                    && mk_data::enemies::get_enemy(e.enemy_id.as_str()).map_or(false, |def| {
+                        !combat_resolution::has_ability(def, EnemyAbilityType::Summon)
+                        && !combat_resolution::has_ability(def, EnemyAbilityType::SummonGreen)
+                    })
+                })
+                .map(|e| e.instance_id.as_str().to_string())
+                .collect();
+
+            match eligible.len() {
+                0 => {} // No eligible → benefit fizzles
+                1 => {
+                    apply_natures_vengeance_effects(state, player_idx, &eligible[0]);
+                }
+                _ => {
+                    let mut options = Vec::new();
+                    for _ in &eligible {
+                        options.push(mk_types::effect::CardEffect::Noop);
+                    }
+                    state.players[player_idx].pending.active = Some(ActivePending::Choice(
+                        mk_types::pending::PendingChoice {
+                            card_id: None,
+                            skill_id: Some(skill_id.clone()),
+                            unit_instance_id: None,
+                            options,
+                            continuation: vec![],
+                            movement_bonus_applied: false,
+                            resolution: ChoiceResolution::NaturesVengeanceTarget {
+                                eligible_enemy_ids: eligible,
+                                is_return: true,
+                            },
+                        },
+                    ));
+                }
+            }
+        }
+        "krang_mana_enhancement" => {
+            // Grant returner 1 mana token of marked color
+            if let Some(center) = state.mana_enhancement_center.take() {
+                let mana_color = ManaColor::from(center.marked_color);
+                state.players[player_idx].pure_mana.push(ManaToken {
+                    color: mana_color,
+                    source: ManaTokenSource::Effect,
+                    cannot_power_spells: false,
+                });
+            }
+        }
+        "goldyx_source_opening" => {
+            // Grant ExtraSourceDie modifier to returner
+            push_skill_modifier(state, player_idx, skill_id,
+                ModifierDuration::Turn, ModifierScope::SelfScope,
+                ModifierEffect::RuleOverride { rule: RuleOverride::ExtraSourceDie });
+
+            // Track returning player for end-of-turn crystal grant
+            if let Some(ref mut center) = state.source_opening_center {
+                center.returning_player_id = Some(state.players[player_idx].id.clone());
+                center.used_die_count_at_return = state.players[player_idx].used_die_ids.len() as u32;
+            }
+        }
+        _ => {}
+    }
+
+    Ok(ApplyResult { needs_reenumeration: true, game_ended: false })
+}
+
+// =============================================================================
+// Batch 3 skills — Mana Overload, Source Opening, Master of Chaos
+// =============================================================================
+
+/// Initialize Master of Chaos wheel position when the skill is acquired.
+fn init_master_of_chaos_if_needed(state: &mut GameState, player_idx: usize, skill_id: &SkillId) {
+    if skill_id.as_str() == "krang_master_of_chaos" {
+        let position = roll_master_of_chaos_initial_position(&mut state.rng);
+        state.players[player_idx].master_of_chaos_state = Some(MasterOfChaosState {
+            position,
+            free_rotate_available: false,
+        });
+    }
+}
+
+fn roll_master_of_chaos_initial_position(rng: &mut mk_types::rng::RngState) -> ManaColor {
+    const POSITIONS: [ManaColor; 6] = [
+        ManaColor::Blue, ManaColor::Green, ManaColor::Black,
+        ManaColor::White, ManaColor::Red, ManaColor::Gold,
+    ];
+    let idx = rng.random_index(POSITIONS.len()).unwrap();
+    POSITIONS[idx]
+}
+
+const CLOCKWISE: [ManaColor; 6] = [
+    ManaColor::Blue, ManaColor::Green, ManaColor::Black,
+    ManaColor::White, ManaColor::Red, ManaColor::Gold,
+];
+
+fn rotate_clockwise(current: ManaColor) -> ManaColor {
+    let idx = CLOCKWISE.iter().position(|&c| c == current).unwrap_or(0);
+    CLOCKWISE[(idx + 1) % 6]
+}
+
+fn master_of_chaos_effect(position: ManaColor) -> mk_types::effect::CardEffect {
+    use mk_types::effect::CardEffect;
+    match position {
+        ManaColor::Blue => CardEffect::GainBlock { amount: 3, element: Element::Physical },
+        ManaColor::Green => CardEffect::GainMove { amount: 1 },
+        ManaColor::Black => CardEffect::GainAttack { amount: 1, combat_type: CombatType::Ranged, element: Element::ColdFire },
+        ManaColor::White => CardEffect::GainInfluence { amount: 2 },
+        ManaColor::Red => CardEffect::GainAttack { amount: 2, combat_type: CombatType::Melee, element: Element::Physical },
+        ManaColor::Gold => CardEffect::Choice {
+            options: vec![
+                CardEffect::GainBlock { amount: 3, element: Element::Physical },
+                CardEffect::GainMove { amount: 1 },
+                CardEffect::GainAttack { amount: 1, combat_type: CombatType::Ranged, element: Element::ColdFire },
+                CardEffect::GainInfluence { amount: 2 },
+                CardEffect::GainAttack { amount: 2, combat_type: CombatType::Melee, element: Element::Physical },
+            ],
+        },
+    }
+}
+
+/// Mana Overload: choose non-Gold mana color → gain mana → center.
+fn apply_mana_overload(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::effect::CardEffect;
+    use mk_types::pending::ChoiceResolution;
+
+    // Build 5 options: GainMana for each non-Gold color
+    let options = vec![
+        CardEffect::GainMana { color: ManaColor::Red, amount: 1 },
+        CardEffect::GainMana { color: ManaColor::Blue, amount: 1 },
+        CardEffect::GainMana { color: ManaColor::Green, amount: 1 },
+        CardEffect::GainMana { color: ManaColor::White, amount: 1 },
+        CardEffect::GainMana { color: ManaColor::Black, amount: 1 },
+    ];
+
+    state.players[player_idx].pending.active = Some(ActivePending::Choice(
+        mk_types::pending::PendingChoice {
+            card_id: None,
+            skill_id: Some(skill_id.clone()),
+            unit_instance_id: None,
+            options,
+            continuation: vec![],
+            movement_bonus_applied: false,
+            resolution: ChoiceResolution::ManaOverloadColorSelect,
+        },
+    ));
+
+    Ok(ApplyResult { needs_reenumeration: true, game_ended: false })
+}
+
+/// Execute Mana Overload color selection.
+pub(crate) fn execute_mana_overload_color_select(
+    state: &mut GameState,
+    player_idx: usize,
+    choice_index: usize,
+) {
+    const COLORS: [ManaColor; 5] = [
+        ManaColor::Red, ManaColor::Blue, ManaColor::Green,
+        ManaColor::White, ManaColor::Black,
+    ];
+    let color = COLORS.get(choice_index).copied().unwrap_or(ManaColor::Red);
+    let skill_id = SkillId::from("tovak_mana_overload");
+
+    // Set center state
+    state.mana_overload_center = Some(ManaOverloadCenter {
+        marked_color: color,
+        owner_id: state.players[player_idx].id.clone(),
+        skill_id: skill_id.clone(),
+    });
+
+    place_skill_in_center(state, player_idx, &skill_id);
+}
+
+/// Source Opening: choose a die to reroll → center.
+fn apply_source_opening(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::effect::CardEffect;
+    use mk_types::pending::ChoiceResolution;
+
+    // Find available dice
+    let die_ids: Vec<SourceDieId> = state.source.dice.iter()
+        .filter(|d| d.taken_by_player_id.is_none() && !d.is_depleted)
+        .map(|d| d.id.clone())
+        .collect();
+
+    if die_ids.is_empty() {
+        // No dice to reroll — skip straight to center placement
+        state.source_opening_center = Some(SourceOpeningCenter {
+            owner_id: state.players[player_idx].id.clone(),
+            skill_id: skill_id.clone(),
+            returning_player_id: None,
+            used_die_count_at_return: 0,
+        });
+        place_skill_in_center(state, player_idx, skill_id);
+    } else {
+        // Build options: one per die + one "skip" (last index)
+        let mut options = Vec::new();
+        for _ in &die_ids {
+            options.push(CardEffect::Noop);
+        }
+        options.push(CardEffect::Noop); // skip option
+
+        state.players[player_idx].pending.active = Some(ActivePending::Choice(
+            mk_types::pending::PendingChoice {
+                card_id: None,
+                skill_id: Some(skill_id.clone()),
+                unit_instance_id: None,
+                options,
+                continuation: vec![],
+                movement_bonus_applied: false,
+                resolution: ChoiceResolution::SourceOpeningDieSelect { die_ids },
+            },
+        ));
+    }
+
+    Ok(ApplyResult { needs_reenumeration: true, game_ended: false })
+}
+
+/// Execute Source Opening die selection.
+pub(crate) fn execute_source_opening_die_select(
+    state: &mut GameState,
+    player_idx: usize,
+    die_ids: &[SourceDieId],
+    choice_index: usize,
+) {
+    let skill_id = SkillId::from("goldyx_source_opening");
+
+    if choice_index < die_ids.len() {
+        // Reroll the chosen die
+        crate::mana::reroll_die(&mut state.source, &die_ids[choice_index], state.time_of_day, &mut state.rng);
+    }
+    // else: skip (no reroll)
+
+    // Set center state
+    state.source_opening_center = Some(SourceOpeningCenter {
+        owner_id: state.players[player_idx].id.clone(),
+        skill_id: skill_id.clone(),
+        returning_player_id: None,
+        used_die_count_at_return: 0,
+    });
+    place_skill_in_center(state, player_idx, &skill_id);
+}
+
+/// Master of Chaos: rotate wheel 1 step, apply effect.
+fn apply_master_of_chaos(
+    state: &mut GameState,
+    player_idx: usize,
+    skill_id: &SkillId,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::pending::ChoiceResolution;
+
+    let current_pos = state.players[player_idx].master_of_chaos_state
+        .as_ref()
+        .map(|s| s.position)
+        .unwrap_or(ManaColor::Blue);
+
+    let new_pos = rotate_clockwise(current_pos);
+
+    state.players[player_idx].master_of_chaos_state = Some(MasterOfChaosState {
+        position: new_pos,
+        free_rotate_available: false,
+    });
+
+    let effect = master_of_chaos_effect(new_pos);
+
+    // Resolve via effect queue
+    let mut queue = effect_queue::EffectQueue::new();
+    queue.push(effect, None);
+    match queue.drain(state, player_idx) {
+        effect_queue::DrainResult::Complete => Ok(ApplyResult { needs_reenumeration: true, game_ended: false }),
+        effect_queue::DrainResult::NeedsChoice { options, continuation, resolution: _ } => {
+            // Gold position → choice
+            state.players[player_idx].pending.active = Some(ActivePending::Choice(
+                mk_types::pending::PendingChoice {
+                    card_id: None,
+                    skill_id: Some(skill_id.clone()),
+                    unit_instance_id: None,
+                    options,
+                    continuation: continuation.into_iter().map(|q| mk_types::pending::ContinuationEntry {
+                        effect: q.effect,
+                        source_card_id: q.source_card_id,
+                    }).collect(),
+                    movement_bonus_applied: false,
+                    resolution: ChoiceResolution::MasterOfChaosGoldChoice,
+                },
+            ));
+            Ok(ApplyResult { needs_reenumeration: true, game_ended: false })
+        }
+        effect_queue::DrainResult::PendingSet => Ok(ApplyResult { needs_reenumeration: true, game_ended: false }),
+    }
+}
+
+/// Resolve Source Opening reroll choice at end-of-turn.
+pub(crate) fn apply_resolve_source_opening_reroll(
+    state: &mut GameState,
+    player_idx: usize,
+    reroll: bool,
+) -> Result<ApplyResult, ApplyError> {
+    let pending = state.players[player_idx].pending.active.take();
+    let die_id = match pending {
+        Some(ActivePending::SourceOpeningReroll { die_id }) => die_id,
+        other => {
+            state.players[player_idx].pending.active = other;
+            return Err(ApplyError::InternalError("No SourceOpeningReroll pending".into()));
+        }
+    };
+
+    if reroll {
+        crate::mana::reroll_die(&mut state.source, &die_id, state.time_of_day, &mut state.rng);
+    }
+
+    // Resume end-turn flow
+    match crate::end_turn::end_turn(state, player_idx) {
+        Ok(_) => Ok(ApplyResult { needs_reenumeration: true, game_ended: false }),
+        Err(e) => Err(ApplyError::InternalError(format!("end_turn after source opening reroll: {:?}", e))),
+    }
+}
+
+// =============================================================================
 // Tests
 // =============================================================================
 
@@ -6275,6 +7027,7 @@ mod tests {
     #[test]
     fn play_card_powered_works() {
         let mut state = setup_playing_game(vec!["march"]);
+        state.source.dice.clear(); // control mana sources explicitly
         state.players[0].pure_mana.push(ManaToken {
             color: ManaColor::Green,
             source: ManaTokenSource::Effect,
@@ -8841,7 +9594,7 @@ mod tests {
         state.players[0].hand = vec![CardId::from("march")];
 
         // Play the last card and end turn — hand+deck both empty triggers round end
-        play_card(&mut state, 0, 0, false).unwrap();
+        play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
         // Should now be night → night tactics available
@@ -11760,5 +12513,1692 @@ mod tests {
                 target_type, ..
             } if *target_type == mk_types::modifier::ShapeshiftTarget::Block)
         ));
+    }
+
+    // =========================================================================
+    // Interactive Skill tests
+    // =========================================================================
+
+    /// Helper: set up a 2-player game where player 0 has a specific skill and it's their turn.
+    fn setup_two_player_with_skill(hero: Hero, skill_id: &str) -> (GameState, UndoStack) {
+        let (mut state, undo) = setup_with_skill(hero, skill_id);
+        // Add a second player
+        let mut p1 = state.players[0].clone();
+        p1.id = mk_types::ids::PlayerId::from("player_1");
+        p1.hero = Hero::Tovak;
+        p1.skills.clear();
+        p1.hand = vec![CardId::from("march")];
+        state.players.push(p1);
+        state.turn_order = vec![
+            mk_types::ids::PlayerId::from("player_0"),
+            mk_types::ids::PlayerId::from("player_1"),
+        ];
+        (state, undo)
+    }
+
+    /// Helper: activate a skill for player 0.
+    fn activate_skill(state: &mut GameState, undo: &mut UndoStack, skill_str: &str) {
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            state, undo, 0,
+            &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from(skill_str) },
+            epoch,
+        ).unwrap();
+    }
+
+    /// Helper: switch current player to player_1 (index 1).
+    fn switch_to_player_1(state: &mut GameState) {
+        state.current_player_index = 1;
+    }
+
+    // ---- Prayer of Weather ----
+
+    #[test]
+    fn prayer_of_weather_owner_terrain_cost_minus_2() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Norowas, "norowas_prayer_of_weather");
+        activate_skill(&mut state, &mut undo, "norowas_prayer_of_weather");
+        // Owner should have Turn/SelfScope TerrainCost -2
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::TerrainCost {
+                amount, minimum, ..
+            } if *amount == -2 && *minimum == 1)
+            && matches!(&m.duration, mk_types::modifier::ModifierDuration::Turn)
+            && matches!(&m.scope, mk_types::modifier::ModifierScope::SelfScope)
+        ));
+    }
+
+    #[test]
+    fn prayer_of_weather_center_marker() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Norowas, "norowas_prayer_of_weather");
+        activate_skill(&mut state, &mut undo, "norowas_prayer_of_weather");
+        // Should have Round/OtherPlayers center marker
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.duration, mk_types::modifier::ModifierDuration::Round)
+            && matches!(&m.scope, mk_types::modifier::ModifierScope::OtherPlayers)
+            && matches!(&m.source, mk_types::modifier::ModifierSource::Skill { skill_id, .. }
+                if skill_id.as_str() == "norowas_prayer_of_weather")
+        ));
+    }
+
+    #[test]
+    fn prayer_of_weather_skill_flipped() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Norowas, "norowas_prayer_of_weather");
+        activate_skill(&mut state, &mut undo, "norowas_prayer_of_weather");
+        assert!(state.players[0].skill_flip_state.flipped_skills.iter()
+            .any(|s| s.as_str() == "norowas_prayer_of_weather"));
+    }
+
+    #[test]
+    fn prayer_of_weather_return_gives_minus_1() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Norowas, "norowas_prayer_of_weather");
+        activate_skill(&mut state, &mut undo, "norowas_prayer_of_weather");
+        // Switch to player 1 and return it
+        switch_to_player_1(&mut state);
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 1,
+            &LegalAction::ReturnInteractiveSkill {
+                skill_id: mk_types::ids::SkillId::from("norowas_prayer_of_weather"),
+            },
+            epoch,
+        ).unwrap();
+        // Returner gets Turn/SelfScope TerrainCost -1
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::TerrainCost {
+                amount, minimum, ..
+            } if *amount == -1 && *minimum == 1)
+            && matches!(&m.duration, mk_types::modifier::ModifierDuration::Turn)
+            && matches!(&m.scope, mk_types::modifier::ModifierScope::SelfScope)
+            && matches!(&m.source, mk_types::modifier::ModifierSource::Skill { player_id, .. }
+                if player_id.as_str() == "player_1")
+        ));
+    }
+
+    #[test]
+    fn prayer_of_weather_center_cleared_on_return() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Norowas, "norowas_prayer_of_weather");
+        activate_skill(&mut state, &mut undo, "norowas_prayer_of_weather");
+        switch_to_player_1(&mut state);
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 1,
+            &LegalAction::ReturnInteractiveSkill {
+                skill_id: mk_types::ids::SkillId::from("norowas_prayer_of_weather"),
+            },
+            epoch,
+        ).unwrap();
+        // No more OtherPlayers modifiers from player_0
+        assert!(!state.active_modifiers.iter().any(|m|
+            matches!(&m.scope, mk_types::modifier::ModifierScope::OtherPlayers)
+            && matches!(&m.source, mk_types::modifier::ModifierSource::Skill { player_id, .. }
+                if player_id.as_str() == "player_0")
+        ));
+    }
+
+    // ---- Ritual of Pain ----
+
+    #[test]
+    fn ritual_of_pain_discard_0_wounds() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Arythea, "arythea_ritual_of_pain");
+        state.players[0].hand = vec![CardId::from("wound"), CardId::from("march")];
+        activate_skill(&mut state, &mut undo, "arythea_ritual_of_pain");
+        // Should have pending choice with 2 options (0 or 1 wound)
+        assert!(state.players[0].pending.has_active());
+        // Choose 0 wounds
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 0 },
+            epoch,
+        ).unwrap();
+        // Wound still in hand
+        assert_eq!(state.players[0].hand.iter().filter(|c| c.as_str() == "wound").count(), 1);
+        // Skill placed in center
+        assert!(state.players[0].skill_flip_state.flipped_skills.iter()
+            .any(|s| s.as_str() == "arythea_ritual_of_pain"));
+    }
+
+    #[test]
+    fn ritual_of_pain_discard_1_wound() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Arythea, "arythea_ritual_of_pain");
+        state.players[0].hand = vec![CardId::from("wound"), CardId::from("march")];
+        activate_skill(&mut state, &mut undo, "arythea_ritual_of_pain");
+        // Choose 1 wound (index 1)
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 1 },
+            epoch,
+        ).unwrap();
+        // Wound removed
+        assert_eq!(state.players[0].hand.iter().filter(|c| c.as_str() == "wound").count(), 0);
+        assert_eq!(state.players[0].hand.len(), 1); // only march
+    }
+
+    #[test]
+    fn ritual_of_pain_discard_2_wounds() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Arythea, "arythea_ritual_of_pain");
+        state.players[0].hand = vec![
+            CardId::from("wound"), CardId::from("wound"), CardId::from("march"),
+        ];
+        activate_skill(&mut state, &mut undo, "arythea_ritual_of_pain");
+        // Should have 3 options: 0, 1, 2 wounds
+        // Choose 2 (index 2)
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 2 },
+            epoch,
+        ).unwrap();
+        assert_eq!(state.players[0].hand.iter().filter(|c| c.as_str() == "wound").count(), 0);
+        assert_eq!(state.players[0].hand.len(), 1); // only march
+    }
+
+    #[test]
+    fn ritual_of_pain_center_modifiers() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Arythea, "arythea_ritual_of_pain");
+        state.players[0].hand = vec![CardId::from("march")]; // no wounds → skip to center
+        activate_skill(&mut state, &mut undo, "arythea_ritual_of_pain");
+        // Center markers: WoundsPlayableSideways + SidewaysValue(3)
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::RuleOverride {
+                rule: mk_types::modifier::RuleOverride::WoundsPlayableSideways
+            })
+            && matches!(&m.scope, mk_types::modifier::ModifierScope::OtherPlayers)
+        ));
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::SidewaysValue {
+                new_value, for_wounds, ..
+            } if *new_value == 3 && *for_wounds)
+            && matches!(&m.scope, mk_types::modifier::ModifierScope::OtherPlayers)
+        ));
+    }
+
+    #[test]
+    fn ritual_of_pain_return_wounds_sideways() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Arythea, "arythea_ritual_of_pain");
+        state.players[0].hand = vec![CardId::from("march")]; // no wounds
+        activate_skill(&mut state, &mut undo, "arythea_ritual_of_pain");
+        switch_to_player_1(&mut state);
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 1,
+            &LegalAction::ReturnInteractiveSkill {
+                skill_id: mk_types::ids::SkillId::from("arythea_ritual_of_pain"),
+            },
+            epoch,
+        ).unwrap();
+        // Returner gets Turn/SelfScope wound modifiers
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::RuleOverride {
+                rule: mk_types::modifier::RuleOverride::WoundsPlayableSideways
+            })
+            && matches!(&m.scope, mk_types::modifier::ModifierScope::SelfScope)
+            && matches!(&m.duration, mk_types::modifier::ModifierDuration::Turn)
+            && matches!(&m.source, mk_types::modifier::ModifierSource::Skill { player_id, .. }
+                if player_id.as_str() == "player_1")
+        ));
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::SidewaysValue {
+                new_value, for_wounds, ..
+            } if *new_value == 3 && *for_wounds)
+            && matches!(&m.scope, mk_types::modifier::ModifierScope::SelfScope)
+            && matches!(&m.source, mk_types::modifier::ModifierSource::Skill { player_id, .. }
+                if player_id.as_str() == "player_1")
+        ));
+    }
+
+    // ---- Nature's Vengeance ----
+
+    /// Helper: set up a combat game with specified enemy ids for 2-player skill tests.
+    fn setup_two_player_combat_with_skill(hero: Hero, skill_id: &str, enemy_ids: &[&str]) -> (GameState, UndoStack) {
+        let (mut state, undo) = setup_two_player_with_skill(hero, skill_id);
+        let tokens: Vec<mk_types::ids::EnemyTokenId> = enemy_ids
+            .iter()
+            .map(|id| mk_types::ids::EnemyTokenId::from(format!("{}_1", id)))
+            .collect();
+        crate::combat::execute_enter_combat(
+            &mut state, 0, &tokens, false, None, Default::default(),
+        ).unwrap();
+        (state, undo)
+    }
+
+    #[test]
+    fn natures_vengeance_attack_minus_1() {
+        let (mut state, mut undo) = setup_two_player_combat_with_skill(
+            Hero::Braevalar, "braevalar_natures_vengeance", &["prowlers"],
+        );
+        activate_skill(&mut state, &mut undo, "braevalar_natures_vengeance");
+        // Single enemy → auto-apply. Should have EnemyStat Attack -1
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::EnemyStat {
+                stat, amount, ..
+            } if *stat == mk_types::modifier::EnemyStat::Attack && *amount == -1)
+        ));
+    }
+
+    #[test]
+    fn natures_vengeance_grants_cumbersome() {
+        let (mut state, mut undo) = setup_two_player_combat_with_skill(
+            Hero::Braevalar, "braevalar_natures_vengeance", &["prowlers"],
+        );
+        activate_skill(&mut state, &mut undo, "braevalar_natures_vengeance");
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::GrantEnemyAbility {
+                ability
+            } if *ability == EnemyAbilityType::Cumbersome)
+        ));
+    }
+
+    #[test]
+    fn natures_vengeance_cumbersome_spend_move() {
+        let (mut state, mut undo) = setup_two_player_combat_with_skill(
+            Hero::Braevalar, "braevalar_natures_vengeance", &["prowlers"],
+        );
+        activate_skill(&mut state, &mut undo, "braevalar_natures_vengeance");
+        // Player needs move points + correct combat phase to spend on cumbersome
+        state.players[0].move_points = 2;
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let enemy_id = state.combat.as_ref().unwrap().enemies[0].instance_id.clone();
+        assert!(actions.actions.iter().any(|a|
+            matches!(a, LegalAction::SpendMoveOnCumbersome { enemy_instance_id }
+                if *enemy_instance_id == enemy_id)
+        ));
+    }
+
+    #[test]
+    fn natures_vengeance_excludes_summoners() {
+        let (state, _undo) = setup_two_player_combat_with_skill(
+            Hero::Braevalar, "braevalar_natures_vengeance", &["orc_summoners"],
+        );
+        // orc_summoners has Summon ability → should NOT show UseSkill
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        assert!(!actions.actions.iter().any(|a|
+            matches!(a, LegalAction::UseSkill { skill_id }
+                if skill_id.as_str() == "braevalar_natures_vengeance")
+        ));
+    }
+
+    #[test]
+    fn natures_vengeance_allows_arcane_immune() {
+        // shadow has ArcaneImmunity — NV should still target it
+        let (mut state, mut undo) = setup_two_player_combat_with_skill(
+            Hero::Braevalar, "braevalar_natures_vengeance", &["shadow"],
+        );
+        activate_skill(&mut state, &mut undo, "braevalar_natures_vengeance");
+        // Auto-apply (single enemy). Should have the modifiers
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::EnemyStat {
+                stat, amount, ..
+            } if *stat == mk_types::modifier::EnemyStat::Attack && *amount == -1)
+        ));
+    }
+
+    #[test]
+    fn natures_vengeance_center_penalty() {
+        let (mut state, mut undo) = setup_two_player_combat_with_skill(
+            Hero::Braevalar, "braevalar_natures_vengeance", &["prowlers"],
+        );
+        activate_skill(&mut state, &mut undo, "braevalar_natures_vengeance");
+        // NaturesVengeanceAttackBonus marker in center
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::NaturesVengeanceAttackBonus {
+                amount
+            } if *amount == 1)
+            && matches!(&m.scope, mk_types::modifier::ModifierScope::OtherPlayers)
+            && matches!(&m.duration, mk_types::modifier::ModifierDuration::Round)
+        ));
+    }
+
+    // ---- Infrastructure ----
+
+    #[test]
+    fn interactive_skill_cooldown() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Norowas, "norowas_prayer_of_weather");
+        activate_skill(&mut state, &mut undo, "norowas_prayer_of_weather");
+        // Skill in used_this_round → should not be usable again
+        assert!(state.players[0].skill_cooldowns.used_this_round.iter()
+            .any(|s| s.as_str() == "norowas_prayer_of_weather"));
+    }
+
+    #[test]
+    fn interactive_skill_not_available_when_flipped() {
+        let (mut state, _undo) = setup_two_player_with_skill(Hero::Norowas, "norowas_prayer_of_weather");
+        // Pre-flip the skill
+        state.players[0].skill_flip_state.flipped_skills.push(
+            mk_types::ids::SkillId::from("norowas_prayer_of_weather")
+        );
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        assert!(!actions.actions.iter().any(|a|
+            matches!(a, LegalAction::UseSkill { skill_id }
+                if skill_id.as_str() == "norowas_prayer_of_weather")
+        ));
+    }
+
+    #[test]
+    fn returnable_skill_not_shown_for_owner() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Norowas, "norowas_prayer_of_weather");
+        activate_skill(&mut state, &mut undo, "norowas_prayer_of_weather");
+        // Owner (player 0) should NOT see ReturnInteractiveSkill
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        assert!(!actions.actions.iter().any(|a|
+            matches!(a, LegalAction::ReturnInteractiveSkill { .. })
+        ));
+        // But player 1 should
+        switch_to_player_1(&mut state);
+        let actions = enumerate_legal_actions_with_undo(&state, 1, &UndoStack::new());
+        assert!(actions.actions.iter().any(|a|
+            matches!(a, LegalAction::ReturnInteractiveSkill { skill_id }
+                if skill_id.as_str() == "norowas_prayer_of_weather")
+        ));
+    }
+
+    // =========================================================================
+    // all_damage_blocked_this_phase tests
+    // =========================================================================
+
+    #[test]
+    fn all_damage_blocked_flag_set_when_all_blocked() {
+        let mut state = setup_combat_game(&["prowlers"]); // 4 phys, single attack
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+        state.players[0].combat_accumulator.block_elements = ElementalValues {
+            physical: 5, fire: 0, ice: 0, cold_fire: 0,
+        };
+
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::DeclareBlock {
+                enemy_instance_id: CombatInstanceId::from("enemy_0"),
+                attack_index: 0,
+            },
+            epoch,
+        ).unwrap();
+
+        // Transition Block → AssignDamage
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+
+        assert!(state.combat.as_ref().unwrap().all_damage_blocked_this_phase);
+    }
+
+    #[test]
+    fn all_damage_blocked_flag_false_when_one_unblocked() {
+        let mut state = setup_combat_game(&["prowlers", "prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+        state.players[0].combat_accumulator.block_elements = ElementalValues {
+            physical: 5, fire: 0, ice: 0, cold_fire: 0,
+        };
+
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        // Block only enemy_0
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::DeclareBlock {
+                enemy_instance_id: CombatInstanceId::from("enemy_0"),
+                attack_index: 0,
+            },
+            epoch,
+        ).unwrap();
+
+        // Transition Block → AssignDamage (enemy_1 still unblocked)
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+
+        assert!(!state.combat.as_ref().unwrap().all_damage_blocked_this_phase);
+    }
+
+    #[test]
+    fn all_damage_blocked_flag_true_when_all_defeated() {
+        let mut state = setup_combat_game(&["prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+        state.combat.as_mut().unwrap().enemies[0].is_defeated = true;
+
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+
+        assert!(state.combat.as_ref().unwrap().all_damage_blocked_this_phase);
+    }
+
+    // =========================================================================
+    // BurningShieldActive consumption tests
+    // =========================================================================
+
+    fn push_burning_shield_modifier(
+        state: &mut GameState,
+        player_idx: usize,
+        mode: mk_types::modifier::BurningShieldMode,
+        attack_value: u32,
+    ) {
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+        let pid = state.players[player_idx].id.clone();
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("burning_shield_mod"),
+            source: ModifierSource::Card {
+                card_id: CardId::from("burning_shield"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Combat,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::BurningShieldActive {
+                mode,
+                block_value: 4,
+                attack_value,
+            },
+            created_at_round: state.round,
+            created_by_player_id: pid,
+        });
+    }
+
+    #[test]
+    fn burning_shield_attack_mode_on_successful_block() {
+        let mut state = setup_combat_game(&["prowlers"]); // 4 phys, armor 3, fame 2
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+        push_burning_shield_modifier(
+            &mut state, 0,
+            mk_types::modifier::BurningShieldMode::Attack, 4,
+        );
+
+        state.players[0].combat_accumulator.block_elements = ElementalValues {
+            physical: 5, fire: 0, ice: 0, cold_fire: 0,
+        };
+
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::DeclareBlock {
+                enemy_instance_id: CombatInstanceId::from("enemy_0"),
+                attack_index: 0,
+            },
+            epoch,
+        ).unwrap();
+
+        // Modifier consumed
+        assert!(!state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::BurningShieldActive { .. })
+        ));
+        // Fire attack 4 added to accumulator
+        assert_eq!(state.players[0].combat_accumulator.attack.normal, 4);
+        assert_eq!(state.players[0].combat_accumulator.attack.normal_elements.fire, 4);
+    }
+
+    #[test]
+    fn burning_shield_not_consumed_on_failed_block() {
+        let mut state = setup_combat_game(&["prowlers"]); // 4 phys
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+        push_burning_shield_modifier(
+            &mut state, 0,
+            mk_types::modifier::BurningShieldMode::Attack, 4,
+        );
+
+        // Insufficient block
+        state.players[0].combat_accumulator.block_elements = ElementalValues {
+            physical: 1, fire: 0, ice: 0, cold_fire: 0,
+        };
+
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::DeclareBlock {
+                enemy_instance_id: CombatInstanceId::from("enemy_0"),
+                attack_index: 0,
+            },
+            epoch,
+        ).unwrap();
+
+        // Modifier NOT consumed (block failed)
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::BurningShieldActive { .. })
+        ));
+        assert_eq!(state.players[0].combat_accumulator.attack.normal, 0);
+    }
+
+    #[test]
+    fn burning_shield_destroy_defeats_enemy() {
+        let mut state = setup_combat_game(&["prowlers"]); // no fire resist, no arcane immune
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+        push_burning_shield_modifier(
+            &mut state, 0,
+            mk_types::modifier::BurningShieldMode::Destroy, 0,
+        );
+
+        state.players[0].combat_accumulator.block_elements = ElementalValues {
+            physical: 5, fire: 0, ice: 0, cold_fire: 0,
+        };
+        let initial_fame = state.players[0].fame;
+
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::DeclareBlock {
+                enemy_instance_id: CombatInstanceId::from("enemy_0"),
+                attack_index: 0,
+            },
+            epoch,
+        ).unwrap();
+
+        assert!(state.combat.as_ref().unwrap().enemies[0].is_defeated);
+        assert_eq!(state.players[0].fame, initial_fame + 2); // prowlers fame = 2
+        assert!(!state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::BurningShieldActive { .. })
+        ));
+    }
+
+    #[test]
+    fn burning_shield_destroy_blocked_by_fire_resistance() {
+        // skeletal_warriors: fire resistant, 3 physical, armor 4, fame 1
+        let mut state = setup_combat_game(&["skeletal_warriors"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+        push_burning_shield_modifier(
+            &mut state, 0,
+            mk_types::modifier::BurningShieldMode::Destroy, 0,
+        );
+
+        state.players[0].combat_accumulator.block_elements = ElementalValues {
+            physical: 5, fire: 0, ice: 0, cold_fire: 0,
+        };
+        let initial_fame = state.players[0].fame;
+
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::DeclareBlock {
+                enemy_instance_id: CombatInstanceId::from("enemy_0"),
+                attack_index: 0,
+            },
+            epoch,
+        ).unwrap();
+
+        // NOT destroyed (fire resistant), modifier still consumed
+        assert!(!state.combat.as_ref().unwrap().enemies[0].is_defeated);
+        assert_eq!(state.players[0].fame, initial_fame);
+        assert!(!state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::BurningShieldActive { .. })
+        ));
+    }
+
+    #[test]
+    fn burning_shield_destroy_blocked_by_arcane_immunity() {
+        // grim_legionnaries: arcane immune, no fire resist, 11 physical, armor 10
+        let mut state = setup_combat_game(&["grim_legionnaries"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+        push_burning_shield_modifier(
+            &mut state, 0,
+            mk_types::modifier::BurningShieldMode::Destroy, 0,
+        );
+
+        state.players[0].combat_accumulator.block_elements = ElementalValues {
+            physical: 12, fire: 0, ice: 0, cold_fire: 0,
+        };
+        let initial_fame = state.players[0].fame;
+
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::DeclareBlock {
+                enemy_instance_id: CombatInstanceId::from("enemy_0"),
+                attack_index: 0,
+            },
+            epoch,
+        ).unwrap();
+
+        // NOT destroyed (arcane immune), modifier still consumed
+        assert!(!state.combat.as_ref().unwrap().enemies[0].is_defeated);
+        assert_eq!(state.players[0].fame, initial_fame);
+        assert!(!state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::BurningShieldActive { .. })
+        ));
+    }
+
+    // =========================================================================
+    // Batch 3: Mana Overload
+    // =========================================================================
+
+    #[test]
+    fn mana_overload_creates_color_choice() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Tovak, "tovak_mana_overload");
+        activate_skill(&mut state, &mut undo, "tovak_mana_overload");
+        // Should have a pending choice with 5 options (Red, Blue, Green, White, Black)
+        match &state.players[0].pending.active {
+            Some(mk_types::pending::ActivePending::Choice(c)) => {
+                assert_eq!(c.options.len(), 5);
+                assert!(matches!(c.resolution, mk_types::pending::ChoiceResolution::ManaOverloadColorSelect));
+            }
+            other => panic!("Expected ManaOverloadColorSelect pending, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn mana_overload_color_select_sets_center() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Tovak, "tovak_mana_overload");
+        activate_skill(&mut state, &mut undo, "tovak_mana_overload");
+        // Choose Red (index 0)
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 0 }, epoch).unwrap();
+        // Center should be set with Red
+        let center = state.mana_overload_center.as_ref().expect("center should be set");
+        assert_eq!(center.marked_color, ManaColor::Red);
+        assert_eq!(center.owner_id.as_str(), "player_0");
+    }
+
+    #[test]
+    fn mana_overload_color_select_gains_mana_token() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Tovak, "tovak_mana_overload");
+        activate_skill(&mut state, &mut undo, "tovak_mana_overload");
+        let initial_mana = state.players[0].pure_mana.len();
+        // Choose Blue (index 1) — the GainMana effect resolves via queue
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 1 }, epoch).unwrap();
+        // Should have gained 1 blue mana token
+        assert_eq!(state.players[0].pure_mana.len(), initial_mana + 1);
+        assert_eq!(state.players[0].pure_mana.last().unwrap().color, ManaColor::Blue);
+    }
+
+    #[test]
+    fn mana_overload_trigger_on_matching_color() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Tovak, "tovak_mana_overload");
+        activate_skill(&mut state, &mut undo, "tovak_mana_overload");
+        // Choose Green (index 2)
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 2 }, epoch).unwrap();
+        assert!(state.mana_overload_center.is_some());
+
+        // Switch to player_1 and give them a green mana token + march card
+        switch_to_player_1(&mut state);
+        state.source.dice.clear(); // control mana sources explicitly
+        state.players[1].hand = vec![CardId::from("march")];
+        state.players[1].pure_mana.push(mk_types::state::ManaToken {
+            color: ManaColor::Green,
+            source: mk_types::state::ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+        let initial_move = state.players[1].move_points;
+        // Play march powered (needs green = matches Mana Overload's color)
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 1,
+            &LegalAction::PlayCardPowered {
+                hand_index: 0, card_id: CardId::from("march"),
+                mana_color: mk_types::enums::BasicManaColor::Green,
+            }, epoch).unwrap();
+        // March powered = 4 move, Mana Overload trigger = +4 move → 8 total
+        assert_eq!(state.players[1].move_points, initial_move + 4 + 4);
+        // Center should be cleared
+        assert!(state.mana_overload_center.is_none());
+    }
+
+    #[test]
+    fn mana_overload_no_trigger_wrong_color() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Tovak, "tovak_mana_overload");
+        activate_skill(&mut state, &mut undo, "tovak_mana_overload");
+        // Choose Red (index 0)
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 0 }, epoch).unwrap();
+        assert!(state.mana_overload_center.is_some());
+
+        // Player 1 powers march with GREEN (not Red) → no trigger
+        switch_to_player_1(&mut state);
+        state.source.dice.clear(); // control mana sources explicitly
+        state.players[1].hand = vec![CardId::from("march")];
+        state.players[1].pure_mana.push(mk_types::state::ManaToken {
+            color: ManaColor::Green,
+            source: mk_types::state::ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 1,
+            &LegalAction::PlayCardPowered {
+                hand_index: 0, card_id: CardId::from("march"),
+                mana_color: mk_types::enums::BasicManaColor::Green,
+            }, epoch).unwrap();
+        // March powered = 4 move, no bonus (wrong color)
+        assert_eq!(state.players[1].move_points, 4);
+        // Center should still be set
+        assert!(state.mana_overload_center.is_some());
+    }
+
+    #[test]
+    fn mana_overload_skill_flipped_after_activation() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Tovak, "tovak_mana_overload");
+        activate_skill(&mut state, &mut undo, "tovak_mana_overload");
+        // Choose any color
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 0 }, epoch).unwrap();
+        // Skill should be flipped
+        assert!(state.players[0].skill_flip_state.flipped_skills.iter()
+            .any(|s| s.as_str() == "tovak_mana_overload"));
+    }
+
+    // =========================================================================
+    // Batch 3: Mana Enhancement
+    // =========================================================================
+
+    #[test]
+    fn mana_enhancement_trigger_on_basic_mana() {
+        let (mut state, _undo) = setup_two_player_with_skill(Hero::Krang, "krang_mana_enhancement");
+        state.source.dice.clear(); // control mana sources explicitly
+        state.players[0].hand = vec![CardId::from("march")];
+        state.players[0].pure_mana.push(mk_types::state::ManaToken {
+            color: ManaColor::Green,
+            source: mk_types::state::ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+        let initial_green_crystals = state.players[0].crystals.green;
+        let mut undo = UndoStack::new();
+        // Play march powered with green mana
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::PlayCardPowered {
+                hand_index: 0, card_id: CardId::from("march"),
+                mana_color: mk_types::enums::BasicManaColor::Green,
+            }, epoch).unwrap();
+        // Should gain 1 green crystal
+        assert_eq!(state.players[0].crystals.green, initial_green_crystals + 1);
+        // Center should be set
+        assert!(state.mana_enhancement_center.is_some());
+        let center = state.mana_enhancement_center.as_ref().unwrap();
+        assert_eq!(center.marked_color, mk_types::enums::BasicManaColor::Green);
+    }
+
+    #[test]
+    fn mana_enhancement_no_trigger_gold_mana() {
+        let (mut state, _undo) = setup_two_player_with_skill(Hero::Krang, "krang_mana_enhancement");
+        state.players[0].hand = vec![CardId::from("march")];
+        // Give gold mana token (not a basic color)
+        state.players[0].pure_mana.push(mk_types::state::ManaToken {
+            color: ManaColor::Gold,
+            source: mk_types::state::ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+        let initial_crystals = state.players[0].crystals;
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::PlayCardPowered {
+                hand_index: 0, card_id: CardId::from("march"),
+                mana_color: mk_types::enums::BasicManaColor::Green,
+            }, epoch).unwrap();
+        // No crystal gain (gold mana not basic)
+        assert_eq!(state.players[0].crystals, initial_crystals);
+        assert!(state.mana_enhancement_center.is_none());
+    }
+
+    #[test]
+    fn mana_enhancement_return_gives_mana_token() {
+        let (mut state, _undo) = setup_two_player_with_skill(Hero::Krang, "krang_mana_enhancement");
+        state.source.dice.clear(); // control mana sources explicitly
+        state.players[0].hand = vec![CardId::from("march")];
+        state.players[0].pure_mana.push(mk_types::state::ManaToken {
+            color: ManaColor::Green,
+            source: mk_types::state::ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::PlayCardPowered {
+                hand_index: 0, card_id: CardId::from("march"),
+                mana_color: mk_types::enums::BasicManaColor::Green,
+            }, epoch).unwrap();
+        assert!(state.mana_enhancement_center.is_some());
+
+        // Player 1 returns the skill
+        switch_to_player_1(&mut state);
+        let initial_p1_mana = state.players[1].pure_mana.len();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 1,
+            &LegalAction::ReturnInteractiveSkill {
+                skill_id: mk_types::ids::SkillId::from("krang_mana_enhancement"),
+            }, epoch).unwrap();
+        // Player 1 should gain 1 green mana token
+        assert_eq!(state.players[1].pure_mana.len(), initial_p1_mana + 1);
+        assert_eq!(state.players[1].pure_mana.last().unwrap().color, ManaColor::Green);
+        // Center should be cleared
+        assert!(state.mana_enhancement_center.is_none());
+    }
+
+    #[test]
+    fn mana_enhancement_cooldown() {
+        let (mut state, _undo) = setup_two_player_with_skill(Hero::Krang, "krang_mana_enhancement");
+        state.source.dice.clear(); // control mana sources explicitly
+        state.players[0].hand = vec![CardId::from("march"), CardId::from("march")];
+        state.players[0].pure_mana.push(mk_types::state::ManaToken {
+            color: ManaColor::Green,
+            source: mk_types::state::ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::PlayCardPowered {
+                hand_index: 0, card_id: CardId::from("march"),
+                mana_color: mk_types::enums::BasicManaColor::Green,
+            }, epoch).unwrap();
+        // Should be in used_this_round cooldown
+        assert!(state.players[0].skill_cooldowns.used_this_round.iter()
+            .any(|s| s.as_str() == "krang_mana_enhancement"));
+
+        // Second powered play should NOT trigger again
+        state.players[0].pure_mana.push(mk_types::state::ManaToken {
+            color: ManaColor::Green,
+            source: mk_types::state::ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+        let green_crystals_after_first = state.players[0].crystals.green;
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::PlayCardPowered {
+                hand_index: 0, card_id: CardId::from("march"),
+                mana_color: mk_types::enums::BasicManaColor::Green,
+            }, epoch).unwrap();
+        // Crystals unchanged (cooldown prevents second trigger)
+        assert_eq!(state.players[0].crystals.green, green_crystals_after_first);
+    }
+
+    // =========================================================================
+    // Batch 3: Source Opening
+    // =========================================================================
+
+    #[test]
+    fn source_opening_creates_die_select() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Goldyx, "goldyx_source_opening");
+        // Ensure there are available dice
+        assert!(!state.source.dice.is_empty());
+        activate_skill(&mut state, &mut undo, "goldyx_source_opening");
+        match &state.players[0].pending.active {
+            Some(mk_types::pending::ActivePending::Choice(c)) => {
+                // Options = number of available dice + 1 skip
+                let available = state.source.dice.iter()
+                    .filter(|d| d.taken_by_player_id.is_none() && !d.is_depleted)
+                    .count();
+                assert!(matches!(c.resolution, mk_types::pending::ChoiceResolution::SourceOpeningDieSelect { .. }));
+                assert_eq!(c.options.len(), available + 1); // +1 for skip
+            }
+            other => panic!("Expected SourceOpeningDieSelect pending, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn source_opening_skip_reroll_sets_center() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Goldyx, "goldyx_source_opening");
+        activate_skill(&mut state, &mut undo, "goldyx_source_opening");
+        // Choose skip (last option)
+        let skip_idx = match &state.players[0].pending.active {
+            Some(mk_types::pending::ActivePending::Choice(c)) => c.options.len() - 1,
+            _ => panic!("Expected choice"),
+        };
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: skip_idx }, epoch).unwrap();
+        // Center should be set
+        assert!(state.source_opening_center.is_some());
+        let center = state.source_opening_center.as_ref().unwrap();
+        assert_eq!(center.owner_id.as_str(), "player_0");
+    }
+
+    #[test]
+    fn source_opening_reroll_die_sets_center() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Goldyx, "goldyx_source_opening");
+        let initial_rng_counter = state.rng.counter;
+        activate_skill(&mut state, &mut undo, "goldyx_source_opening");
+        // Choose first die (index 0)
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 0 }, epoch).unwrap();
+        // Center should be set
+        assert!(state.source_opening_center.is_some());
+        // RNG should have been consumed (reroll)
+        assert!(state.rng.counter > initial_rng_counter);
+    }
+
+    #[test]
+    fn source_opening_return_grants_extra_die() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Goldyx, "goldyx_source_opening");
+        activate_skill(&mut state, &mut undo, "goldyx_source_opening");
+        // Skip reroll
+        let skip_idx = match &state.players[0].pending.active {
+            Some(mk_types::pending::ActivePending::Choice(c)) => c.options.len() - 1,
+            _ => panic!("Expected choice"),
+        };
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: skip_idx }, epoch).unwrap();
+
+        // Player 1 returns the skill
+        switch_to_player_1(&mut state);
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 1,
+            &LegalAction::ReturnInteractiveSkill {
+                skill_id: mk_types::ids::SkillId::from("goldyx_source_opening"),
+            }, epoch).unwrap();
+        // Player 1 should have ExtraSourceDie modifier
+        assert!(state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::RuleOverride {
+                rule: mk_types::modifier::RuleOverride::ExtraSourceDie })
+            && m.created_by_player_id.as_str() == "player_1"
+        ));
+    }
+
+    #[test]
+    fn source_opening_no_dice_skips_to_center() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Goldyx, "goldyx_source_opening");
+        // Clear all dice so none are available
+        state.source.dice.clear();
+        activate_skill(&mut state, &mut undo, "goldyx_source_opening");
+        // Should skip straight to center (no pending choice)
+        assert!(state.players[0].pending.active.is_none());
+        assert!(state.source_opening_center.is_some());
+    }
+
+    // =========================================================================
+    // Batch 3: Master of Chaos
+    // =========================================================================
+
+    #[test]
+    fn master_of_chaos_initial_position_set() {
+        let mut state = create_solo_game(42, Hero::Krang);
+        state.round_phase = RoundPhase::PlayerTurns;
+        state.phase = GamePhase::Round;
+        let skill_id = mk_types::ids::SkillId::from("krang_master_of_chaos");
+        state.players[0].skills.push(skill_id.clone());
+        // Initialize MoC state (simulating skill acquisition)
+        init_master_of_chaos_if_needed(&mut state, 0, &skill_id);
+        assert!(state.players[0].master_of_chaos_state.is_some());
+    }
+
+    #[test]
+    fn master_of_chaos_rotates_clockwise() {
+        assert_eq!(rotate_clockwise(ManaColor::Blue), ManaColor::Green);
+        assert_eq!(rotate_clockwise(ManaColor::Green), ManaColor::Black);
+        assert_eq!(rotate_clockwise(ManaColor::Black), ManaColor::White);
+        assert_eq!(rotate_clockwise(ManaColor::White), ManaColor::Red);
+        assert_eq!(rotate_clockwise(ManaColor::Red), ManaColor::Gold);
+        assert_eq!(rotate_clockwise(ManaColor::Gold), ManaColor::Blue);
+    }
+
+    #[test]
+    fn master_of_chaos_white_gives_influence_2() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_master_of_chaos");
+        // Set position to Black so rotating lands on White = Influence 2
+        state.players[0].master_of_chaos_state = Some(MasterOfChaosState {
+            position: ManaColor::Black,
+            free_rotate_available: false,
+        });
+        state.players[0].hand = vec![CardId::from("march")];
+        activate_skill(&mut state, &mut undo, "krang_master_of_chaos");
+        assert_eq!(state.players[0].influence_points, 2);
+        assert_eq!(state.players[0].master_of_chaos_state.as_ref().unwrap().position, ManaColor::White);
+    }
+
+    #[test]
+    fn master_of_chaos_green_gives_move_1() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_master_of_chaos");
+        // Set position to Blue so rotating lands on Green
+        state.players[0].master_of_chaos_state = Some(MasterOfChaosState {
+            position: ManaColor::Blue,
+            free_rotate_available: false,
+        });
+        state.players[0].hand = vec![CardId::from("march")];
+        activate_skill(&mut state, &mut undo, "krang_master_of_chaos");
+        assert_eq!(state.players[0].move_points, 1);
+        assert_eq!(state.players[0].master_of_chaos_state.as_ref().unwrap().position, ManaColor::Green);
+    }
+
+    #[test]
+    fn master_of_chaos_gold_gives_choice() {
+        let (mut state, mut undo) = setup_two_player_combat_with_skill(
+            Hero::Krang, "krang_master_of_chaos", &["prowlers"],
+        );
+        // Set position to Red so rotating lands on Gold
+        state.players[0].master_of_chaos_state = Some(MasterOfChaosState {
+            position: ManaColor::Red,
+            free_rotate_available: false,
+        });
+        activate_skill(&mut state, &mut undo, "krang_master_of_chaos");
+        // In combat, all 5 options are resolvable → choice with 5 options
+        match &state.players[0].pending.active {
+            Some(mk_types::pending::ActivePending::Choice(c)) => {
+                assert_eq!(c.options.len(), 5);
+                assert!(matches!(c.resolution, mk_types::pending::ChoiceResolution::MasterOfChaosGoldChoice));
+            }
+            other => panic!("Expected MasterOfChaosGoldChoice pending, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn master_of_chaos_once_per_turn_cooldown() {
+        let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_master_of_chaos");
+        state.players[0].master_of_chaos_state = Some(MasterOfChaosState {
+            position: ManaColor::Blue,
+            free_rotate_available: false,
+        });
+        state.players[0].hand = vec![CardId::from("march"), CardId::from("march")];
+        activate_skill(&mut state, &mut undo, "krang_master_of_chaos");
+        // Used this turn
+        assert!(state.players[0].skill_cooldowns.used_this_turn.iter()
+            .any(|s| s.as_str() == "krang_master_of_chaos"));
+        // Second activation should not be available
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        assert!(!actions.actions.iter().any(|a|
+            matches!(a, LegalAction::UseSkill { skill_id }
+                if skill_id.as_str() == "krang_master_of_chaos")
+        ));
+    }
+
+    // =========================================================================
+    // Batch 3: Effect detection helpers
+    // =========================================================================
+
+    // =========================================================================
+    // Batch 3 Edge Cases: Mana Overload
+    // =========================================================================
+
+    #[test]
+    fn mana_overload_no_trigger_on_basic_play() {
+        // Playing a card as basic (not powered) should NOT trigger Mana Overload
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Tovak, "tovak_mana_overload");
+        activate_skill(&mut state, &mut undo, "tovak_mana_overload");
+        // Choose Red (index 0)
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 0 }, epoch).unwrap();
+        assert!(state.mana_overload_center.is_some());
+
+        // Player 1 plays march BASIC (not powered) → should NOT trigger
+        switch_to_player_1(&mut state);
+        state.players[1].hand = vec![CardId::from("march")];
+        let initial_move = state.players[1].move_points;
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 1,
+            &LegalAction::PlayCardBasic {
+                hand_index: 0, card_id: CardId::from("march"),
+            }, epoch).unwrap();
+        // March basic = 2 move, no overload bonus
+        assert_eq!(state.players[1].move_points, initial_move + 2);
+        // Center should still be set
+        assert!(state.mana_overload_center.is_some());
+    }
+
+    #[test]
+    fn mana_overload_no_trigger_on_effect_without_applicable_type() {
+        // Powered effect with only Heal/Draw (no Move/Influence/Attack/Block) → no trigger
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Tovak, "tovak_mana_overload");
+        activate_skill(&mut state, &mut undo, "tovak_mana_overload");
+        // Choose White (index 3)
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 3 }, epoch).unwrap();
+        assert!(state.mana_overload_center.is_some());
+
+        // Player 1 powers "tranquility" (White card: powered = Heal 2 → no Move/Influence/Attack/Block)
+        switch_to_player_1(&mut state);
+        state.players[1].hand = vec![CardId::from("tranquility")];
+        state.players[1].pure_mana.push(mk_types::state::ManaToken {
+            color: ManaColor::White,
+            source: mk_types::state::ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 1,
+            &LegalAction::PlayCardPowered {
+                hand_index: 0, card_id: CardId::from("tranquility"),
+                mana_color: mk_types::enums::BasicManaColor::White,
+            }, epoch).unwrap();
+        // Center should still be set (no applicable bonus type)
+        assert!(state.mana_overload_center.is_some());
+    }
+
+    #[test]
+    fn mana_overload_no_trigger_on_gold_mana() {
+        // Powering with a Gold mana token should NOT match any Mana Overload color
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Tovak, "tovak_mana_overload");
+        activate_skill(&mut state, &mut undo, "tovak_mana_overload");
+        // Choose Green (index 2)
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 2 }, epoch).unwrap();
+        assert!(state.mana_overload_center.is_some());
+
+        // Player 1 powers march with Gold mana (not Green)
+        switch_to_player_1(&mut state);
+        state.source.dice.clear(); // control mana sources explicitly
+        state.players[1].hand = vec![CardId::from("march")];
+        state.players[1].pure_mana.push(mk_types::state::ManaToken {
+            color: ManaColor::Gold,
+            source: mk_types::state::ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 1,
+            &LegalAction::PlayCardPowered {
+                hand_index: 0, card_id: CardId::from("march"),
+                mana_color: mk_types::enums::BasicManaColor::Green,
+            }, epoch).unwrap();
+        // March powered = 4 move, no overload bonus (Gold mana used, not Green)
+        assert_eq!(state.players[1].move_points, 4);
+        assert!(state.mana_overload_center.is_some());
+    }
+
+    #[test]
+    fn mana_overload_round_cooldown() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Tovak, "tovak_mana_overload");
+        activate_skill(&mut state, &mut undo, "tovak_mana_overload");
+        // Should be on round cooldown (Interactive = used_this_round)
+        assert!(state.players[0].skill_cooldowns.used_this_round.iter()
+            .any(|s| s.as_str() == "tovak_mana_overload"));
+    }
+
+    // =========================================================================
+    // Batch 3 Edge Cases: Mana Enhancement
+    // =========================================================================
+
+    #[test]
+    fn mana_enhancement_trigger_on_unit_activation() {
+        // Mana Enhancement should trigger when Krang spends basic mana to activate a unit
+        let (mut state, _undo) = setup_two_player_with_skill(Hero::Krang, "krang_mana_enhancement");
+
+        // Put Krang in combat so unit activation works
+        use mk_types::state::PlayerUnit;
+        state.combat = Some(Box::new(CombatState::default()));
+
+        // Add a unit with Green mana cost (Herbalist — Heal 2, costed Green)
+        state.players[0].units.push(PlayerUnit {
+            unit_id: mk_types::ids::UnitId::from("herbalist"),
+            instance_id: mk_types::ids::UnitInstanceId::from("unit_0"),
+            level: 1,
+            state: UnitState::Ready,
+            wounded: false,
+            used_resistance_this_combat: false,
+            used_ability_indices: vec![],
+            mana_token: None,
+        });
+
+        // Give Krang a green mana token for the unit cost
+        state.players[0].pure_mana.push(mk_types::state::ManaToken {
+            color: ManaColor::Green,
+            source: mk_types::state::ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+        let initial_green_crystals = state.players[0].crystals.green;
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::ActivateUnit {
+                unit_instance_id: mk_types::ids::UnitInstanceId::from("unit_0"),
+                ability_index: 0,
+            }, epoch).unwrap();
+        // Should gain 1 green crystal from Mana Enhancement
+        assert_eq!(state.players[0].crystals.green, initial_green_crystals + 1);
+        assert!(state.mana_enhancement_center.is_some());
+    }
+
+    #[test]
+    fn mana_enhancement_no_trigger_on_unit_gold_mana() {
+        // Unit activation with Gold mana should NOT trigger Mana Enhancement
+        let (mut state, _undo) = setup_two_player_with_skill(Hero::Krang, "krang_mana_enhancement");
+
+        use mk_types::state::PlayerUnit;
+        state.combat = Some(Box::new(CombatState::default()));
+
+        state.players[0].units.push(PlayerUnit {
+            unit_id: mk_types::ids::UnitId::from("peasants"),
+            instance_id: mk_types::ids::UnitInstanceId::from("unit_0"),
+            level: 1,
+            state: UnitState::Ready,
+            wounded: false,
+            used_resistance_this_combat: false,
+            used_ability_indices: vec![],
+            mana_token: None,
+        });
+
+        // Give only Gold mana
+        state.players[0].pure_mana.push(mk_types::state::ManaToken {
+            color: ManaColor::Gold,
+            source: mk_types::state::ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+        let initial_crystals = state.players[0].crystals;
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::ActivateUnit {
+                unit_instance_id: mk_types::ids::UnitInstanceId::from("unit_0"),
+                ability_index: 0,
+            }, epoch).unwrap();
+        // No crystal gain (Gold mana not basic)
+        assert_eq!(state.players[0].crystals, initial_crystals);
+        assert!(state.mana_enhancement_center.is_none());
+    }
+
+    #[test]
+    fn mana_enhancement_expires_at_owner_turn_start() {
+        let (mut state, _undo) = setup_two_player_with_skill(Hero::Krang, "krang_mana_enhancement");
+        state.source.dice.clear(); // control mana sources explicitly
+        state.players[0].hand = vec![CardId::from("march")];
+        state.players[0].pure_mana.push(mk_types::state::ManaToken {
+            color: ManaColor::Green,
+            source: mk_types::state::ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+        // Trigger Mana Enhancement
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::PlayCardPowered {
+                hand_index: 0, card_id: CardId::from("march"),
+                mana_color: mk_types::enums::BasicManaColor::Green,
+            }, epoch).unwrap();
+        assert!(state.mana_enhancement_center.is_some());
+
+        // Simulate advance_turn twice: player_0 → player_1 → back to player_0
+        // First advance: player_0 to player_1 (mana enhancement should persist)
+        state.players[0].flags.insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
+        crate::end_turn::advance_turn_pub(&mut state, 0);
+        // Now it's player_1's turn. Center should still exist because it's not owner's turn yet.
+        assert!(state.mana_enhancement_center.is_some());
+
+        // Second advance: player_1 to player_0 (should expire)
+        state.players[1].flags.insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
+        crate::end_turn::advance_turn_pub(&mut state, 1);
+        // Now it's player_0 (Krang) again. Center should be cleared.
+        assert!(state.mana_enhancement_center.is_none());
+    }
+
+    // =========================================================================
+    // Batch 3 Edge Cases: Source Opening
+    // =========================================================================
+
+    #[test]
+    fn source_opening_no_crystal_when_no_extra_die_used() {
+        // If returning player doesn't use the extra die, no crystal is granted
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Goldyx, "goldyx_source_opening");
+        activate_skill(&mut state, &mut undo, "goldyx_source_opening");
+        let skip_idx = match &state.players[0].pending.active {
+            Some(mk_types::pending::ActivePending::Choice(c)) => c.options.len() - 1,
+            _ => panic!("Expected choice"),
+        };
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: skip_idx }, epoch).unwrap();
+        assert!(state.source_opening_center.is_some());
+
+        // Player 1 returns the skill
+        switch_to_player_1(&mut state);
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 1,
+            &LegalAction::ReturnInteractiveSkill {
+                skill_id: mk_types::ids::SkillId::from("goldyx_source_opening"),
+            }, epoch).unwrap();
+
+        // Player 1 does NOT use any extra die — used_die_ids is empty
+        let initial_crystals = state.players[0].crystals;
+
+        // End turn for player 1 (simulate by calling check_source_opening_crystal directly)
+        let got_crystal = crate::end_turn::check_source_opening_crystal(&mut state, 1);
+        assert!(!got_crystal);
+        // Goldyx should NOT have gained any crystals
+        assert_eq!(state.players[0].crystals, initial_crystals);
+    }
+
+    #[test]
+    fn source_opening_no_crystal_when_gold_die_used() {
+        // If the extra die is Gold (non-basic), no crystal is granted
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Goldyx, "goldyx_source_opening");
+        // Set up source dice: one basic + one gold
+        state.source.dice = vec![
+            mk_types::state::SourceDie {
+                id: mk_types::ids::SourceDieId::from("die_0"),
+                color: ManaColor::Red,
+                is_depleted: false,
+                taken_by_player_id: None,
+            },
+            mk_types::state::SourceDie {
+                id: mk_types::ids::SourceDieId::from("die_1"),
+                color: ManaColor::Gold,
+                is_depleted: false,
+                taken_by_player_id: None,
+            },
+        ];
+        activate_skill(&mut state, &mut undo, "goldyx_source_opening");
+        let skip_idx = match &state.players[0].pending.active {
+            Some(mk_types::pending::ActivePending::Choice(c)) => c.options.len() - 1,
+            _ => panic!("Expected choice"),
+        };
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: skip_idx }, epoch).unwrap();
+
+        // Player 1 returns
+        switch_to_player_1(&mut state);
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 1,
+            &LegalAction::ReturnInteractiveSkill {
+                skill_id: mk_types::ids::SkillId::from("goldyx_source_opening"),
+            }, epoch).unwrap();
+
+        // Simulate player 1 using 2 dice: die_0 (normal) + die_1 (gold, extra)
+        state.players[1].used_die_ids.push(mk_types::ids::SourceDieId::from("die_0"));
+        state.players[1].used_die_ids.push(mk_types::ids::SourceDieId::from("die_1"));
+        state.source.dice[0].taken_by_player_id = Some(mk_types::ids::PlayerId::from("player_1"));
+        state.source.dice[1].taken_by_player_id = Some(mk_types::ids::PlayerId::from("player_1"));
+
+        let initial_crystals = state.players[0].crystals;
+        let got_crystal = crate::end_turn::check_source_opening_crystal(&mut state, 1);
+        // Gold die → no crystal (non-basic color), but reroll may still be offered
+        // The gold die doesn't produce a basic-color crystal
+        if got_crystal {
+            // If it did trigger, the crystal should NOT have changed (gold → None basic)
+            assert_eq!(state.players[0].crystals, initial_crystals);
+        }
+        // Either way, no crystal gained
+        assert_eq!(state.players[0].crystals, initial_crystals);
+    }
+
+    #[test]
+    fn source_opening_no_crystal_when_only_normal_die_used() {
+        // If returning player had already used their normal die before returning,
+        // and uses no additional die after return, no crystal is granted.
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Goldyx, "goldyx_source_opening");
+        activate_skill(&mut state, &mut undo, "goldyx_source_opening");
+        let skip_idx = match &state.players[0].pending.active {
+            Some(mk_types::pending::ActivePending::Choice(c)) => c.options.len() - 1,
+            _ => panic!("Expected choice"),
+        };
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: skip_idx }, epoch).unwrap();
+
+        switch_to_player_1(&mut state);
+        // Player 1 uses their normal die BEFORE returning (baseline)
+        let die_id = state.source.dice[0].id.clone();
+        state.players[1].used_die_ids.push(die_id);
+
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 1,
+            &LegalAction::ReturnInteractiveSkill {
+                skill_id: mk_types::ids::SkillId::from("goldyx_source_opening"),
+            }, epoch).unwrap();
+
+        // No additional die used after return — extra_dice_used = 1 - 1 = 0
+        let initial_crystals = state.players[0].crystals;
+        let got_crystal = crate::end_turn::check_source_opening_crystal(&mut state, 1);
+        assert!(!got_crystal);
+        assert_eq!(state.players[0].crystals, initial_crystals);
+    }
+
+    #[test]
+    fn source_opening_crystal_capped_at_max() {
+        // If Goldyx is at max crystals for the die color, no extra crystal gained
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Goldyx, "goldyx_source_opening");
+        // Set Goldyx to max red crystals
+        state.players[0].crystals.red = 3;
+        // Ensure source has a red die
+        state.source.dice = vec![
+            mk_types::state::SourceDie {
+                id: mk_types::ids::SourceDieId::from("die_0"),
+                color: ManaColor::Blue,
+                is_depleted: false,
+                taken_by_player_id: None,
+            },
+            mk_types::state::SourceDie {
+                id: mk_types::ids::SourceDieId::from("die_1"),
+                color: ManaColor::Red,
+                is_depleted: false,
+                taken_by_player_id: None,
+            },
+        ];
+        activate_skill(&mut state, &mut undo, "goldyx_source_opening");
+        let skip_idx = match &state.players[0].pending.active {
+            Some(mk_types::pending::ActivePending::Choice(c)) => c.options.len() - 1,
+            _ => panic!("Expected choice"),
+        };
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: skip_idx }, epoch).unwrap();
+
+        switch_to_player_1(&mut state);
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 1,
+            &LegalAction::ReturnInteractiveSkill {
+                skill_id: mk_types::ids::SkillId::from("goldyx_source_opening"),
+            }, epoch).unwrap();
+
+        // Player 1 uses 2 dice: die_0 (normal) + die_1 (red, extra)
+        state.players[1].used_die_ids.push(mk_types::ids::SourceDieId::from("die_0"));
+        state.players[1].used_die_ids.push(mk_types::ids::SourceDieId::from("die_1"));
+        state.source.dice[0].taken_by_player_id = Some(mk_types::ids::PlayerId::from("player_1"));
+        state.source.dice[1].taken_by_player_id = Some(mk_types::ids::PlayerId::from("player_1"));
+
+        let got_crystal = crate::end_turn::check_source_opening_crystal(&mut state, 1);
+        // Crystal was granted but capped at 3 (gain_crystal handles overflow)
+        if got_crystal {
+            assert_eq!(state.players[0].crystals.red, 3); // Still 3 (capped)
+        }
+    }
+
+    #[test]
+    fn source_opening_center_cleared_after_end_turn_no_extra_die() {
+        // If returning player doesn't use extra die, center is cleared at end of turn
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Goldyx, "goldyx_source_opening");
+        activate_skill(&mut state, &mut undo, "goldyx_source_opening");
+        let skip_idx = match &state.players[0].pending.active {
+            Some(mk_types::pending::ActivePending::Choice(c)) => c.options.len() - 1,
+            _ => panic!("Expected choice"),
+        };
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: skip_idx }, epoch).unwrap();
+
+        switch_to_player_1(&mut state);
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 1,
+            &LegalAction::ReturnInteractiveSkill {
+                skill_id: mk_types::ids::SkillId::from("goldyx_source_opening"),
+            }, epoch).unwrap();
+        assert!(state.source_opening_center.is_some());
+
+        // End turn check with no extra die → should clear center
+        let got_crystal = crate::end_turn::check_source_opening_crystal(&mut state, 1);
+        assert!(!got_crystal);
+        assert!(state.source_opening_center.is_none());
+    }
+
+    #[test]
+    fn source_opening_return_tracks_returning_player() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Goldyx, "goldyx_source_opening");
+        activate_skill(&mut state, &mut undo, "goldyx_source_opening");
+        let skip_idx = match &state.players[0].pending.active {
+            Some(mk_types::pending::ActivePending::Choice(c)) => c.options.len() - 1,
+            _ => panic!("Expected choice"),
+        };
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: skip_idx }, epoch).unwrap();
+
+        switch_to_player_1(&mut state);
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 1,
+            &LegalAction::ReturnInteractiveSkill {
+                skill_id: mk_types::ids::SkillId::from("goldyx_source_opening"),
+            }, epoch).unwrap();
+
+        let center = state.source_opening_center.as_ref().expect("center should exist");
+        assert_eq!(center.returning_player_id.as_ref().unwrap().as_str(), "player_1");
+        assert_eq!(center.owner_id.as_str(), "player_0");
+    }
+
+    #[test]
+    fn source_opening_skill_flipped_on_owner() {
+        let (mut state, mut undo) = setup_two_player_with_skill(Hero::Goldyx, "goldyx_source_opening");
+        activate_skill(&mut state, &mut undo, "goldyx_source_opening");
+        let skip_idx = match &state.players[0].pending.active {
+            Some(mk_types::pending::ActivePending::Choice(c)) => c.options.len() - 1,
+            _ => panic!("Expected choice"),
+        };
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: skip_idx }, epoch).unwrap();
+
+        // Skill should be flipped on the owner
+        assert!(state.players[0].skill_flip_state.flipped_skills.iter()
+            .any(|s| s.as_str() == "goldyx_source_opening"));
+    }
+
+    // =========================================================================
+    // Batch 3 Edge Cases: Master of Chaos
+    // =========================================================================
+
+    #[test]
+    fn master_of_chaos_green_to_black_ranged_coldfire_1() {
+        // Green→Black gives Ranged ColdFire Attack 1 (requires combat)
+        let (mut state, mut undo) = setup_two_player_combat_with_skill(
+            Hero::Krang, "krang_master_of_chaos", &["prowlers"],
+        );
+        state.players[0].master_of_chaos_state = Some(MasterOfChaosState {
+            position: ManaColor::Green,
+            free_rotate_available: false,
+        });
+        activate_skill(&mut state, &mut undo, "krang_master_of_chaos");
+        assert_eq!(state.players[0].master_of_chaos_state.as_ref().unwrap().position, ManaColor::Black);
+        assert_eq!(state.players[0].combat_accumulator.attack.ranged, 1);
+        assert_eq!(state.players[0].combat_accumulator.attack.ranged_elements.cold_fire, 1);
+    }
+
+    #[test]
+    fn master_of_chaos_white_to_red_attack_2() {
+        // White→Red gives Melee Attack 2 (requires combat)
+        let (mut state, mut undo) = setup_two_player_combat_with_skill(
+            Hero::Krang, "krang_master_of_chaos", &["prowlers"],
+        );
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+        state.players[0].master_of_chaos_state = Some(MasterOfChaosState {
+            position: ManaColor::White,
+            free_rotate_available: false,
+        });
+        activate_skill(&mut state, &mut undo, "krang_master_of_chaos");
+        assert_eq!(state.players[0].master_of_chaos_state.as_ref().unwrap().position, ManaColor::Red);
+        assert_eq!(state.players[0].combat_accumulator.attack.normal, 2);
+        assert_eq!(state.players[0].combat_accumulator.attack.normal_elements.physical, 2);
+    }
+
+    #[test]
+    fn master_of_chaos_gold_to_blue_block_3() {
+        // Gold→Blue gives Block 3 (requires combat)
+        let (mut state, mut undo) = setup_two_player_combat_with_skill(
+            Hero::Krang, "krang_master_of_chaos", &["prowlers"],
+        );
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+        state.players[0].master_of_chaos_state = Some(MasterOfChaosState {
+            position: ManaColor::Gold,
+            free_rotate_available: false,
+        });
+        activate_skill(&mut state, &mut undo, "krang_master_of_chaos");
+        assert_eq!(state.players[0].master_of_chaos_state.as_ref().unwrap().position, ManaColor::Blue);
+        assert_eq!(state.players[0].combat_accumulator.block, 3);
+        assert_eq!(state.players[0].combat_accumulator.block_elements.physical, 3);
+    }
+
+    #[test]
+    fn master_of_chaos_gold_choice_filters_outside_combat() {
+        // Outside combat, Gold choice should only show Move + Influence (2 options)
+        let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_master_of_chaos");
+        state.players[0].master_of_chaos_state = Some(MasterOfChaosState {
+            position: ManaColor::Red,
+            free_rotate_available: false,
+        });
+        state.players[0].hand = vec![CardId::from("march")];
+        activate_skill(&mut state, &mut undo, "krang_master_of_chaos");
+        // Not in combat → Block, Attack, Ranged ColdFire all filtered → only Move + Influence
+        match &state.players[0].pending.active {
+            Some(mk_types::pending::ActivePending::Choice(c)) => {
+                assert_eq!(c.options.len(), 2, "Gold choice outside combat should have 2 options (Move + Influence)");
+            }
+            other => panic!("Expected choice pending, got {:?}", other),
+        }
+        // Resolve with Influence (index 1)
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0,
+            &LegalAction::ResolveChoice { choice_index: 1 }, epoch).unwrap();
+        assert_eq!(state.players[0].influence_points, 2);
+    }
+
+    #[test]
+    fn master_of_chaos_free_rotate_window_opens_on_turn_reset() {
+        // After a turn where MoC was NOT used, free_rotate_available should be set to true
+        let (mut state, _undo) = setup_with_skill(Hero::Krang, "krang_master_of_chaos");
+        state.players[0].master_of_chaos_state = Some(MasterOfChaosState {
+            position: ManaColor::Blue,
+            free_rotate_available: false,
+        });
+        // Simulate end-turn reset (skill was NOT used)
+        crate::end_turn::reset_player_turn(&mut state, 0);
+        let moc = state.players[0].master_of_chaos_state.as_ref().unwrap();
+        assert!(moc.free_rotate_available, "free_rotate should open when skill not used");
+    }
+
+    #[test]
+    fn master_of_chaos_free_rotate_not_opened_when_used() {
+        // After a turn where MoC WAS used, free_rotate_available should stay false
+        let (mut state, _undo) = setup_with_skill(Hero::Krang, "krang_master_of_chaos");
+        state.players[0].master_of_chaos_state = Some(MasterOfChaosState {
+            position: ManaColor::Green,
+            free_rotate_available: false,
+        });
+        state.players[0].skill_cooldowns.used_this_turn.push(
+            mk_types::ids::SkillId::from("krang_master_of_chaos"));
+        crate::end_turn::reset_player_turn(&mut state, 0);
+        let moc = state.players[0].master_of_chaos_state.as_ref().unwrap();
+        assert!(!moc.free_rotate_available, "free_rotate should NOT open when skill was used");
+    }
+
+    // =========================================================================
+    // Batch 3: Effect detection helpers
+    // =========================================================================
+
+    #[test]
+    fn effect_has_move_detects_gain_move() {
+        use mk_types::effect::CardEffect;
+        assert!(crate::card_play::effect_has_move(&CardEffect::GainMove { amount: 2 }));
+        assert!(!crate::card_play::effect_has_move(&CardEffect::GainAttack {
+            amount: 2, combat_type: CombatType::Melee, element: Element::Physical
+        }));
+    }
+
+    #[test]
+    fn effect_has_attack_detects_compound() {
+        use mk_types::effect::CardEffect;
+        let compound = CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainMove { amount: 1 },
+                CardEffect::GainAttack { amount: 2, combat_type: CombatType::Melee, element: Element::Physical },
+            ],
+        };
+        assert!(crate::card_play::effect_has_attack(&compound));
+        assert!(crate::card_play::effect_has_move(&compound));
+        assert!(!crate::card_play::effect_has_block(&compound));
+    }
+
+    #[test]
+    fn effect_has_block_negative_for_gain_mana() {
+        use mk_types::effect::CardEffect;
+        let mana = CardEffect::GainMana { color: ManaColor::Red, amount: 1 };
+        assert!(!crate::card_play::effect_has_move(&mana));
+        assert!(!crate::card_play::effect_has_attack(&mana));
+        assert!(!crate::card_play::effect_has_block(&mana));
+        assert!(!crate::card_play::effect_has_influence(&mana));
     }
 }

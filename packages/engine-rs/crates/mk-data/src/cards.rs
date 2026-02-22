@@ -16,13 +16,34 @@ use mk_types::modifier::{
     ModifierDuration, ModifierEffect, ModifierScope, RuleOverride, TerrainOrAll,
 };
 
+/// How a card can be powered.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PoweredBy {
+    /// Cannot be powered (wounds).
+    None,
+    /// Powered by a single specific mana color (most cards).
+    Single(BasicManaColor),
+    /// Powered by any basic mana color (Crystal Joy).
+    AnyBasic,
+}
+
+impl PoweredBy {
+    /// Return the single mana color if this is `Single`, else `None`.
+    pub fn primary_color(&self) -> Option<BasicManaColor> {
+        match self {
+            PoweredBy::Single(c) => Some(*c),
+            _ => None,
+        }
+    }
+}
+
 /// Static card definition.
 pub struct CardDefinition {
     pub id: &'static str,
     pub name: &'static str,
     pub color: CardColor,
     pub card_type: DeedCardType,
-    pub powered_by: Option<BasicManaColor>,
+    pub powered_by: PoweredBy,
     pub basic_effect: CardEffect,
     pub powered_effect: CardEffect,
     pub sideways_value: u32,
@@ -85,6 +106,11 @@ fn get_hero_card(id: &str) -> Option<CardDefinition> {
         "krang_battle_rage" => Some(krang_battle_rage()),
         "braevalar_one_with_the_land" => Some(braevalar_one_with_the_land()),
         "braevalar_druidic_paths" => Some(braevalar_druidic_paths()),
+        "tovak_instinct" => Some(tovak_instinct()),
+        "goldyx_crystal_joy" => Some(goldyx_crystal_joy()),
+        "norowas_rejuvenate" => Some(norowas_rejuvenate()),
+        "axe_throw" => Some(axe_throw()),
+        "arythea_mana_pull" => Some(arythea_mana_pull()),
         _ => None,
     }
 }
@@ -99,7 +125,7 @@ fn march() -> CardDefinition {
         name: "March",
         color: CardColor::Green,
         card_type: DeedCardType::BasicAction,
-        powered_by: Some(BasicManaColor::Green),
+        powered_by: PoweredBy::Single(BasicManaColor::Green),
         basic_effect: CardEffect::GainMove { amount: 2 },
         powered_effect: CardEffect::GainMove { amount: 4 },
         sideways_value: 1,
@@ -112,7 +138,7 @@ fn stamina() -> CardDefinition {
         name: "Stamina",
         color: CardColor::Blue,
         card_type: DeedCardType::BasicAction,
-        powered_by: Some(BasicManaColor::Blue),
+        powered_by: PoweredBy::Single(BasicManaColor::Blue),
         basic_effect: CardEffect::GainMove { amount: 2 },
         powered_effect: CardEffect::GainMove { amount: 4 },
         sideways_value: 1,
@@ -125,7 +151,7 @@ fn swiftness() -> CardDefinition {
         name: "Swiftness",
         color: CardColor::White,
         card_type: DeedCardType::BasicAction,
-        powered_by: Some(BasicManaColor::White),
+        powered_by: PoweredBy::Single(BasicManaColor::White),
         basic_effect: CardEffect::GainMove { amount: 2 },
         powered_effect: CardEffect::GainAttack {
             amount: 3,
@@ -142,7 +168,7 @@ fn rage() -> CardDefinition {
         name: "Rage",
         color: CardColor::Red,
         card_type: DeedCardType::BasicAction,
-        powered_by: Some(BasicManaColor::Red),
+        powered_by: PoweredBy::Single(BasicManaColor::Red),
         basic_effect: CardEffect::Choice {
             options: vec![
                 CardEffect::GainAttack {
@@ -171,7 +197,7 @@ fn determination() -> CardDefinition {
         name: "Determination",
         color: CardColor::Blue,
         card_type: DeedCardType::BasicAction,
-        powered_by: Some(BasicManaColor::Blue),
+        powered_by: PoweredBy::Single(BasicManaColor::Blue),
         basic_effect: CardEffect::Choice {
             options: vec![
                 CardEffect::GainAttack {
@@ -199,7 +225,7 @@ fn tranquility() -> CardDefinition {
         name: "Tranquility",
         color: CardColor::Green,
         card_type: DeedCardType::BasicAction,
-        powered_by: Some(BasicManaColor::Green),
+        powered_by: PoweredBy::Single(BasicManaColor::Green),
         basic_effect: CardEffect::Choice {
             options: vec![
                 CardEffect::GainHealing { amount: 1 },
@@ -222,7 +248,7 @@ fn promise() -> CardDefinition {
         name: "Promise",
         color: CardColor::White,
         card_type: DeedCardType::BasicAction,
-        powered_by: Some(BasicManaColor::White),
+        powered_by: PoweredBy::Single(BasicManaColor::White),
         basic_effect: CardEffect::GainInfluence { amount: 2 },
         powered_effect: CardEffect::GainInfluence { amount: 4 },
         sideways_value: 1,
@@ -235,7 +261,7 @@ fn threaten() -> CardDefinition {
         name: "Threaten",
         color: CardColor::Red,
         card_type: DeedCardType::BasicAction,
-        powered_by: Some(BasicManaColor::Red),
+        powered_by: PoweredBy::Single(BasicManaColor::Red),
         basic_effect: CardEffect::GainInfluence { amount: 2 },
         powered_effect: CardEffect::Compound {
             effects: vec![
@@ -253,7 +279,7 @@ fn crystallize() -> CardDefinition {
         name: "Crystallize",
         color: CardColor::Blue,
         card_type: DeedCardType::BasicAction,
-        powered_by: Some(BasicManaColor::Blue),
+        powered_by: PoweredBy::Single(BasicManaColor::Blue),
         basic_effect: CardEffect::ConvertManaToCrystal,
         powered_effect: CardEffect::Choice {
             options: vec![
@@ -281,7 +307,7 @@ fn mana_draw() -> CardDefinition {
         name: "Mana Draw",
         color: CardColor::White,
         card_type: DeedCardType::BasicAction,
-        powered_by: Some(BasicManaColor::White),
+        powered_by: PoweredBy::Single(BasicManaColor::White),
         basic_effect: CardEffect::ApplyModifier {
             effect: ModifierEffect::RuleOverride {
                 rule: RuleOverride::ExtraSourceDie,
@@ -303,7 +329,7 @@ fn concentration() -> CardDefinition {
         name: "Concentration",
         color: CardColor::Green,
         card_type: DeedCardType::BasicAction,
-        powered_by: Some(BasicManaColor::Green),
+        powered_by: PoweredBy::Single(BasicManaColor::Green),
         basic_effect: CardEffect::Choice {
             options: vec![
                 CardEffect::GainMana {
@@ -331,7 +357,7 @@ fn improvisation() -> CardDefinition {
         name: "Improvisation",
         color: CardColor::Red,
         card_type: DeedCardType::BasicAction,
-        powered_by: Some(BasicManaColor::Red),
+        powered_by: PoweredBy::Single(BasicManaColor::Red),
         basic_effect: CardEffect::DiscardCost {
             count: 1,
             filter_wounds: true,
@@ -382,7 +408,7 @@ fn wound() -> CardDefinition {
         name: "Wound",
         color: CardColor::Wound,
         card_type: DeedCardType::Wound,
-        powered_by: None,
+        powered_by: PoweredBy::None,
         basic_effect: CardEffect::Noop,
         powered_effect: CardEffect::Noop,
         sideways_value: 0,
@@ -399,7 +425,7 @@ fn arythea_battle_versatility() -> CardDefinition {
         name: "Battle Versatility",
         color: CardColor::Red,
         card_type: DeedCardType::BasicAction,
-        powered_by: Some(BasicManaColor::Red),
+        powered_by: PoweredBy::Single(BasicManaColor::Red),
         basic_effect: CardEffect::Choice {
             options: vec![
                 CardEffect::GainAttack {
@@ -436,7 +462,7 @@ fn tovak_cold_toughness() -> CardDefinition {
         name: "Cold Toughness",
         color: CardColor::Blue,
         card_type: DeedCardType::BasicAction,
-        powered_by: Some(BasicManaColor::Blue),
+        powered_by: PoweredBy::Single(BasicManaColor::Blue),
         basic_effect: CardEffect::Choice {
             options: vec![
                 CardEffect::GainAttack {
@@ -472,7 +498,7 @@ fn goldyx_will_focus() -> CardDefinition {
         name: "Will Focus",
         color: CardColor::Green,
         card_type: DeedCardType::BasicAction,
-        powered_by: Some(BasicManaColor::Green),
+        powered_by: PoweredBy::Single(BasicManaColor::Green),
         basic_effect: CardEffect::Choice {
             options: vec![
                 CardEffect::GainMana {
@@ -519,7 +545,7 @@ fn norowas_noble_manners() -> CardDefinition {
         name: "Noble Manners",
         color: CardColor::White,
         card_type: DeedCardType::BasicAction,
-        powered_by: Some(BasicManaColor::White),
+        powered_by: PoweredBy::Single(BasicManaColor::White),
         basic_effect: CardEffect::GainInfluence { amount: 2 },
         powered_effect: CardEffect::Compound {
             effects: vec![
@@ -537,7 +563,7 @@ fn wolfhawk_swift_reflexes() -> CardDefinition {
         name: "Swift Reflexes",
         color: CardColor::White,
         card_type: DeedCardType::BasicAction,
-        powered_by: Some(BasicManaColor::White),
+        powered_by: PoweredBy::Single(BasicManaColor::White),
         basic_effect: CardEffect::GainMove { amount: 2 },
         powered_effect: CardEffect::Choice {
             options: vec![
@@ -562,7 +588,7 @@ fn wolfhawk_tirelessness() -> CardDefinition {
         name: "Tirelessness",
         color: CardColor::Blue,
         card_type: DeedCardType::BasicAction,
-        powered_by: Some(BasicManaColor::Blue),
+        powered_by: PoweredBy::Single(BasicManaColor::Blue),
         basic_effect: CardEffect::GainMove { amount: 2 },
         powered_effect: CardEffect::Compound {
             effects: vec![
@@ -580,7 +606,7 @@ fn krang_savage_harvesting() -> CardDefinition {
         name: "Savage Harvesting",
         color: CardColor::Green,
         card_type: DeedCardType::BasicAction,
-        powered_by: Some(BasicManaColor::Green),
+        powered_by: PoweredBy::Single(BasicManaColor::Green),
         basic_effect: CardEffect::GainMove { amount: 2 },
         powered_effect: CardEffect::Compound {
             effects: vec![
@@ -598,7 +624,7 @@ fn krang_ruthless_coercion() -> CardDefinition {
         name: "Ruthless Coercion",
         color: CardColor::Red,
         card_type: DeedCardType::BasicAction,
-        powered_by: Some(BasicManaColor::Red),
+        powered_by: PoweredBy::Single(BasicManaColor::Red),
         basic_effect: CardEffect::GainInfluence { amount: 2 },
         powered_effect: CardEffect::Compound {
             effects: vec![
@@ -616,7 +642,7 @@ fn krang_battle_rage() -> CardDefinition {
         name: "Battle Rage",
         color: CardColor::Red,
         card_type: DeedCardType::BasicAction,
-        powered_by: Some(BasicManaColor::Red),
+        powered_by: PoweredBy::Single(BasicManaColor::Red),
         basic_effect: CardEffect::Choice {
             options: vec![
                 CardEffect::GainAttack {
@@ -650,7 +676,7 @@ fn braevalar_one_with_the_land() -> CardDefinition {
         name: "One With The Land",
         color: CardColor::Green,
         card_type: DeedCardType::BasicAction,
-        powered_by: Some(BasicManaColor::Green),
+        powered_by: PoweredBy::Single(BasicManaColor::Green),
         basic_effect: CardEffect::GainMove { amount: 2 },
         powered_effect: CardEffect::Compound {
             effects: vec![
@@ -668,7 +694,7 @@ fn braevalar_druidic_paths() -> CardDefinition {
         name: "Druidic Paths",
         color: CardColor::Blue,
         card_type: DeedCardType::BasicAction,
-        powered_by: Some(BasicManaColor::Blue),
+        powered_by: PoweredBy::Single(BasicManaColor::Blue),
         basic_effect: CardEffect::GainMove { amount: 2 },
         powered_effect: CardEffect::Choice {
             options: vec![
@@ -680,6 +706,169 @@ fn braevalar_druidic_paths() -> CardDefinition {
                     ],
                 },
             ],
+        },
+        sideways_value: 1,
+    }
+}
+
+fn tovak_instinct() -> CardDefinition {
+    CardDefinition {
+        id: "tovak_instinct",
+        name: "Instinct",
+        color: CardColor::Red,
+        card_type: DeedCardType::BasicAction,
+        powered_by: PoweredBy::Single(BasicManaColor::Red),
+        basic_effect: CardEffect::Choice {
+            options: vec![
+                CardEffect::GainMove { amount: 2 },
+                CardEffect::GainInfluence { amount: 2 },
+                CardEffect::GainAttack {
+                    amount: 2,
+                    combat_type: CombatType::Melee,
+                    element: Element::Physical,
+                },
+                CardEffect::GainBlock {
+                    amount: 2,
+                    element: Element::Physical,
+                },
+            ],
+        },
+        powered_effect: CardEffect::Choice {
+            options: vec![
+                CardEffect::GainMove { amount: 4 },
+                CardEffect::GainInfluence { amount: 4 },
+                CardEffect::GainAttack {
+                    amount: 4,
+                    combat_type: CombatType::Melee,
+                    element: Element::Physical,
+                },
+                CardEffect::GainBlock {
+                    amount: 4,
+                    element: Element::Physical,
+                },
+            ],
+        },
+        sideways_value: 1,
+    }
+}
+
+fn goldyx_crystal_joy() -> CardDefinition {
+    CardDefinition {
+        id: "goldyx_crystal_joy",
+        name: "Crystal Joy",
+        color: CardColor::Blue,
+        card_type: DeedCardType::BasicAction,
+        powered_by: PoweredBy::AnyBasic,
+        basic_effect: CardEffect::ConvertManaToCrystal,
+        powered_effect: CardEffect::Choice {
+            options: vec![
+                CardEffect::GainCrystal {
+                    color: Some(BasicManaColor::Red),
+                },
+                CardEffect::GainCrystal {
+                    color: Some(BasicManaColor::Blue),
+                },
+                CardEffect::GainCrystal {
+                    color: Some(BasicManaColor::Green),
+                },
+                CardEffect::GainCrystal {
+                    color: Some(BasicManaColor::White),
+                },
+            ],
+        },
+        sideways_value: 1,
+    }
+}
+
+fn norowas_rejuvenate() -> CardDefinition {
+    CardDefinition {
+        id: "norowas_rejuvenate",
+        name: "Rejuvenate",
+        color: CardColor::Green,
+        card_type: DeedCardType::BasicAction,
+        powered_by: PoweredBy::Single(BasicManaColor::Green),
+        basic_effect: CardEffect::Choice {
+            options: vec![
+                CardEffect::GainHealing { amount: 1 },
+                CardEffect::DrawCards { count: 1 },
+                CardEffect::GainMana {
+                    color: ManaColor::Green,
+                    amount: 1,
+                },
+                CardEffect::ReadyUnit { max_level: 2 },
+            ],
+        },
+        powered_effect: CardEffect::Choice {
+            options: vec![
+                CardEffect::GainHealing { amount: 2 },
+                CardEffect::DrawCards { count: 2 },
+                CardEffect::GainCrystal {
+                    color: Some(BasicManaColor::Green),
+                },
+                CardEffect::ReadyUnit { max_level: 3 },
+            ],
+        },
+        sideways_value: 1,
+    }
+}
+
+fn axe_throw() -> CardDefinition {
+    CardDefinition {
+        id: "axe_throw",
+        name: "Axe Throw",
+        color: CardColor::White,
+        card_type: DeedCardType::BasicAction,
+        powered_by: PoweredBy::Single(BasicManaColor::White),
+        basic_effect: CardEffect::Choice {
+            options: vec![
+                CardEffect::GainMove { amount: 2 },
+                CardEffect::GainAttack {
+                    amount: 1,
+                    combat_type: CombatType::Ranged,
+                    element: Element::Physical,
+                },
+            ],
+        },
+        powered_effect: CardEffect::AttackWithDefeatBonus {
+            amount: 3,
+            combat_type: CombatType::Ranged,
+            element: Element::Physical,
+            reputation_per_defeat: 0,
+            fame_per_defeat: 1,
+            armor_reduction_per_defeat: 0,
+        },
+        sideways_value: 1,
+    }
+}
+
+fn arythea_mana_pull() -> CardDefinition {
+    CardDefinition {
+        id: "arythea_mana_pull",
+        name: "Mana Pull",
+        color: CardColor::White,
+        card_type: DeedCardType::BasicAction,
+        powered_by: PoweredBy::Single(BasicManaColor::White),
+        basic_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::RuleOverride {
+                        rule: RuleOverride::ExtraSourceDie,
+                    },
+                    duration: ModifierDuration::Turn,
+                    scope: ModifierScope::SelfScope,
+                },
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::RuleOverride {
+                        rule: RuleOverride::BlackAsAnyColor,
+                    },
+                    duration: ModifierDuration::Turn,
+                    scope: ModifierScope::SelfScope,
+                },
+            ],
+        },
+        powered_effect: CardEffect::ManaDrawPowered {
+            dice_count: 2,
+            tokens_per_die: 1,
         },
         sideways_value: 1,
     }
@@ -767,7 +956,7 @@ fn blood_rage() -> CardDefinition {
         name: "Blood Rage",
         color: CardColor::Red,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Red),
+        powered_by: PoweredBy::Single(BasicManaColor::Red),
         basic_effect: CardEffect::Choice {
             options: vec![
                 CardEffect::GainAttack {
@@ -816,7 +1005,7 @@ fn intimidate() -> CardDefinition {
         name: "Intimidate",
         color: CardColor::Red,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Red),
+        powered_by: PoweredBy::Single(BasicManaColor::Red),
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::Choice {
@@ -857,7 +1046,7 @@ fn blood_ritual() -> CardDefinition {
         name: "Blood Ritual",
         color: CardColor::Red,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Red),
+        powered_by: PoweredBy::Single(BasicManaColor::Red),
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::TakeWound,
@@ -889,7 +1078,7 @@ fn counterattack() -> CardDefinition {
         name: "Counterattack",
         color: CardColor::Red,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Red),
+        powered_by: PoweredBy::Single(BasicManaColor::Red),
         basic_effect: CardEffect::Scaling {
             factor: ScalingFactor::PerEnemyBlocked,
             base_effect: Box::new(CardEffect::GainAttack {
@@ -920,7 +1109,7 @@ fn fire_bolt() -> CardDefinition {
         name: "Fire Bolt",
         color: CardColor::Red,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Red),
+        powered_by: PoweredBy::Single(BasicManaColor::Red),
         basic_effect: CardEffect::GainCrystal { color: Some(BasicManaColor::Red) },
         powered_effect: CardEffect::GainAttack {
             amount: 3,
@@ -937,7 +1126,7 @@ fn into_the_heat() -> CardDefinition {
         name: "Into the Heat",
         color: CardColor::Red,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Red),
+        powered_by: PoweredBy::Single(BasicManaColor::Red),
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::ApplyModifier {
@@ -988,7 +1177,7 @@ fn ice_bolt() -> CardDefinition {
         name: "Ice Bolt",
         color: CardColor::Blue,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Blue),
+        powered_by: PoweredBy::Single(BasicManaColor::Blue),
         basic_effect: CardEffect::GainCrystal { color: Some(BasicManaColor::Blue) },
         powered_effect: CardEffect::GainAttack {
             amount: 3,
@@ -1007,7 +1196,7 @@ fn steady_tempo() -> CardDefinition {
         name: "Steady Tempo",
         color: CardColor::Blue,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Blue),
+        powered_by: PoweredBy::Single(BasicManaColor::Blue),
         basic_effect: CardEffect::GainMove { amount: 2 },
         powered_effect: CardEffect::GainMove { amount: 4 },
         sideways_value: 1,
@@ -1020,7 +1209,7 @@ fn frost_bridge() -> CardDefinition {
         name: "Frost Bridge",
         color: CardColor::Blue,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Blue),
+        powered_by: PoweredBy::Single(BasicManaColor::Blue),
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::GainMove { amount: 2 },
@@ -1073,7 +1262,7 @@ fn refreshing_walk() -> CardDefinition {
         name: "Refreshing Walk",
         color: CardColor::Green,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Green),
+        powered_by: PoweredBy::Single(BasicManaColor::Green),
         basic_effect: CardEffect::Conditional {
             condition: EffectCondition::InCombat,
             then_effect: Box::new(CardEffect::GainMove { amount: 2 }),
@@ -1104,7 +1293,7 @@ fn in_need() -> CardDefinition {
         name: "In Need",
         color: CardColor::Green,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Green),
+        powered_by: PoweredBy::Single(BasicManaColor::Green),
         basic_effect: CardEffect::Scaling {
             factor: ScalingFactor::PerWoundTotal,
             base_effect: Box::new(CardEffect::GainInfluence { amount: 3 }),
@@ -1127,7 +1316,7 @@ fn crushing_bolt() -> CardDefinition {
         name: "Crushing Bolt",
         color: CardColor::Green,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Green),
+        powered_by: PoweredBy::Single(BasicManaColor::Green),
         basic_effect: CardEffect::GainCrystal { color: Some(BasicManaColor::Green) },
         powered_effect: CardEffect::GainAttack {
             amount: 3,
@@ -1144,7 +1333,7 @@ fn ambush() -> CardDefinition {
         name: "Ambush",
         color: CardColor::Green,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Green),
+        powered_by: PoweredBy::Single(BasicManaColor::Green),
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::GainMove { amount: 2 },
@@ -1183,7 +1372,7 @@ fn path_finding() -> CardDefinition {
         name: "Path Finding",
         color: CardColor::Green,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Green),
+        powered_by: PoweredBy::Single(BasicManaColor::Green),
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::GainMove { amount: 2 },
@@ -1274,7 +1463,7 @@ fn mountain_lore() -> CardDefinition {
         name: "Mountain Lore",
         color: CardColor::Green,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Green),
+        powered_by: PoweredBy::Single(BasicManaColor::Green),
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::GainMove { amount: 3 },
@@ -1329,7 +1518,7 @@ fn regeneration() -> CardDefinition {
         name: "Regeneration",
         color: CardColor::Green,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Green),
+        powered_by: PoweredBy::Single(BasicManaColor::Green),
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::GainHealing { amount: 1 },
@@ -1353,7 +1542,7 @@ fn force_of_nature() -> CardDefinition {
         name: "Force of Nature",
         color: CardColor::Green,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Green),
+        powered_by: PoweredBy::Single(BasicManaColor::Green),
         // Basic: Select unit, grant Physical resistance (needs SelectUnitForModifier)
         basic_effect: CardEffect::Other {
             effect_type: EffectType::SelectUnitForModifier,
@@ -1383,7 +1572,7 @@ fn swift_bolt() -> CardDefinition {
         name: "Swift Bolt",
         color: CardColor::White,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::White),
+        powered_by: PoweredBy::Single(BasicManaColor::White),
         basic_effect: CardEffect::GainCrystal { color: Some(BasicManaColor::White) },
         powered_effect: CardEffect::GainAttack {
             amount: 4,
@@ -1400,7 +1589,7 @@ fn agility() -> CardDefinition {
         name: "Agility",
         color: CardColor::White,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::White),
+        powered_by: PoweredBy::Single(BasicManaColor::White),
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::GainMove { amount: 2 },
@@ -1459,7 +1648,7 @@ fn diplomacy() -> CardDefinition {
         name: "Diplomacy",
         color: CardColor::White,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::White),
+        powered_by: PoweredBy::Single(BasicManaColor::White),
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::GainInfluence { amount: 2 },
@@ -1525,7 +1714,7 @@ fn explosive_bolt() -> CardDefinition {
         name: "Explosive Bolt",
         color: CardColor::Red, // dual Red/White
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Red), // or White
+        powered_by: PoweredBy::Single(BasicManaColor::Red), // or White
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::TakeWound,
@@ -1559,7 +1748,7 @@ fn ice_shield() -> CardDefinition {
         name: "Ice Shield",
         color: CardColor::Blue,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Blue),
+        powered_by: PoweredBy::Single(BasicManaColor::Blue),
         basic_effect: CardEffect::GainBlock {
             amount: 3,
             element: Element::Ice,
@@ -1592,7 +1781,7 @@ fn temporal_portal() -> CardDefinition {
         name: "Temporal Portal",
         color: CardColor::Blue,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Blue),
+        powered_by: PoweredBy::Single(BasicManaColor::Blue),
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::GainMove { amount: 1 },
@@ -1680,7 +1869,7 @@ fn song_of_wind() -> CardDefinition {
         name: "Song of Wind",
         color: CardColor::White,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::White),
+        powered_by: PoweredBy::Single(BasicManaColor::White),
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::GainMove { amount: 2 },
@@ -1731,7 +1920,7 @@ fn heroic_tale() -> CardDefinition {
         name: "Heroic Tale",
         color: CardColor::White,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::White),
+        powered_by: PoweredBy::Single(BasicManaColor::White),
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::GainInfluence { amount: 3 },
@@ -1769,7 +1958,7 @@ fn learning() -> CardDefinition {
         name: "Learning",
         color: CardColor::White,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::White),
+        powered_by: PoweredBy::Single(BasicManaColor::White),
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::GainInfluence { amount: 2 },
@@ -1807,7 +1996,7 @@ fn stout_resolve() -> CardDefinition {
         name: "Stout Resolve",
         color: CardColor::Green,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Green),
+        powered_by: PoweredBy::Single(BasicManaColor::Green),
         // Basic: DiscardForBonus(Move2/Inf2/Atk2/Blk2, bonus=1, max=1, WoundOnly)
         basic_effect: CardEffect::DiscardForBonus {
             choice_options: vec![
@@ -1858,7 +2047,7 @@ fn shield_bash() -> CardDefinition {
         name: "Shield Bash",
         color: CardColor::Blue,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Blue),
+        powered_by: PoweredBy::Single(BasicManaColor::Blue),
         // Basic: Block 3 (Physical). countsTwiceAgainstSwift handled in combat resolution.
         basic_effect: CardEffect::GainBlock {
             amount: 3,
@@ -1892,7 +2081,7 @@ fn pure_magic() -> CardDefinition {
         name: "Pure Magic",
         color: CardColor::Blue,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Blue),
+        powered_by: PoweredBy::Single(BasicManaColor::Blue),
         basic_effect: CardEffect::PureMagic { amount: 4 },
         powered_effect: CardEffect::PureMagic { amount: 7 },
         sideways_value: 1,
@@ -1909,7 +2098,7 @@ fn decompose() -> CardDefinition {
         name: "Decompose",
         color: CardColor::Red,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Red),
+        powered_by: PoweredBy::Single(BasicManaColor::Red),
         basic_effect: CardEffect::Decompose {
             mode: EffectMode::Basic,
         },
@@ -1929,7 +2118,7 @@ fn ritual_attack() -> CardDefinition {
         name: "Ritual Attack",
         color: CardColor::Red,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Red),
+        powered_by: PoweredBy::Single(BasicManaColor::Red),
         basic_effect: CardEffect::DiscardForAttack {
             attacks_by_color: vec![
                 (
@@ -2014,7 +2203,7 @@ fn chivalry() -> CardDefinition {
         name: "Chivalry",
         color: CardColor::White,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::White),
+        powered_by: PoweredBy::Single(BasicManaColor::White),
         // Basic: Choice(Attack 3, AttackWithDefeatBonus(2, rep+1/defeat))
         basic_effect: CardEffect::Choice {
             options: vec![
@@ -2066,7 +2255,7 @@ fn maximal_effect() -> CardDefinition {
         name: "Maximal Effect",
         color: CardColor::Red,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Red),
+        powered_by: PoweredBy::Single(BasicManaColor::Red),
         basic_effect: CardEffect::Other {
             effect_type: EffectType::MaximalEffect,
         },
@@ -2085,7 +2274,7 @@ fn blood_of_ancients() -> CardDefinition {
         name: "Blood of Ancients",
         color: CardColor::Red,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Red),
+        powered_by: PoweredBy::Single(BasicManaColor::Red),
         basic_effect: CardEffect::Other {
             effect_type: EffectType::BloodOfAncientsBasic,
         },
@@ -2104,7 +2293,7 @@ fn crystal_mastery() -> CardDefinition {
         name: "Crystal Mastery",
         color: CardColor::Blue,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Blue),
+        powered_by: PoweredBy::Single(BasicManaColor::Blue),
         basic_effect: CardEffect::Other {
             effect_type: EffectType::CrystalMasteryBasic,
         },
@@ -2123,7 +2312,7 @@ fn magic_talent() -> CardDefinition {
         name: "Magic Talent",
         color: CardColor::Blue,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Blue),
+        powered_by: PoweredBy::Single(BasicManaColor::Blue),
         basic_effect: CardEffect::Other {
             effect_type: EffectType::MagicTalentBasic,
         },
@@ -2142,7 +2331,7 @@ fn spell_forge() -> CardDefinition {
         name: "Spell Forge",
         color: CardColor::Blue,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Blue),
+        powered_by: PoweredBy::Single(BasicManaColor::Blue),
         basic_effect: CardEffect::Other {
             effect_type: EffectType::SpellForgeBasic,
         },
@@ -2160,7 +2349,7 @@ fn training() -> CardDefinition {
         name: "Training",
         color: CardColor::Green,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Green),
+        powered_by: PoweredBy::Single(BasicManaColor::Green),
         basic_effect: CardEffect::Other {
             effect_type: EffectType::Training,
         },
@@ -2179,7 +2368,7 @@ fn power_of_crystals() -> CardDefinition {
         name: "Power of Crystals",
         color: CardColor::Green,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Green),
+        powered_by: PoweredBy::Single(BasicManaColor::Green),
         basic_effect: CardEffect::Other {
             effect_type: EffectType::PowerOfCrystalsBasic,
         },
@@ -2198,7 +2387,7 @@ fn mana_storm() -> CardDefinition {
         name: "Mana Storm",
         color: CardColor::White,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::White),
+        powered_by: PoweredBy::Single(BasicManaColor::White),
         basic_effect: CardEffect::Other {
             effect_type: EffectType::ManaStormBasic,
         },
@@ -2216,7 +2405,7 @@ fn peaceful_moment() -> CardDefinition {
         name: "Peaceful Moment",
         color: CardColor::White,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::White),
+        powered_by: PoweredBy::Single(BasicManaColor::White),
         basic_effect: CardEffect::Other {
             effect_type: EffectType::PeacefulMomentAction,
         },
@@ -2234,7 +2423,7 @@ fn dodge_and_weave() -> CardDefinition {
         name: "Dodge and Weave",
         color: CardColor::White,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::White),
+        powered_by: PoweredBy::Single(BasicManaColor::White),
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::GainMove { amount: 2 },
@@ -2278,7 +2467,7 @@ fn rush_of_adrenaline() -> CardDefinition {
         name: "Rush of Adrenaline",
         color: CardColor::Red,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Red), // or White
+        powered_by: PoweredBy::Single(BasicManaColor::Red), // or White
         basic_effect: CardEffect::Other {
             effect_type: EffectType::RushOfAdrenaline,
         },
@@ -2296,7 +2485,7 @@ fn chilling_stare() -> CardDefinition {
         name: "Chilling Stare",
         color: CardColor::Blue,
         card_type: DeedCardType::AdvancedAction,
-        powered_by: Some(BasicManaColor::Blue), // or White
+        powered_by: PoweredBy::Single(BasicManaColor::Blue), // or White
         // Basic: Influence 3 OR select non-ice-resistant enemy → nullify all attack abilities
         basic_effect: CardEffect::Choice {
             options: vec![
@@ -2376,7 +2565,7 @@ fn fireball() -> CardDefinition {
         name: "Fireball",
         color: CardColor::Red,
         card_type: DeedCardType::Spell,
-        powered_by: Some(BasicManaColor::Red),
+        powered_by: PoweredBy::Single(BasicManaColor::Red),
         basic_effect: CardEffect::GainAttack {
             amount: 5,
             combat_type: CombatType::Ranged,
@@ -2403,7 +2592,7 @@ fn flame_wall() -> CardDefinition {
         name: "Flame Wall",
         color: CardColor::Red,
         card_type: DeedCardType::Spell,
-        powered_by: Some(BasicManaColor::Red),
+        powered_by: PoweredBy::Single(BasicManaColor::Red),
         basic_effect: CardEffect::Choice {
             options: vec![
                 CardEffect::GainAttack {
@@ -2441,7 +2630,7 @@ fn tremor() -> CardDefinition {
         name: "Tremor",
         color: CardColor::Red,
         card_type: DeedCardType::Spell,
-        powered_by: Some(BasicManaColor::Red),
+        powered_by: PoweredBy::Single(BasicManaColor::Red),
         // Basic: one enemy −3 armor (min 1) OR all enemies −2 armor (min 1)
         basic_effect: CardEffect::Choice {
             options: vec![
@@ -2502,7 +2691,7 @@ fn mana_meltdown() -> CardDefinition {
         name: "Mana Meltdown",
         color: CardColor::Red,
         card_type: DeedCardType::Spell,
-        powered_by: Some(BasicManaColor::Red),
+        powered_by: PoweredBy::Single(BasicManaColor::Red),
         basic_effect: CardEffect::Other {
             effect_type: EffectType::ManaMeltdown,
         },
@@ -2520,7 +2709,7 @@ fn demolish() -> CardDefinition {
         name: "Demolish",
         color: CardColor::Red,
         card_type: DeedCardType::Spell,
-        powered_by: Some(BasicManaColor::Red),
+        powered_by: PoweredBy::Single(BasicManaColor::Red),
         basic_effect: CardEffect::GainAttack {
             amount: 5,
             combat_type: CombatType::Siege,
@@ -2547,7 +2736,7 @@ fn burning_shield() -> CardDefinition {
         name: "Burning Shield",
         color: CardColor::Red,
         card_type: DeedCardType::Spell,
-        powered_by: Some(BasicManaColor::Red),
+        powered_by: PoweredBy::Single(BasicManaColor::Red),
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::GainBlock {
@@ -2593,7 +2782,7 @@ fn offering() -> CardDefinition {
         name: "Offering",
         color: CardColor::Red,
         card_type: DeedCardType::Spell,
-        powered_by: Some(BasicManaColor::Red),
+        powered_by: PoweredBy::Single(BasicManaColor::Red),
         basic_effect: CardEffect::Other {
             effect_type: EffectType::Sacrifice,
         },
@@ -2613,7 +2802,7 @@ fn snowstorm() -> CardDefinition {
         name: "Snowstorm",
         color: CardColor::Blue,
         card_type: DeedCardType::Spell,
-        powered_by: Some(BasicManaColor::Blue),
+        powered_by: PoweredBy::Single(BasicManaColor::Blue),
         basic_effect: CardEffect::GainAttack {
             amount: 5,
             combat_type: CombatType::Ranged,
@@ -2640,7 +2829,7 @@ fn chill() -> CardDefinition {
         name: "Chill",
         color: CardColor::Blue,
         card_type: DeedCardType::Spell,
-        powered_by: Some(BasicManaColor::Blue),
+        powered_by: PoweredBy::Single(BasicManaColor::Blue),
         // Basic: select non-AI non-ice-resistant enemy → skip attack + remove fire resistance
         basic_effect: CardEffect::SelectCombatEnemy {
             template: SelectEnemyTemplate {
@@ -2673,7 +2862,7 @@ fn mist_form() -> CardDefinition {
         name: "Mist Form",
         color: CardColor::Blue,
         card_type: DeedCardType::Spell,
-        powered_by: Some(BasicManaColor::Blue),
+        powered_by: PoweredBy::Single(BasicManaColor::Blue),
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::GainMove { amount: 2 },
@@ -2722,7 +2911,7 @@ fn mana_claim() -> CardDefinition {
         name: "Mana Claim",
         color: CardColor::Blue,
         card_type: DeedCardType::Spell,
-        powered_by: Some(BasicManaColor::Blue),
+        powered_by: PoweredBy::Single(BasicManaColor::Blue),
         basic_effect: CardEffect::Other {
             effect_type: EffectType::ManaClaim,
         },
@@ -2740,7 +2929,7 @@ fn space_bending() -> CardDefinition {
         name: "Space Bending",
         color: CardColor::Blue,
         card_type: DeedCardType::Spell,
-        powered_by: Some(BasicManaColor::Blue),
+        powered_by: PoweredBy::Single(BasicManaColor::Blue),
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::ApplyModifier {
@@ -2782,7 +2971,7 @@ fn mana_bolt() -> CardDefinition {
         name: "Mana Bolt",
         color: CardColor::Blue,
         card_type: DeedCardType::Spell,
-        powered_by: Some(BasicManaColor::Blue),
+        powered_by: PoweredBy::Single(BasicManaColor::Blue),
         basic_effect: CardEffect::Other {
             effect_type: EffectType::ManaBolt,
         },
@@ -2802,7 +2991,7 @@ fn restoration() -> CardDefinition {
         name: "Restoration",
         color: CardColor::Green,
         card_type: DeedCardType::Spell,
-        powered_by: Some(BasicManaColor::Green),
+        powered_by: PoweredBy::Single(BasicManaColor::Green),
         basic_effect: CardEffect::GainHealing { amount: 3 },
         powered_effect: CardEffect::Conditional {
             condition: EffectCondition::OnTerrain {
@@ -2822,7 +3011,7 @@ fn energy_flow() -> CardDefinition {
         name: "Energy Flow",
         color: CardColor::Green,
         card_type: DeedCardType::Spell,
-        powered_by: Some(BasicManaColor::Green),
+        powered_by: PoweredBy::Single(BasicManaColor::Green),
         basic_effect: CardEffect::Other {
             effect_type: EffectType::EnergyFlow,
         },
@@ -2840,7 +3029,7 @@ fn underground_travel() -> CardDefinition {
         name: "Underground Travel",
         color: CardColor::Green,
         card_type: DeedCardType::Spell,
-        powered_by: Some(BasicManaColor::Green),
+        powered_by: PoweredBy::Single(BasicManaColor::Green),
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::GainMove { amount: 3 },
@@ -2917,7 +3106,7 @@ fn meditation() -> CardDefinition {
         name: "Meditation",
         color: CardColor::Green,
         card_type: DeedCardType::Spell,
-        powered_by: Some(BasicManaColor::Green),
+        powered_by: PoweredBy::Single(BasicManaColor::Green),
         basic_effect: CardEffect::Noop,
         powered_effect: CardEffect::Noop,
         sideways_value: 1,
@@ -2933,7 +3122,7 @@ fn whirlwind() -> CardDefinition {
         name: "Whirlwind",
         color: CardColor::White,
         card_type: DeedCardType::Spell,
-        powered_by: Some(BasicManaColor::White),
+        powered_by: PoweredBy::Single(BasicManaColor::White),
         // Basic: select enemy → skip its attack
         basic_effect: CardEffect::SelectCombatEnemy {
             template: SelectEnemyTemplate {
@@ -2959,7 +3148,7 @@ fn expose() -> CardDefinition {
         name: "Expose",
         color: CardColor::White,
         card_type: DeedCardType::Spell,
-        powered_by: Some(BasicManaColor::White),
+        powered_by: PoweredBy::Single(BasicManaColor::White),
         // Basic: select one enemy → nullify fortification + remove resistances, then Ranged 2
         basic_effect: CardEffect::Compound {
             effects: vec![
@@ -3015,7 +3204,7 @@ fn cure() -> CardDefinition {
         name: "Cure",
         color: CardColor::White,
         card_type: DeedCardType::Spell,
-        powered_by: Some(BasicManaColor::White),
+        powered_by: PoweredBy::Single(BasicManaColor::White),
         // Basic (Cure): heal up to 2 wounds from hand, draw 1 card per wound healed
         basic_effect: CardEffect::Cure { amount: 2 },
         // Powered (Disease): set armor to 1 for all fully-blocked enemies
@@ -3031,7 +3220,7 @@ fn call_to_arms() -> CardDefinition {
         name: "Call to Arms",
         color: CardColor::White,
         card_type: DeedCardType::Spell,
-        powered_by: Some(BasicManaColor::White),
+        powered_by: PoweredBy::Single(BasicManaColor::White),
         basic_effect: CardEffect::Other {
             effect_type: EffectType::CallToArms,
         },
@@ -3049,7 +3238,7 @@ fn mind_read() -> CardDefinition {
         name: "Mind Read",
         color: CardColor::White,
         card_type: DeedCardType::Spell,
-        powered_by: Some(BasicManaColor::White),
+        powered_by: PoweredBy::Single(BasicManaColor::White),
         basic_effect: CardEffect::Other {
             effect_type: EffectType::MindRead,
         },
@@ -3100,7 +3289,7 @@ fn wings_of_wind() -> CardDefinition {
         name: "Wings of Wind",
         color: CardColor::White,
         card_type: DeedCardType::Spell,
-        powered_by: Some(BasicManaColor::White),
+        powered_by: PoweredBy::Single(BasicManaColor::White),
         basic_effect: CardEffect::Choice {
             options: vec![
                 flight_option(1),
@@ -3124,7 +3313,7 @@ fn charm() -> CardDefinition {
         name: "Charm",
         color: CardColor::White,
         card_type: DeedCardType::Spell,
-        powered_by: Some(BasicManaColor::White),
+        powered_by: PoweredBy::Single(BasicManaColor::White),
         basic_effect: CardEffect::GainInfluence { amount: 4 },
         powered_effect: CardEffect::Other {
             effect_type: EffectType::PossessEnemy,
@@ -3269,7 +3458,7 @@ mod tests {
             let card = card.unwrap();
             assert_eq!(card.card_type, DeedCardType::Spell, "Card '{}' is not Spell", id);
             assert_eq!(card.sideways_value, 1, "Spell '{}' sideways_value != 1", id);
-            assert!(card.powered_by.is_some(), "Spell '{}' has no powered_by", id);
+            assert!(matches!(card.powered_by, PoweredBy::Single(_)), "Spell '{}' has no powered_by", id);
         }
     }
 
@@ -3277,7 +3466,7 @@ mod tests {
     fn blood_rage_effects() {
         let card = get_card("blood_rage").unwrap();
         assert_eq!(card.color, CardColor::Red);
-        assert_eq!(card.powered_by, Some(BasicManaColor::Red));
+        assert_eq!(card.powered_by, PoweredBy::Single(BasicManaColor::Red));
         // Basic: Choice(Attack 2, Compound(TakeWound, Attack 5))
         match &card.basic_effect {
             CardEffect::Choice { options } => {
@@ -4104,7 +4293,7 @@ mod tests {
     fn stout_resolve_basic_is_discard_for_bonus_wound_only() {
         let card = get_card("stout_resolve").unwrap();
         assert_eq!(card.color, CardColor::Green);
-        assert_eq!(card.powered_by, Some(BasicManaColor::Green));
+        assert_eq!(card.powered_by, PoweredBy::Single(BasicManaColor::Green));
         match &card.basic_effect {
             CardEffect::DiscardForBonus {
                 choice_options,
@@ -4164,7 +4353,7 @@ mod tests {
     fn shield_bash_basic_is_block() {
         let card = get_card("shield_bash").unwrap();
         assert_eq!(card.color, CardColor::Blue);
-        assert_eq!(card.powered_by, Some(BasicManaColor::Blue));
+        assert_eq!(card.powered_by, PoweredBy::Single(BasicManaColor::Blue));
         match &card.basic_effect {
             CardEffect::GainBlock { amount, element } => {
                 assert_eq!(*amount, 3);
@@ -4193,7 +4382,7 @@ mod tests {
     fn decompose_basic_is_decompose_basic_mode() {
         let card = get_card("decompose").unwrap();
         assert_eq!(card.color, CardColor::Red);
-        assert_eq!(card.powered_by, Some(BasicManaColor::Red));
+        assert_eq!(card.powered_by, PoweredBy::Single(BasicManaColor::Red));
         match &card.basic_effect {
             CardEffect::Decompose { mode } => {
                 assert_eq!(*mode, EffectMode::Basic);
@@ -4254,7 +4443,7 @@ mod tests {
     fn pure_magic_basic_is_amount_4() {
         let card = get_card("pure_magic").unwrap();
         assert_eq!(card.color, CardColor::Blue);
-        assert_eq!(card.powered_by, Some(BasicManaColor::Blue));
+        assert_eq!(card.powered_by, PoweredBy::Single(BasicManaColor::Blue));
         match &card.basic_effect {
             CardEffect::PureMagic { amount } => {
                 assert_eq!(*amount, 4);
@@ -4271,6 +4460,129 @@ mod tests {
                 assert_eq!(*amount, 7);
             }
             _ => panic!("Expected PureMagic"),
+        }
+    }
+
+    // =========================================================================
+    // Lost Legion hero-specific basic action cards
+    // =========================================================================
+
+    #[test]
+    fn tovak_instinct_card_definition() {
+        let card = get_card("tovak_instinct").unwrap();
+        assert_eq!(card.id, "tovak_instinct");
+        assert_eq!(card.color, CardColor::Red);
+        assert_eq!(card.card_type, DeedCardType::BasicAction);
+        assert_eq!(card.powered_by, PoweredBy::Single(BasicManaColor::Red));
+        assert_eq!(card.sideways_value, 1);
+        match &card.basic_effect {
+            CardEffect::Choice { options } => assert_eq!(options.len(), 4),
+            _ => panic!("Expected Choice with 4 options"),
+        }
+        match &card.powered_effect {
+            CardEffect::Choice { options } => {
+                assert_eq!(options.len(), 4);
+                assert!(matches!(options[0], CardEffect::GainMove { amount: 4 }));
+            }
+            _ => panic!("Expected Choice with 4 options"),
+        }
+    }
+
+    #[test]
+    fn goldyx_crystal_joy_card_definition() {
+        let card = get_card("goldyx_crystal_joy").unwrap();
+        assert_eq!(card.id, "goldyx_crystal_joy");
+        assert_eq!(card.color, CardColor::Blue);
+        assert_eq!(card.card_type, DeedCardType::BasicAction);
+        assert_eq!(card.powered_by, PoweredBy::AnyBasic);
+        assert_eq!(card.sideways_value, 1);
+        assert!(matches!(card.basic_effect, CardEffect::ConvertManaToCrystal));
+        match &card.powered_effect {
+            CardEffect::Choice { options } => assert_eq!(options.len(), 4),
+            _ => panic!("Expected Choice with 4 crystal options"),
+        }
+    }
+
+    #[test]
+    fn norowas_rejuvenate_card_definition() {
+        let card = get_card("norowas_rejuvenate").unwrap();
+        assert_eq!(card.id, "norowas_rejuvenate");
+        assert_eq!(card.color, CardColor::Green);
+        assert_eq!(card.powered_by, PoweredBy::Single(BasicManaColor::Green));
+        assert_eq!(card.sideways_value, 1);
+        match &card.basic_effect {
+            CardEffect::Choice { options } => {
+                assert_eq!(options.len(), 4);
+                assert!(matches!(options[0], CardEffect::GainHealing { amount: 1 }));
+                assert!(matches!(options[3], CardEffect::ReadyUnit { max_level: 2 }));
+            }
+            _ => panic!("Expected Choice with 4 options"),
+        }
+        match &card.powered_effect {
+            CardEffect::Choice { options } => {
+                assert_eq!(options.len(), 4);
+                assert!(matches!(options[0], CardEffect::GainHealing { amount: 2 }));
+                assert!(matches!(options[3], CardEffect::ReadyUnit { max_level: 3 }));
+            }
+            _ => panic!("Expected Choice with 4 options"),
+        }
+    }
+
+    #[test]
+    fn axe_throw_card_definition() {
+        let card = get_card("axe_throw").unwrap();
+        assert_eq!(card.id, "axe_throw");
+        assert_eq!(card.color, CardColor::White);
+        assert_eq!(card.powered_by, PoweredBy::Single(BasicManaColor::White));
+        assert_eq!(card.sideways_value, 1);
+        match &card.basic_effect {
+            CardEffect::Choice { options } => {
+                assert_eq!(options.len(), 2);
+                assert!(matches!(options[0], CardEffect::GainMove { amount: 2 }));
+            }
+            _ => panic!("Expected Choice with 2 options"),
+        }
+        match &card.powered_effect {
+            CardEffect::AttackWithDefeatBonus {
+                amount,
+                combat_type,
+                element,
+                fame_per_defeat,
+                ..
+            } => {
+                assert_eq!(*amount, 3);
+                assert_eq!(*combat_type, CombatType::Ranged);
+                assert_eq!(*element, Element::Physical);
+                assert_eq!(*fame_per_defeat, 1);
+            }
+            _ => panic!("Expected AttackWithDefeatBonus"),
+        }
+    }
+
+    #[test]
+    fn arythea_mana_pull_card_definition() {
+        let card = get_card("arythea_mana_pull").unwrap();
+        assert_eq!(card.id, "arythea_mana_pull");
+        assert_eq!(card.color, CardColor::White);
+        assert_eq!(card.powered_by, PoweredBy::Single(BasicManaColor::White));
+        assert_eq!(card.sideways_value, 1);
+        // Basic: Compound(ExtraSourceDie, BlackAsAnyColor)
+        match &card.basic_effect {
+            CardEffect::Compound { effects } => {
+                assert_eq!(effects.len(), 2);
+            }
+            _ => panic!("Expected Compound with 2 modifiers"),
+        }
+        // Powered: ManaDrawPowered { dice_count: 2, tokens_per_die: 1 }
+        match &card.powered_effect {
+            CardEffect::ManaDrawPowered {
+                dice_count,
+                tokens_per_die,
+            } => {
+                assert_eq!(*dice_count, 2);
+                assert_eq!(*tokens_per_die, 1);
+            }
+            _ => panic!("Expected ManaDrawPowered"),
         }
     }
 }

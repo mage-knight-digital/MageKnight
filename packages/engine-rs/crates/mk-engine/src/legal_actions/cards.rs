@@ -1,4 +1,4 @@
-use mk_data::cards::get_card;
+use mk_data::cards::{get_card, PoweredBy};
 use mk_types::effect::CardEffect;
 use mk_types::enums::*;
 use mk_types::ids::CardId;
@@ -41,20 +41,41 @@ pub(super) fn enumerate_normal_cards(
         }
 
         // Category 3: PlayCardPowered — allowed during rest (FAQ S3).
-        if let Some(color) = card_def.powered_by {
-            if is_effect_playable_for_enumeration(
-                state,
-                player_idx,
-                hand_index,
-                &card_def.powered_effect,
-            ) && can_afford_powered(state, player_idx, color)
-            {
-                powered_actions.push(LegalAction::PlayCardPowered {
+        match card_def.powered_by {
+            PoweredBy::Single(color) => {
+                if is_effect_playable_for_enumeration(
+                    state,
+                    player_idx,
                     hand_index,
-                    card_id: card_id.clone(),
-                    mana_color: color,
-                });
+                    &card_def.powered_effect,
+                ) && can_afford_powered(state, player_idx, color)
+                {
+                    powered_actions.push(LegalAction::PlayCardPowered {
+                        hand_index,
+                        card_id: card_id.clone(),
+                        mana_color: color,
+                    });
+                }
             }
+            PoweredBy::AnyBasic => {
+                if is_effect_playable_for_enumeration(
+                    state,
+                    player_idx,
+                    hand_index,
+                    &card_def.powered_effect,
+                ) {
+                    for &color in &ALL_BASIC_MANA_COLORS {
+                        if can_afford_powered(state, player_idx, color) {
+                            powered_actions.push(LegalAction::PlayCardPowered {
+                                hand_index,
+                                card_id: card_id.clone(),
+                                mana_color: color,
+                            });
+                        }
+                    }
+                }
+            }
+            PoweredBy::None => {}
         }
 
         // Category 4: PlayCardSideways.
@@ -71,7 +92,7 @@ pub(super) fn enumerate_normal_cards(
                         player_idx,
                         true,
                         card_def.card_type,
-                        card_def.powered_by,
+                        card_def.powered_by.primary_color(),
                     )
                 } else {
                     0
@@ -82,7 +103,7 @@ pub(super) fn enumerate_normal_cards(
                     player_idx,
                     false,
                     card_def.card_type,
-                    card_def.powered_by,
+                    card_def.powered_by.primary_color(),
                 )
             };
             if eff_value > 0 {
@@ -142,20 +163,41 @@ pub(super) fn enumerate_combat_cards(
         }
 
         // Category 3: PlayCardPowered.
-        if let Some(color) = card_def.powered_by {
-            if is_effect_playable_for_enumeration(
-                state,
-                player_idx,
-                hand_index,
-                &card_def.powered_effect,
-            ) && can_afford_powered(state, player_idx, color)
-            {
-                powered_actions.push(LegalAction::PlayCardPowered {
+        match card_def.powered_by {
+            PoweredBy::Single(color) => {
+                if is_effect_playable_for_enumeration(
+                    state,
+                    player_idx,
                     hand_index,
-                    card_id: card_id.clone(),
-                    mana_color: color,
-                });
+                    &card_def.powered_effect,
+                ) && can_afford_powered(state, player_idx, color)
+                {
+                    powered_actions.push(LegalAction::PlayCardPowered {
+                        hand_index,
+                        card_id: card_id.clone(),
+                        mana_color: color,
+                    });
+                }
             }
+            PoweredBy::AnyBasic => {
+                if is_effect_playable_for_enumeration(
+                    state,
+                    player_idx,
+                    hand_index,
+                    &card_def.powered_effect,
+                ) {
+                    for &color in &ALL_BASIC_MANA_COLORS {
+                        if can_afford_powered(state, player_idx, color) {
+                            powered_actions.push(LegalAction::PlayCardPowered {
+                                hand_index,
+                                card_id: card_id.clone(),
+                                mana_color: color,
+                            });
+                        }
+                    }
+                }
+            }
+            PoweredBy::None => {}
         }
 
         // Category 4: PlayCardSideways (combat: Attack and Block).
@@ -169,7 +211,7 @@ pub(super) fn enumerate_combat_cards(
                         player_idx,
                         true,
                         card_def.card_type,
-                        card_def.powered_by,
+                        card_def.powered_by.primary_color(),
                     )
                 } else {
                     0
@@ -180,7 +222,7 @@ pub(super) fn enumerate_combat_cards(
                     player_idx,
                     false,
                     card_def.card_type,
-                    card_def.powered_by,
+                    card_def.powered_by.primary_color(),
                 )
             };
             if eff_value > 0 {
@@ -317,7 +359,7 @@ fn discard_costs_payable_with_hand(effect: &CardEffect, remaining_hand: &[CardId
 
 /// Check if player can afford to power a card requiring the given color.
 ///
-/// Mirrors `consume_mana_payment` priority but doesn't mutate state.
+/// Mirrors `collect_mana_sources` logic but doesn't mutate state.
 fn can_afford_powered(state: &GameState, player_idx: usize, color: BasicManaColor) -> bool {
     let player = &state.players[player_idx];
     let target = ManaColor::from(color);
@@ -339,5 +381,24 @@ fn can_afford_powered(state: &GameState, player_idx: usize, color: BasicManaColo
         BasicManaColor::Green => player.crystals.green,
         BasicManaColor::White => player.crystals.white,
     };
-    crystal_count > 0
+    if crystal_count > 0 {
+        return true;
+    }
+
+    // 4. Available mana source die (1 per turn limit).
+    if !player
+        .flags
+        .contains(PlayerFlags::USED_MANA_FROM_SOURCE)
+    {
+        let has_matching_die = state.source.dice.iter().any(|die| {
+            !die.is_depleted
+                && die.taken_by_player_id.is_none()
+                && (die.color == target || die.color == ManaColor::Gold)
+        });
+        if has_matching_die {
+            return true;
+        }
+    }
+
+    false
 }

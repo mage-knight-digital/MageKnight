@@ -38,22 +38,46 @@ struct Replacement {
 /// Get hero-specific card replacements.
 fn hero_replacements(hero: Hero) -> &'static [Replacement] {
     match hero {
-        Hero::Arythea => &[Replacement {
-            from: "rage",
-            to: "arythea_battle_versatility",
-        }],
-        Hero::Tovak => &[Replacement {
-            from: "determination",
-            to: "tovak_cold_toughness",
-        }],
-        Hero::Goldyx => &[Replacement {
-            from: "concentration",
-            to: "goldyx_will_focus",
-        }],
-        Hero::Norowas => &[Replacement {
-            from: "promise",
-            to: "norowas_noble_manners",
-        }],
+        Hero::Arythea => &[
+            Replacement {
+                from: "rage",
+                to: "arythea_battle_versatility",
+            },
+            Replacement {
+                from: "mana_draw",
+                to: "arythea_mana_pull",
+            },
+        ],
+        Hero::Tovak => &[
+            Replacement {
+                from: "determination",
+                to: "tovak_cold_toughness",
+            },
+            Replacement {
+                from: "improvisation",
+                to: "tovak_instinct",
+            },
+        ],
+        Hero::Goldyx => &[
+            Replacement {
+                from: "concentration",
+                to: "goldyx_will_focus",
+            },
+            Replacement {
+                from: "crystallize",
+                to: "goldyx_crystal_joy",
+            },
+        ],
+        Hero::Norowas => &[
+            Replacement {
+                from: "promise",
+                to: "norowas_noble_manners",
+            },
+            Replacement {
+                from: "tranquility",
+                to: "norowas_rejuvenate",
+            },
+        ],
         Hero::Wolfhawk => &[
             Replacement {
                 from: "swiftness",
@@ -62,6 +86,10 @@ fn hero_replacements(hero: Hero) -> &'static [Replacement] {
             Replacement {
                 from: "stamina",
                 to: "wolfhawk_tirelessness",
+            },
+            Replacement {
+                from: "concentration",
+                to: "axe_throw",
             },
         ],
         Hero::Krang => &[
@@ -181,5 +209,40 @@ mod tests {
             let deck = build_starting_deck(hero);
             assert_eq!(deck.len(), 16, "Hero {:?} should have 16 cards", hero);
         }
+    }
+
+    #[test]
+    fn arythea_deck_has_mana_pull() {
+        let deck = build_starting_deck(Hero::Arythea);
+        assert!(deck.iter().any(|c| c.as_str() == "arythea_mana_pull"));
+        assert!(!deck.iter().any(|c| c.as_str() == "mana_draw"));
+    }
+
+    #[test]
+    fn tovak_deck_has_instinct() {
+        let deck = build_starting_deck(Hero::Tovak);
+        assert!(deck.iter().any(|c| c.as_str() == "tovak_instinct"));
+        assert!(!deck.iter().any(|c| c.as_str() == "improvisation"));
+    }
+
+    #[test]
+    fn goldyx_deck_has_crystal_joy() {
+        let deck = build_starting_deck(Hero::Goldyx);
+        assert!(deck.iter().any(|c| c.as_str() == "goldyx_crystal_joy"));
+        assert!(!deck.iter().any(|c| c.as_str() == "crystallize"));
+    }
+
+    #[test]
+    fn norowas_deck_has_rejuvenate() {
+        let deck = build_starting_deck(Hero::Norowas);
+        assert!(deck.iter().any(|c| c.as_str() == "norowas_rejuvenate"));
+        assert!(!deck.iter().any(|c| c.as_str() == "tranquility"));
+    }
+
+    #[test]
+    fn wolfhawk_deck_has_axe_throw() {
+        let deck = build_starting_deck(Hero::Wolfhawk);
+        assert!(deck.iter().any(|c| c.as_str() == "axe_throw"));
+        assert!(!deck.iter().any(|c| c.as_str() == "concentration"));
     }
 }

@@ -121,6 +121,7 @@ const CF: Element = Element::ColdFire;
 const CANCEL_ATTACK_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
     exclude_fortified: true,
     exclude_arcane_immune: true,
+    exclude_summoners: false,
     exclude_resistance: None,
     skip_attack: true,
     armor_change: 0, armor_minimum: 0,
@@ -134,7 +135,7 @@ const CANCEL_ATTACK_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
 
 /// Shocktroops: weaken (armor -1 min 1, attack -1 min 0).
 const WEAKEN_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
-    exclude_fortified: false, exclude_arcane_immune: false,
+    exclude_fortified: false, exclude_arcane_immune: false, exclude_summoners: false,
     exclude_resistance: None,
     skip_attack: false,
     armor_change: -1, armor_minimum: 1,
@@ -148,7 +149,7 @@ const WEAKEN_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
 
 /// Shocktroops: taunt (attack -3 min 0, damage redirect).
 const TAUNT_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
-    exclude_fortified: false, exclude_arcane_immune: false,
+    exclude_fortified: false, exclude_arcane_immune: false, exclude_summoners: false,
     exclude_resistance: None,
     skip_attack: false,
     armor_change: 0, armor_minimum: 0,
@@ -163,7 +164,7 @@ const TAUNT_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
 
 /// Sorcerers: strip fortification + ranged 3 (white mana).
 const STRIP_FORT_RANGED_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
-    exclude_fortified: false, exclude_arcane_immune: false,
+    exclude_fortified: false, exclude_arcane_immune: false, exclude_summoners: false,
     exclude_resistance: None,
     skip_attack: false,
     armor_change: 0, armor_minimum: 0, fortified_armor_change: None,
@@ -176,7 +177,7 @@ const STRIP_FORT_RANGED_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
 
 /// Sorcerers: strip resistances + ranged 3 (green mana).
 const STRIP_RESIST_RANGED_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
-    exclude_fortified: false, exclude_arcane_immune: false,
+    exclude_fortified: false, exclude_arcane_immune: false, exclude_summoners: false,
     exclude_resistance: None,
     skip_attack: false,
     armor_change: 0, armor_minimum: 0, fortified_armor_change: None,
@@ -190,7 +191,7 @@ const STRIP_RESIST_RANGED_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
 /// Amotep Freezers: freeze (skip attack + armor -3 min 1, blue mana).
 /// Excludes ice-resistant enemies.
 const FREEZE_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
-    exclude_fortified: false, exclude_arcane_immune: false,
+    exclude_fortified: false, exclude_arcane_immune: false, exclude_summoners: false,
     exclude_resistance: Some(ResistanceElement::Ice),
     skip_attack: true,
     armor_change: -3, armor_minimum: 1,
@@ -204,7 +205,7 @@ const FREEZE_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
 
 /// Delphana Masters: cancel (blue mana). Excludes arcane immune + ice resistant.
 const DELPHANA_CANCEL_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
-    exclude_fortified: false, exclude_arcane_immune: true,
+    exclude_fortified: false, exclude_arcane_immune: true, exclude_summoners: false,
     exclude_resistance: Some(ResistanceElement::Ice),
     skip_attack: true,
     armor_change: 0, armor_minimum: 0,
@@ -218,7 +219,7 @@ const DELPHANA_CANCEL_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
 
 /// Delphana Masters: destroy if blocked (red mana). Excludes arcane immune + fire resistant.
 const DESTROY_IF_BLOCKED_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
-    exclude_fortified: false, exclude_arcane_immune: true,
+    exclude_fortified: false, exclude_arcane_immune: true, exclude_summoners: false,
     exclude_resistance: Some(ResistanceElement::Fire),
     skip_attack: false,
     armor_change: 0, armor_minimum: 0,
@@ -233,7 +234,7 @@ const DESTROY_IF_BLOCKED_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
 
 /// Delphana Masters: armor -5 (green mana).
 const ARMOR_MINUS_5_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
-    exclude_fortified: false, exclude_arcane_immune: false,
+    exclude_fortified: false, exclude_arcane_immune: false, exclude_summoners: false,
     exclude_resistance: None,
     skip_attack: false,
     armor_change: -5, armor_minimum: 1,
@@ -247,7 +248,7 @@ const ARMOR_MINUS_5_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
 
 /// Delphana Masters: strip defenses (white mana). Nullify fortified + remove resistances.
 const STRIP_DEFENSES_TEMPLATE: SelectEnemyTemplate = SelectEnemyTemplate {
-    exclude_fortified: false, exclude_arcane_immune: false,
+    exclude_fortified: false, exclude_arcane_immune: false, exclude_summoners: false,
     exclude_resistance: None,
     skip_attack: false,
     armor_change: 0, armor_minimum: 0,

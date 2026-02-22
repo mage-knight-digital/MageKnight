@@ -524,6 +524,96 @@ pub fn resolve_pending_choice(
                 state, player_idx, &skill_id, &cid, *hand_index, ot, *amount, el, choice_index,
             );
         }
+        ChoiceResolution::RitualOfPainDiscard { max_wounds } => {
+            let mw = *max_wounds;
+            crate::action_pipeline::execute_ritual_of_pain_discard(
+                state, player_idx, choice_index, mw,
+            );
+        }
+        ChoiceResolution::NaturesVengeanceTarget { ref eligible_enemy_ids, is_return } => {
+            let eids = eligible_enemy_ids.clone();
+            let is_ret = *is_return;
+            crate::action_pipeline::execute_natures_vengeance_target(
+                state, player_idx, &eids, choice_index, is_ret,
+            );
+        }
+
+        ChoiceResolution::ManaOverloadColorSelect => {
+            crate::action_pipeline::execute_mana_overload_color_select(
+                state, player_idx, choice_index,
+            );
+        }
+        ChoiceResolution::SourceOpeningDieSelect { ref die_ids } => {
+            let ids = die_ids.clone();
+            crate::action_pipeline::execute_source_opening_die_select(
+                state, player_idx, &ids, choice_index,
+            );
+        }
+        ChoiceResolution::MasterOfChaosGoldChoice => {
+            // Delegates to standard resolution — pick chosen option and drain
+        }
+        ChoiceResolution::ManaSourceSelect {
+            ref sources,
+            ref powered_effect,
+        } => {
+            if choice_index < sources.len() {
+                let source = sources[choice_index].clone();
+                let effect = powered_effect.clone();
+                let card_id = source_card_id.clone();
+
+                // Consume the selected mana source
+                let consumed_color =
+                    crate::card_play::consume_specific_mana_source(state, player_idx, &source);
+
+                // Resolve the powered effect via effect queue
+                let mut queue = EffectQueue::new();
+                queue.push(effect.clone(), card_id.clone());
+                match queue.drain(state, player_idx) {
+                    DrainResult::Complete => {
+                        // Pending is already cleared (we took it above)
+                    }
+                    DrainResult::NeedsChoice {
+                        options: new_options,
+                        continuation: new_continuation,
+                        resolution: new_resolution,
+                    } => {
+                        state.players[player_idx].pending.active =
+                            Some(ActivePending::Choice(PendingChoice {
+                                card_id,
+                                skill_id: None,
+                                unit_instance_id: None,
+                                options: new_options,
+                                continuation: new_continuation
+                                    .into_iter()
+                                    .map(|q| ContinuationEntry {
+                                        effect: q.effect,
+                                        source_card_id: q.source_card_id,
+                                    })
+                                    .collect(),
+                                movement_bonus_applied: false,
+                                resolution: new_resolution,
+                            }));
+                    }
+                    DrainResult::PendingSet => {}
+                }
+
+                // Mana trigger hooks
+                crate::card_play::check_mana_overload_trigger(
+                    state,
+                    player_idx,
+                    consumed_color,
+                    &effect,
+                );
+                crate::card_play::check_mana_enhancement_trigger(
+                    state,
+                    player_idx,
+                    consumed_color,
+                );
+
+                // Early return — we handled effect resolution ourselves
+                return Ok(());
+            }
+        }
     }
 
     // Build a new queue with the chosen option + continuation
@@ -1104,7 +1194,7 @@ fn apply_gain_crystal(
     }
 }
 
-fn gain_crystal_color(state: &mut GameState, player_idx: usize, color: BasicManaColor) {
+pub(crate) fn gain_crystal_color(state: &mut GameState, player_idx: usize, color: BasicManaColor) {
     let crystals = &mut state.players[player_idx].crystals;
     let slot = match color {
         BasicManaColor::Red => &mut crystals.red,
