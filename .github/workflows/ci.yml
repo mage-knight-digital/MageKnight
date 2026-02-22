@@ -23,7 +23,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Detect Python SDK related changes
+      - name: Detect changes by area
         id: changes
         uses: dorny/paths-filter@v3
         with:
@@ -173,3 +173,43 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage/core/lcov.info,coverage/shared/lcov.info,coverage/server/lcov.info
           fail_ci_if_error: false
+
+  rust:
+    name: Rust Build, Lint & Test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect Rust changes
+        id: rust-changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            rust:
+              - 'packages/engine-rs/**'
+              - '.github/workflows/ci.yml'
+
+      - name: Setup Rust toolchain
+        if: steps.rust-changes.outputs.rust == 'true'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache Cargo
+        if: steps.rust-changes.outputs.rust == 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: packages/engine-rs
+
+      - name: Clippy
+        if: steps.rust-changes.outputs.rust == 'true'
+        working-directory: packages/engine-rs
+        run: cargo clippy --workspace --exclude mk-python -- -D warnings
+
+      - name: Test
+        if: steps.rust-changes.outputs.rust == 'true'
+        working-directory: packages/engine-rs
+        run: cargo test --workspace --exclude mk-python
