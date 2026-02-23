@@ -5,9 +5,11 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::enums::{BasicManaColor, CombatType, GladeWoundChoice, SidewaysAs};
+use crate::action::ManaSourceInfo;
+use crate::enums::{BasicManaColor, CombatType, Element, GladeWoundChoice, SidewaysAs, Terrain};
 use crate::hex::{HexCoord, HexDirection};
 use crate::ids::{CardId, CombatInstanceId, SkillId, TacticId, UnitId, UnitInstanceId};
+use crate::modifier::CombatValueType;
 
 /// Data for a tactic decision resolution.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -161,6 +163,22 @@ pub enum LegalAction {
         /// In SelectFromOffer phase: index into available_offer_cards.
         selection_index: usize,
     },
+    /// Book of Wisdom: select a card from hand to discard, or select from offer.
+    ResolveBookOfWisdom {
+        /// In SelectCard phase: hand index of the card to throw away.
+        /// In SelectFromOffer phase: index into available_offer_cards.
+        selection_index: usize,
+    },
+    /// Tome of All Spells: select a card from hand to discard, or select spell from offer.
+    ResolveTomeOfAllSpells {
+        /// In SelectCard phase: hand index of the card to throw away.
+        /// In SelectSpell phase: index into available_spells.
+        selection_index: usize,
+    },
+    /// Circlet of Proficiency: select a skill to use (basic) or acquire (powered).
+    ResolveCircletOfProficiency {
+        selection_index: usize,
+    },
     /// Maximal Effect: select an action card from hand whose effect will be multiplied.
     ResolveMaximalEffect {
         /// Hand index of the card to consume.
@@ -192,6 +210,74 @@ pub enum LegalAction {
     },
     /// Cancel a cooperative assault proposal (initiator only).
     CancelCooperativeProposal,
+    /// Buy a spell from the offer at a conquered Mage Tower (7 influence).
+    BuySpell {
+        card_id: CardId,
+        offer_index: usize,
+    },
+    /// Learn an AA from the monastery offer (6 influence).
+    LearnAdvancedAction {
+        card_id: CardId,
+        offer_index: usize,
+    },
+    /// Burn a monastery — enter combat with a violet enemy.
+    BurnMonastery,
+    /// Select a reward card from the offer after site conquest.
+    SelectReward {
+        card_id: CardId,
+        reward_index: usize,
+    },
+    /// Pay mana tribute at an Ancient Ruins altar for fame.
+    AltarTribute {
+        mana_sources: Vec<ManaSourceInfo>,
+    },
+    /// Assign a banner artifact card to a unit (free action).
+    AssignBanner {
+        hand_index: usize,
+        card_id: CardId,
+        unit_instance_id: UnitInstanceId,
+    },
+    /// Use Banner of Courage to ready a spent unit (once per round).
+    UseBannerCourage {
+        unit_instance_id: UnitInstanceId,
+    },
+    /// Use Banner of Fear to cancel an enemy attack in Block phase.
+    UseBannerFear {
+        unit_instance_id: UnitInstanceId,
+        enemy_instance_id: CombatInstanceId,
+        attack_index: usize,
+    },
+    /// Convert accumulated move points to attack during combat (Agility card).
+    ConvertMoveToAttack {
+        move_points: u32,
+        attack_type: CombatValueType,
+    },
+    /// Convert accumulated influence points to block during combat (Diplomacy card).
+    ConvertInfluenceToBlock {
+        influence_points: u32,
+        element: Option<Element>,
+    },
+    /// Pay 2 influence to allow Heroes unit to participate in fortified assault.
+    PayHeroesAssaultInfluence,
+    /// Pay 2 influence to allow Thugs unit to absorb unblocked damage.
+    PayThugsDamageInfluence {
+        unit_instance_id: UnitInstanceId,
+    },
+    /// Resolve Magic Familiars unit maintenance at round reset.
+    ResolveUnitMaintenance {
+        unit_instance_id: UnitInstanceId,
+        keep_unit: bool,
+        crystal_color: Option<BasicManaColor>,
+        new_mana_token_color: Option<BasicManaColor>,
+    },
+    /// Select a hex for terrain cost reduction (Druidic Paths basic).
+    ResolveHexCostReduction {
+        coordinate: HexCoord,
+    },
+    /// Select a terrain type for cost reduction (Druidic Paths powered).
+    ResolveTerrainCostReduction {
+        terrain: Terrain,
+    },
     Undo,
 }
 

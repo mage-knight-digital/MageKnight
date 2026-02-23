@@ -1,7 +1,8 @@
-//! Site interaction enumeration — EnterSite and InteractSite.
+//! Site interaction enumeration — EnterSite, InteractSite, BuySpell, LearnAA, BurnMonastery.
 
 use mk_data::sites::{
     adventure_site_enemies, draws_fresh_enemies, healing_cost, is_adventure_site, is_inhabited,
+    MONASTERY_AA_PURCHASE_COST, SPELL_PURCHASE_COST,
 };
 use mk_types::enums::SiteType;
 use mk_types::legal_action::LegalAction;
@@ -113,6 +114,177 @@ pub(super) fn enumerate_site_actions(
             }
         }
     }
+
+    // BuySpell — at conquered Mage Tower
+    if site.site_type == SiteType::MageTower
+        && site.is_conquered
+        && !player
+            .flags
+            .contains(PlayerFlags::HAS_COMBATTED_THIS_TURN)
+        && player.influence_points >= SPELL_PURCHASE_COST
+    {
+        for (idx, card_id) in state.offers.spells.iter().enumerate() {
+            actions.push(LegalAction::BuySpell {
+                card_id: card_id.clone(),
+                offer_index: idx,
+            });
+        }
+    }
+
+    // LearnAdvancedAction — at non-burned Monastery
+    if site.site_type == SiteType::Monastery
+        && !site.is_burned
+        && player.influence_points >= MONASTERY_AA_PURCHASE_COST
+    {
+        for (idx, card_id) in state.offers.monastery_advanced_actions.iter().enumerate() {
+            actions.push(LegalAction::LearnAdvancedAction {
+                card_id: card_id.clone(),
+                offer_index: idx,
+            });
+        }
+    }
+
+    // AncientRuins — altar tribute or enter site (enemy token)
+    if site.site_type == SiteType::AncientRuins
+        && !site.is_conquered
+        && !player
+            .flags
+            .contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN)
+    {
+        if let Some(ref ruins_token) = hex_state.ruins_token {
+            if ruins_token.is_revealed {
+                match mk_data::ruins_tokens::get_ruins_token(ruins_token.token_id.as_str()) {
+                    Some(mk_data::ruins_tokens::RuinsTokenDef::Altar(altar)) => {
+                        // Check if the player can afford the altar cost
+                        let sources = collect_altar_mana_sources(state, player_idx, altar);
+                        if !sources.is_empty() {
+                            actions.push(LegalAction::AltarTribute {
+                                mana_sources: sources,
+                            });
+                        }
+                    }
+                    Some(mk_data::ruins_tokens::RuinsTokenDef::Enemy(enemy_token)) => {
+                        // If enemies are already on the hex from a previous retreat,
+                        // the player can re-enter to fight them (no fresh draw needed).
+                        if !hex_state.enemies.is_empty() {
+                            actions.push(LegalAction::EnterSite);
+                        } else {
+                            // First entry: check if all enemy colors have tokens available
+                            let can_fight = enemy_token.enemy_colors.iter().all(|&color| {
+                                pile_has_tokens(state, color, 1)
+                            });
+                            if can_fight {
+                                actions.push(LegalAction::EnterSite);
+                            }
+                        }
+                    }
+                    None => {}
+                }
+            }
+        }
+    }
+
+    // BurnMonastery — at non-burned Monastery
+    if site.site_type == SiteType::Monastery
+        && !site.is_burned
+        && !player
+            .flags
+            .contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN)
+        && !player
+            .flags
+            .contains(PlayerFlags::HAS_COMBATTED_THIS_TURN)
+    {
+        // Must have violet tokens to draw
+        if pile_has_tokens(state, mk_types::enums::EnemyColor::Violet, 1) {
+            actions.push(LegalAction::BurnMonastery);
+        }
+    }
+}
+
+/// Collect mana sources needed to pay an altar's cost, or return empty if unaffordable.
+///
+/// For each (color, count) in the altar cost, we need `count` sources of that color.
+/// Sources are: tokens of matching color, gold tokens (wild), crystals of matching color.
+fn collect_altar_mana_sources(
+    state: &GameState,
+    player_idx: usize,
+    altar: &mk_data::ruins_tokens::AltarToken,
+) -> Vec<mk_types::action::ManaSourceInfo> {
+    use mk_types::action::ManaSourceInfo;
+    use mk_types::enums::{ManaColor, ManaSourceType};
+
+    let player = &state.players[player_idx];
+    let mut sources = Vec::new();
+
+    // Track which tokens and crystals we've already "claimed" for this payment
+    let mut used_token_indices: Vec<usize> = Vec::new();
+    let mut used_crystals = mk_types::state::Crystals::default();
+    let mut _used_gold_tokens: usize = 0;
+
+    for &(color, count) in altar.cost {
+        let mana_color = ManaColor::from(color);
+
+        for _ in 0..count {
+            // Try matching-color token first
+            let token_idx = player.pure_mana.iter().enumerate().find(|(i, t)| {
+                t.color == mana_color && !used_token_indices.contains(i)
+            });
+
+            if let Some((idx, _)) = token_idx {
+                used_token_indices.push(idx);
+                sources.push(ManaSourceInfo {
+                    source_type: ManaSourceType::Token,
+                    color: mana_color,
+                    die_id: None,
+                });
+                continue;
+            }
+
+            // Try gold token (wild)
+            let gold_idx = player.pure_mana.iter().enumerate().find(|(i, t)| {
+                t.color == ManaColor::Gold && !used_token_indices.contains(i)
+            });
+
+            if let Some((idx, _)) = gold_idx {
+                used_token_indices.push(idx);
+                _used_gold_tokens += 1;
+                sources.push(ManaSourceInfo {
+                    source_type: ManaSourceType::Token,
+                    color: ManaColor::Gold,
+                    die_id: None,
+                });
+                continue;
+            }
+
+            // Try crystal
+            let crystal_count = match color {
+                mk_types::enums::BasicManaColor::Red => player.crystals.red - used_crystals.red,
+                mk_types::enums::BasicManaColor::Blue => player.crystals.blue - used_crystals.blue,
+                mk_types::enums::BasicManaColor::Green => player.crystals.green - used_crystals.green,
+                mk_types::enums::BasicManaColor::White => player.crystals.white - used_crystals.white,
+            };
+
+            if crystal_count > 0 {
+                match color {
+                    mk_types::enums::BasicManaColor::Red => used_crystals.red += 1,
+                    mk_types::enums::BasicManaColor::Blue => used_crystals.blue += 1,
+                    mk_types::enums::BasicManaColor::Green => used_crystals.green += 1,
+                    mk_types::enums::BasicManaColor::White => used_crystals.white += 1,
+                }
+                sources.push(ManaSourceInfo {
+                    source_type: ManaSourceType::Crystal,
+                    color: mana_color,
+                    die_id: None,
+                });
+                continue;
+            }
+
+            // Cannot afford — return empty
+            return Vec::new();
+        }
+    }
+
+    sources
 }
 
 /// Check if a color pile has at least `count` tokens available.

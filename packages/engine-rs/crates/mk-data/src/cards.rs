@@ -4,12 +4,12 @@
 //! All basic action cards have sideways_value = 1.
 //! All advanced action cards have sideways_value = 1.
 
-use mk_types::effect::{CardEffect, EffectCondition, ScalingFactor};
+use mk_types::effect::{CardEffect, EffectCondition, EffectType, ScalingFactor};
 use mk_types::enums::{
     BasicManaColor, CardColor, CombatType, DeedCardType, DiscardForBonusFilter, Element,
     EnemyAbilityType, ManaColor, ResistanceElement, Terrain,
 };
-use mk_types::effect::EffectType;
+
 use mk_types::pending::{EffectMode, SelectEnemyTemplate};
 use mk_types::modifier::{
     BurningShieldMode, CombatValueType, EnemyStat as ModEnemyStat, LearningDestination,
@@ -47,14 +47,17 @@ pub struct CardDefinition {
     pub basic_effect: CardEffect,
     pub powered_effect: CardEffect,
     pub sideways_value: u32,
+    /// When true, artifact is destroyed (moved to removed_cards) after powered play.
+    pub destroy_on_powered: bool,
 }
 
-/// Look up any card by ID (basic action, hero-specific, advanced action, or spell).
+/// Look up any card by ID (basic action, hero-specific, advanced action, spell, or artifact).
 pub fn get_card(id: &str) -> Option<CardDefinition> {
     get_basic_action_card(id)
         .or_else(|| get_hero_card(id))
         .or_else(|| get_advanced_action_card(id))
         .or_else(|| get_spell_card(id))
+        .or_else(|| get_artifact_card(id))
 }
 
 /// Get the basic mana color of an action card (basic or advanced, NOT spells).
@@ -129,6 +132,7 @@ fn march() -> CardDefinition {
         basic_effect: CardEffect::GainMove { amount: 2 },
         powered_effect: CardEffect::GainMove { amount: 4 },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -142,6 +146,7 @@ fn stamina() -> CardDefinition {
         basic_effect: CardEffect::GainMove { amount: 2 },
         powered_effect: CardEffect::GainMove { amount: 4 },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -159,6 +164,7 @@ fn swiftness() -> CardDefinition {
             element: Element::Physical,
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -188,6 +194,7 @@ fn rage() -> CardDefinition {
             element: Element::Physical,
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -216,6 +223,7 @@ fn determination() -> CardDefinition {
             element: Element::Physical,
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -239,6 +247,7 @@ fn tranquility() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -252,6 +261,7 @@ fn promise() -> CardDefinition {
         basic_effect: CardEffect::GainInfluence { amount: 2 },
         powered_effect: CardEffect::GainInfluence { amount: 4 },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -270,6 +280,7 @@ fn threaten() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -298,6 +309,7 @@ fn crystallize() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -320,6 +332,7 @@ fn mana_draw() -> CardDefinition {
             tokens_per_die: 2,
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -348,6 +361,7 @@ fn concentration() -> CardDefinition {
         },
         powered_effect: CardEffect::CardBoost { bonus: 2 },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -399,6 +413,7 @@ fn improvisation() -> CardDefinition {
             }),
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -412,6 +427,7 @@ fn wound() -> CardDefinition {
         basic_effect: CardEffect::Noop,
         powered_effect: CardEffect::Noop,
         sideways_value: 0,
+        destroy_on_powered: false,
     }
 }
 
@@ -453,6 +469,7 @@ fn arythea_battle_versatility() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -489,6 +506,7 @@ fn tovak_cold_toughness() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -536,6 +554,7 @@ fn goldyx_will_focus() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -554,6 +573,7 @@ fn norowas_noble_manners() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -579,6 +599,7 @@ fn wolfhawk_swift_reflexes() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -597,6 +618,7 @@ fn wolfhawk_tirelessness() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -615,6 +637,7 @@ fn krang_savage_harvesting() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -633,6 +656,7 @@ fn krang_ruthless_coercion() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -667,6 +691,7 @@ fn krang_battle_rage() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -685,6 +710,7 @@ fn braevalar_one_with_the_land() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -695,19 +721,24 @@ fn braevalar_druidic_paths() -> CardDefinition {
         color: CardColor::Blue,
         card_type: DeedCardType::BasicAction,
         powered_by: PoweredBy::Single(BasicManaColor::Blue),
-        basic_effect: CardEffect::GainMove { amount: 2 },
-        powered_effect: CardEffect::Choice {
-            options: vec![
+        basic_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainMove { amount: 2 },
+                CardEffect::Other {
+                    effect_type: EffectType::SelectHexForCostReduction,
+                },
+            ],
+        },
+        powered_effect: CardEffect::Compound {
+            effects: vec![
                 CardEffect::GainMove { amount: 4 },
-                CardEffect::Compound {
-                    effects: vec![
-                        CardEffect::GainMove { amount: 2 },
-                        CardEffect::GainHealing { amount: 2 },
-                    ],
+                CardEffect::Other {
+                    effect_type: EffectType::SelectTerrainForCostReduction,
                 },
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -749,6 +780,7 @@ fn tovak_instinct() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -777,6 +809,7 @@ fn goldyx_crystal_joy() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -809,6 +842,7 @@ fn norowas_rejuvenate() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -838,6 +872,7 @@ fn axe_throw() -> CardDefinition {
             armor_reduction_per_defeat: 0,
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -871,6 +906,7 @@ fn arythea_mana_pull() -> CardDefinition {
             tokens_per_die: 1,
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -996,6 +1032,7 @@ fn blood_rage() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -1037,6 +1074,7 @@ fn intimidate() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -1069,6 +1107,7 @@ fn blood_ritual() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -1100,6 +1139,7 @@ fn counterattack() -> CardDefinition {
             maximum: None,
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -1117,6 +1157,7 @@ fn fire_bolt() -> CardDefinition {
             element: Element::Fire,
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -1166,6 +1207,7 @@ fn into_the_heat() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -1185,6 +1227,7 @@ fn ice_bolt() -> CardDefinition {
             element: Element::Ice,
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -1200,6 +1243,7 @@ fn steady_tempo() -> CardDefinition {
         basic_effect: CardEffect::GainMove { amount: 2 },
         powered_effect: CardEffect::GainMove { amount: 4 },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -1251,6 +1295,7 @@ fn frost_bridge() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -1284,6 +1329,7 @@ fn refreshing_walk() -> CardDefinition {
             })),
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -1307,6 +1353,7 @@ fn in_need() -> CardDefinition {
             maximum: None,
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -1324,6 +1371,7 @@ fn crushing_bolt() -> CardDefinition {
             element: Element::Physical,
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -1363,6 +1411,7 @@ fn ambush() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -1454,6 +1503,7 @@ fn path_finding() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -1508,6 +1558,7 @@ fn mountain_lore() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -1532,6 +1583,7 @@ fn regeneration() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -1543,9 +1595,12 @@ fn force_of_nature() -> CardDefinition {
         color: CardColor::Green,
         card_type: DeedCardType::AdvancedAction,
         powered_by: PoweredBy::Single(BasicManaColor::Green),
-        // Basic: Select unit, grant Physical resistance (needs SelectUnitForModifier)
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::SelectUnitForModifier,
+        // Basic: Select unit, grant Physical resistance
+        basic_effect: CardEffect::SelectUnitForModifier {
+            modifier: ModifierEffect::GrantResistances {
+                resistances: vec![ResistanceElement::Physical],
+            },
+            duration: ModifierDuration::Combat,
         },
         powered_effect: CardEffect::Choice {
             options: vec![
@@ -1561,6 +1616,7 @@ fn force_of_nature() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -1580,6 +1636,7 @@ fn swift_bolt() -> CardDefinition {
             element: Element::Physical,
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -1639,6 +1696,7 @@ fn agility() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -1702,6 +1760,7 @@ fn diplomacy() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -1736,6 +1795,7 @@ fn explosive_bolt() -> CardDefinition {
             armor_reduction_per_defeat: 1,
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -1770,6 +1830,7 @@ fn ice_shield() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -1856,6 +1917,7 @@ fn temporal_portal() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -1905,11 +1967,10 @@ fn song_of_wind() -> CardDefinition {
                 },
             ],
         },
-        // Powered: Same but -2 reductions + optional blue mana pay for lake cost 0 (needs PayMana)
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::PayMana,
-        },
+        // Powered: Same but -2 reductions + optional blue mana pay for lake cost 0
+        powered_effect: CardEffect::SongOfWindPowered,
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -1948,6 +2009,7 @@ fn heroic_tale() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -1986,6 +2048,7 @@ fn learning() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -2036,6 +2099,7 @@ fn stout_resolve() -> CardDefinition {
             discard_filter: DiscardForBonusFilter::AnyMaxOneWound,
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -2068,6 +2132,7 @@ fn shield_bash() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -2085,6 +2150,7 @@ fn pure_magic() -> CardDefinition {
         basic_effect: CardEffect::PureMagic { amount: 4 },
         powered_effect: CardEffect::PureMagic { amount: 7 },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -2106,6 +2172,7 @@ fn decompose() -> CardDefinition {
             mode: EffectMode::Powered,
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -2192,6 +2259,7 @@ fn ritual_attack() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -2241,6 +2309,7 @@ fn chivalry() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -2263,6 +2332,7 @@ fn maximal_effect() -> CardDefinition {
             mode: EffectMode::Powered,
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -2275,13 +2345,10 @@ fn blood_of_ancients() -> CardDefinition {
         color: CardColor::Red,
         card_type: DeedCardType::AdvancedAction,
         powered_by: PoweredBy::Single(BasicManaColor::Red),
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::BloodOfAncientsBasic,
-        },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::BloodOfAncientsPowered,
-        },
+        basic_effect: CardEffect::BloodOfAncientsBasic,
+        powered_effect: CardEffect::BloodOfAncientsPowered,
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -2294,13 +2361,10 @@ fn crystal_mastery() -> CardDefinition {
         color: CardColor::Blue,
         card_type: DeedCardType::AdvancedAction,
         powered_by: PoweredBy::Single(BasicManaColor::Blue),
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::CrystalMasteryBasic,
-        },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::CrystalMasteryPowered,
-        },
+        basic_effect: CardEffect::CrystalMasteryBasic,
+        powered_effect: CardEffect::CrystalMasteryPowered,
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -2313,13 +2377,10 @@ fn magic_talent() -> CardDefinition {
         color: CardColor::Blue,
         card_type: DeedCardType::AdvancedAction,
         powered_by: PoweredBy::Single(BasicManaColor::Blue),
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::MagicTalentBasic,
-        },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::MagicTalentPowered,
-        },
+        basic_effect: CardEffect::MagicTalentBasic,
+        powered_effect: CardEffect::MagicTalentPowered,
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -2332,13 +2393,10 @@ fn spell_forge() -> CardDefinition {
         color: CardColor::Blue,
         card_type: DeedCardType::AdvancedAction,
         powered_by: PoweredBy::Single(BasicManaColor::Blue),
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::SpellForgeBasic,
-        },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::SpellForgePowered,
-        },
+        basic_effect: CardEffect::SpellForgeBasic,
+        powered_effect: CardEffect::SpellForgePowered,
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -2357,6 +2415,7 @@ fn training() -> CardDefinition {
             mode: EffectMode::Powered,
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -2369,13 +2428,10 @@ fn power_of_crystals() -> CardDefinition {
         color: CardColor::Green,
         card_type: DeedCardType::AdvancedAction,
         powered_by: PoweredBy::Single(BasicManaColor::Green),
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::PowerOfCrystalsBasic,
-        },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::PowerOfCrystalsPowered,
-        },
+        basic_effect: CardEffect::PowerOfCrystalsBasic,
+        powered_effect: CardEffect::PowerOfCrystalsPowered,
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -2388,13 +2444,10 @@ fn mana_storm() -> CardDefinition {
         color: CardColor::White,
         card_type: DeedCardType::AdvancedAction,
         powered_by: PoweredBy::Single(BasicManaColor::White),
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::ManaStormBasic,
-        },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::ManaStormPowered,
-        },
+        basic_effect: CardEffect::ManaStormBasic,
+        powered_effect: CardEffect::ManaStormPowered,
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -2406,13 +2459,26 @@ fn peaceful_moment() -> CardDefinition {
         color: CardColor::White,
         card_type: DeedCardType::AdvancedAction,
         powered_by: PoweredBy::Single(BasicManaColor::White),
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::PeacefulMomentAction,
+        basic_effect: CardEffect::Choice {
+            options: vec![
+                CardEffect::GainInfluence { amount: 3 },
+                CardEffect::PeacefulMomentAction {
+                    influence: 3,
+                    allow_refresh: false,
+                },
+            ],
         },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::PeacefulMomentAction,
+        powered_effect: CardEffect::Choice {
+            options: vec![
+                CardEffect::GainInfluence { amount: 6 },
+                CardEffect::PeacefulMomentAction {
+                    influence: 6,
+                    allow_refresh: true,
+                },
+            ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -2457,6 +2523,7 @@ fn dodge_and_weave() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -2468,13 +2535,14 @@ fn rush_of_adrenaline() -> CardDefinition {
         color: CardColor::Red,
         card_type: DeedCardType::AdvancedAction,
         powered_by: PoweredBy::Single(BasicManaColor::Red), // or White
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::RushOfAdrenaline,
+        basic_effect: CardEffect::RushOfAdrenaline {
+            mode: EffectMode::Basic,
         },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::RushOfAdrenaline,
+        powered_effect: CardEffect::RushOfAdrenaline {
+            mode: EffectMode::Powered,
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -2514,6 +2582,7 @@ fn chilling_stare() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -2582,6 +2651,7 @@ fn fireball() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -2620,6 +2690,7 @@ fn flame_wall() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -2683,10 +2754,11 @@ fn tremor() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
-/// Mana Meltdown: Crystal manipulation spell
+/// Mana Meltdown: Solo basic = skip, powered = crystal sacrifice for wounds.
 fn mana_meltdown() -> CardDefinition {
     CardDefinition {
         id: "mana_meltdown",
@@ -2694,17 +2766,15 @@ fn mana_meltdown() -> CardDefinition {
         color: CardColor::Red,
         card_type: DeedCardType::Spell,
         powered_by: PoweredBy::Single(BasicManaColor::Red),
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::ManaMeltdown,
-        },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::ManaMeltdown,
-        },
+        basic_effect: CardEffect::ManaMeltdown { powered: false },
+        powered_effect: CardEffect::ManaMeltdown { powered: true },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
-/// Demolish: Fortification removal / destruction
+/// Demolish: Ignore fortification + armor -1 to all non-fire-resistant enemies.
+/// Powered (Disintegrate): Defeat one non-fire-resistant enemy + armor -1 to rest.
 fn demolish() -> CardDefinition {
     CardDefinition {
         id: "demolish",
@@ -2712,22 +2782,57 @@ fn demolish() -> CardDefinition {
         color: CardColor::Red,
         card_type: DeedCardType::Spell,
         powered_by: PoweredBy::Single(BasicManaColor::Red),
-        basic_effect: CardEffect::GainAttack {
-            amount: 5,
-            combat_type: CombatType::Siege,
-            element: Element::Physical,
+        basic_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::RuleOverride {
+                        rule: RuleOverride::IgnoreFortification,
+                    },
+                    duration: ModifierDuration::Turn,
+                    scope: ModifierScope::SelfScope,
+                },
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::EnemyStat {
+                        stat: ModEnemyStat::Armor,
+                        amount: -1,
+                        minimum: 1,
+                        attack_index: None,
+                        per_resistance: false,
+                        fortified_amount: None,
+                        exclude_resistance: Some(ResistanceElement::Fire),
+                    },
+                    duration: ModifierDuration::Combat,
+                    scope: ModifierScope::AllEnemies,
+                },
+            ],
         },
         powered_effect: CardEffect::Compound {
             effects: vec![
-                CardEffect::TakeWound,
-                CardEffect::GainAttack {
-                    amount: 12,
-                    combat_type: CombatType::Siege,
-                    element: Element::Physical,
+                CardEffect::SelectCombatEnemy {
+                    template: SelectEnemyTemplate {
+                        defeat: true,
+                        exclude_arcane_immune: true,
+                        exclude_resistance: Some(ResistanceElement::Fire),
+                        ..SelectEnemyTemplate::new()
+                    },
+                },
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::EnemyStat {
+                        stat: ModEnemyStat::Armor,
+                        amount: -1,
+                        minimum: 1,
+                        attack_index: None,
+                        per_resistance: false,
+                        fortified_amount: None,
+                        exclude_resistance: Some(ResistanceElement::Fire),
+                    },
+                    duration: ModifierDuration::Combat,
+                    scope: ModifierScope::AllEnemies,
                 },
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -2774,10 +2879,12 @@ fn burning_shield() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
-/// Offering: Sacrifice crystal for benefits
+/// Offering basic: Gain 1 Red crystal + optionally discard up to 3 non-wound cards for crystals.
+/// Offering powered (Sacrifice): Choose crystal pair combo → convert to tokens + attack.
 fn offering() -> CardDefinition {
     CardDefinition {
         id: "offering",
@@ -2785,13 +2892,19 @@ fn offering() -> CardDefinition {
         color: CardColor::Red,
         card_type: DeedCardType::Spell,
         powered_by: PoweredBy::Single(BasicManaColor::Red),
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::Sacrifice,
+        basic_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainCrystal {
+                    color: Some(BasicManaColor::Red),
+                },
+                CardEffect::DiscardForCrystal { optional: true },
+                CardEffect::DiscardForCrystal { optional: true },
+                CardEffect::DiscardForCrystal { optional: true },
+            ],
         },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::Sacrifice,
-        },
+        powered_effect: CardEffect::Sacrifice,
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -2821,6 +2934,7 @@ fn snowstorm() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -2854,10 +2968,12 @@ fn chill() -> CardDefinition {
             },
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
-/// Mist Form: All terrain costs 1 this turn
+/// Mist Form: Move 4 + all terrain costs 2 + no hills/mountains.
+/// Powered (Veil of Mist): Grant resistances to all units + wound immunity.
 fn mist_form() -> CardDefinition {
     CardDefinition {
         id: "mist_form",
@@ -2867,13 +2983,20 @@ fn mist_form() -> CardDefinition {
         powered_by: PoweredBy::Single(BasicManaColor::Blue),
         basic_effect: CardEffect::Compound {
             effects: vec![
-                CardEffect::GainMove { amount: 2 },
+                CardEffect::GainMove { amount: 4 },
                 CardEffect::ApplyModifier {
                     effect: ModifierEffect::TerrainCost {
                         terrain: TerrainOrAll::All,
                         amount: 0,
                         minimum: 0,
-                        replace_cost: Some(1),
+                        replace_cost: Some(2),
+                    },
+                    duration: ModifierDuration::Turn,
+                    scope: ModifierScope::SelfScope,
+                },
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::TerrainProhibition {
+                        prohibited_terrains: vec![Terrain::Hills, Terrain::Mountain],
                     },
                     duration: ModifierDuration::Turn,
                     scope: ModifierScope::SelfScope,
@@ -2882,31 +3005,27 @@ fn mist_form() -> CardDefinition {
         },
         powered_effect: CardEffect::Compound {
             effects: vec![
-                CardEffect::GainMove { amount: 4 },
                 CardEffect::ApplyModifier {
-                    effect: ModifierEffect::TerrainCost {
-                        terrain: TerrainOrAll::All,
-                        amount: 0,
-                        minimum: 0,
-                        replace_cost: Some(1),
+                    effect: ModifierEffect::GrantResistances {
+                        resistances: vec![
+                            ResistanceElement::Physical,
+                            ResistanceElement::Fire,
+                            ResistanceElement::Ice,
+                        ],
                     },
                     duration: ModifierDuration::Turn,
-                    scope: ModifierScope::SelfScope,
+                    scope: ModifierScope::AllUnits,
                 },
-                CardEffect::ApplyModifier {
-                    effect: ModifierEffect::RuleOverride {
-                        rule: RuleOverride::IgnoreRampagingProvoke,
-                    },
-                    duration: ModifierDuration::Turn,
-                    scope: ModifierScope::SelfScope,
-                },
+                CardEffect::GrantWoundImmunity,
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
-/// Mana Claim: Claim a die from the source
+/// Mana Claim basic: Claim a die from the source (burst or sustained).
+/// Mana Claim powered (Mana Curse): Same + curse other players (solo: no-op).
 fn mana_claim() -> CardDefinition {
     CardDefinition {
         id: "mana_claim",
@@ -2914,13 +3033,10 @@ fn mana_claim() -> CardDefinition {
         color: CardColor::Blue,
         card_type: DeedCardType::Spell,
         powered_by: PoweredBy::Single(BasicManaColor::Blue),
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::ManaClaim,
-        },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::ManaClaim,
-        },
+        basic_effect: CardEffect::ManaClaim { with_curse: false },
+        powered_effect: CardEffect::ManaClaim { with_curse: true },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -2963,10 +3079,12 @@ fn space_bending() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
-/// Mana Bolt: Pay mana tokens for ice attacks
+/// Mana Bolt basic: Pay 1 mana token → color-based ice attack (base 8).
+/// Mana Bolt powered (Mana Thunderbolt): Same with base 11.
 fn mana_bolt() -> CardDefinition {
     CardDefinition {
         id: "mana_bolt",
@@ -2974,19 +3092,17 @@ fn mana_bolt() -> CardDefinition {
         color: CardColor::Blue,
         card_type: DeedCardType::Spell,
         powered_by: PoweredBy::Single(BasicManaColor::Blue),
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::ManaBolt,
-        },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::ManaBolt,
-        },
+        basic_effect: CardEffect::ManaBolt { base_value: 8 },
+        powered_effect: CardEffect::ManaBolt { base_value: 11 },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
 // --- Green Spells ---
 
-/// Restoration: Healing 3 / Conditional(forest: Healing 5, else: Healing 3)
+/// Restoration: Conditional heal (5 forest/3 otherwise).
+/// Powered (Rebirth): Conditional heal + ReadyUnitsBudget (5 forest/3 otherwise).
 fn restoration() -> CardDefinition {
     CardDefinition {
         id: "restoration",
@@ -2994,19 +3110,39 @@ fn restoration() -> CardDefinition {
         color: CardColor::Green,
         card_type: DeedCardType::Spell,
         powered_by: PoweredBy::Single(BasicManaColor::Green),
-        basic_effect: CardEffect::GainHealing { amount: 3 },
-        powered_effect: CardEffect::Conditional {
+        basic_effect: CardEffect::Conditional {
             condition: EffectCondition::OnTerrain {
                 terrain: vec![Terrain::Forest],
             },
             then_effect: Box::new(CardEffect::GainHealing { amount: 5 }),
             else_effect: Some(Box::new(CardEffect::GainHealing { amount: 3 })),
         },
+        powered_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::Conditional {
+                    condition: EffectCondition::OnTerrain {
+                        terrain: vec![Terrain::Forest],
+                    },
+                    then_effect: Box::new(CardEffect::GainHealing { amount: 5 }),
+                    else_effect: Some(Box::new(CardEffect::GainHealing { amount: 3 })),
+                },
+                CardEffect::Conditional {
+                    condition: EffectCondition::OnTerrain {
+                        terrain: vec![Terrain::Forest],
+                    },
+                    then_effect: Box::new(CardEffect::ReadyUnitsBudget { total_levels: 5 }),
+                    else_effect: Some(Box::new(CardEffect::ReadyUnitsBudget {
+                        total_levels: 3,
+                    })),
+                },
+            ],
+        },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
-/// Energy Flow: Ready a unit
+/// Energy Flow: Ready a unit / Ready + heal a unit
 fn energy_flow() -> CardDefinition {
     CardDefinition {
         id: "energy_flow",
@@ -3014,13 +3150,10 @@ fn energy_flow() -> CardDefinition {
         color: CardColor::Green,
         card_type: DeedCardType::Spell,
         powered_by: PoweredBy::Single(BasicManaColor::Green),
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::EnergyFlow,
-        },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::EnergyFlow,
-        },
+        basic_effect: CardEffect::EnergyFlow { heal: false },
+        powered_effect: CardEffect::EnergyFlow { heal: true },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -3098,10 +3231,12 @@ fn underground_travel() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
-/// Meditation: Discard cards from hand to place on top of deck
+/// Meditation: Random cards from discard to deck top.
+/// Powered (Trance): Choose cards from discard to deck top.
 fn meditation() -> CardDefinition {
     CardDefinition {
         id: "meditation",
@@ -3109,9 +3244,10 @@ fn meditation() -> CardDefinition {
         color: CardColor::Green,
         card_type: DeedCardType::Spell,
         powered_by: PoweredBy::Single(BasicManaColor::Green),
-        basic_effect: CardEffect::Noop,
-        powered_effect: CardEffect::Noop,
+        basic_effect: CardEffect::Meditation { powered: false },
+        powered_effect: CardEffect::Meditation { powered: true },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -3140,6 +3276,7 @@ fn whirlwind() -> CardDefinition {
             },
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -3196,6 +3333,7 @@ fn expose() -> CardDefinition {
             ],
         },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -3212,10 +3350,11 @@ fn cure() -> CardDefinition {
         // Powered (Disease): set armor to 1 for all fully-blocked enemies
         powered_effect: CardEffect::Disease,
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
-/// Call to Arms: Borrow a unit temporarily
+/// Call to Arms: Borrow unit ability / Powered: Free recruit from offer.
 fn call_to_arms() -> CardDefinition {
     CardDefinition {
         id: "call_to_arms",
@@ -3223,17 +3362,14 @@ fn call_to_arms() -> CardDefinition {
         color: CardColor::White,
         card_type: DeedCardType::Spell,
         powered_by: PoweredBy::Single(BasicManaColor::White),
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::CallToArms,
-        },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::CallToArms,
-        },
+        basic_effect: CardEffect::CallToArms,
+        powered_effect: CardEffect::FreeRecruit,
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
-/// Mind Read: Gain crystals based on opponent's crystals
+/// Mind Read: Solo = gain crystal of chosen color.
 fn mind_read() -> CardDefinition {
     CardDefinition {
         id: "mind_read",
@@ -3241,13 +3377,10 @@ fn mind_read() -> CardDefinition {
         color: CardColor::White,
         card_type: DeedCardType::Spell,
         powered_by: PoweredBy::Single(BasicManaColor::White),
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::MindRead,
-        },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::MindRead,
-        },
+        basic_effect: CardEffect::MindRead { powered: false },
+        powered_effect: CardEffect::MindRead { powered: true },
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
@@ -3301,14 +3434,13 @@ fn wings_of_wind() -> CardDefinition {
                 flight_option(5),
             ],
         },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::WingsOfNight,
-        },
+        powered_effect: CardEffect::WingsOfNight,
         sideways_value: 1,
+        destroy_on_powered: false,
     }
 }
 
-/// Charm: Influence 4 / Choose(Influence 8, GainUnit)
+/// Charm: Influence 4 + interaction bonus / Powered: Possess Enemy
 fn charm() -> CardDefinition {
     CardDefinition {
         id: "charm",
@@ -3316,11 +3448,814 @@ fn charm() -> CardDefinition {
         color: CardColor::White,
         card_type: DeedCardType::Spell,
         powered_by: PoweredBy::Single(BasicManaColor::White),
+        basic_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainInfluence { amount: 4 },
+                CardEffect::Conditional {
+                    condition: EffectCondition::InInteraction,
+                    then_effect: Box::new(CardEffect::Choice {
+                        options: vec![
+                            CardEffect::GainCrystal {
+                                color: Some(BasicManaColor::Red),
+                            },
+                            CardEffect::GainCrystal {
+                                color: Some(BasicManaColor::Blue),
+                            },
+                            CardEffect::GainCrystal {
+                                color: Some(BasicManaColor::Green),
+                            },
+                            CardEffect::GainCrystal {
+                                color: Some(BasicManaColor::White),
+                            },
+                            CardEffect::ApplyModifier {
+                                effect: ModifierEffect::RecruitDiscount {
+                                    discount: 3,
+                                    reputation_change: 0,
+                                },
+                                duration: ModifierDuration::Turn,
+                                scope: ModifierScope::SelfScope,
+                            },
+                        ],
+                    }),
+                    else_effect: None,
+                },
+            ],
+        },
+        powered_effect: CardEffect::PossessEnemy,
+        sideways_value: 1,
+        destroy_on_powered: false,
+    }
+}
+
+// =============================================================================
+// Artifact cards (25)
+// =============================================================================
+
+/// Look up an artifact card by ID.
+pub fn get_artifact_card(id: &str) -> Option<CardDefinition> {
+    match id {
+        // Rings (4)
+        "ruby_ring" => Some(ruby_ring()),
+        "sapphire_ring" => Some(sapphire_ring()),
+        "diamond_ring" => Some(diamond_ring()),
+        "emerald_ring" => Some(emerald_ring()),
+        // Utility (1)
+        "endless_bag_of_gold" => Some(endless_bag_of_gold()),
+        // Banners (6)
+        "banner_of_command" => Some(banner_of_command()),
+        "banner_of_courage" => Some(banner_of_courage()),
+        "banner_of_fortitude" => Some(banner_of_fortitude()),
+        "banner_of_protection" => Some(banner_of_protection()),
+        "banner_of_fear" => Some(banner_of_fear()),
+        "banner_of_glory" => Some(banner_of_glory()),
+        // Weapons (5)
+        "sword_of_justice" => Some(sword_of_justice()),
+        "horn_of_wrath" => Some(horn_of_wrath()),
+        "bow_of_starsdawn" => Some(bow_of_starsdawn()),
+        "soul_harvester" => Some(soul_harvester()),
+        "shield_of_the_fallen_kings" => Some(shield_of_the_fallen_kings()),
+        // Amulets + Utility (4)
+        "amulet_of_the_sun" => Some(amulet_of_the_sun()),
+        "amulet_of_darkness" => Some(amulet_of_darkness()),
+        "golden_grail" => Some(golden_grail()),
+        "endless_gem_pouch" => Some(endless_gem_pouch()),
+        // Complex (5)
+        "book_of_wisdom" => Some(book_of_wisdom()),
+        "tome_of_all_spells" => Some(tome_of_all_spells()),
+        "circlet_of_proficiency" => Some(circlet_of_proficiency()),
+        "druidic_staff" => Some(druidic_staff()),
+        "mysterious_box" => Some(mysterious_box()),
+        _ => None,
+    }
+}
+
+/// All artifact card IDs.
+pub const ARTIFACT_IDS: &[&str] = &[
+    "ruby_ring",
+    "sapphire_ring",
+    "diamond_ring",
+    "emerald_ring",
+    "endless_bag_of_gold",
+    "banner_of_command",
+    "banner_of_courage",
+    "banner_of_fortitude",
+    "banner_of_protection",
+    "banner_of_fear",
+    "banner_of_glory",
+    "sword_of_justice",
+    "horn_of_wrath",
+    "bow_of_starsdawn",
+    "soul_harvester",
+    "shield_of_the_fallen_kings",
+    "amulet_of_the_sun",
+    "amulet_of_darkness",
+    "golden_grail",
+    "endless_gem_pouch",
+    "book_of_wisdom",
+    "tome_of_all_spells",
+    "circlet_of_proficiency",
+    "druidic_staff",
+    "mysterious_box",
+];
+
+// --- Rings ---
+
+fn ruby_ring() -> CardDefinition {
+    CardDefinition {
+        id: "ruby_ring",
+        name: "Ruby Ring",
+        color: CardColor::Red,
+        card_type: DeedCardType::Artifact,
+        powered_by: PoweredBy::AnyBasic,
+        basic_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainMana { color: ManaColor::Red, amount: 1 },
+                CardEffect::GainCrystal { color: Some(BasicManaColor::Red) },
+                CardEffect::GainFame { amount: 1 },
+            ],
+        },
+        powered_effect: CardEffect::ApplyModifier {
+            effect: ModifierEffect::EndlessMana {
+                colors: vec![ManaColor::Red, ManaColor::Black],
+            },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::SelfScope,
+        },
+        sideways_value: 2,
+        destroy_on_powered: true,
+    }
+}
+
+fn sapphire_ring() -> CardDefinition {
+    CardDefinition {
+        id: "sapphire_ring",
+        name: "Sapphire Ring",
+        color: CardColor::Blue,
+        card_type: DeedCardType::Artifact,
+        powered_by: PoweredBy::AnyBasic,
+        basic_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainMana { color: ManaColor::Blue, amount: 1 },
+                CardEffect::GainCrystal { color: Some(BasicManaColor::Blue) },
+                CardEffect::GainFame { amount: 1 },
+            ],
+        },
+        powered_effect: CardEffect::ApplyModifier {
+            effect: ModifierEffect::EndlessMana {
+                colors: vec![ManaColor::Blue, ManaColor::Black],
+            },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::SelfScope,
+        },
+        sideways_value: 2,
+        destroy_on_powered: true,
+    }
+}
+
+fn diamond_ring() -> CardDefinition {
+    CardDefinition {
+        id: "diamond_ring",
+        name: "Diamond Ring",
+        color: CardColor::White,
+        card_type: DeedCardType::Artifact,
+        powered_by: PoweredBy::AnyBasic,
+        basic_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainMana { color: ManaColor::White, amount: 1 },
+                CardEffect::GainCrystal { color: Some(BasicManaColor::White) },
+                CardEffect::GainFame { amount: 1 },
+            ],
+        },
+        powered_effect: CardEffect::ApplyModifier {
+            effect: ModifierEffect::EndlessMana {
+                colors: vec![ManaColor::White, ManaColor::Black],
+            },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::SelfScope,
+        },
+        sideways_value: 2,
+        destroy_on_powered: true,
+    }
+}
+
+fn emerald_ring() -> CardDefinition {
+    CardDefinition {
+        id: "emerald_ring",
+        name: "Emerald Ring",
+        color: CardColor::Green,
+        card_type: DeedCardType::Artifact,
+        powered_by: PoweredBy::AnyBasic,
+        basic_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainMana { color: ManaColor::Green, amount: 1 },
+                CardEffect::GainCrystal { color: Some(BasicManaColor::Green) },
+                CardEffect::GainFame { amount: 1 },
+            ],
+        },
+        powered_effect: CardEffect::ApplyModifier {
+            effect: ModifierEffect::EndlessMana {
+                colors: vec![ManaColor::Green, ManaColor::Black],
+            },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::SelfScope,
+        },
+        sideways_value: 2,
+        destroy_on_powered: true,
+    }
+}
+
+// --- Utility ---
+
+fn endless_bag_of_gold() -> CardDefinition {
+    CardDefinition {
+        id: "endless_bag_of_gold",
+        name: "Endless Bag of Gold",
+        color: CardColor::Colorless,
+        card_type: DeedCardType::Artifact,
+        powered_by: PoweredBy::AnyBasic,
+        basic_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainInfluence { amount: 4 },
+                CardEffect::GainFame { amount: 2 },
+            ],
+        },
+        powered_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainInfluence { amount: 9 },
+                CardEffect::GainFame { amount: 3 },
+            ],
+        },
+        sideways_value: 2,
+        destroy_on_powered: true,
+    }
+}
+
+// --- Banners ---
+
+fn banner_of_command() -> CardDefinition {
+    CardDefinition {
+        id: "banner_of_command",
+        name: "Banner of Command",
+        color: CardColor::Colorless,
+        card_type: DeedCardType::Artifact,
+        powered_by: PoweredBy::AnyBasic,
         basic_effect: CardEffect::GainInfluence { amount: 4 },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::PossessEnemy,
+        powered_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainFame { amount: 2 },
+                CardEffect::FreeRecruit,
+            ],
         },
         sideways_value: 1,
+        destroy_on_powered: true,
+    }
+}
+
+fn banner_of_courage() -> CardDefinition {
+    CardDefinition {
+        id: "banner_of_courage",
+        name: "Banner of Courage",
+        color: CardColor::Colorless,
+        card_type: DeedCardType::Artifact,
+        powered_by: PoweredBy::AnyBasic,
+        basic_effect: CardEffect::Noop, // Assign to unit (passive bonus)
+        powered_effect: CardEffect::ReadyAllUnits,
+        sideways_value: 1,
+        destroy_on_powered: true,
+    }
+}
+
+fn banner_of_fortitude() -> CardDefinition {
+    CardDefinition {
+        id: "banner_of_fortitude",
+        name: "Banner of Fortitude",
+        color: CardColor::Colorless,
+        card_type: DeedCardType::Artifact,
+        powered_by: PoweredBy::AnyBasic,
+        basic_effect: CardEffect::Noop, // Assign to unit (passive bonus)
+        powered_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::ReadyAllUnits,
+                CardEffect::HealAllUnits,
+            ],
+        },
+        sideways_value: 1,
+        destroy_on_powered: true,
+    }
+}
+
+fn banner_of_protection() -> CardDefinition {
+    CardDefinition {
+        id: "banner_of_protection",
+        name: "Banner of Protection",
+        color: CardColor::Colorless,
+        card_type: DeedCardType::Artifact,
+        powered_by: PoweredBy::AnyBasic,
+        basic_effect: CardEffect::Noop, // Assign to unit (passive bonus)
+        powered_effect: CardEffect::ActivateBannerProtection,
+        sideways_value: 0,
+        destroy_on_powered: true,
+    }
+}
+
+fn banner_of_fear() -> CardDefinition {
+    CardDefinition {
+        id: "banner_of_fear",
+        name: "Banner of Fear",
+        color: CardColor::Colorless,
+        card_type: DeedCardType::Artifact,
+        powered_by: PoweredBy::AnyBasic,
+        basic_effect: CardEffect::Noop, // Assign to unit (passive bonus)
+        powered_effect: CardEffect::SelectCombatEnemy {
+            template: SelectEnemyTemplate {
+                skip_attack: true,
+                ..SelectEnemyTemplate::new()
+            },
+        },
+        sideways_value: 0,
+        destroy_on_powered: true,
+    }
+}
+
+fn banner_of_glory() -> CardDefinition {
+    CardDefinition {
+        id: "banner_of_glory",
+        name: "Banner of Glory",
+        color: CardColor::Colorless,
+        card_type: DeedCardType::Artifact,
+        powered_by: PoweredBy::AnyBasic,
+        basic_effect: CardEffect::Noop, // Assign to unit (passive bonus)
+        powered_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::UnitCombatBonus {
+                        attack_bonus: 2,
+                        block_bonus: 2,
+                    },
+                    duration: ModifierDuration::Combat,
+                    scope: ModifierScope::AllUnits,
+                },
+                CardEffect::FamePerEnemyDefeated {
+                    amount: 1,
+                    exclude_summoned: false,
+                },
+            ],
+        },
+        sideways_value: 0,
+        destroy_on_powered: true,
+    }
+}
+
+// --- Weapons ---
+
+fn sword_of_justice() -> CardDefinition {
+    CardDefinition {
+        id: "sword_of_justice",
+        name: "Sword of Justice",
+        color: CardColor::Colorless,
+        card_type: DeedCardType::Artifact,
+        powered_by: PoweredBy::AnyBasic,
+        basic_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::DiscardForAttack {
+                    attacks_by_color: vec![
+                        (BasicManaColor::Red, CardEffect::GainAttack {
+                            amount: 3, combat_type: CombatType::Melee, element: Element::Physical,
+                        }),
+                        (BasicManaColor::Blue, CardEffect::GainAttack {
+                            amount: 3, combat_type: CombatType::Melee, element: Element::Physical,
+                        }),
+                        (BasicManaColor::Green, CardEffect::GainAttack {
+                            amount: 3, combat_type: CombatType::Melee, element: Element::Physical,
+                        }),
+                        (BasicManaColor::White, CardEffect::GainAttack {
+                            amount: 3, combat_type: CombatType::Melee, element: Element::Physical,
+                        }),
+                    ],
+                },
+                CardEffect::FamePerEnemyDefeated {
+                    amount: 1,
+                    exclude_summoned: false,
+                },
+            ],
+        },
+        powered_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::DoublePhysicalAttacks,
+                    duration: ModifierDuration::Combat,
+                    scope: ModifierScope::SelfScope,
+                },
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::RemovePhysicalResistance,
+                    duration: ModifierDuration::Combat,
+                    scope: ModifierScope::AllEnemies,
+                },
+                CardEffect::FamePerEnemyDefeated {
+                    amount: 1,
+                    exclude_summoned: false,
+                },
+            ],
+        },
+        sideways_value: 1,
+        destroy_on_powered: true,
+    }
+}
+
+fn horn_of_wrath() -> CardDefinition {
+    CardDefinition {
+        id: "horn_of_wrath",
+        name: "Horn of Wrath",
+        color: CardColor::Colorless,
+        card_type: DeedCardType::Artifact,
+        powered_by: PoweredBy::AnyBasic,
+        basic_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainAttack {
+                    amount: 5,
+                    combat_type: CombatType::Siege,
+                    element: Element::Physical,
+                },
+                CardEffect::RollDieForWound { die_count: 1 },
+            ],
+        },
+        powered_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainAttack {
+                    amount: 5,
+                    combat_type: CombatType::Siege,
+                    element: Element::Physical,
+                },
+                CardEffect::ChooseBonusWithRisk {
+                    bonus_per_roll: 5,
+                    combat_type: CombatType::Siege,
+                    element: Element::Physical,
+                    accumulated: 0,
+                    rolled: false,
+                },
+            ],
+        },
+        sideways_value: 1,
+        destroy_on_powered: true,
+    }
+}
+
+fn bow_of_starsdawn() -> CardDefinition {
+    CardDefinition {
+        id: "bow_of_starsdawn",
+        name: "Bow of Starsdawn",
+        color: CardColor::Colorless,
+        card_type: DeedCardType::Artifact,
+        powered_by: PoweredBy::AnyBasic,
+        basic_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::DiscardForAttack {
+                    attacks_by_color: vec![
+                        (BasicManaColor::Red, CardEffect::GainAttack {
+                            amount: 2, combat_type: CombatType::Ranged, element: Element::Physical,
+                        }),
+                        (BasicManaColor::Blue, CardEffect::GainAttack {
+                            amount: 2, combat_type: CombatType::Ranged, element: Element::Physical,
+                        }),
+                        (BasicManaColor::Green, CardEffect::GainAttack {
+                            amount: 2, combat_type: CombatType::Ranged, element: Element::Physical,
+                        }),
+                        (BasicManaColor::White, CardEffect::GainAttack {
+                            amount: 2, combat_type: CombatType::Ranged, element: Element::Physical,
+                        }),
+                    ],
+                },
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::BowPhaseFameTracking {
+                        fame_per_enemy: 1,
+                    },
+                    duration: ModifierDuration::Combat,
+                    scope: ModifierScope::SelfScope,
+                },
+            ],
+        },
+        powered_effect: CardEffect::ApplyModifier {
+            effect: ModifierEffect::BowAttackTransformation,
+            duration: ModifierDuration::Combat,
+            scope: ModifierScope::SelfScope,
+        },
+        sideways_value: 1,
+        destroy_on_powered: true,
+    }
+}
+
+fn soul_harvester() -> CardDefinition {
+    CardDefinition {
+        id: "soul_harvester",
+        name: "Soul Harvester",
+        color: CardColor::Colorless,
+        card_type: DeedCardType::Artifact,
+        powered_by: PoweredBy::AnyBasic,
+        basic_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainAttack {
+                    amount: 3,
+                    combat_type: CombatType::Melee,
+                    element: Element::Physical,
+                },
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::SoulHarvesterCrystalTracking {
+                        limit: 1,
+                        track_by_attack: false,
+                    },
+                    duration: ModifierDuration::Combat,
+                    scope: ModifierScope::SelfScope,
+                },
+            ],
+        },
+        powered_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainAttack {
+                    amount: 8,
+                    combat_type: CombatType::Melee,
+                    element: Element::Physical,
+                },
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::SoulHarvesterCrystalTracking {
+                        limit: 99,
+                        track_by_attack: false,
+                    },
+                    duration: ModifierDuration::Combat,
+                    scope: ModifierScope::SelfScope,
+                },
+            ],
+        },
+        sideways_value: 1,
+        destroy_on_powered: true,
+    }
+}
+
+fn shield_of_the_fallen_kings() -> CardDefinition {
+    CardDefinition {
+        id: "shield_of_the_fallen_kings",
+        name: "Shield of the Fallen Kings",
+        color: CardColor::Colorless,
+        card_type: DeedCardType::Artifact,
+        powered_by: PoweredBy::AnyBasic,
+        basic_effect: CardEffect::Choice {
+            options: vec![
+                CardEffect::GainBlock { amount: 6, element: Element::Physical },
+                CardEffect::Compound {
+                    effects: vec![
+                        CardEffect::GainBlock { amount: 4, element: Element::Physical },
+                        CardEffect::GainBlock { amount: 4, element: Element::Physical },
+                    ],
+                },
+            ],
+        },
+        powered_effect: CardEffect::Choice {
+            options: vec![
+                CardEffect::GainBlock { amount: 8, element: Element::ColdFire },
+                CardEffect::Compound {
+                    effects: vec![
+                        CardEffect::GainBlock { amount: 4, element: Element::ColdFire },
+                        CardEffect::GainBlock { amount: 4, element: Element::ColdFire },
+                        CardEffect::GainBlock { amount: 4, element: Element::ColdFire },
+                    ],
+                },
+            ],
+        },
+        sideways_value: 1,
+        destroy_on_powered: true,
+    }
+}
+
+// --- Amulets + Utility ---
+
+fn amulet_of_the_sun() -> CardDefinition {
+    let sun_bonus = CardEffect::Compound {
+        effects: vec![
+            CardEffect::ApplyModifier {
+                effect: ModifierEffect::TerrainCost {
+                    terrain: TerrainOrAll::Specific(Terrain::Forest),
+                    amount: 0,
+                    minimum: 0,
+                    replace_cost: Some(3),
+                },
+                duration: ModifierDuration::Turn,
+                scope: ModifierScope::SelfScope,
+            },
+            CardEffect::ApplyModifier {
+                effect: ModifierEffect::RuleOverride {
+                    rule: RuleOverride::AllowGoldAtNight,
+                },
+                duration: ModifierDuration::Turn,
+                scope: ModifierScope::SelfScope,
+            },
+        ],
+    };
+    CardDefinition {
+        id: "amulet_of_the_sun",
+        name: "Amulet of the Sun",
+        color: CardColor::Colorless,
+        card_type: DeedCardType::Artifact,
+        powered_by: PoweredBy::AnyBasic,
+        basic_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainMana { color: ManaColor::Gold, amount: 1 },
+                sun_bonus.clone(),
+            ],
+        },
+        powered_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainMana { color: ManaColor::Gold, amount: 3 },
+                sun_bonus,
+            ],
+        },
+        sideways_value: 1,
+        destroy_on_powered: true,
+    }
+}
+
+fn amulet_of_darkness() -> CardDefinition {
+    let darkness_bonus = CardEffect::Compound {
+        effects: vec![
+            CardEffect::ApplyModifier {
+                effect: ModifierEffect::TerrainCost {
+                    terrain: TerrainOrAll::Specific(Terrain::Desert),
+                    amount: 0,
+                    minimum: 0,
+                    replace_cost: Some(3),
+                },
+                duration: ModifierDuration::Turn,
+                scope: ModifierScope::SelfScope,
+            },
+            CardEffect::ApplyModifier {
+                effect: ModifierEffect::RuleOverride {
+                    rule: RuleOverride::AllowBlackAtDay,
+                },
+                duration: ModifierDuration::Turn,
+                scope: ModifierScope::SelfScope,
+            },
+        ],
+    };
+    CardDefinition {
+        id: "amulet_of_darkness",
+        name: "Amulet of Darkness",
+        color: CardColor::Colorless,
+        card_type: DeedCardType::Artifact,
+        powered_by: PoweredBy::AnyBasic,
+        basic_effect: CardEffect::Compound {
+            effects: vec![
+                gain_mana_any_color(),
+                darkness_bonus.clone(),
+            ],
+        },
+        powered_effect: CardEffect::Compound {
+            effects: vec![
+                gain_mana_any_color(),
+                gain_mana_any_color(),
+                gain_mana_any_color(),
+                darkness_bonus,
+            ],
+        },
+        sideways_value: 1,
+        destroy_on_powered: true,
+    }
+}
+
+fn golden_grail() -> CardDefinition {
+    CardDefinition {
+        id: "golden_grail",
+        name: "Golden Grail",
+        color: CardColor::Colorless,
+        card_type: DeedCardType::Artifact,
+        powered_by: PoweredBy::AnyBasic,
+        basic_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::GoldenGrailFameTracking {
+                        remaining_healing_points: 2,
+                    },
+                    duration: ModifierDuration::Turn,
+                    scope: ModifierScope::SelfScope,
+                },
+                CardEffect::GainHealing { amount: 2 },
+            ],
+        },
+        powered_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::ApplyModifier {
+                    effect: ModifierEffect::GoldenGrailDrawOnHeal,
+                    duration: ModifierDuration::Turn,
+                    scope: ModifierScope::SelfScope,
+                },
+                CardEffect::GainHealing { amount: 6 },
+            ],
+        },
+        sideways_value: 1,
+        destroy_on_powered: true,
+    }
+}
+
+fn endless_gem_pouch() -> CardDefinition {
+    CardDefinition {
+        id: "endless_gem_pouch",
+        name: "Endless Gem Pouch",
+        color: CardColor::Colorless,
+        card_type: DeedCardType::Artifact,
+        powered_by: PoweredBy::AnyBasic,
+        basic_effect: CardEffect::RollForCrystals { die_count: 2 },
+        powered_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainMana { color: ManaColor::Red, amount: 1 },
+                CardEffect::GainMana { color: ManaColor::Blue, amount: 1 },
+                CardEffect::GainMana { color: ManaColor::Green, amount: 1 },
+                CardEffect::GainMana { color: ManaColor::White, amount: 1 },
+                CardEffect::Conditional {
+                    condition: EffectCondition::IsNightOrUnderground,
+                    then_effect: Box::new(CardEffect::GainMana { color: ManaColor::Black, amount: 1 }),
+                    else_effect: Some(Box::new(CardEffect::GainMana { color: ManaColor::Gold, amount: 1 })),
+                },
+            ],
+        },
+        sideways_value: 1,
+        destroy_on_powered: true,
+    }
+}
+
+// --- Complex Artifacts ---
+
+fn book_of_wisdom() -> CardDefinition {
+    CardDefinition {
+        id: "book_of_wisdom",
+        name: "Book of Wisdom",
+        color: CardColor::Colorless,
+        card_type: DeedCardType::Artifact,
+        powered_by: PoweredBy::AnyBasic,
+        basic_effect: CardEffect::BookOfWisdom {
+            mode: mk_types::pending::EffectMode::Basic,
+        },
+        powered_effect: CardEffect::BookOfWisdom {
+            mode: mk_types::pending::EffectMode::Powered,
+        },
+        sideways_value: 1,
+        destroy_on_powered: true,
+    }
+}
+
+fn tome_of_all_spells() -> CardDefinition {
+    CardDefinition {
+        id: "tome_of_all_spells",
+        name: "Tome of All Spells",
+        color: CardColor::Colorless,
+        card_type: DeedCardType::Artifact,
+        powered_by: PoweredBy::AnyBasic,
+        basic_effect: CardEffect::TomeOfAllSpells {
+            mode: mk_types::pending::EffectMode::Basic,
+        },
+        powered_effect: CardEffect::TomeOfAllSpells {
+            mode: mk_types::pending::EffectMode::Powered,
+        },
+        sideways_value: 1,
+        destroy_on_powered: true,
+    }
+}
+
+fn circlet_of_proficiency() -> CardDefinition {
+    CardDefinition {
+        id: "circlet_of_proficiency",
+        name: "Circlet of Proficiency",
+        color: CardColor::Colorless,
+        card_type: DeedCardType::Artifact,
+        powered_by: PoweredBy::AnyBasic,
+        basic_effect: CardEffect::CircletOfProficiencyBasic,
+        powered_effect: CardEffect::CircletOfProficiencyPowered,
+        sideways_value: 1,
+        destroy_on_powered: true,
+    }
+}
+
+fn druidic_staff() -> CardDefinition {
+    CardDefinition {
+        id: "druidic_staff",
+        name: "Druidic Staff",
+        color: CardColor::Colorless,
+        card_type: DeedCardType::Artifact,
+        powered_by: PoweredBy::AnyBasic,
+        basic_effect: CardEffect::DruidicStaffBasic,
+        powered_effect: CardEffect::DruidicStaffPowered,
+        sideways_value: 1,
+        destroy_on_powered: true,
+    }
+}
+
+fn mysterious_box() -> CardDefinition {
+    CardDefinition {
+        id: "mysterious_box",
+        name: "Mysterious Box",
+        color: CardColor::Colorless,
+        card_type: DeedCardType::Artifact,
+        powered_by: PoweredBy::AnyBasic,
+        basic_effect: CardEffect::MysteriousBox,
+        powered_effect: CardEffect::MysteriousBox, // Same as basic
+        sideways_value: 1,
+        destroy_on_powered: false, // Mysterious Box is NOT destroyed
     }
 }
 
@@ -4027,8 +4962,8 @@ mod tests {
             }
             _ => panic!("Expected Compound"),
         }
-        // Powered is placeholder (PayMana)
-        assert!(matches!(card.powered_effect, CardEffect::Other { .. }));
+        // Powered: SongOfWindPowered (custom handler)
+        assert!(matches!(card.powered_effect, CardEffect::SongOfWindPowered));
     }
 
     #[test]
@@ -4161,8 +5096,8 @@ mod tests {
     fn force_of_nature_powered_is_choice() {
         let card = get_card("force_of_nature").unwrap();
         assert_eq!(card.color, CardColor::Green);
-        // Basic is placeholder (SelectUnitForModifier)
-        assert!(matches!(card.basic_effect, CardEffect::Other { .. }));
+        // Basic: SelectUnitForModifier (grant Physical resistance)
+        assert!(matches!(card.basic_effect, CardEffect::SelectUnitForModifier { .. }));
         // Powered: Choice(Siege 3, Block 6)
         match &card.powered_effect {
             CardEffect::Choice { options } => {
@@ -4586,5 +5521,522 @@ mod tests {
             }
             _ => panic!("Expected ManaDrawPowered"),
         }
+    }
+
+    // =========================================================================
+    // Artifact card tests
+    // =========================================================================
+
+    #[test]
+    fn all_artifact_cards_lookup() {
+        for id in ARTIFACT_IDS {
+            assert!(
+                get_artifact_card(id).is_some(),
+                "Missing artifact card: {}",
+                id
+            );
+            // Also via get_card
+            assert!(
+                get_card(id).is_some(),
+                "Artifact not in get_card: {}",
+                id
+            );
+        }
+    }
+
+    #[test]
+    fn artifact_count_is_25() {
+        assert_eq!(ARTIFACT_IDS.len(), 25);
+    }
+
+    #[test]
+    fn all_artifacts_have_correct_card_type() {
+        for id in ARTIFACT_IDS {
+            let card = get_artifact_card(id).unwrap();
+            assert_eq!(
+                card.card_type,
+                DeedCardType::Artifact,
+                "Card {} should be Artifact type",
+                id
+            );
+        }
+    }
+
+    #[test]
+    fn all_artifacts_except_mysterious_box_destroy_on_powered() {
+        for id in ARTIFACT_IDS {
+            let card = get_artifact_card(id).unwrap();
+            if id == &"mysterious_box" {
+                assert!(
+                    !card.destroy_on_powered,
+                    "Mysterious Box should NOT destroy on powered"
+                );
+            } else {
+                assert!(
+                    card.destroy_on_powered,
+                    "Card {} should destroy on powered",
+                    id
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn ruby_ring_basic_gives_mana_crystal_fame() {
+        let card = get_artifact_card("ruby_ring").unwrap();
+        assert_eq!(card.color, CardColor::Red);
+        assert_eq!(card.powered_by, PoweredBy::AnyBasic);
+        assert_eq!(card.sideways_value, 2);
+        match &card.basic_effect {
+            CardEffect::Compound { effects } => {
+                assert_eq!(effects.len(), 3);
+                assert!(matches!(
+                    effects[0],
+                    CardEffect::GainMana {
+                        color: ManaColor::Red,
+                        amount: 1
+                    }
+                ));
+                assert!(matches!(
+                    effects[1],
+                    CardEffect::GainCrystal {
+                        color: Some(BasicManaColor::Red)
+                    }
+                ));
+                assert!(matches!(effects[2], CardEffect::GainFame { amount: 1 }));
+            }
+            _ => panic!("Expected Compound"),
+        }
+    }
+
+    #[test]
+    fn ruby_ring_powered_gives_endless_mana() {
+        let card = get_artifact_card("ruby_ring").unwrap();
+        match &card.powered_effect {
+            CardEffect::ApplyModifier { effect, duration, .. } => {
+                assert!(matches!(duration, ModifierDuration::Turn));
+                match effect {
+                    ModifierEffect::EndlessMana { colors } => {
+                        assert_eq!(colors.len(), 2);
+                        assert!(colors.contains(&ManaColor::Red));
+                        assert!(colors.contains(&ManaColor::Black));
+                    }
+                    _ => panic!("Expected EndlessMana"),
+                }
+            }
+            _ => panic!("Expected ApplyModifier"),
+        }
+    }
+
+    #[test]
+    fn rings_have_sideways_value_2() {
+        for id in &["ruby_ring", "sapphire_ring", "diamond_ring", "emerald_ring"] {
+            let card = get_artifact_card(id).unwrap();
+            assert_eq!(card.sideways_value, 2, "Ring {} should have sideways_value 2", id);
+        }
+    }
+
+    #[test]
+    fn endless_bag_of_gold_basic_influence_and_fame() {
+        let card = get_artifact_card("endless_bag_of_gold").unwrap();
+        assert_eq!(card.color, CardColor::Colorless);
+        assert_eq!(card.sideways_value, 2);
+        match &card.basic_effect {
+            CardEffect::Compound { effects } => {
+                assert_eq!(effects.len(), 2);
+                assert!(matches!(effects[0], CardEffect::GainInfluence { amount: 4 }));
+                assert!(matches!(effects[1], CardEffect::GainFame { amount: 2 }));
+            }
+            _ => panic!("Expected Compound"),
+        }
+    }
+
+    #[test]
+    fn endless_bag_of_gold_powered_influence_and_fame() {
+        let card = get_artifact_card("endless_bag_of_gold").unwrap();
+        match &card.powered_effect {
+            CardEffect::Compound { effects } => {
+                assert_eq!(effects.len(), 2);
+                assert!(matches!(effects[0], CardEffect::GainInfluence { amount: 9 }));
+                assert!(matches!(effects[1], CardEffect::GainFame { amount: 3 }));
+            }
+            _ => panic!("Expected Compound"),
+        }
+    }
+
+    #[test]
+    fn banner_of_courage_powered_readies_all_units() {
+        let card = get_artifact_card("banner_of_courage").unwrap();
+        assert!(matches!(card.powered_effect, CardEffect::ReadyAllUnits));
+    }
+
+    #[test]
+    fn banner_of_fortitude_powered_readies_and_heals() {
+        let card = get_artifact_card("banner_of_fortitude").unwrap();
+        match &card.powered_effect {
+            CardEffect::Compound { effects } => {
+                assert_eq!(effects.len(), 2);
+                assert!(matches!(effects[0], CardEffect::ReadyAllUnits));
+                assert!(matches!(effects[1], CardEffect::HealAllUnits));
+            }
+            _ => panic!("Expected Compound"),
+        }
+    }
+
+    #[test]
+    fn banner_of_protection_powered_activates() {
+        let card = get_artifact_card("banner_of_protection").unwrap();
+        assert!(matches!(card.powered_effect, CardEffect::ActivateBannerProtection));
+        assert_eq!(card.sideways_value, 0);
+    }
+
+    #[test]
+    fn banner_of_fear_powered_skip_attack() {
+        let card = get_artifact_card("banner_of_fear").unwrap();
+        match &card.powered_effect {
+            CardEffect::SelectCombatEnemy { template } => {
+                assert!(template.skip_attack);
+            }
+            _ => panic!("Expected SelectCombatEnemy"),
+        }
+    }
+
+    #[test]
+    fn horn_of_wrath_basic_siege_with_wound_risk() {
+        let card = get_artifact_card("horn_of_wrath").unwrap();
+        match &card.basic_effect {
+            CardEffect::Compound { effects } => {
+                assert_eq!(effects.len(), 2);
+                match &effects[0] {
+                    CardEffect::GainAttack { amount, combat_type, .. } => {
+                        assert_eq!(*amount, 5);
+                        assert_eq!(*combat_type, CombatType::Siege);
+                    }
+                    _ => panic!("Expected GainAttack"),
+                }
+                assert!(matches!(effects[1], CardEffect::RollDieForWound { die_count: 1 }));
+            }
+            _ => panic!("Expected Compound"),
+        }
+    }
+
+    #[test]
+    fn shield_of_fallen_kings_basic_block_options() {
+        let card = get_artifact_card("shield_of_the_fallen_kings").unwrap();
+        match &card.basic_effect {
+            CardEffect::Choice { options } => {
+                assert_eq!(options.len(), 2);
+                assert!(matches!(
+                    options[0],
+                    CardEffect::GainBlock { amount: 6, element: Element::Physical }
+                ));
+            }
+            _ => panic!("Expected Choice"),
+        }
+    }
+
+    #[test]
+    fn shield_of_fallen_kings_powered_coldfire_block() {
+        let card = get_artifact_card("shield_of_the_fallen_kings").unwrap();
+        match &card.powered_effect {
+            CardEffect::Choice { options } => {
+                assert_eq!(options.len(), 2);
+                assert!(matches!(
+                    options[0],
+                    CardEffect::GainBlock { amount: 8, element: Element::ColdFire }
+                ));
+            }
+            _ => panic!("Expected Choice"),
+        }
+    }
+
+    #[test]
+    fn amulet_of_the_sun_basic_gold_mana() {
+        let card = get_artifact_card("amulet_of_the_sun").unwrap();
+        match &card.basic_effect {
+            CardEffect::Compound { effects } => {
+                assert!(matches!(
+                    effects[0],
+                    CardEffect::GainMana { color: ManaColor::Gold, amount: 1 }
+                ));
+            }
+            _ => panic!("Expected Compound"),
+        }
+    }
+
+    #[test]
+    fn endless_gem_pouch_basic_rolls_dice() {
+        let card = get_artifact_card("endless_gem_pouch").unwrap();
+        assert!(matches!(
+            card.basic_effect,
+            CardEffect::RollForCrystals { die_count: 2 }
+        ));
+    }
+
+    #[test]
+    fn book_of_wisdom_uses_book_effect() {
+        let card = get_artifact_card("book_of_wisdom").unwrap();
+        assert!(matches!(
+            card.basic_effect,
+            CardEffect::BookOfWisdom { mode: mk_types::pending::EffectMode::Basic }
+        ));
+        assert!(matches!(
+            card.powered_effect,
+            CardEffect::BookOfWisdom { mode: mk_types::pending::EffectMode::Powered }
+        ));
+    }
+
+    #[test]
+    fn mysterious_box_does_not_destroy_on_powered() {
+        let card = get_artifact_card("mysterious_box").unwrap();
+        assert!(!card.destroy_on_powered);
+        assert!(matches!(card.basic_effect, CardEffect::MysteriousBox));
+        assert!(matches!(card.powered_effect, CardEffect::MysteriousBox));
+    }
+
+    #[test]
+    fn druidic_staff_basic_and_powered() {
+        let card = get_artifact_card("druidic_staff").unwrap();
+        assert!(matches!(card.basic_effect, CardEffect::DruidicStaffBasic));
+        assert!(matches!(card.powered_effect, CardEffect::DruidicStaffPowered));
+    }
+
+    #[test]
+    fn soul_harvester_basic_melee_with_tracking() {
+        let card = get_artifact_card("soul_harvester").unwrap();
+        match &card.basic_effect {
+            CardEffect::Compound { effects } => {
+                assert_eq!(effects.len(), 2);
+                match &effects[0] {
+                    CardEffect::GainAttack { amount, combat_type, .. } => {
+                        assert_eq!(*amount, 3);
+                        assert_eq!(*combat_type, CombatType::Melee);
+                    }
+                    _ => panic!("Expected GainAttack"),
+                }
+                match &effects[1] {
+                    CardEffect::ApplyModifier { effect, .. } => {
+                        assert!(matches!(
+                            effect,
+                            ModifierEffect::SoulHarvesterCrystalTracking { limit: 1, .. }
+                        ));
+                    }
+                    _ => panic!("Expected ApplyModifier"),
+                }
+            }
+            _ => panic!("Expected Compound"),
+        }
+    }
+
+    #[test]
+    fn soul_harvester_powered_melee_8_unlimited_tracking() {
+        let card = get_artifact_card("soul_harvester").unwrap();
+        match &card.powered_effect {
+            CardEffect::Compound { effects } => {
+                assert_eq!(effects.len(), 2);
+                match &effects[0] {
+                    CardEffect::GainAttack { amount, .. } => assert_eq!(*amount, 8),
+                    _ => panic!("Expected GainAttack"),
+                }
+                match &effects[1] {
+                    CardEffect::ApplyModifier { effect, .. } => {
+                        assert!(matches!(
+                            effect,
+                            ModifierEffect::SoulHarvesterCrystalTracking { limit: 99, .. }
+                        ));
+                    }
+                    _ => panic!("Expected ApplyModifier"),
+                }
+            }
+            _ => panic!("Expected Compound"),
+        }
+    }
+
+    #[test]
+    fn golden_grail_basic_fame_tracking_and_healing() {
+        let card = get_artifact_card("golden_grail").unwrap();
+        match &card.basic_effect {
+            CardEffect::Compound { effects } => {
+                assert_eq!(effects.len(), 2);
+                match &effects[0] {
+                    CardEffect::ApplyModifier { effect, .. } => {
+                        assert!(matches!(
+                            effect,
+                            ModifierEffect::GoldenGrailFameTracking { remaining_healing_points: 2 }
+                        ));
+                    }
+                    _ => panic!("Expected ApplyModifier"),
+                }
+                assert!(matches!(effects[1], CardEffect::GainHealing { amount: 2 }));
+            }
+            _ => panic!("Expected Compound"),
+        }
+    }
+
+    #[test]
+    fn golden_grail_powered_draw_on_heal_and_healing_6() {
+        let card = get_artifact_card("golden_grail").unwrap();
+        match &card.powered_effect {
+            CardEffect::Compound { effects } => {
+                assert_eq!(effects.len(), 2);
+                match &effects[0] {
+                    CardEffect::ApplyModifier { effect, .. } => {
+                        assert!(matches!(effect, ModifierEffect::GoldenGrailDrawOnHeal));
+                    }
+                    _ => panic!("Expected ApplyModifier"),
+                }
+                assert!(matches!(effects[1], CardEffect::GainHealing { amount: 6 }));
+            }
+            _ => panic!("Expected Compound"),
+        }
+    }
+
+    #[test]
+    fn banner_of_command_powered_fame_and_free_recruit() {
+        let card = get_artifact_card("banner_of_command").unwrap();
+        match &card.powered_effect {
+            CardEffect::Compound { effects } => {
+                assert_eq!(effects.len(), 2);
+                assert!(matches!(effects[0], CardEffect::GainFame { amount: 2 }));
+                assert!(matches!(effects[1], CardEffect::FreeRecruit));
+            }
+            _ => panic!("Expected Compound"),
+        }
+    }
+
+    // =========================================================================
+    // Step 3: Amulet card definition tests
+    // =========================================================================
+
+    #[test]
+    fn amulet_of_the_sun_basic_has_forest_terrain_and_gold_override() {
+        use mk_types::modifier::*;
+        let card = get_artifact_card("amulet_of_the_sun").unwrap();
+        match &card.basic_effect {
+            CardEffect::Compound { effects } => {
+                assert_eq!(effects.len(), 2);
+                // First: Gold mana
+                assert!(matches!(
+                    effects[0],
+                    CardEffect::GainMana {
+                        color: ManaColor::Gold,
+                        amount: 1
+                    }
+                ));
+                // Second: Compound of terrain + rule override
+                match &effects[1] {
+                    CardEffect::Compound { effects: inner } => {
+                        assert_eq!(inner.len(), 2);
+                        match &inner[0] {
+                            CardEffect::ApplyModifier { effect, .. } => {
+                                assert!(matches!(
+                                    effect,
+                                    ModifierEffect::TerrainCost {
+                                        terrain: TerrainOrAll::Specific(Terrain::Forest),
+                                        replace_cost: Some(3),
+                                        ..
+                                    }
+                                ));
+                            }
+                            other => panic!("Expected ApplyModifier(TerrainCost), got {:?}", other),
+                        }
+                        match &inner[1] {
+                            CardEffect::ApplyModifier { effect, .. } => {
+                                assert!(matches!(
+                                    effect,
+                                    ModifierEffect::RuleOverride {
+                                        rule: RuleOverride::AllowGoldAtNight
+                                    }
+                                ));
+                            }
+                            other => panic!(
+                                "Expected ApplyModifier(RuleOverride), got {:?}",
+                                other
+                            ),
+                        }
+                    }
+                    other => panic!("Expected inner Compound, got {:?}", other),
+                }
+            }
+            _ => panic!("Expected Compound"),
+        }
+    }
+
+    #[test]
+    fn amulet_of_the_sun_powered_has_3_gold_mana() {
+        let card = get_artifact_card("amulet_of_the_sun").unwrap();
+        match &card.powered_effect {
+            CardEffect::Compound { effects } => {
+                assert!(effects.len() >= 2);
+                assert!(matches!(
+                    effects[0],
+                    CardEffect::GainMana {
+                        color: ManaColor::Gold,
+                        amount: 3
+                    }
+                ));
+            }
+            _ => panic!("Expected Compound"),
+        }
+        assert!(card.destroy_on_powered);
+    }
+
+    #[test]
+    fn amulet_of_darkness_basic_has_desert_terrain_and_black_override() {
+        use mk_types::modifier::*;
+        let card = get_artifact_card("amulet_of_darkness").unwrap();
+        match &card.basic_effect {
+            CardEffect::Compound { effects } => {
+                assert_eq!(effects.len(), 2);
+                // Second: Compound of terrain + rule override
+                match &effects[1] {
+                    CardEffect::Compound { effects: inner } => {
+                        assert_eq!(inner.len(), 2);
+                        match &inner[0] {
+                            CardEffect::ApplyModifier { effect, .. } => {
+                                assert!(matches!(
+                                    effect,
+                                    ModifierEffect::TerrainCost {
+                                        terrain: TerrainOrAll::Specific(Terrain::Desert),
+                                        replace_cost: Some(3),
+                                        ..
+                                    }
+                                ));
+                            }
+                            other => panic!("Expected ApplyModifier(TerrainCost), got {:?}", other),
+                        }
+                        match &inner[1] {
+                            CardEffect::ApplyModifier { effect, .. } => {
+                                assert!(matches!(
+                                    effect,
+                                    ModifierEffect::RuleOverride {
+                                        rule: RuleOverride::AllowBlackAtDay
+                                    }
+                                ));
+                            }
+                            other => panic!(
+                                "Expected ApplyModifier(RuleOverride), got {:?}",
+                                other
+                            ),
+                        }
+                    }
+                    other => panic!("Expected inner Compound, got {:?}", other),
+                }
+            }
+            _ => panic!("Expected Compound"),
+        }
+    }
+
+    #[test]
+    fn amulet_of_darkness_powered_has_3_any_color_mana() {
+        let card = get_artifact_card("amulet_of_darkness").unwrap();
+        match &card.powered_effect {
+            CardEffect::Compound { effects } => {
+                // 3 × any_color + darkness_bonus
+                assert_eq!(effects.len(), 4);
+            }
+            _ => panic!("Expected Compound"),
+        }
+        assert!(card.destroy_on_powered);
     }
 }

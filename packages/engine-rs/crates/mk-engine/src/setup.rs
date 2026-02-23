@@ -57,6 +57,16 @@ fn roll_die_color(rng: &mut RngState) -> ManaColor {
     ALL_MANA_COLORS_ARRAY[index]
 }
 
+/// Create the ruins token draw pile (shuffled) with empty discard.
+pub fn create_ruins_token_piles(rng: &mut RngState) -> RuinsTokenPiles {
+    let mut draw = mk_data::ruins_tokens::all_ruins_token_ids();
+    rng.shuffle(&mut draw);
+    RuinsTokenPiles {
+        draw,
+        discard: Vec::new(),
+    }
+}
+
 /// Create the mana source dice pool.
 ///
 /// `dice_count = player_count + 2`. After initial roll, rerolls any gold/black
@@ -339,7 +349,7 @@ pub fn create_solo_game(seed: u32, hero: Hero) -> GameState {
             ..GameOffers::default()
         },
         enemy_tokens,
-        ruins_tokens: RuinsTokenPiles::default(),
+        ruins_tokens: create_ruins_token_piles(&mut rng),
         decks: GameDecks {
             advanced_action_deck: aa_deck,
             spell_deck,
@@ -477,7 +487,7 @@ pub fn create_multiplayer_game(
             ..GameOffers::default()
         },
         enemy_tokens,
-        ruins_tokens: RuinsTokenPiles::default(),
+        ruins_tokens: create_ruins_token_piles(&mut rng),
         decks: GameDecks {
             advanced_action_deck: aa_deck,
             spell_deck,

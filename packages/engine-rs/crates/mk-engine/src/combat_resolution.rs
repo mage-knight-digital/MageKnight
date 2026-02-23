@@ -259,15 +259,32 @@ pub struct AttackResult {
 /// All-or-nothing: must meet combined armor to defeat all targets.
 ///
 /// `bonus_armor` provides per-enemy instance armor bonuses (vampiric + defend).
+/// `removed_resistances` lists resistance elements stripped by modifiers (e.g. Sword of Justice).
 pub fn resolve_attack(
     available_elements: &ElementalValues,
     targets: &[(&CombatEnemy, &EnemyDefinition)],
     phase: CombatPhase,
     bonus_armor: &BTreeMap<String, u32>,
 ) -> AttackResult {
+    resolve_attack_with_removed_resistances(
+        available_elements, targets, phase, bonus_armor, &[],
+    )
+}
+
+/// Like `resolve_attack` but with explicit resistance removal.
+pub fn resolve_attack_with_removed_resistances(
+    available_elements: &ElementalValues,
+    targets: &[(&CombatEnemy, &EnemyDefinition)],
+    phase: CombatPhase,
+    bonus_armor: &BTreeMap<String, u32>,
+    removed_resistances: &[ResistanceElement],
+) -> AttackResult {
     // Collect definitions for resistance combination
     let defs: Vec<&EnemyDefinition> = targets.iter().map(|(_, def)| *def).collect();
-    let combined_resistances = combine_resistances(&defs);
+    let mut combined_resistances = combine_resistances(&defs);
+
+    // Filter out removed resistances
+    combined_resistances.retain(|r| !removed_resistances.contains(r));
 
     let effective_attack = calculate_effective_attack(available_elements, &combined_resistances);
 
@@ -537,7 +554,13 @@ pub fn get_enemy_armor_modifier(modifiers: &[ActiveModifier], enemy_id: &str) ->
     let mut total_change = 0i32;
     let mut max_minimum = 0u32;
     for m in modifiers {
-        if let ModifierEffect::EnemyStat { stat: ModEnemyStat::Armor, amount, minimum, .. } = &m.effect {
+        if let ModifierEffect::EnemyStat { stat: ModEnemyStat::Armor, amount, minimum, exclude_resistance, .. } = &m.effect {
+            // Skip modifier if enemy has the excluded resistance
+            if let Some(resist) = exclude_resistance {
+                if enemy_has_resistance(enemy_id, *resist) {
+                    continue;
+                }
+            }
             if matches!(&m.scope, ModifierScope::OneEnemy { enemy_id: id } if id == enemy_id)
                 || matches!(&m.scope, ModifierScope::AllEnemies)
             {
@@ -556,7 +579,13 @@ pub fn get_enemy_attack_modifier(modifiers: &[ActiveModifier], enemy_id: &str) -
     let mut total_change = 0i32;
     let mut max_minimum = 0u32;
     for m in modifiers {
-        if let ModifierEffect::EnemyStat { stat: ModEnemyStat::Attack, amount, minimum, .. } = &m.effect {
+        if let ModifierEffect::EnemyStat { stat: ModEnemyStat::Attack, amount, minimum, exclude_resistance, .. } = &m.effect {
+            // Skip modifier if enemy has the excluded resistance
+            if let Some(resist) = exclude_resistance {
+                if enemy_has_resistance(enemy_id, *resist) {
+                    continue;
+                }
+            }
             if matches!(&m.scope, ModifierScope::OneEnemy { enemy_id: id } if id == enemy_id)
                 || matches!(&m.scope, ModifierScope::AllEnemies)
             {
@@ -568,6 +597,13 @@ pub fn get_enemy_attack_modifier(modifiers: &[ActiveModifier], enemy_id: &str) -
         }
     }
     (total_change, max_minimum)
+}
+
+/// Check if an enemy has a specific resistance element.
+fn enemy_has_resistance(enemy_id: &str, resist: mk_types::enums::ResistanceElement) -> bool {
+    mk_data::enemies::get_enemy(enemy_id)
+        .map(|def| def.resistances.contains(&resist))
+        .unwrap_or(false)
 }
 
 /// Check if enemy's fortification is nullified (AbilityNullifier).

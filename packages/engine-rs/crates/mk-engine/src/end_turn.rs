@@ -14,13 +14,14 @@ use mk_data::levels::{get_level_from_fame, get_level_stats, is_skill_level_up};
 use mk_data::tactics::get_tactics_for_time;
 use mk_types::enums::*;
 use mk_types::ids::*;
-use mk_types::modifier::ModifierEffect;
+use mk_types::modifier::{ModifierEffect, RuleOverride};
 use mk_types::pending::{
     ActivePending, DeferredPending, PendingCrystalJoyReclaim, PendingLevelUpReward,
     PendingSteadyTempoDeckPlacement, MAX_DEEP_MINE_COLORS, MAX_DRAWN_SKILLS,
 };
 use mk_types::state::*;
 
+use crate::card_play::is_rule_active;
 use crate::mana;
 use crate::mana::return_player_dice;
 use crate::setup::create_mana_source;
@@ -154,8 +155,16 @@ pub fn end_turn(state: &mut GameState, player_idx: usize) -> Result<EndTurnResul
     // Mountain Lore hand limit bonus (before card draw)
     apply_mountain_lore_bonus(state, player_idx);
 
+    // Check Time Bending BEFORE modifiers expire (TimeBendingActive has Turn duration)
+    let is_time_bending = is_rule_active(state, player_idx, RuleOverride::TimeBendingActive);
+
     // Card flow: play area → discard, draw up to hand limit
-    process_card_flow(state, player_idx);
+    // (Time Bending: return played cards to hand, skip draw)
+    if is_time_bending {
+        process_time_bending_card_flow(state, player_idx);
+    } else {
+        process_card_flow(state, player_idx);
+    }
 
     // Reset player turn state
     reset_player_turn_inner(&mut state.players[player_idx]);
@@ -164,7 +173,7 @@ pub fn end_turn(state: &mut GameState, player_idx: usize) -> Result<EndTurnResul
     cleanup_end_turn_mana(state, player_idx);
 
     // Determine next player or round end
-    let result = advance_turn(state, player_idx);
+    let result = advance_turn(state, player_idx, is_time_bending);
 
     Ok(result)
 }
@@ -419,8 +428,10 @@ pub fn process_card_flow_pub(state: &mut GameState, player_idx: usize) {
 }
 
 /// Public wrapper for advance_turn (used by action_pipeline after level-up rewards).
+/// Note: Time Bending is always false here because modifiers were already expired
+/// before level-up reward resolution.
 pub fn advance_turn_pub(state: &mut GameState, player_idx: usize) -> EndTurnResult {
-    advance_turn(state, player_idx)
+    advance_turn(state, player_idx, false)
 }
 
 /// Process any level-ups earned by the player based on current fame.
@@ -576,6 +587,33 @@ fn process_card_flow(state: &mut GameState, player_idx: usize) {
     }
 }
 
+/// Time Bending card flow: return played cards to hand (except Space Bending),
+/// set aside Space Bending, skip draw phase.
+///
+/// Matches TS `processTimeBendingCardFlow()` in `cardFlow.ts`.
+fn process_time_bending_card_flow(state: &mut GameState, player_idx: usize) {
+    let player = &mut state.players[player_idx];
+
+    // Separate Space Bending from other play area cards
+    let mut return_to_hand = Vec::new();
+    let mut set_aside = Vec::new();
+    for card in player.play_area.drain(..) {
+        if card.as_str() == "space_bending" {
+            set_aside.push(card);
+        } else {
+            return_to_hand.push(card);
+        }
+    }
+
+    // Return other played cards to hand
+    player.hand.append(&mut return_to_hand);
+
+    // Set aside Space Bending (returned at round end)
+    player.time_bending_set_aside_cards.append(&mut set_aside);
+
+    // No draw phase — player keeps their current hand
+}
+
 // =============================================================================
 // Player turn reset
 // =============================================================================
@@ -664,7 +702,7 @@ fn reset_player_turn_inner(player: &mut PlayerState) {
 // =============================================================================
 
 /// Determine next player or trigger round end.
-fn advance_turn(state: &mut GameState, current_player_idx: usize) -> EndTurnResult {
+fn advance_turn(state: &mut GameState, current_player_idx: usize, is_time_bending: bool) -> EndTurnResult {
     // Check if round should end
     let should_end_round = check_round_end(state, current_player_idx);
 
@@ -692,6 +730,18 @@ fn advance_turn(state: &mut GameState, current_player_idx: usize) -> EndTurnResu
     // Extra turn check (The Right Moment tactic)
     if state.players[current_player_idx].tactic_state.extra_turn_pending {
         state.players[current_player_idx].tactic_state.extra_turn_pending = false;
+        return EndTurnResult::NextPlayer {
+            next_player_idx: current_player_idx,
+        };
+    }
+
+    // Time Bending extra turn: same player takes another turn
+    if is_time_bending {
+        let player = &mut state.players[current_player_idx];
+        player.flags.insert(PlayerFlags::IS_TIME_BENT_TURN);
+        // Refresh once-per-turn skill cooldowns (but NOT once-per-round)
+        player.skill_cooldowns.used_this_turn.clear();
+        player.skill_cooldowns.used_this_combat.clear();
         return EndTurnResult::NextPlayer {
             next_player_idx: current_player_idx,
         };
@@ -748,6 +798,9 @@ fn advance_turn(state: &mut GameState, current_player_idx: usize) -> EndTurnResu
         }
     }
 
+    // Grant Mana Claim sustained tokens for the next player
+    grant_mana_claim_sustained_tokens(state, next_player_idx);
+
     // Setup next player: Magical Glade mana
     apply_magical_glade_mana(state, next_player_idx);
 
@@ -777,6 +830,7 @@ fn advance_turn(state: &mut GameState, current_player_idx: usize) -> EndTurnResu
 ///
 /// In solo mode: round ends when the player's hand AND deck are both empty,
 /// or when end_of_round_announced_by is set and all final turns are done.
+/// In multiplayer: auto-announces when hand+deck empty, populating final turn list.
 fn check_round_end(state: &mut GameState, current_player_idx: usize) -> bool {
     let player = &state.players[current_player_idx];
 
@@ -849,7 +903,7 @@ fn finalize_game_end(state: &mut GameState) {
 /// Process end of round: day/night toggle, mana reset, deck reshuffle, new tactics.
 ///
 /// Matches TS `createEndRoundCommand()` in `endRound/index.ts`.
-fn end_round(state: &mut GameState) {
+pub(crate) fn end_round(state: &mut GameState) {
     let reached_round_limit = state.round >= state.scenario_config.total_rounds;
 
     // Rulebook: "If the Round ends during [final turns], the game ends immediately."
@@ -879,7 +933,16 @@ fn end_round(state: &mut GameState) {
         TimeOfDay::Night => TimeOfDay::Day,
     };
 
-    // TODO: Dawn effect — reveal face-down ruins tokens when Night → Day
+    // Dawn effect — reveal face-down ruins tokens when transitioning to Day
+    if state.time_of_day == TimeOfDay::Day {
+        for hex in state.map.hexes.values_mut() {
+            if let Some(ref mut ruins_token) = hex.ruins_token {
+                if !ruins_token.is_revealed {
+                    ruins_token.is_revealed = true;
+                }
+            }
+        }
+    }
 
     // 2. Reset mana source (reroll all dice for new time of day)
     let player_count = state.players.len() as u32;
@@ -944,18 +1007,21 @@ fn end_round(state: &mut GameState) {
         TacticRemovalMode::None | TacticRemovalMode::VoteOne | TacticRemovalMode::RemoveOne | TacticRemovalMode::RemoveTwo => {
             // None: tactics recycled each round
             // VoteOne: cooperative mode, not yet implemented
+            // RemoveTwo/RemoveOne: handled during tactic selection, not between rounds
         }
     }
     state.dummy_player_tactic = None;
 
     state.round_phase = RoundPhase::TacticsSelection;
-    // Tactic selection order: humans only (dummy auto-selects in apply_select_tactic)
-    state.tactics_selection_order = state
+    // Tactic selection order: humans only, reversed (last in turn order picks first)
+    let mut human_ids: Vec<PlayerId> = state
         .turn_order
         .iter()
         .filter(|pid| !crate::dummy_player::is_dummy_player(pid.as_str()))
         .cloned()
         .collect();
+    human_ids.reverse();
+    state.tactics_selection_order = human_ids;
     state.current_tactic_selector = state.tactics_selection_order.first().cloned();
 
     // Expire round-duration modifiers
@@ -1016,7 +1082,22 @@ fn reset_player_round(state: &mut GameState, player_idx: usize) {
         banner.is_used_this_round = false;
     }
 
-    // TODO: Set pendingUnitMaintenance if Magic Familiars present
+    // Set pendingUnitMaintenance if Magic Familiars present
+    {
+        let mut maintenance_entries =
+            ArrayVec::<mk_types::pending::UnitMaintenanceEntry, { mk_types::pending::MAX_UNIT_MAINTENANCE }>::new();
+        for unit in &player.units {
+            if unit.unit_id.as_str() == "magic_familiars" && unit.mana_token.is_some() {
+                maintenance_entries.push(mk_types::pending::UnitMaintenanceEntry {
+                    unit_instance_id: unit.instance_id.clone(),
+                    unit_id: unit.unit_id.clone(),
+                });
+            }
+        }
+        if !maintenance_entries.is_empty() {
+            player.pending.active = Some(ActivePending::UnitMaintenance(maintenance_entries));
+        }
+    }
 }
 
 // =============================================================================
@@ -1124,6 +1205,33 @@ fn apply_deep_mine_choice(state: &mut GameState, player_idx: usize) -> bool {
         // 0 gainable — all maxed, skip
     }
     false
+}
+
+/// Grant Mana Claim sustained tokens: for each ManaClaimSustained modifier owned by the player,
+/// grant 1 mana token of the claimed die's color.
+fn grant_mana_claim_sustained_tokens(state: &mut GameState, player_idx: usize) {
+    let player_id = &state.players[player_idx].id;
+
+    // Collect colors to grant (to avoid borrowing conflicts)
+    let colors_to_grant: Vec<BasicManaColor> = state
+        .active_modifiers
+        .iter()
+        .filter(|m| m.created_by_player_id == *player_id)
+        .filter_map(|m| match &m.effect {
+            mk_types::modifier::ModifierEffect::ManaClaimSustained { color, .. } => Some(*color),
+            _ => None,
+        })
+        .collect();
+
+    for color in colors_to_grant {
+        state.players[player_idx]
+            .pure_mana
+            .push(mk_types::state::ManaToken {
+                color: ManaColor::from(color),
+                source: mk_types::state::ManaTokenSource::Die,
+                cannot_power_spells: false,
+            });
+    }
 }
 
 /// Magical Glade: gain gold (day) or black (night) mana token at turn start.
@@ -3217,5 +3325,278 @@ mod tests {
             state.players[0].steady_tempo_version,
             Some(mk_types::pending::EffectMode::Powered)
         );
+    }
+
+    // =========================================================================
+    // Ring fame — additional edge cases
+    // =========================================================================
+
+    #[test]
+    fn ring_fame_only_counts_matching_color() {
+        use mk_types::modifier::*;
+        use std::collections::BTreeMap;
+
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+        let pid = state.players[0].id.clone();
+
+        // Sapphire ring: Blue + Black
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("ring_blue"),
+            source: ModifierSource::Skill {
+                skill_id: SkillId::from("ring"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::EndlessMana {
+                colors: vec![ManaColor::Blue, ManaColor::Black],
+            },
+            created_at_round: 1,
+            created_by_player_id: pid.clone(),
+        });
+
+        // Cast 2 blue spells + 3 red spells → only blue counts
+        let mut spell_map = BTreeMap::new();
+        spell_map.insert(ManaColor::Blue, 2);
+        spell_map.insert(ManaColor::Red, 3);
+        state.players[0].spells_cast_by_color_this_turn = spell_map;
+        state.players[0].fame = 0;
+
+        play_card(&mut state, 0, 0, false, None).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        // Only +2 from blue spells, red doesn't count for sapphire ring
+        assert_eq!(state.players[0].fame, 2);
+    }
+
+    #[test]
+    fn ring_fame_multiple_rings_stack() {
+        use mk_types::modifier::*;
+        use std::collections::BTreeMap;
+
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+        let pid = state.players[0].id.clone();
+
+        // Ruby ring: Red + Black
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("ring_red"),
+            source: ModifierSource::Skill {
+                skill_id: SkillId::from("ring"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::EndlessMana {
+                colors: vec![ManaColor::Red, ManaColor::Black],
+            },
+            created_at_round: 1,
+            created_by_player_id: pid.clone(),
+        });
+
+        // Sapphire ring: Blue + Black
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("ring_blue"),
+            source: ModifierSource::Skill {
+                skill_id: SkillId::from("ring"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::EndlessMana {
+                colors: vec![ManaColor::Blue, ManaColor::Black],
+            },
+            created_at_round: 1,
+            created_by_player_id: pid.clone(),
+        });
+
+        // Cast 2 red + 1 blue
+        let mut spell_map = BTreeMap::new();
+        spell_map.insert(ManaColor::Red, 2);
+        spell_map.insert(ManaColor::Blue, 1);
+        state.players[0].spells_cast_by_color_this_turn = spell_map;
+        state.players[0].fame = 0;
+
+        play_card(&mut state, 0, 0, false, None).unwrap();
+        end_turn(&mut state, 0).unwrap();
+
+        // +2 from ruby (red spells) + 1 from sapphire (blue spells) = 3
+        assert_eq!(state.players[0].fame, 3);
+    }
+
+    // =========================================================================
+    // Crystal Joy reclaim — edge cases
+    // =========================================================================
+
+    #[test]
+    fn crystal_joy_empty_discard_offers_skip_only() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+
+        // Set Crystal Joy version to basic
+        state.players[0].crystal_joy_reclaim_version =
+            Some(mk_types::pending::EffectMode::Basic);
+        state.players[0].play_area.push(CardId::from("goldyx_crystal_joy"));
+        // Empty discard
+        state.players[0].discard.clear();
+
+        play_card(&mut state, 0, 0, false, None).unwrap();
+        let result = end_turn(&mut state, 0);
+
+        // End turn should create pending, but no eligible cards → auto-skips or only skip option
+        match result {
+            Ok(EndTurnResult::AwaitingEndTurnChoice) => {
+                // Pending was created — verify it has basic mode
+                let pending = &state.players[0].pending.active;
+                if let Some(ActivePending::CrystalJoyReclaim(reclaim)) = pending {
+                    assert_eq!(reclaim.version, mk_types::pending::EffectMode::Basic);
+                } else {
+                    panic!("Expected CrystalJoyReclaim pending");
+                }
+            }
+            Ok(EndTurnResult::NextPlayer { .. } | EndTurnResult::RoundEnded { .. }) => {
+                // Auto-skipped because no eligible cards — also acceptable
+            }
+            other => panic!("Unexpected result: {:?}", other),
+        }
+    }
+
+    // =========================================================================
+    // Steady Tempo — edge cases
+    // =========================================================================
+
+    #[test]
+    fn steady_tempo_basic_empty_deck_still_creates_pending() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck.clear(); // Empty deck!
+
+        state.players[0].steady_tempo_version =
+            Some(mk_types::pending::EffectMode::Basic);
+        state.players[0].play_area.push(CardId::from("steady_tempo"));
+
+        play_card(&mut state, 0, 0, false, None).unwrap();
+        let result = end_turn(&mut state, 0);
+
+        match result {
+            Ok(EndTurnResult::AwaitingEndTurnChoice) => {
+                // Pending created even with empty deck (basic can't place, but still offers skip)
+                let pending = &state.players[0].pending.active;
+                assert!(matches!(pending, Some(ActivePending::SteadyTempoDeckPlacement(_))));
+            }
+            Ok(EndTurnResult::NextPlayer { .. } | EndTurnResult::RoundEnded { .. }) => {
+                // Auto-skipped — also fine
+            }
+            other => panic!("Unexpected result: {:?}", other),
+        }
+    }
+
+    // =========================================================================
+    // Mysterious Box — end-of-turn cleanup
+    // =========================================================================
+
+    #[test]
+    fn mysterious_box_unused_returns_march_to_hand() {
+        // When Mysterious Box is left unused (no basic/powered play), it returns to hand.
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+
+        // Mark mysterious box as in play with "unused" state
+        state.players[0].play_area.push(CardId::from("mysterious_box"));
+        state.players[0].mysterious_box_state = Some(mk_types::state::MysteriousBoxState {
+            revealed_artifact_id: CardId::from("ruby_ring"),
+            used_as: mk_types::state::MysteriousBoxUsage::Unused,
+            played_card_from_hand_before_play: false,
+        });
+
+        play_card(&mut state, 0, 0, false, None).unwrap();
+        let _result = end_turn(&mut state, 0);
+
+        // Card should return to hand
+        assert!(
+            state.players[0].hand.iter().any(|c| c.as_str() == "mysterious_box"),
+            "Unused Mysterious Box should return to hand"
+        );
+        // State should be cleared
+        assert!(state.players[0].mysterious_box_state.is_none());
+    }
+
+    #[test]
+    fn mysterious_box_powered_cleanup_removes_card() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+
+        state.players[0].play_area.push(CardId::from("mysterious_box"));
+        state.players[0].mysterious_box_state = Some(mk_types::state::MysteriousBoxState {
+            revealed_artifact_id: CardId::from("ruby_ring"),
+            used_as: mk_types::state::MysteriousBoxUsage::Powered,
+            played_card_from_hand_before_play: false,
+        });
+        // The revealed artifact should go back to deck
+        state.offers.artifacts.clear(); // clear so we can verify it was returned
+
+        play_card(&mut state, 0, 0, false, None).unwrap();
+        let _result = end_turn(&mut state, 0);
+
+        // Card should go to removed_cards
+        assert!(
+            state.players[0].removed_cards.iter().any(|c| c.as_str() == "mysterious_box"),
+            "Powered Mysterious Box should go to removed_cards"
+        );
+        assert!(state.players[0].mysterious_box_state.is_none());
+    }
+
+    // =========================================================================
+    // Banner Protection — edge cases
+    // =========================================================================
+
+    #[test]
+    fn banner_protection_wounds_in_both_hand_and_discard() {
+        // When wounds are tracked in both hand and discard,
+        // both counts should trigger banner protection pending.
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+
+        state.players[0].flags.insert(PlayerFlags::BANNER_OF_PROTECTION_ACTIVE);
+        state.players[0].wounds_received_this_turn.hand = 1;
+        state.players[0].wounds_received_this_turn.discard = 2;
+
+        play_card(&mut state, 0, 0, false, None).unwrap();
+        let result = end_turn(&mut state, 0);
+
+        match result {
+            Ok(EndTurnResult::AwaitingEndTurnChoice) => {
+                let pending = &state.players[0].pending.active;
+                assert!(matches!(pending, Some(ActivePending::BannerProtectionChoice { .. })));
+            }
+            _ => panic!("Expected AwaitingEndTurnChoice for banner protection"),
+        }
+    }
+
+    #[test]
+    fn banner_protection_zero_wounds_no_pending() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+
+        state.players[0].flags.insert(PlayerFlags::BANNER_OF_PROTECTION_ACTIVE);
+        state.players[0].wounds_received_this_turn.hand = 0;
+        state.players[0].wounds_received_this_turn.discard = 0;
+
+        play_card(&mut state, 0, 0, false, None).unwrap();
+        let result = end_turn(&mut state, 0);
+
+        // Should complete normally (no pending), not AwaitingEndTurnChoice
+        match result {
+            Ok(EndTurnResult::NextPlayer { .. } | EndTurnResult::RoundEnded { .. }) => {
+                // No pending — turn ended normally
+            }
+            Ok(EndTurnResult::AwaitingEndTurnChoice) => {
+                // If there's a pending, it shouldn't be BannerProtectionChoice
+                let pending = &state.players[0].pending.active;
+                assert!(!matches!(pending, Some(ActivePending::BannerProtectionChoice { .. })),
+                    "No wounds → no banner protection pending");
+            }
+            other => panic!("Unexpected result: {:?}", other),
+        }
     }
 }

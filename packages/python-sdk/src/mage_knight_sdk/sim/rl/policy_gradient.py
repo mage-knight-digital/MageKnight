@@ -498,6 +498,42 @@ class ReinforcePolicy(Policy):
 
         return valid_actions[selected_index]
 
+    def choose_action_from_encoded(
+        self,
+        encoded_step: EncodedStep,
+        rng: random.Random | None = None,
+    ) -> int:
+        """Choose an action from a pre-encoded step (native Rust path).
+
+        Returns the action index directly instead of a CandidateAction.
+        Used by the native RL runner where encoding happens in Rust.
+        """
+        del rng
+        if not encoded_step.actions:
+            return 0
+
+        self._network.train()
+        logits, value = self._network(encoded_step, self._device)
+
+        log_probs = torch.log_softmax(logits, dim=0)
+        selected_index = int(torch.multinomial(log_probs.exp(), 1).item())
+
+        self._episode_log_probs.append(log_probs[selected_index])
+        probs = log_probs.exp()
+        self._episode_entropies.append(-(probs * log_probs).sum())
+        self._episode_rewards.append(0.0)
+        if value is not None:
+            self._episode_values.append(value)
+
+        self.last_step_info = StepInfo(
+            encoded_step=encoded_step,
+            action_index=selected_index,
+            log_prob=float(log_probs[selected_index].detach().cpu().item()),
+            value=float(value.detach().cpu().item()) if value is not None else 0.0,
+        )
+
+        return selected_index
+
     def _choose_action_legacy(
         self,
         state: dict[str, Any],

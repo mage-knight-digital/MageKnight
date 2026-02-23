@@ -15,6 +15,7 @@ use mk_engine::legal_actions::enumerate_legal_actions_with_undo;
 use mk_engine::scoring::calculate_final_scores;
 use mk_engine::setup::{create_solo_game, place_initial_tiles};
 use mk_engine::undo::UndoStack;
+use mk_features::EncodedStep;
 use mk_types::enums::Hero;
 use mk_types::events::GameEvent;
 use mk_types::legal_action::LegalActionSet;
@@ -34,6 +35,151 @@ fn parse_hero(name: &str) -> PyResult<Hero> {
         "krang" => Ok(Hero::Krang),
         "braevalar" => Ok(Hero::Braevalar),
         _ => Err(PyValueError::new_err(format!("Unknown hero: {name}"))),
+    }
+}
+
+// =============================================================================
+// PyEncodedStep — RL feature encoding exposed to Python
+// =============================================================================
+
+/// Encoded RL features for one decision step.
+///
+/// Contains state features (shared across actions) and per-action features.
+/// Use accessor methods to extract data for tensor construction.
+///
+///     encoded = engine.encode_step()
+///     scalars = encoded.state_scalars()       # 76 floats
+///     mode = encoded.mode_id()                # u16
+///     action_types = encoded.action_type_ids() # list[u16]
+#[pyclass]
+struct PyEncodedStep {
+    inner: EncodedStep,
+}
+
+#[pymethods]
+impl PyEncodedStep {
+    // ── State features ──────────────────────────────────────────────
+
+    /// 76 state scalar features.
+    fn state_scalars(&self) -> Vec<f32> {
+        self.inner.state.scalars.clone()
+    }
+
+    /// MODE_VOCAB index for the current game mode.
+    fn mode_id(&self) -> u16 {
+        self.inner.state.mode_id
+    }
+
+    /// CARD_VOCAB indices for cards in the player's hand.
+    fn hand_card_ids(&self) -> Vec<u16> {
+        self.inner.state.hand_card_ids.clone()
+    }
+
+    /// UNIT_VOCAB indices for the player's units.
+    fn unit_ids(&self) -> Vec<u16> {
+        self.inner.state.unit_ids.clone()
+    }
+
+    /// SKILL_VOCAB indices for the player's skills.
+    fn skill_ids(&self) -> Vec<u16> {
+        self.inner.state.skill_ids.clone()
+    }
+
+    /// TERRAIN_VOCAB index for the current hex terrain.
+    fn current_terrain_id(&self) -> u16 {
+        self.inner.state.current_terrain_id
+    }
+
+    /// SITE_VOCAB index for the current hex site type.
+    fn current_site_type_id(&self) -> u16 {
+        self.inner.state.current_site_type_id
+    }
+
+    /// ENEMY_VOCAB indices for combat enemies.
+    fn combat_enemy_ids(&self) -> Vec<u16> {
+        self.inner.state.combat_enemy_ids.clone()
+    }
+
+    /// COMBAT_ENEMY_SCALAR_DIM floats per combat enemy (list of lists).
+    fn combat_enemy_scalars(&self) -> Vec<Vec<f32>> {
+        self.inner.state.combat_enemy_scalars.clone()
+    }
+
+    /// SITE_VOCAB indices for all visible sites on the map.
+    fn visible_site_ids(&self) -> Vec<u16> {
+        self.inner.state.visible_site_ids.clone()
+    }
+
+    /// SITE_SCALAR_DIM floats per visible site (list of lists).
+    fn visible_site_scalars(&self) -> Vec<Vec<f32>> {
+        self.inner.state.visible_site_scalars.clone()
+    }
+
+    /// ENEMY_VOCAB indices for all map enemies (not in active combat).
+    fn map_enemy_ids(&self) -> Vec<u16> {
+        self.inner.state.map_enemy_ids.clone()
+    }
+
+    /// MAP_ENEMY_SCALAR_DIM floats per map enemy (list of lists).
+    fn map_enemy_scalars(&self) -> Vec<Vec<f32>> {
+        self.inner.state.map_enemy_scalars.clone()
+    }
+
+    // ── Action features ─────────────────────────────────────────────
+
+    /// Number of legal actions.
+    fn action_count(&self) -> usize {
+        self.inner.actions.len()
+    }
+
+    /// ACTION_TYPE_VOCAB indices for all actions.
+    fn action_type_ids(&self) -> Vec<u16> {
+        self.inner.actions.iter().map(|a| a.action_type_id).collect()
+    }
+
+    /// SOURCE_VOCAB indices for all actions.
+    fn action_source_ids(&self) -> Vec<u16> {
+        self.inner.actions.iter().map(|a| a.source_id).collect()
+    }
+
+    /// CARD_VOCAB indices for all actions.
+    fn action_card_ids(&self) -> Vec<u16> {
+        self.inner.actions.iter().map(|a| a.card_id).collect()
+    }
+
+    /// UNIT_VOCAB indices for all actions.
+    fn action_unit_ids(&self) -> Vec<u16> {
+        self.inner.actions.iter().map(|a| a.unit_id).collect()
+    }
+
+    /// ENEMY_VOCAB indices for all actions.
+    fn action_enemy_ids(&self) -> Vec<u16> {
+        self.inner.actions.iter().map(|a| a.enemy_id).collect()
+    }
+
+    /// SKILL_VOCAB indices for all actions.
+    fn action_skill_ids(&self) -> Vec<u16> {
+        self.inner.actions.iter().map(|a| a.skill_id).collect()
+    }
+
+    /// ACTION_SCALAR_DIM floats per action (M x 34 list of lists).
+    fn action_scalars(&self) -> Vec<Vec<f32>> {
+        self.inner.actions.iter().map(|a| a.scalars.clone()).collect()
+    }
+
+    /// ENEMY_VOCAB indices for multi-target attacks at the given action index.
+    fn action_target_enemy_ids(&self, index: usize) -> PyResult<Vec<u16>> {
+        self.inner
+            .actions
+            .get(index)
+            .map(|a| a.target_enemy_ids.clone())
+            .ok_or_else(|| {
+                PyValueError::new_err(format!(
+                    "Action index {} out of range (0..{})",
+                    index,
+                    self.inner.actions.len()
+                ))
+            })
     }
 }
 
@@ -278,6 +424,23 @@ impl GameEngine {
             .map_err(|e| PyValueError::new_err(format!("Serialization error: {e}")))
     }
 
+    /// Encode the current state + legal actions into RL features.
+    ///
+    /// Returns a PyEncodedStep containing:
+    /// - State features (76 scalars, mode, entity pools)
+    /// - Per-action features (6 vocab IDs + 34 scalars each)
+    ///
+    /// This replaces the Python-side feature extraction pipeline,
+    /// eliminating JSON serialization and dict-crawling overhead.
+    fn encode_step(&self) -> PyEncodedStep {
+        let encoded = mk_features::encode_step(
+            &self.state,
+            self.player_idx,
+            &self.action_set,
+        );
+        PyEncodedStep { inner: encoded }
+    }
+
     /// String representation for debugging.
     fn __repr__(&self) -> String {
         format!(
@@ -299,5 +462,6 @@ impl GameEngine {
 fn mk_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", "0.1.0")?;
     m.add_class::<GameEngine>()?;
+    m.add_class::<PyEncodedStep>()?;
     Ok(())
 }

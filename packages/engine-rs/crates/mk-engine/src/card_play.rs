@@ -150,6 +150,8 @@ pub fn play_card(
 
     // Resolve the effect via effect queue
     let powered_effect_for_trigger = if powered { Some(card_def.powered_effect.clone()) } else { None };
+    let destroy_on_powered = card_def.destroy_on_powered;
+    let card_id_str: Box<str> = card_id.as_str().into();
     let mut queue = EffectQueue::new();
     queue.push(effect, Some(card_id.clone()));
     let result = match queue.drain(state, player_idx) {
@@ -182,6 +184,15 @@ pub fn play_card(
             Ok(CardPlayResult::PendingChoice)
         }
     };
+
+    // Destroy artifact on powered play if flagged
+    if powered && destroy_on_powered {
+        let player = &mut state.players[player_idx];
+        if let Some(pos) = player.play_area.iter().position(|c| c.as_str() == &*card_id_str) {
+            let removed = player.play_area.remove(pos);
+            player.removed_cards.push(removed);
+        }
+    }
 
     // Mana trigger hooks after powered card play
     if let Some(consumed) = consumed_color {
@@ -254,7 +265,7 @@ pub(crate) fn collect_mana_sources(
         .contains(PlayerFlags::USED_MANA_FROM_SOURCE)
     {
         for die in &state.source.dice {
-            if die.is_depleted || die.taken_by_player_id.is_some() {
+            if !is_die_available_with_overrides(die, state, player_idx) || die.taken_by_player_id.is_some() {
                 continue;
             }
             if die.color == target_mana || die.color == ManaColor::Gold {
@@ -336,6 +347,23 @@ pub(crate) fn consume_specific_mana_source(
 // =============================================================================
 // Sideways value resolution
 // =============================================================================
+
+/// Check if a die should be treated as available despite being "depleted" by time of day,
+/// because an AllowGoldAtNight or AllowBlackAtDay rule override is active.
+pub(crate) fn is_die_available_with_overrides(
+    die: &SourceDie,
+    state: &GameState,
+    player_idx: usize,
+) -> bool {
+    if !die.is_depleted {
+        return true;
+    }
+    match die.color {
+        ManaColor::Gold => is_rule_active(state, player_idx, RuleOverride::AllowGoldAtNight),
+        ManaColor::Black => is_rule_active(state, player_idx, RuleOverride::AllowBlackAtDay),
+        _ => false,
+    }
+}
 
 /// Check if a rule override is active for the given player.
 pub fn is_rule_active(state: &GameState, player_idx: usize, rule: RuleOverride) -> bool {
@@ -1839,48 +1867,41 @@ mod tests {
         give_mana(&mut state, ManaColor::Blue); // spell cost
         let result = play_card(&mut state, 0, 0, false, None).unwrap();
         assert!(matches!(result, CardPlayResult::Complete));
-        assert_eq!(state.players[0].move_points, 2);
-        let has_all = state.active_modifiers.iter().any(|m| {
-            matches!(
-                &m.effect,
-                ModifierEffect::TerrainCost {
-                    terrain: TerrainOrAll::All,
-                    replace_cost: Some(1),
-                    ..
-                }
-            )
-        });
-        assert!(has_all, "Mist Form basic should apply all-terrain replace cost");
-    }
-
-    #[test]
-    fn mist_form_powered_all_terrain_plus_ignore_rampaging() {
-        let mut state = setup_game(vec!["mist_form"]);
-        give_mana(&mut state, ManaColor::Blue); // spell cost
-        give_mana(&mut state, ManaColor::Blue); // powered cost
-        let result = play_card(&mut state, 0, 0, true, None).unwrap();
-        assert!(matches!(result, CardPlayResult::Complete));
         assert_eq!(state.players[0].move_points, 4);
         let has_all = state.active_modifiers.iter().any(|m| {
             matches!(
                 &m.effect,
                 ModifierEffect::TerrainCost {
                     terrain: TerrainOrAll::All,
-                    replace_cost: Some(1),
+                    replace_cost: Some(2),
                     ..
                 }
             )
         });
-        let has_ignore = state.active_modifiers.iter().any(|m| {
-            matches!(
-                &m.effect,
-                ModifierEffect::RuleOverride {
-                    rule: RuleOverride::IgnoreRampagingProvoke,
-                }
-            )
+        assert!(has_all, "Mist Form basic should apply all-terrain replace cost 2");
+        let has_prohibition = state.active_modifiers.iter().any(|m| {
+            matches!(&m.effect, ModifierEffect::TerrainProhibition { .. })
         });
-        assert!(has_all, "Mist Form powered should apply all-terrain modifier");
-        assert!(has_ignore, "Mist Form powered should apply ignore rampaging");
+        assert!(has_prohibition, "Mist Form basic should prohibit hills/mountains");
+    }
+
+    #[test]
+    fn mist_form_powered_resistances_and_wound_immunity() {
+        let mut state = setup_game(vec!["mist_form"]);
+        give_mana(&mut state, ManaColor::Blue); // spell cost
+        give_mana(&mut state, ManaColor::Blue); // powered cost
+        let result = play_card(&mut state, 0, 0, true, None).unwrap();
+        assert!(matches!(result, CardPlayResult::Complete));
+        // Powered Mist Form grants resistances + wound immunity, no move
+        assert_eq!(state.players[0].move_points, 0);
+        let has_resist = state.active_modifiers.iter().any(|m| {
+            matches!(&m.effect, ModifierEffect::GrantResistances { .. })
+        });
+        assert!(has_resist, "Mist Form powered should grant resistances to units");
+        assert!(
+            state.players[0].flags.contains(PlayerFlags::WOUND_IMMUNITY_ACTIVE),
+            "Mist Form powered should grant wound immunity"
+        );
     }
 
     // ---- E. Crystallize edge cases ----
@@ -1977,7 +1998,7 @@ mod tests {
     }
 
     #[test]
-    fn mist_form_basic_reduces_forest_to_1() {
+    fn mist_form_basic_reduces_forest_to_2() {
         use crate::movement::evaluate_move_entry;
 
         let mut state = setup_game(vec!["mist_form"]);
@@ -2001,7 +2022,7 @@ mod tests {
 
         let result = evaluate_move_entry(&state, 0, forest_coord);
         assert!(result.cost.is_some());
-        assert_eq!(result.cost.unwrap(), 1, "Forest should cost 1 with Mist Form");
+        assert_eq!(result.cost.unwrap(), 2, "Forest should cost 2 with Mist Form");
     }
 
     #[test]
@@ -2032,11 +2053,11 @@ mod tests {
             result.cost.is_some(),
             "Lake should be passable with Mist Form"
         );
-        assert_eq!(result.cost.unwrap(), 1);
+        assert_eq!(result.cost.unwrap(), 2);
     }
 
     #[test]
-    fn mist_form_reduces_mountain_to_1() {
+    fn mist_form_prohibits_mountain() {
         use crate::movement::evaluate_move_entry;
 
         let mut state = setup_game(vec!["mist_form"]);
@@ -2059,11 +2080,9 @@ mod tests {
         );
 
         let result = evaluate_move_entry(&state, 0, mtn_coord);
-        assert!(result.cost.is_some());
-        assert_eq!(
-            result.cost.unwrap(),
-            1,
-            "Mountain should cost 1 with Mist Form"
+        assert!(
+            result.cost.is_none(),
+            "Mountain should be impassable with Mist Form (prohibited terrain)"
         );
     }
 
@@ -2198,5 +2217,121 @@ mod tests {
         assert!(!state.active_modifiers.iter().any(|m|
             matches!(&m.effect, ModifierEffect::MovementCardBonus { .. })
         ));
+    }
+
+    // =========================================================================
+    // Step 4: AllowGoldAtNight / AllowBlackAtDay mana override tests
+    // =========================================================================
+
+    #[test]
+    fn non_depleted_die_always_available() {
+        let state = setup_game(vec!["march"]);
+        let die = SourceDie {
+            id: mk_types::ids::SourceDieId::from("die_1"),
+            color: ManaColor::Gold,
+            is_depleted: false,
+            taken_by_player_id: None,
+        };
+        assert!(is_die_available_with_overrides(&die, &state, 0));
+    }
+
+    #[test]
+    fn depleted_gold_die_unavailable_without_override() {
+        let state = setup_game(vec!["march"]);
+        let die = SourceDie {
+            id: mk_types::ids::SourceDieId::from("die_1"),
+            color: ManaColor::Gold,
+            is_depleted: true,
+            taken_by_player_id: None,
+        };
+        assert!(!is_die_available_with_overrides(&die, &state, 0));
+    }
+
+    #[test]
+    fn depleted_gold_die_available_with_allow_gold_at_night() {
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+        let mut state = setup_game(vec!["march"]);
+        let pid = state.players[0].id.clone();
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("rule_1"),
+            source: ModifierSource::Card {
+                card_id: CardId::from("amulet_of_the_sun"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::RuleOverride {
+                rule: RuleOverride::AllowGoldAtNight,
+            },
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+        let die = SourceDie {
+            id: mk_types::ids::SourceDieId::from("die_1"),
+            color: ManaColor::Gold,
+            is_depleted: true,
+            taken_by_player_id: None,
+        };
+        assert!(is_die_available_with_overrides(&die, &state, 0));
+    }
+
+    #[test]
+    fn depleted_black_die_available_with_allow_black_at_day() {
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+        let mut state = setup_game(vec!["march"]);
+        let pid = state.players[0].id.clone();
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("rule_1"),
+            source: ModifierSource::Card {
+                card_id: CardId::from("amulet_of_darkness"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::RuleOverride {
+                rule: RuleOverride::AllowBlackAtDay,
+            },
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+        let die = SourceDie {
+            id: mk_types::ids::SourceDieId::from("die_1"),
+            color: ManaColor::Black,
+            is_depleted: true,
+            taken_by_player_id: None,
+        };
+        assert!(is_die_available_with_overrides(&die, &state, 0));
+    }
+
+    #[test]
+    fn depleted_red_die_never_available_with_override() {
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+        let mut state = setup_game(vec!["march"]);
+        let pid = state.players[0].id.clone();
+        // AllowGoldAtNight doesn't help a Red die
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("rule_1"),
+            source: ModifierSource::Card {
+                card_id: CardId::from("amulet_of_the_sun"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::RuleOverride {
+                rule: RuleOverride::AllowGoldAtNight,
+            },
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+        let die = SourceDie {
+            id: mk_types::ids::SourceDieId::from("die_1"),
+            color: ManaColor::Red,
+            is_depleted: true,
+            taken_by_player_id: None,
+        };
+        assert!(!is_die_available_with_overrides(&die, &state, 0));
     }
 }

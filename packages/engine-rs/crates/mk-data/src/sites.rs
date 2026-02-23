@@ -4,6 +4,45 @@
 //! adventure site status, enemy draws, and healing costs.
 
 use mk_types::enums::{EnemyColor, SiteType};
+use mk_types::pending::SiteReward;
+
+// =============================================================================
+// Commerce costs
+// =============================================================================
+
+/// Influence cost to buy a spell at a conquered Mage Tower.
+pub const SPELL_PURCHASE_COST: u32 = 7;
+
+/// Influence cost to learn an advanced action at a Monastery.
+pub const MONASTERY_AA_PURCHASE_COST: u32 = 6;
+
+/// Reputation penalty for burning a monastery.
+pub const BURN_MONASTERY_REP_PENALTY: i32 = 3;
+
+// =============================================================================
+// Conquest rewards
+// =============================================================================
+
+/// Get the reward for conquering a site, or None for sites that don't give rewards.
+pub fn conquest_reward(site_type: SiteType) -> Option<SiteReward> {
+    match site_type {
+        SiteType::MageTower => Some(SiteReward::Spell { count: 1 }),
+        SiteType::Tomb => Some(SiteReward::Compound {
+            rewards: vec![
+                SiteReward::Spell { count: 1 },
+                SiteReward::Artifact { count: 1 },
+            ],
+        }),
+        SiteType::MonsterDen => Some(SiteReward::CrystalRoll { count: 2 }),
+        SiteType::SpawningGrounds => Some(SiteReward::Compound {
+            rewards: vec![
+                SiteReward::Artifact { count: 1 },
+                SiteReward::CrystalRoll { count: 3 },
+            ],
+        }),
+        _ => None,
+    }
+}
 
 // =============================================================================
 // Site properties
@@ -216,5 +255,72 @@ mod tests {
         assert!(draws_fresh_enemies(SiteType::Tomb));
         assert!(!draws_fresh_enemies(SiteType::MonsterDen));
         assert!(!draws_fresh_enemies(SiteType::SpawningGrounds));
+    }
+
+    #[test]
+    fn conquest_rewards_per_site_type() {
+        // MageTower → Spell(1)
+        assert_eq!(
+            conquest_reward(SiteType::MageTower),
+            Some(SiteReward::Spell { count: 1 })
+        );
+
+        // Tomb → Compound(Spell(1), Artifact(1))
+        match conquest_reward(SiteType::Tomb) {
+            Some(SiteReward::Compound { rewards }) => {
+                assert_eq!(rewards.len(), 2);
+                assert_eq!(rewards[0], SiteReward::Spell { count: 1 });
+                assert_eq!(rewards[1], SiteReward::Artifact { count: 1 });
+            }
+            other => panic!("Expected Compound for Tomb, got {:?}", other),
+        }
+
+        // MonsterDen → CrystalRoll(2)
+        assert_eq!(
+            conquest_reward(SiteType::MonsterDen),
+            Some(SiteReward::CrystalRoll { count: 2 })
+        );
+
+        // SpawningGrounds → Compound(Artifact(1), CrystalRoll(3))
+        match conquest_reward(SiteType::SpawningGrounds) {
+            Some(SiteReward::Compound { rewards }) => {
+                assert_eq!(rewards.len(), 2);
+                assert_eq!(rewards[0], SiteReward::Artifact { count: 1 });
+                assert_eq!(rewards[1], SiteReward::CrystalRoll { count: 3 });
+            }
+            other => panic!("Expected Compound for SpawningGrounds, got {:?}", other),
+        }
+
+        // Sites that don't give conquest rewards
+        assert!(conquest_reward(SiteType::Village).is_none());
+        assert!(conquest_reward(SiteType::Keep).is_none());
+        assert!(conquest_reward(SiteType::City).is_none());
+        assert!(conquest_reward(SiteType::Dungeon).is_none());
+        assert!(conquest_reward(SiteType::Monastery).is_none());
+    }
+
+    #[test]
+    fn site_reward_serde_roundtrip() {
+        use mk_types::pending::SiteReward;
+
+        let rewards = vec![
+            SiteReward::Spell { count: 1 },
+            SiteReward::Artifact { count: 2 },
+            SiteReward::CrystalRoll { count: 3 },
+            SiteReward::Fame { amount: 5 },
+            SiteReward::Unit,
+            SiteReward::Compound {
+                rewards: vec![
+                    SiteReward::Spell { count: 1 },
+                    SiteReward::Artifact { count: 1 },
+                ],
+            },
+        ];
+
+        for reward in &rewards {
+            let json = serde_json::to_string(reward).unwrap();
+            let parsed: SiteReward = serde_json::from_str(&json).unwrap();
+            assert_eq!(reward, &parsed);
+        }
     }
 }

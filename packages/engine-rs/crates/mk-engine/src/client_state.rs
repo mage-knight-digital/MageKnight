@@ -194,6 +194,9 @@ fn pending_label(active: &ActivePending) -> &'static str {
             _ => "Select cards",
         },
         ActivePending::SelectCombatEnemy { .. } => "Select combat enemy",
+        ActivePending::SiteRewardChoice { .. } => "Select reward",
+        ActivePending::TomeOfAllSpells(_) => "Tome of All Spells",
+        ActivePending::CircletOfProficiency(_) => "Circlet of Proficiency",
     }
 }
 

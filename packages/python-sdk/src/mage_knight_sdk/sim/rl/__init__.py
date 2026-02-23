@@ -6,6 +6,12 @@ from .distributed_trainer import (
     DistributedReinforceTrainer,
 )
 from .features import ActionFeatures, EncodedStep, StateFeatures, encode_step
+from .native_rl_runner import (
+    NativeRunResult,
+    py_encoded_to_encoded_step,
+    run_native_rl_game,
+    run_native_rl_game_ppo,
+)
 from .policy_gradient import (
     OptimizationStats,
     PolicyGradientConfig,
@@ -46,6 +52,7 @@ __all__ = [
     "EncodedStep",
     "EpisodeTrainingStats",
     "MODE_VOCAB",
+    "NativeRunResult",
     "OptimizationStats",
     "PPOTrainer",
     "PolicyGradientConfig",
@@ -67,4 +74,7 @@ __all__ = [
     "compute_step_reward",
     "compute_terminal_reward",
     "encode_step",
+    "py_encoded_to_encoded_step",
+    "run_native_rl_game",
+    "run_native_rl_game_ppo",
 ]

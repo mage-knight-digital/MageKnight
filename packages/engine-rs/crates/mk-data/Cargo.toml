@@ -7,3 +7,6 @@ edition.workspace = true
 [dependencies]
 mk-types = { workspace = true }
 serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

@@ -10,6 +10,7 @@ pub mod enemy_piles;
 pub mod heroes;
 pub mod levels;
 pub mod offers;
+pub mod ruins_tokens;
 pub mod scenarios;
 pub mod sites;
 pub mod skills;

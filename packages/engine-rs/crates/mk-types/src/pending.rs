@@ -295,12 +295,141 @@ pub enum ChoiceResolution {
     },
     /// Master of Chaos Gold position: choose from all 5 effects.
     MasterOfChaosGoldChoice,
+    /// DiscardForCrystal: discard a non-wound card from hand for a crystal of its color.
+    /// Index 0 = skip (if optional), subsequent indices = hand card selections.
+    DiscardForCrystalSelect {
+        eligible_card_ids: Vec<CardId>,
+        optional: bool,
+    },
+    /// Energy Flow: ready (+ optionally heal) the unit at the selected index.
+    EnergyFlowTarget {
+        eligible_unit_indices: Vec<usize>,
+        heal: bool,
+    },
+    /// Mana Bolt: consume a token and apply the corresponding attack.
+    ManaBoltTokenSelect {
+        /// (token_color, combat_type, element, attack_value) per option.
+        token_options: Vec<(ManaColor, CombatType, AttackElement, u32)>,
+    },
+    /// Sacrifice (Offering powered): choose a crystal pair combo.
+    /// (color_a, color_b, combat_type, element, attack_per_pair, pair_count)
+    SacrificePairSelect {
+        pair_options: Vec<(BasicManaColor, BasicManaColor, CombatType, AttackElement, u32, u32)>,
+    },
+    /// Mana Claim step 1: select which unclaimed die to claim.
+    ManaClaimDieSelect {
+        with_curse: bool,
+        die_ids: Vec<SourceDieId>,
+        die_colors: Vec<BasicManaColor>,
+    },
+    /// Mana Claim step 2: choose burst (3 tokens) or sustained (1 token/turn).
+    ManaClaimModeSelect {
+        die_id: SourceDieId,
+        color: BasicManaColor,
+        with_curse: bool,
+    },
     /// Mana source selection for powered card play.
     /// Player chooses which mana source to consume (token, crystal, or source die).
     ManaSourceSelect {
         sources: Vec<crate::action::ManaSourceInfo>,
         /// The powered effect to resolve after mana is consumed.
         powered_effect: CardEffect,
+    },
+
+    // === Advanced Action ChoiceResolutions ===
+
+    /// Song of Wind: lake payment option (consume blue mana + apply lake cost 0).
+    SongOfWindLake,
+    /// Force of Nature: select unit to apply Physical resistance modifier.
+    SelectUnitModifier {
+        eligible_unit_indices: Vec<usize>,
+    },
+    /// Power of Crystals basic: gain crystal of chosen missing/below-cap color.
+    PowerOfCrystalsGainColor {
+        eligible_colors: Vec<BasicManaColor>,
+    },
+    /// Crystal Mastery basic: gain crystal of chosen owned-below-cap color.
+    CrystalMasteryGainColor {
+        eligible_colors: Vec<BasicManaColor>,
+    },
+    /// Mana Storm basic: select die to gain crystal of its color + reroll.
+    ManaStormDieSelect {
+        die_ids: Vec<SourceDieId>,
+        die_colors: Vec<BasicManaColor>,
+    },
+    /// Spell Forge: gain crystal from chosen spell's color.
+    SpellForgeCrystal {
+        /// (offer_index, spell_color) for each option.
+        spell_entries: Vec<(usize, BasicManaColor)>,
+        is_second: bool,
+        first_spell_index: Option<usize>,
+    },
+    /// Peaceful Moment: conversion loop choice (heal, refresh, done).
+    PeacefulMomentConversion {
+        influence_remaining: u32,
+        allow_refresh: bool,
+        refreshed: bool,
+    },
+    /// Blood of Ancients basic: pay mana → filter AAs by color.
+    /// Each option index maps to a (mana_source, mana_color) pair.
+    BloodBasicManaSelect {
+        mana_options: Vec<(crate::action::ManaSourceInfo, BasicManaColor)>,
+    },
+    /// Blood of Ancients basic: select AA from offer (filtered by color).
+    BloodBasicAaSelect {
+        color: BasicManaColor,
+    },
+    /// Blood of Ancients powered: choose wound destination (hand or discard).
+    BloodPoweredWoundSelect,
+    /// Blood of Ancients powered: select AA from offer to use its powered effect.
+    BloodPoweredAaSelect,
+    /// Magic Talent basic: select spell from offer to cast.
+    MagicTalentSpellSelect {
+        /// (offer_index, spell_id, spell_color) for each option.
+        spell_entries: Vec<(usize, CardId, BasicManaColor)>,
+    },
+    /// Magic Talent powered: select (mana_color, spell) combination to gain spell.
+    MagicTalentGainSelect {
+        /// (offer_index, spell_id, mana_color) for each option.
+        gain_entries: Vec<(usize, CardId, BasicManaColor)>,
+    },
+
+    // === Spell ChoiceResolutions ===
+
+    /// Mana Meltdown powered (Mana Radiance solo): choose crystal color to sacrifice + gain.
+    ManaMeltdownColorSelect {
+        available_colors: Vec<BasicManaColor>,
+    },
+    /// Mind Read (solo): choose color for crystal gain.
+    MindReadColorSelect,
+    /// Call to Arms basic: choose unit from offer to borrow ability.
+    CallToArmsUnitSelect {
+        /// Indices into the unit offer.
+        eligible_unit_indices: Vec<usize>,
+    },
+    /// Call to Arms basic step 2: choose which ability to use from the borrowed unit.
+    CallToArmsAbilitySelect {
+        /// (ability_index, effect) for each activatable ability on the selected unit.
+        ability_entries: Vec<(usize, CardEffect)>,
+    },
+    /// Free Recruit (Call to Arms powered): choose unit from offer to recruit for free.
+    FreeRecruitTarget {
+        /// Indices into the unit offer.
+        eligible_unit_indices: Vec<usize>,
+    },
+    /// Wings of Night: iterative enemy targeting (skip attack for move cost).
+    WingsOfNightTarget {
+        eligible_enemy_ids: Vec<String>,
+        targets_so_far: u32,
+    },
+    /// Possess Enemy: select enemy to possess.
+    PossessEnemyTarget {
+        eligible_enemy_ids: Vec<String>,
+    },
+    /// Ready Units Budget: iterative unit selection within level budget.
+    ReadyUnitsBudgetSelect {
+        eligible_unit_indices: Vec<usize>,
+        remaining_levels: u32,
     },
 }
 
@@ -419,6 +548,31 @@ pub struct PendingTraining {
     pub available_offer_cards: ArrayVec<CardId, MAX_OFFER_CARDS>,
 }
 
+/// Phase for Tome of All Spells pending.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TomeOfAllSpellsPhase {
+    SelectCard,
+    SelectSpell,
+}
+
+/// Pending Tome of All Spells resolution.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PendingTomeOfAllSpells {
+    pub source_card_id: CardId,
+    pub mode: EffectMode,
+    pub phase: TomeOfAllSpellsPhase,
+    pub discarded_color: Option<BasicManaColor>,
+    pub available_spells: Vec<CardId>,
+}
+
+/// Pending Circlet of Proficiency resolution.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PendingCircletOfProficiency {
+    pub mode: EffectMode,
+    pub available_skills: Vec<SkillId>,
+}
+
 /// Level-up reward for even levels.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PendingLevelUpReward {
@@ -479,6 +633,10 @@ pub struct PendingTerrainCostReduction {
     pub mode: TerrainCostReductionMode,
     pub reduction: i32,
     pub minimum_cost: u32,
+    /// Available hex coordinates for Hex mode.
+    pub available_coordinates: Vec<crate::hex::HexCoord>,
+    /// Available terrain types for Terrain mode.
+    pub available_terrains: Vec<crate::enums::Terrain>,
 }
 
 /// Terrain cost reduction mode.
@@ -538,10 +696,17 @@ pub struct PendingSteadyTempoDeckPlacement {
     pub version: EffectMode,
 }
 
-/// Site reward (placeholder — full definition in mk-data).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SiteReward {
-    pub reward_type: String,
+/// Site reward — what a player receives after conquering a site.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum SiteReward {
+    Spell { count: u32 },
+    Artifact { count: u32 },
+    CrystalRoll { count: u32 },
+    AdvancedAction { count: u32 },
+    Fame { amount: u32 },
+    Unit,
+    Compound { rewards: Vec<SiteReward> },
 }
 
 // =============================================================================
@@ -586,6 +751,13 @@ pub enum ActivePending {
     },
     /// Auto-regressive subset selection (Rethink, Midnight Meditation, etc.).
     SubsetSelection(SubsetSelectionState),
+    /// Site reward choice — player selects a card from the offer.
+    SiteRewardChoice {
+        reward: SiteReward,
+        reward_index: usize,
+    },
+    TomeOfAllSpells(PendingTomeOfAllSpells),
+    CircletOfProficiency(PendingCircletOfProficiency),
     /// Unit ability that targets a combat enemy (cancel attack, weaken, freeze, etc.).
     SelectCombatEnemy {
         /// None for card-sourced, Some for unit-sourced.

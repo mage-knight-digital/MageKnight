@@ -1,8 +1,19 @@
 use mk_types::legal_action::LegalAction;
+use mk_types::enums::UnitState;
 use mk_types::state::{GameState, PlayerFlags};
 
 use super::utils::WOUND_CARD_ID;
 use crate::undo::UndoStack;
+
+/// Banner card IDs that can be assigned to units.
+const BANNER_CARD_IDS: &[&str] = &[
+    "banner_of_courage",
+    "banner_of_fortitude",
+    "banner_of_fear",
+    "banner_of_command",
+    "banner_of_protection",
+    "banner_of_glory",
+];
 
 pub(super) fn enumerate_turn_options(
     state: &GameState,
@@ -23,6 +34,16 @@ pub(super) fn enumerate_turn_options(
         actions.push(LegalAction::InitiateManaSearch);
     }
 
+    // Banner assignment (free action, not gated on HAS_TAKEN_ACTION).
+    if !is_resting && state.combat.is_none() && !player.pending.has_active() {
+        enumerate_banner_assignments(state, player_idx, actions);
+    }
+
+    // UseBannerCourage (free action: ready a spent unit with courage banner attached).
+    if !is_resting && state.combat.is_none() && !player.pending.has_active() {
+        enumerate_banner_courage(state, player_idx, actions);
+    }
+
     // Category 9: EndTurn — only if played a card or rested.
     if !is_resting
         && !player.pending.has_active()
@@ -34,8 +55,13 @@ pub(super) fn enumerate_turn_options(
         actions.push(LegalAction::EndTurn);
     }
 
-    // AnnounceEndOfRound — multiplayer only, when not yet announced.
-    if state.players.len() > 1 && state.end_of_round_announced_by.is_none() {
+    // AnnounceEndOfRound — multiplayer only, once per round, during normal turn.
+    if !is_resting
+        && !player.pending.has_active()
+        && state.players.len() > 1
+        && state.end_of_round_announced_by.is_none()
+        && state.combat.is_none()
+    {
         actions.push(LegalAction::AnnounceEndOfRound);
     }
 
@@ -127,4 +153,58 @@ fn can_initiate_mana_search(state: &GameState, player_idx: usize) -> bool {
         .dice
         .iter()
         .any(|d| d.taken_by_player_id.is_none())
+}
+
+/// Enumerate AssignBanner actions for banner cards in hand × eligible units.
+fn enumerate_banner_assignments(
+    state: &GameState,
+    player_idx: usize,
+    actions: &mut Vec<LegalAction>,
+) {
+    let player = &state.players[player_idx];
+    if player.units.is_empty() {
+        return;
+    }
+
+    for (hand_index, card_id) in player.hand.iter().enumerate() {
+        if !BANNER_CARD_IDS.contains(&card_id.as_str()) {
+            continue;
+        }
+        // For each unit that doesn't already have this banner attached
+        for unit in &player.units {
+            let already_attached = player
+                .attached_banners
+                .iter()
+                .any(|b| b.banner_id.as_str() == card_id.as_str() && b.unit_instance_id == unit.instance_id);
+            if !already_attached {
+                actions.push(LegalAction::AssignBanner {
+                    hand_index,
+                    card_id: card_id.clone(),
+                    unit_instance_id: unit.instance_id.clone(),
+                });
+            }
+        }
+    }
+}
+
+/// Enumerate UseBannerCourage for spent units with unused courage banner.
+fn enumerate_banner_courage(
+    state: &GameState,
+    player_idx: usize,
+    actions: &mut Vec<LegalAction>,
+) {
+    let player = &state.players[player_idx];
+    for banner in &player.attached_banners {
+        if banner.banner_id.as_str() != "banner_of_courage" || banner.is_used_this_round {
+            continue;
+        }
+        // Find the attached unit — must be Spent
+        if let Some(unit) = player.units.iter().find(|u| u.instance_id == banner.unit_instance_id) {
+            if unit.state == UnitState::Spent {
+                actions.push(LegalAction::UseBannerCourage {
+                    unit_instance_id: banner.unit_instance_id.clone(),
+                });
+            }
+        }
+    }
 }

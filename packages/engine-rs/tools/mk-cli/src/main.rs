@@ -496,31 +496,97 @@ fn format_action(action: &LegalAction, state: &GameState, player_idx: usize) -> 
         LegalAction::ReturnInteractiveSkill { skill_id } => {
             format!("Return interactive skill: {}", skill_id.as_str())
         }
+        LegalAction::AnnounceEndOfRound => "Announce end of round".into(),
         LegalAction::Undo => "Undo".into(),
         LegalAction::ResolveSourceOpeningReroll { reroll } => {
             if *reroll { "Reroll extra die (Source Opening)".into() } else { "Skip reroll (Source Opening)".into() }
         }
         LegalAction::ResolveDiscardForCrystal { card_id } => {
             match card_id {
-                Some(id) => format!("Discard {} for crystal", id.as_str()),
-                None => "Skip discard for crystal".into(),
+                None => "Skip discard (Offering)".into(),
+                Some(cid) => format!("Discard {} for crystal (Offering)", cid.as_str()),
             }
         }
         LegalAction::ResolveTraining { selection_index } => {
-            format!("Training: select option {}", selection_index + 1)
+            format!("Training: select card #{}", selection_index + 1)
         }
         LegalAction::ResolveMaximalEffect { hand_index } => {
-            format!("Maximal Effect: consume card at hand index {}", hand_index)
+            let player = &state.players[player_idx];
+            let name = player
+                .hand
+                .get(*hand_index)
+                .map(|c| card_name(c.as_str()))
+                .unwrap_or_else(|| "?".into());
+            format!("Maximal Effect: select {}", name)
         }
-        LegalAction::ResolveMeditation { selection_index, place_on_top } => {
-            match place_on_top {
-                Some(true) => format!("Meditation: place card {} on top", selection_index),
-                Some(false) => format!("Meditation: place card {} on bottom", selection_index),
-                None => format!("Meditation: select card {}", selection_index),
+        LegalAction::ResolveMeditation {
+            selection_index,
+            place_on_top,
+        } => match place_on_top {
+            Some(true) => format!("Meditation: place card {} on top of deck", selection_index),
+            Some(false) => format!("Meditation: place card {} on bottom of deck", selection_index),
+            None => format!("Meditation: select card {}", selection_index),
+        },
+        LegalAction::MeditationDoneSelecting => "Meditation: done selecting".to_string(),
+        LegalAction::ProposeCooperativeAssault { .. } => "Propose cooperative assault".into(),
+        LegalAction::RespondToCooperativeProposal { accept } => {
+            if *accept { "Accept cooperative assault".into() } else { "Decline cooperative assault".into() }
+        }
+        LegalAction::CancelCooperativeProposal => "Cancel cooperative assault".into(),
+        LegalAction::BuySpell { card_id, .. } => {
+            format!("Buy spell: {}", card_name(card_id.as_str()))
+        }
+        LegalAction::LearnAdvancedAction { card_id, .. } => {
+            format!("Learn AA: {}", card_name(card_id.as_str()))
+        }
+        LegalAction::BurnMonastery => "Burn monastery".into(),
+        LegalAction::AltarTribute { .. } => "Pay altar tribute".into(),
+        LegalAction::SelectReward { card_id, .. } => {
+            format!("Select reward: {}", card_name(card_id.as_str()))
+        }
+        LegalAction::ResolveBookOfWisdom { selection_index } => {
+            format!("Book of Wisdom: select #{}", selection_index + 1)
+        }
+        LegalAction::ResolveTomeOfAllSpells { selection_index } => {
+            format!("Tome of All Spells: select #{}", selection_index + 1)
+        }
+        LegalAction::ResolveCircletOfProficiency { selection_index } => {
+            format!("Circlet of Proficiency: select #{}", selection_index + 1)
+        }
+        LegalAction::AssignBanner { card_id, unit_instance_id, .. } => {
+            format!("Assign {} to unit {}", card_name(card_id.as_str()), unit_instance_id)
+        }
+        LegalAction::UseBannerCourage { unit_instance_id } => {
+            format!("Use Banner of Courage (unit {})", unit_instance_id)
+        }
+        LegalAction::UseBannerFear { unit_instance_id, enemy_instance_id, .. } => {
+            format!("Use Banner of Fear (unit {} → enemy {})", unit_instance_id, enemy_instance_id)
+        }
+        LegalAction::ConvertMoveToAttack { move_points, attack_type } => {
+            format!("Convert {} move → {:?} attack", move_points, attack_type)
+        }
+        LegalAction::ConvertInfluenceToBlock { influence_points, element } => {
+            format!("Convert {} influence → {:?} block", influence_points, element)
+        }
+        LegalAction::PayHeroesAssaultInfluence => {
+            "Pay 2 influence for Heroes assault".into()
+        }
+        LegalAction::PayThugsDamageInfluence { unit_instance_id } => {
+            format!("Pay 2 influence for Thugs {} damage", unit_instance_id)
+        }
+        LegalAction::ResolveUnitMaintenance { unit_instance_id, keep_unit, crystal_color, new_mana_token_color } => {
+            if *keep_unit {
+                format!("Keep unit {} (pay {:?} crystal, new {:?} token)", unit_instance_id, crystal_color, new_mana_token_color)
+            } else {
+                format!("Disband unit {}", unit_instance_id)
             }
         }
-        LegalAction::MeditationDoneSelecting => "Meditation: done selecting".into(),
-        _ => format!("{:?}", action),
+        LegalAction::ResolveHexCostReduction { coordinate } => {
+            format!("Reduce cost at hex ({},{})", coordinate.q, coordinate.r)
+        }
+        LegalAction::ResolveTerrainCostReduction { terrain } => {
+            format!("Reduce cost for {:?} terrain", terrain)
+        }
     }
 }
 
@@ -612,6 +678,7 @@ fn card_display(id: &str) -> String {
                 CardColor::Green => "G",
                 CardColor::White => "W",
                 CardColor::Wound => "wound",
+                CardColor::Colorless => "-",
             };
             format!("{} ({})", c.name, color)
         }
@@ -721,6 +788,9 @@ fn pending_label(active: &ActivePending) -> &'static str {
             _ => "Select cards",
         },
         ActivePending::SelectCombatEnemy { .. } => "Select combat enemy",
+        ActivePending::SiteRewardChoice { .. } => "Select reward",
+        ActivePending::TomeOfAllSpells(_) => "Tome of All Spells",
+        ActivePending::CircletOfProficiency(_) => "Circlet of Proficiency",
     }
 }
 

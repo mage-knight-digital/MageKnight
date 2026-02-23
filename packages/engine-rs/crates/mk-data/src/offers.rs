@@ -164,6 +164,28 @@ pub fn refresh_offer(offer: &mut Vec<CardId>, deck: &mut Vec<CardId>) {
     }
 }
 
+/// Draw the top card from the AA deck into the monastery offer.
+/// Returns the drawn CardId, or None if the deck is empty.
+pub fn draw_monastery_aa(
+    monastery_offer: &mut Vec<CardId>,
+    aa_deck: &mut Vec<CardId>,
+) -> Option<CardId> {
+    if aa_deck.is_empty() {
+        return None;
+    }
+    let card = aa_deck.remove(0);
+    monastery_offer.push(card.clone());
+    Some(card)
+}
+
+/// Remove a card from the monastery offer by ID.
+/// Unlike the main offer, monastery AAs are NOT replenished.
+pub fn take_from_monastery_offer(monastery_offer: &mut Vec<CardId>, card_id: &str) {
+    if let Some(pos) = monastery_offer.iter().position(|c| c.as_str() == card_id) {
+        monastery_offer.remove(pos);
+    }
+}
+
 // =============================================================================
 // Tests
 // =============================================================================
@@ -367,5 +389,50 @@ mod tests {
                 id
             );
         }
+    }
+
+    #[test]
+    fn draw_monastery_aa_from_deck() {
+        let mut monastery_offer: Vec<CardId> = vec![];
+        let mut aa_deck = vec![
+            CardId::from("blood_rage"),
+            CardId::from("ice_bolt"),
+        ];
+
+        let drawn = draw_monastery_aa(&mut monastery_offer, &mut aa_deck);
+        assert_eq!(drawn, Some(CardId::from("blood_rage")));
+        assert_eq!(monastery_offer.len(), 1);
+        assert_eq!(monastery_offer[0].as_str(), "blood_rage");
+        assert_eq!(aa_deck.len(), 1);
+    }
+
+    #[test]
+    fn draw_monastery_aa_empty_deck() {
+        let mut monastery_offer: Vec<CardId> = vec![];
+        let mut aa_deck: Vec<CardId> = vec![];
+
+        let drawn = draw_monastery_aa(&mut monastery_offer, &mut aa_deck);
+        assert_eq!(drawn, None);
+        assert!(monastery_offer.is_empty());
+    }
+
+    #[test]
+    fn take_from_monastery_offer_no_replenish() {
+        let mut monastery_offer = vec![
+            CardId::from("blood_rage"),
+            CardId::from("ice_bolt"),
+        ];
+
+        take_from_monastery_offer(&mut monastery_offer, "blood_rage");
+        assert_eq!(monastery_offer.len(), 1);
+        assert_eq!(monastery_offer[0].as_str(), "ice_bolt");
+    }
+
+    #[test]
+    fn take_from_monastery_offer_nonexistent_noop() {
+        let mut monastery_offer = vec![CardId::from("blood_rage")];
+
+        take_from_monastery_offer(&mut monastery_offer, "nonexistent");
+        assert_eq!(monastery_offer.len(), 1);
     }
 }

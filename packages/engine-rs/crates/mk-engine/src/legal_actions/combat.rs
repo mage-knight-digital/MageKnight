@@ -593,6 +593,261 @@ pub(super) fn all_damage_assigned(combat: &CombatState, player_id: &str) -> bool
 }
 
 // =============================================================================
+// Move-to-Attack / Influence-to-Block conversions (Agility / Diplomacy)
+// =============================================================================
+
+/// Enumerate ConvertMoveToAttack actions during combat.
+///
+/// Scans active modifiers for MoveToAttackConversion. For each modifier,
+/// checks the correct phase (Attack for Melee, RangedSiege for Ranged)
+/// and emits one action per valid conversion amount (1..=max).
+pub(super) fn enumerate_conversion_actions(
+    state: &GameState,
+    player_idx: usize,
+    actions: &mut Vec<LegalAction>,
+) {
+    let combat = match state.combat.as_ref() {
+        Some(c) => c,
+        None => return,
+    };
+
+    let player = &state.players[player_idx];
+    let player_id = &player.id;
+
+    // Move-to-Attack conversions
+    if player.move_points > 0 {
+        for modifier in &state.active_modifiers {
+            if modifier.created_by_player_id != *player_id {
+                continue;
+            }
+            if let mk_types::modifier::ModifierEffect::MoveToAttackConversion {
+                cost_per_point,
+                attack_type,
+            } = &modifier.effect
+            {
+                // Check correct combat phase
+                let in_correct_phase = match attack_type {
+                    mk_types::modifier::CombatValueType::Attack => {
+                        combat.phase == CombatPhase::Attack
+                    }
+                    mk_types::modifier::CombatValueType::Ranged => {
+                        combat.phase == CombatPhase::RangedSiege
+                    }
+                    _ => false,
+                };
+                if !in_correct_phase {
+                    continue;
+                }
+
+                let max_points = player.move_points / cost_per_point;
+                for amount in 1..=max_points {
+                    actions.push(LegalAction::ConvertMoveToAttack {
+                        move_points: amount * cost_per_point,
+                        attack_type: *attack_type,
+                    });
+                }
+            }
+        }
+    }
+
+    // Influence-to-Block conversions
+    if player.influence_points > 0 && combat.phase == CombatPhase::Block {
+        for modifier in &state.active_modifiers {
+            if modifier.created_by_player_id != *player_id {
+                continue;
+            }
+            if let mk_types::modifier::ModifierEffect::InfluenceToBlockConversion {
+                cost_per_point,
+                element,
+            } = &modifier.effect
+            {
+                let max_points = player.influence_points / cost_per_point;
+                for amount in 1..=max_points {
+                    actions.push(LegalAction::ConvertInfluenceToBlock {
+                        influence_points: amount * cost_per_point,
+                        element: *element,
+                    });
+                }
+            }
+        }
+    }
+}
+
+// =============================================================================
+// Heroes assault influence payment
+// =============================================================================
+
+/// Enumerate PayHeroesAssaultInfluence during fortified assault combat.
+pub(super) fn enumerate_heroes_assault_payment(
+    state: &GameState,
+    player_idx: usize,
+    actions: &mut Vec<LegalAction>,
+) {
+    let combat = match state.combat.as_ref() {
+        Some(c) => c,
+        None => return,
+    };
+
+    if !combat.is_at_fortified_site || combat.assault_origin.is_none() {
+        return;
+    }
+    if combat.paid_heroes_assault_influence {
+        return;
+    }
+
+    let player = &state.players[player_idx];
+    if player.influence_points < 2 {
+        return;
+    }
+
+    let has_heroes = player.units.iter().any(|u| u.unit_id.as_str() == "heroes");
+    if has_heroes {
+        actions.push(LegalAction::PayHeroesAssaultInfluence);
+    }
+}
+
+// =============================================================================
+// Thugs damage influence payment
+// =============================================================================
+
+/// Enumerate PayThugsDamageInfluence during AssignDamage phase.
+pub(super) fn enumerate_thugs_damage_payment(
+    state: &GameState,
+    player_idx: usize,
+    actions: &mut Vec<LegalAction>,
+) {
+    let combat = match state.combat.as_ref() {
+        Some(c) => c,
+        None => return,
+    };
+
+    if combat.phase != CombatPhase::AssignDamage {
+        return;
+    }
+
+    let player = &state.players[player_idx];
+    if player.influence_points < 2 {
+        return;
+    }
+
+    for unit in &player.units {
+        if unit.unit_id.as_str() != "thugs" {
+            continue;
+        }
+        if unit.state != UnitState::Ready && unit.state != UnitState::Spent {
+            continue;
+        }
+        let already_paid = combat
+            .paid_thugs_damage_influence
+            .get(unit.instance_id.as_str())
+            .copied()
+            .unwrap_or(false);
+        if !already_paid {
+            actions.push(LegalAction::PayThugsDamageInfluence {
+                unit_instance_id: unit.instance_id.clone(),
+            });
+        }
+    }
+}
+
+// =============================================================================
+// Banner of Fear — cancel enemy attack in Block phase
+// =============================================================================
+
+/// Enumerate UseBannerFear actions during Block phase.
+///
+/// For each Ready unit with banner_of_fear attached (unused this round) ×
+/// each non-defeated, non-cancelled enemy attack → emit UseBannerFear.
+pub(super) fn enumerate_banner_fear(
+    state: &GameState,
+    player_idx: usize,
+    actions: &mut Vec<LegalAction>,
+) {
+    let combat = match state.combat.as_ref() {
+        Some(c) => c,
+        None => return,
+    };
+
+    if combat.phase != CombatPhase::Block {
+        return;
+    }
+
+    let player = &state.players[player_idx];
+    let player_id = player.id.as_str();
+
+    // Collect eligible units (Ready, banner_of_fear attached, unused this round)
+    let eligible_units: Vec<_> = player
+        .attached_banners
+        .iter()
+        .filter(|b| b.banner_id.as_str() == "banner_of_fear" && !b.is_used_this_round)
+        .filter(|b| {
+            player
+                .units
+                .iter()
+                .any(|u| u.instance_id == b.unit_instance_id && u.state == UnitState::Ready)
+        })
+        .collect();
+
+    if eligible_units.is_empty() {
+        return;
+    }
+
+    for banner in &eligible_units {
+        for enemy in &combat.enemies {
+            if enemy.is_defeated {
+                continue;
+            }
+
+            // Filter by cooperative assault assignments
+            if !crate::cooperative_assault::is_enemy_assigned_to_player(
+                &combat.enemy_assignments,
+                player_id,
+                enemy.instance_id.as_str(),
+            ) {
+                continue;
+            }
+
+            let def = match get_enemy(enemy.enemy_id.as_str()) {
+                Some(d) => d,
+                None => continue,
+            };
+
+            // Skip Arcane Immune enemies
+            if has_ability(def, EnemyAbilityType::ArcaneImmunity) {
+                continue;
+            }
+
+            let num_attacks = attack_count(def);
+            for attack_index in 0..num_attacks {
+                // Skip already-blocked or cancelled attacks
+                if enemy
+                    .attacks_blocked
+                    .get(attack_index)
+                    .copied()
+                    .unwrap_or(false)
+                {
+                    continue;
+                }
+                if enemy
+                    .attacks_cancelled
+                    .get(attack_index)
+                    .copied()
+                    .unwrap_or(false)
+                {
+                    continue;
+                }
+
+                actions.push(LegalAction::UseBannerFear {
+                    unit_instance_id: banner.unit_instance_id.clone(),
+                    enemy_instance_id: enemy.instance_id.clone(),
+                    attack_index,
+                });
+            }
+        }
+    }
+}
+
+// =============================================================================
 // Tests
 // =============================================================================
 

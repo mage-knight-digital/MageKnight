@@ -6,14 +6,20 @@
 
 use mk_data::enemies::{attack_count, get_enemy};
 use mk_data::enemy_piles::{discard_enemy_token, draw_enemy_token, enemy_id_from_token};
+use mk_data::offers::{take_from_monastery_offer, take_from_offer};
+use mk_data::sites::{
+    conquest_reward, BURN_MONASTERY_REP_PENALTY, MONASTERY_AA_PURCHASE_COST,
+    SPELL_PURCHASE_COST,
+};
 use mk_data::tactics::tactic_turn_order;
 use mk_types::enums::*;
 use mk_types::events::{CardPlayMode, GameEvent};
-use mk_types::ids::{CardId, CombatInstanceId, EnemyId, EnemyTokenId, PlayerId, SkillId, SourceDieId};
+use mk_types::ids::{CardId, CombatInstanceId, EnemyId, EnemyTokenId, ModifierId, PlayerId, SkillId, SourceDieId};
 use arrayvec::ArrayVec;
 use mk_types::legal_action::{LegalAction, TacticDecisionData};
 use mk_types::pending::{
-    ActivePending, PendingTacticDecision, SubsetSelectionKind, SubsetSelectionState,
+    ActivePending, DeferredPending, PendingTacticDecision, SiteReward,
+    SubsetSelectionKind, SubsetSelectionState, MAX_REWARDS,
 };
 use mk_types::state::*;
 
@@ -428,6 +434,21 @@ pub fn apply_legal_action(
             apply_resolve_training(state, player_idx, *selection_index)?
         }
 
+        LegalAction::ResolveBookOfWisdom { selection_index } => {
+            undo_stack.save(state);
+            apply_resolve_book_of_wisdom(state, player_idx, *selection_index)?
+        }
+
+        LegalAction::ResolveTomeOfAllSpells { selection_index } => {
+            undo_stack.save(state);
+            apply_resolve_tome_of_all_spells(state, player_idx, *selection_index)?
+        }
+
+        LegalAction::ResolveCircletOfProficiency { selection_index } => {
+            undo_stack.save(state);
+            apply_resolve_circlet_of_proficiency(state, player_idx, *selection_index)?
+        }
+
         LegalAction::ResolveMaximalEffect { hand_index } => {
             // Reversible: save snapshot
             undo_stack.save(state);
@@ -488,6 +509,115 @@ pub fn apply_legal_action(
                 game_ended: false,
                 events: Vec::new(),
             }
+        }
+
+        LegalAction::BuySpell { card_id, .. } => {
+            // Reversible: save snapshot
+            undo_stack.save(state);
+            apply_buy_spell(state, player_idx, card_id)?
+        }
+
+        LegalAction::LearnAdvancedAction { card_id, .. } => {
+            // Reversible: save snapshot
+            undo_stack.save(state);
+            apply_learn_advanced_action(state, player_idx, card_id)?
+        }
+
+        LegalAction::BurnMonastery => {
+            // Irreversible: RNG consumed for enemy draw
+            undo_stack.set_checkpoint();
+            apply_burn_monastery(state, player_idx)?
+        }
+
+        LegalAction::SelectReward { card_id, .. } => {
+            // Irreversible: modifies offers
+            undo_stack.set_checkpoint();
+            apply_select_reward(state, player_idx, card_id)?
+        }
+
+        LegalAction::AltarTribute { mana_sources } => {
+            // Irreversible: consumes mana, grants fame
+            undo_stack.set_checkpoint();
+            apply_altar_tribute(state, player_idx, mana_sources)?
+        }
+
+        LegalAction::AssignBanner {
+            hand_index,
+            card_id,
+            unit_instance_id,
+        } => {
+            // Free action: save snapshot (reversible)
+            undo_stack.save(state);
+            apply_assign_banner(state, player_idx, *hand_index, card_id, unit_instance_id)?
+        }
+
+        LegalAction::UseBannerCourage { unit_instance_id } => {
+            // Free action: save snapshot (reversible)
+            undo_stack.save(state);
+            apply_use_banner_courage(state, player_idx, unit_instance_id)?
+        }
+
+        LegalAction::UseBannerFear {
+            unit_instance_id,
+            enemy_instance_id,
+            attack_index,
+        } => {
+            // Reversible: save snapshot
+            undo_stack.save(state);
+            apply_use_banner_fear(state, player_idx, unit_instance_id, enemy_instance_id, *attack_index)?
+        }
+
+        LegalAction::ConvertMoveToAttack {
+            move_points,
+            attack_type,
+        } => {
+            undo_stack.save(state);
+            apply_convert_move_to_attack(state, player_idx, *move_points, *attack_type)?
+        }
+
+        LegalAction::ConvertInfluenceToBlock {
+            influence_points,
+            element,
+        } => {
+            undo_stack.save(state);
+            apply_convert_influence_to_block(state, player_idx, *influence_points, *element)?
+        }
+
+        LegalAction::PayHeroesAssaultInfluence => {
+            undo_stack.save(state);
+            apply_pay_heroes_assault_influence(state, player_idx)?
+        }
+
+        LegalAction::PayThugsDamageInfluence { unit_instance_id } => {
+            undo_stack.save(state);
+            apply_pay_thugs_damage_influence(state, player_idx, unit_instance_id)?
+        }
+
+        LegalAction::ResolveUnitMaintenance {
+            unit_instance_id,
+            keep_unit,
+            crystal_color,
+            new_mana_token_color,
+        } => {
+            undo_stack.set_checkpoint();
+            apply_resolve_unit_maintenance(
+                state,
+                player_idx,
+                unit_instance_id,
+                *keep_unit,
+                *crystal_color,
+                *new_mana_token_color,
+            )?
+        }
+
+        LegalAction::ResolveHexCostReduction { coordinate } => {
+            undo_stack.save(state);
+            apply_resolve_hex_cost_reduction(state, player_idx, *coordinate)?
+        }
+
+        LegalAction::ResolveTerrainCostReduction { terrain } => {
+            undo_stack.save(state);
+            apply_resolve_terrain_cost_reduction(state, player_idx, *terrain)?
         }
     };
 
@@ -1471,6 +1601,261 @@ fn apply_resolve_training(
     }
 }
 
+fn apply_resolve_book_of_wisdom(
+    state: &mut GameState,
+    player_idx: usize,
+    selection_index: usize,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::pending::{ActivePending, PendingBookOfWisdom, BookOfWisdomPhase};
+
+    let pending = match state.players[player_idx].pending.active.take() {
+        Some(ActivePending::BookOfWisdom(b)) => b,
+        other => {
+            state.players[player_idx].pending.active = other;
+            return Err(ApplyError::InternalError(
+                "ResolveBookOfWisdom: no active BookOfWisdom pending".to_string(),
+            ));
+        }
+    };
+
+    match pending.phase {
+        BookOfWisdomPhase::SelectCard => {
+            let player = &mut state.players[player_idx];
+            if selection_index >= player.hand.len() {
+                player.pending.active = Some(ActivePending::BookOfWisdom(pending));
+                return Err(ApplyError::InternalError(
+                    "ResolveBookOfWisdom: hand index out of range".to_string(),
+                ));
+            }
+
+            let card_id = player.hand.remove(selection_index);
+            let card_color = mk_data::cards::get_card_color(card_id.as_str())
+                .or_else(|| mk_data::cards::get_spell_color(card_id.as_str()));
+            player.removed_cards.push(card_id);
+
+            // Basic mode: find matching-color AAs from offer
+            // Powered mode: find matching-color spells from offer
+            let mut available: arrayvec::ArrayVec<CardId, { mk_types::pending::MAX_OFFER_CARDS }> =
+                arrayvec::ArrayVec::new();
+            if let Some(color) = card_color {
+                match pending.mode {
+                    mk_types::pending::EffectMode::Basic => {
+                        for aa_id in &state.offers.advanced_actions {
+                            if mk_data::cards::get_card_color(aa_id.as_str()) == Some(color)
+                                && available.try_push(aa_id.clone()).is_err() {
+                                break;
+                            }
+                        }
+                    }
+                    mk_types::pending::EffectMode::Powered => {
+                        for spell_id in &state.offers.spells {
+                            if mk_data::cards::get_spell_color(spell_id.as_str()) == Some(color)
+                                && available.try_push(spell_id.clone()).is_err() {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if available.is_empty() {
+                // No matching cards — card was still removed
+                Ok(ApplyResult { needs_reenumeration: true, game_ended: false, events: vec![] })
+            } else if available.len() == 1 {
+                // Auto-select the only option
+                let selected_id = available[0].clone();
+                resolve_book_of_wisdom_selection(state, player_idx, &pending, &selected_id);
+                Ok(ApplyResult { needs_reenumeration: true, game_ended: false, events: vec![] })
+            } else {
+                state.players[player_idx].pending.active = Some(ActivePending::BookOfWisdom(PendingBookOfWisdom {
+                    phase: BookOfWisdomPhase::SelectFromOffer,
+                    thrown_card_color: card_color,
+                    available_offer_cards: available,
+                    ..pending
+                }));
+                Ok(ApplyResult { needs_reenumeration: true, game_ended: false, events: vec![] })
+            }
+        }
+        BookOfWisdomPhase::SelectFromOffer => {
+            if selection_index >= pending.available_offer_cards.len() {
+                state.players[player_idx].pending.active = Some(ActivePending::BookOfWisdom(pending));
+                return Err(ApplyError::InternalError(
+                    "ResolveBookOfWisdom: offer selection index out of range".to_string(),
+                ));
+            }
+
+            let selected_id = pending.available_offer_cards[selection_index].clone();
+            resolve_book_of_wisdom_selection(state, player_idx, &pending, &selected_id);
+            Ok(ApplyResult { needs_reenumeration: true, game_ended: false, events: vec![] })
+        }
+    }
+}
+
+fn resolve_book_of_wisdom_selection(
+    state: &mut GameState,
+    player_idx: usize,
+    pending: &mk_types::pending::PendingBookOfWisdom,
+    selected_id: &CardId,
+) {
+    match pending.mode {
+        mk_types::pending::EffectMode::Basic => {
+            // Remove AA from offer, add to player's discard
+            if let Some(idx) = state.offers.advanced_actions.iter().position(|id| id == selected_id) {
+                state.offers.advanced_actions.remove(idx);
+                effect_queue::replenish_aa_offer(state);
+            }
+            state.players[player_idx].discard.push(selected_id.clone());
+        }
+        mk_types::pending::EffectMode::Powered => {
+            // Remove spell from offer, add to top of player's deck
+            if let Some(idx) = state.offers.spells.iter().position(|id| id == selected_id) {
+                state.offers.spells.remove(idx);
+                effect_queue::replenish_spell_offer(state);
+            }
+            state.players[player_idx].deck.insert(0, selected_id.clone());
+            // Powered mode also grants a crystal of the discarded card's color
+            if let Some(color) = pending.thrown_card_color {
+                mana::gain_crystal(&mut state.players[player_idx], color);
+            }
+        }
+    }
+}
+
+fn apply_resolve_tome_of_all_spells(
+    state: &mut GameState,
+    player_idx: usize,
+    selection_index: usize,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::pending::{ActivePending, TomeOfAllSpellsPhase};
+
+    let pending = match state.players[player_idx].pending.active.take() {
+        Some(ActivePending::TomeOfAllSpells(t)) => t,
+        other => {
+            state.players[player_idx].pending.active = other;
+            return Err(ApplyError::InternalError(
+                "ResolveTomeOfAllSpells: no active TomeOfAllSpells pending".to_string(),
+            ));
+        }
+    };
+
+    match pending.phase {
+        TomeOfAllSpellsPhase::SelectCard => {
+            // Discard the selected card from hand, determine its color
+            if selection_index >= state.players[player_idx].hand.len() {
+                return Err(ApplyError::InternalError(
+                    "ResolveTomeOfAllSpells: selection_index out of range".to_string(),
+                ));
+            }
+            let card_id = state.players[player_idx].hand.remove(selection_index);
+            let card_color = mk_data::cards::get_card_color(card_id.as_str());
+
+            // Move discarded card to discard
+            state.players[player_idx].discard.push(card_id);
+
+            // Find matching-color spells in offer
+            let available_spells: Vec<mk_types::ids::CardId> = state.offers.spells.iter()
+                .filter(|spell_id| {
+                    mk_data::cards::get_card_color(spell_id.as_str()) == card_color
+                })
+                .cloned()
+                .collect();
+
+            if available_spells.is_empty() {
+                // No matching spells — resolve without offer phase
+                return Ok(ApplyResult { needs_reenumeration: true, game_ended: false, events: vec![] });
+            }
+
+            // Transition to SelectSpell phase
+            state.players[player_idx].pending.active =
+                Some(ActivePending::TomeOfAllSpells(mk_types::pending::PendingTomeOfAllSpells {
+                    source_card_id: pending.source_card_id,
+                    mode: pending.mode,
+                    phase: TomeOfAllSpellsPhase::SelectSpell,
+                    discarded_color: card_color,
+                    available_spells,
+                }));
+            Ok(ApplyResult { needs_reenumeration: true, game_ended: false, events: vec![] })
+        }
+        TomeOfAllSpellsPhase::SelectSpell => {
+            // Player selected a spell from the available list
+            if selection_index >= pending.available_spells.len() {
+                return Err(ApplyError::InternalError(
+                    "ResolveTomeOfAllSpells: spell selection_index out of range".to_string(),
+                ));
+            }
+            let spell_id = &pending.available_spells[selection_index];
+
+            // Look up the spell and resolve its effect through the queue
+            let spell_def = mk_data::cards::get_spell_card(spell_id.as_str());
+            if let Some(def) = spell_def {
+                let effect = match pending.mode {
+                    mk_types::pending::EffectMode::Basic => def.basic_effect.clone(),
+                    mk_types::pending::EffectMode::Powered => def.powered_effect.clone(),
+                };
+                // Resolve the spell's effect through the effect queue
+                // The spell stays in the offer (not consumed)
+                let mut queue = effect_queue::EffectQueue::new();
+                queue.push(effect, Some(spell_id.clone()));
+                queue.drain(state, player_idx);
+            }
+
+            Ok(ApplyResult { needs_reenumeration: true, game_ended: false, events: vec![] })
+        }
+    }
+}
+
+fn apply_resolve_circlet_of_proficiency(
+    state: &mut GameState,
+    player_idx: usize,
+    selection_index: usize,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::pending::ActivePending;
+
+    let pending = match state.players[player_idx].pending.active.take() {
+        Some(ActivePending::CircletOfProficiency(c)) => c,
+        other => {
+            state.players[player_idx].pending.active = other;
+            return Err(ApplyError::InternalError(
+                "ResolveCircletOfProficiency: no active CircletOfProficiency pending".to_string(),
+            ));
+        }
+    };
+
+    if selection_index >= pending.available_skills.len() {
+        return Err(ApplyError::InternalError(
+            "ResolveCircletOfProficiency: selection_index out of range".to_string(),
+        ));
+    }
+
+    let skill_id = &pending.available_skills[selection_index];
+
+    match pending.mode {
+        mk_types::pending::EffectMode::Basic => {
+            // One-shot use: resolve the skill's effect through the queue
+            if let Some(def) = mk_data::skills::get_skill(skill_id.as_str()) {
+                if let Some(effect) = def.effect {
+                    let mut queue = effect_queue::EffectQueue::new();
+                    queue.push(effect, None);
+                    queue.drain(state, player_idx);
+                }
+            }
+        }
+        mk_types::pending::EffectMode::Powered => {
+            // Permanent acquisition: add skill to player, remove from common pool
+            let skill_id_clone = skill_id.clone();
+            if let Some(pos) = state.offers.common_skills.iter().position(|s| s == skill_id) {
+                state.offers.common_skills.remove(pos);
+            }
+            state.players[player_idx].skills.push(skill_id_clone.clone());
+
+            // Apply passive modifiers if the skill has any
+            push_passive_skill_modifiers(state, player_idx, &skill_id_clone);
+        }
+    }
+
+    Ok(ApplyResult { needs_reenumeration: true, game_ended: false, events: vec![] })
+}
+
 fn apply_resolve_maximal_effect(
     state: &mut GameState,
     player_idx: usize,
@@ -2295,7 +2680,23 @@ fn apply_declare_attack_inner(
             ),
         };
 
-        let available = combat_resolution::subtract_elements(total_elements, assigned_elements);
+        let mut available = combat_resolution::subtract_elements(total_elements, assigned_elements);
+
+        // Hook: DoublePhysicalAttacks (Sword of Justice powered)
+        let player_id = &state.players[player_idx].id;
+        if state.active_modifiers.iter().any(|m| {
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::DoublePhysicalAttacks)
+                && matches!(&m.source, mk_types::modifier::ModifierSource::Card { player_id: pid, .. }
+                    | mk_types::modifier::ModifierSource::Skill { player_id: pid, .. }
+                    if pid == player_id)
+        }) {
+            available.physical *= 2;
+        }
+
+        // Hook: Build removed resistances from modifiers
+        let removed_resistances = build_removed_resistances(
+            &state.active_modifiers, &target_pairs, player_idx, &state.players[player_idx].id,
+        );
 
         // Build ref pairs for resolution
         let ref_pairs: Vec<(&CombatEnemy, &mk_data::enemies::EnemyDefinition)> =
@@ -2323,8 +2724,8 @@ fn apply_declare_attack_inner(
             bonus_armor.insert(enemy.instance_id.as_str().to_string(), vampiric + defend);
         }
 
-        let result = combat_resolution::resolve_attack(
-            &available, &ref_pairs, combat.phase, &bonus_armor,
+        let result = combat_resolution::resolve_attack_with_removed_resistances(
+            &available, &ref_pairs, combat.phase, &bonus_armor, &removed_resistances,
         );
         let target_count = target_indices.len();
 
@@ -2389,11 +2790,35 @@ fn apply_declare_attack_inner(
             }
         }
 
+        // Collect summoned status for FamePerEnemyDefeated check
+        let defeated_summoned_flags: Vec<bool> = target_indices.iter().map(|&idx| {
+            state.combat.as_ref().unwrap().enemies[idx].summoned_by_instance_id.is_some()
+        }).collect();
+
         let player = &mut state.players[player_idx];
         player.fame += result.fame_gained;
         player.enemies_defeated_this_turn += target_count as u32;
         player.reputation = (player.reputation as i32 + result.reputation_delta)
             .clamp(-7, 7) as i8;
+
+        // Hook: FamePerEnemyDefeated bonus (Banner of Glory, Sword of Justice)
+        let bonus_fame = count_fame_per_enemy_bonus(
+            &state.active_modifiers,
+            &state.players[player_idx].id,
+            &defeated_summoned_flags,
+        );
+        if bonus_fame > 0 {
+            state.players[player_idx].fame += bonus_fame;
+            state.combat.as_mut().unwrap().fame_gained += bonus_fame;
+        }
+
+        // Hook: SoulHarvesterCrystalTracking — award crystals per defeated enemy
+        resolve_soul_harvester_crystals(state, player_idx, &defeated_summoned_flags);
+
+        // Hook: Track ranged/siege phase defeats for BowPhaseFameTracking
+        if state.combat.as_ref().unwrap().phase == CombatPhase::RangedSiege {
+            state.combat.as_mut().unwrap().ranged_siege_defeats += target_count as u32;
+        }
     }
 
     // Mark used attack as assigned (consumed whether success or failure)
@@ -2645,6 +3070,30 @@ fn apply_end_combat_phase(
             accumulator.assigned_attack.siege = 0;
             accumulator.assigned_attack.ranged_elements = ElementalValues::default();
             accumulator.assigned_attack.siege_elements = ElementalValues::default();
+
+            // Hook: BowPhaseFameTracking — award fame for enemies defeated in ranged/siege phase
+            {
+                let ranged_defeats = state.combat.as_ref().unwrap().ranged_siege_defeats;
+                if ranged_defeats > 0 {
+                    let player_id = state.players[player_idx].id.clone();
+                    let bonus_fame: u32 = state.active_modifiers.iter()
+                        .filter(|m| {
+                            matches!(&m.effect, mk_types::modifier::ModifierEffect::BowPhaseFameTracking { .. })
+                                && m.created_by_player_id == player_id
+                        })
+                        .map(|m| match &m.effect {
+                            mk_types::modifier::ModifierEffect::BowPhaseFameTracking { fame_per_enemy } => {
+                                fame_per_enemy * ranged_defeats
+                            }
+                            _ => 0,
+                        })
+                        .sum();
+                    if bonus_fame > 0 {
+                        state.players[player_idx].fame += bonus_fame;
+                        state.combat.as_mut().unwrap().fame_gained += bonus_fame;
+                    }
+                }
+            }
 
             state.combat.as_mut().unwrap().phase = CombatPhase::Block;
 
@@ -3258,16 +3707,21 @@ fn apply_assign_damage_to_unit(
         &unit_resistances,
     );
 
-    // Apply result to unit
+    // Apply result to unit (with Banner of Fortitude intercept)
     if damage_result.unit_destroyed {
+        // Check fortitude before destruction — if wound would be negated, unit survives as wounded
+        // Fortitude only prevents the wound step, not destruction from double-wound
         state.players[player_idx].units.remove(unit_idx);
     } else {
-        let unit = &mut state.players[player_idx].units[unit_idx];
         if damage_result.unit_wounded {
-            unit.wounded = true;
+            // Banner of Fortitude: negate the wound if available
+            let negated = try_negate_wound_with_fortitude(state, player_idx, unit_instance_id);
+            if !negated {
+                state.players[player_idx].units[unit_idx].wounded = true;
+            }
         }
         if damage_result.resistance_used {
-            unit.used_resistance_this_combat = true;
+            state.players[player_idx].units[unit_idx].used_resistance_this_combat = true;
         }
     }
 
@@ -5721,11 +6175,35 @@ fn end_combat(state: &mut GameState, player_idx: usize) {
                 }
             }
         }
+
+        // If discard_enemies_on_failure is set, remove and discard any non-defeated enemies
+        // from the hex on combat failure (e.g., BurnMonastery draws a temporary enemy).
+        if combat.discard_enemies_on_failure {
+            let all_defeated = combat.enemies.iter().all(|e| e.is_defeated);
+            if !all_defeated {
+                if let Some(hex_coord) = combat.combat_hex_coord {
+                    if let Some(hex) = state.map.hexes.get_mut(&hex_coord.key()) {
+                        let remaining: Vec<(EnemyTokenId, EnemyColor)> = hex
+                            .enemies
+                            .iter()
+                            .map(|e| (e.token_id.clone(), e.color))
+                            .collect();
+                        hex.enemies.clear();
+                        for (token_id, color) in &remaining {
+                            discard_enemy_token(&mut state.enemy_tokens, token_id, *color);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // Conquest marking: if all required-for-conquest enemies defeated and hex has an unconquered site.
     // Rampaging enemies provoked during an assault have is_required_for_conquest=false,
     // so they don't need to be defeated for the site to be conquered.
+    let mut conquered_site_type: Option<SiteType> = None;
+    let mut burn_monastery_reward = false;
+    let mut ruins_reward: Option<SiteReward> = None;
     if let Some(ref combat) = state.combat {
         let all_required_defeated = combat
             .enemies
@@ -5739,19 +6217,87 @@ fn end_combat(state: &mut GameState, player_idx: usize) {
         let all_defeated = combat.enemies.iter().all(|e| e.is_defeated);
         // Conquest if: (1) all required enemies defeated (when there are required enemies), OR
         // (2) all enemies defeated (fallback for non-assault combats with no required markers)
-        if (has_any_required && all_required_defeated) || (!has_any_required && all_defeated) {
+        // BurnMonastery has its own conquest + shield logic below, skip the general path.
+        let is_burn = combat.combat_context == CombatContext::BurnMonastery;
+        if !is_burn && ((has_any_required && all_required_defeated) || (!has_any_required && all_defeated)) {
             if let Some(hex_coord) = combat.combat_hex_coord {
                 if let Some(hex) = state.map.hexes.get_mut(&hex_coord.key()) {
                     if let Some(ref mut site) = hex.site {
                         if !site.is_conquered {
                             site.is_conquered = true;
                             site.owner = Some(state.players[player_idx].id.clone());
+                            conquered_site_type = Some(site.site_type);
                         }
                     }
+                    // Place shield token
+                    hex.shield_tokens.push(state.players[player_idx].id.clone());
                     // Clear remaining enemies from hex (all defeated)
                     hex.enemies.clear();
                 }
             }
+        }
+
+        // BurnMonastery victory: if combat_context == BurnMonastery and all enemies defeated
+        if combat.combat_context == CombatContext::BurnMonastery && all_defeated {
+            if let Some(hex_coord) = combat.combat_hex_coord {
+                if let Some(hex) = state.map.hexes.get_mut(&hex_coord.key()) {
+                    if let Some(ref mut site) = hex.site {
+                        site.is_burned = true;
+                        site.is_conquered = true;
+                        site.owner = Some(state.players[player_idx].id.clone());
+                    }
+                    // Place shield token
+                    hex.shield_tokens.push(state.players[player_idx].id.clone());
+                }
+            }
+        }
+
+        // AncientRuins victory: collect data for reward queueing
+        if combat.combat_context == CombatContext::AncientRuins && all_defeated {
+            if let Some(hex_coord) = combat.combat_hex_coord {
+                if let Some(hex) = state.map.hexes.get_mut(&hex_coord.key()) {
+                    // Remove ruins token from hex and discard to pile
+                    if let Some(ruins_token) = hex.ruins_token.take() {
+                        // Look up the enemy token's reward
+                        if let Some(mk_data::ruins_tokens::RuinsTokenDef::Enemy(enemy_token)) =
+                            mk_data::ruins_tokens::get_ruins_token(ruins_token.token_id.as_str())
+                        {
+                            ruins_reward = Some(mk_data::ruins_tokens::get_enemy_token_reward(enemy_token));
+                        }
+                        state.ruins_tokens.discard.push(ruins_token.token_id.clone());
+                    }
+
+                    // Conquest marking (ruins site conquered)
+                    if let Some(ref mut site) = hex.site {
+                        if !site.is_conquered {
+                            site.is_conquered = true;
+                            site.owner = Some(state.players[player_idx].id.clone());
+                        }
+                    }
+                    // Place shield token
+                    hex.shield_tokens.push(state.players[player_idx].id.clone());
+                }
+            }
+        }
+
+        // Track BurnMonastery victory for reward queueing after borrow ends
+        burn_monastery_reward = combat.combat_context == CombatContext::BurnMonastery && all_defeated;
+    }
+
+    // Queue burn monastery reward (outside the combat borrow)
+    if burn_monastery_reward {
+        queue_site_reward(state, player_idx, SiteReward::Artifact { count: 1 });
+    }
+
+    // Queue ruins reward (outside the combat borrow)
+    if let Some(reward) = ruins_reward {
+        queue_site_reward(state, player_idx, reward);
+    }
+
+    // Queue conquest reward if a site was newly conquered
+    if let Some(site_type) = conquered_site_type {
+        if let Some(reward) = conquest_reward(site_type) {
+            queue_site_reward(state, player_idx, reward);
         }
     }
 
@@ -5964,28 +6510,70 @@ fn apply_activate_unit(
         crate::card_play::check_mana_enhancement_trigger(state, player_idx, consumed_color);
     }
 
+    // Compute UnitCombatBonus and UnitBlockBonus from active modifiers
+    use mk_types::modifier::{ModifierEffect, ModifierScope};
+    let player_id = &state.players[player_idx].id;
+    let (unit_attack_bonus, unit_block_bonus): (i32, i32) = state
+        .active_modifiers
+        .iter()
+        .filter(|m| {
+            m.created_by_player_id == *player_id
+                && matches!(m.scope, ModifierScope::AllUnits)
+        })
+        .fold((0i32, 0i32), |(atk, blk), m| {
+            if let ModifierEffect::UnitCombatBonus {
+                attack_bonus,
+                block_bonus,
+            } = &m.effect
+            {
+                (atk + *attack_bonus, blk + *block_bonus)
+            } else {
+                (atk, blk)
+            }
+        });
+
+    let extra_block_bonus: i32 = state
+        .active_modifiers
+        .iter()
+        .filter(|m| {
+            m.created_by_player_id == *player_id
+                && matches!(m.scope, ModifierScope::AllUnits)
+        })
+        .filter_map(|m| {
+            if let ModifierEffect::UnitBlockBonus { amount } = &m.effect {
+                Some(*amount)
+            } else {
+                None
+            }
+        })
+        .sum();
+
     // Apply the ability effect
     use mk_data::units::UnitAbility;
     match slot.ability {
         UnitAbility::Attack { value, element } => {
+            let boosted = (value as i32 + unit_attack_bonus).max(0) as u32;
             let acc = &mut state.players[player_idx].combat_accumulator.attack;
-            acc.normal += value;
-            add_to_elemental(&mut acc.normal_elements, element, value);
+            acc.normal += boosted;
+            add_to_elemental(&mut acc.normal_elements, element, boosted);
         }
         UnitAbility::Block { value, element } => {
+            let boosted = (value as i32 + unit_block_bonus + extra_block_bonus).max(0) as u32;
             let acc = &mut state.players[player_idx].combat_accumulator;
-            acc.block += value;
-            add_to_elemental(&mut acc.block_elements, element, value);
+            acc.block += boosted;
+            add_to_elemental(&mut acc.block_elements, element, boosted);
         }
         UnitAbility::RangedAttack { value, element } => {
+            let boosted = (value as i32 + unit_attack_bonus).max(0) as u32;
             let acc = &mut state.players[player_idx].combat_accumulator.attack;
-            acc.ranged += value;
-            add_to_elemental(&mut acc.ranged_elements, element, value);
+            acc.ranged += boosted;
+            add_to_elemental(&mut acc.ranged_elements, element, boosted);
         }
         UnitAbility::SiegeAttack { value, element } => {
+            let boosted = (value as i32 + unit_attack_bonus).max(0) as u32;
             let acc = &mut state.players[player_idx].combat_accumulator.attack;
-            acc.siege += value;
-            add_to_elemental(&mut acc.siege_elements, element, value);
+            acc.siege += boosted;
+            add_to_elemental(&mut acc.siege_elements, element, boosted);
         }
         UnitAbility::Move { value } => {
             state.players[player_idx].move_points += value;
@@ -6032,9 +6620,10 @@ fn apply_activate_unit(
             mana::gain_crystal(&mut state.players[player_idx], color);
         }
         UnitAbility::AttackWithRepCost { value, element, rep_change } => {
+            let boosted = (value as i32 + unit_attack_bonus).max(0) as u32;
             let acc = &mut state.players[player_idx].combat_accumulator.attack;
-            acc.normal += value;
-            add_to_elemental(&mut acc.normal_elements, element, value);
+            acc.normal += boosted;
+            add_to_elemental(&mut acc.normal_elements, element, boosted);
             let new_rep = (state.players[player_idx].reputation as i16 + rep_change as i16)
                 .clamp(-7, 7) as i8;
             state.players[player_idx].reputation = new_rep;
@@ -6806,7 +7395,90 @@ fn apply_enter_site(
     // Determine enemy tokens for combat
     let enemy_tokens: Vec<EnemyTokenId>;
 
-    if mk_data::sites::draws_fresh_enemies(site_type) {
+    if site_type == SiteType::AncientRuins {
+        // Ancient Ruins: enemies persist on the hex until defeated.
+        // If enemies already exist from a previous retreat, use those.
+        // Only draw fresh enemies on first entry.
+        let hex_has_enemies = !hex_state.enemies.is_empty();
+
+        if hex_has_enemies {
+            // Re-entry: fight the same enemies still on the hex
+            enemy_tokens = hex_state.enemies.iter().map(|e| e.token_id.clone()).collect();
+        } else {
+            // First entry: draw enemies from the ruins token's color list
+            let ruins_token_id = hex_state
+                .ruins_token
+                .as_ref()
+                .map(|t| t.token_id.clone())
+                .ok_or_else(|| ApplyError::InternalError("EnterSite: no ruins token on hex".into()))?;
+
+            let enemy_token = match mk_data::ruins_tokens::get_ruins_token(ruins_token_id.as_str()) {
+                Some(mk_data::ruins_tokens::RuinsTokenDef::Enemy(e)) => *e,
+                _ => {
+                    return Err(ApplyError::InternalError(
+                        "EnterSite: ruins token is not an enemy token".into(),
+                    ));
+                }
+            };
+
+            // Draw one enemy per color from the token definition
+            let mut drawn = Vec::new();
+            for &color in enemy_token.enemy_colors {
+                let token = draw_enemy_token(&mut state.enemy_tokens, color, &mut state.rng)
+                    .ok_or_else(|| {
+                        ApplyError::InternalError(format!(
+                            "EnterSite: no {:?} enemy tokens available for ruins",
+                            color
+                        ))
+                    })?;
+                drawn.push(token);
+            }
+
+            // Place drawn tokens onto hex
+            let hex = state.map.hexes.get_mut(&hex_key).unwrap();
+            for token in &drawn {
+                let enemy_id_str = enemy_id_from_token(token);
+                let def = mk_data::enemies::get_enemy(&enemy_id_str).ok_or_else(|| {
+                    ApplyError::InternalError(format!("EnterSite: unknown enemy {}", enemy_id_str))
+                })?;
+                hex.enemies.push(HexEnemy {
+                    token_id: token.clone(),
+                    color: def.color,
+                    is_revealed: true,
+                });
+            }
+
+            enemy_tokens = drawn;
+        }
+
+        // Enter combat (ruins: units allowed, no fortification, no night mana rules)
+        combat::execute_enter_combat(
+            state,
+            player_idx,
+            &enemy_tokens,
+            false,
+            Some(player_pos),
+            Default::default(),
+        )
+        .map_err(|e| {
+            ApplyError::InternalError(format!("EnterSite: enter_combat failed: {:?}", e))
+        })?;
+
+        // Set combat context to AncientRuins
+        if let Some(ref mut combat) = state.combat {
+            combat.combat_context = CombatContext::AncientRuins;
+        }
+
+        state.players[player_idx]
+            .flags
+            .insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+
+        return Ok(ApplyResult {
+            needs_reenumeration: true,
+            game_ended: false,
+            events: vec![],
+        });
+    } else if mk_data::sites::draws_fresh_enemies(site_type) {
         // Dungeon/Tomb: always draw fresh enemies
         let config = mk_data::sites::adventure_site_enemies(site_type)
             .ok_or_else(|| ApplyError::InternalError("EnterSite: not an adventure site".into()))?;
@@ -7019,6 +7691,602 @@ fn apply_decline_plunder(
         game_ended: false,
         events: Vec::new(),
     })
+}
+
+// =============================================================================
+// Site commerce handlers
+// =============================================================================
+
+fn apply_buy_spell(
+    state: &mut GameState,
+    player_idx: usize,
+    card_id: &CardId,
+) -> Result<ApplyResult, ApplyError> {
+    let player = &mut state.players[player_idx];
+
+    if player.influence_points < SPELL_PURCHASE_COST {
+        return Err(ApplyError::InternalError("BuySpell: insufficient influence".into()));
+    }
+
+    // Deduct influence
+    player.influence_points -= SPELL_PURCHASE_COST;
+
+    // Insert card at top of deed deck
+    player.deck.insert(0, card_id.clone());
+
+    // Take from spell offer (replenishes from deck)
+    take_from_offer(
+        &mut state.offers.spells,
+        &mut state.decks.spell_deck,
+        card_id.as_str(),
+    );
+
+    state.players[player_idx]
+        .flags
+        .insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+fn apply_learn_advanced_action(
+    state: &mut GameState,
+    player_idx: usize,
+    card_id: &CardId,
+) -> Result<ApplyResult, ApplyError> {
+    let player = &mut state.players[player_idx];
+
+    if player.influence_points < MONASTERY_AA_PURCHASE_COST {
+        return Err(ApplyError::InternalError("LearnAA: insufficient influence".into()));
+    }
+
+    // Deduct influence
+    player.influence_points -= MONASTERY_AA_PURCHASE_COST;
+
+    // Insert card at top of deed deck
+    player.deck.insert(0, card_id.clone());
+
+    // Take from monastery offer (no replenishment)
+    take_from_monastery_offer(
+        &mut state.offers.monastery_advanced_actions,
+        card_id.as_str(),
+    );
+
+    state.players[player_idx]
+        .flags
+        .insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+fn apply_burn_monastery(
+    state: &mut GameState,
+    player_idx: usize,
+) -> Result<ApplyResult, ApplyError> {
+    let player_pos = state.players[player_idx]
+        .position
+        .ok_or_else(|| ApplyError::InternalError("BurnMonastery: no position".into()))?;
+
+    // Deduct reputation (capped at -7)
+    let player = &mut state.players[player_idx];
+    player.reputation = (player.reputation as i32 - BURN_MONASTERY_REP_PENALTY)
+        .max(-7) as i8;
+
+    // Draw 1 violet enemy token
+    let token = draw_enemy_token(
+        &mut state.enemy_tokens,
+        EnemyColor::Violet,
+        &mut state.rng,
+    )
+    .ok_or_else(|| ApplyError::InternalError("BurnMonastery: no violet tokens".into()))?;
+
+    // Place token onto hex
+    let hex_key = player_pos.key();
+    let hex = state
+        .map
+        .hexes
+        .get_mut(&hex_key)
+        .ok_or_else(|| ApplyError::InternalError("BurnMonastery: hex not found".into()))?;
+
+    let enemy_id_str = enemy_id_from_token(&token);
+    let def = mk_data::enemies::get_enemy(&enemy_id_str).ok_or_else(|| {
+        ApplyError::InternalError(format!("BurnMonastery: unknown enemy {}", enemy_id_str))
+    })?;
+    hex.enemies.push(HexEnemy {
+        token_id: token.clone(),
+        color: def.color,
+        is_revealed: true,
+    });
+
+    // Enter combat: units NOT allowed, combat_context = BurnMonastery
+    let options = combat::EnterCombatOptions {
+        units_allowed: false,
+        night_mana_rules: false,
+    };
+
+    combat::execute_enter_combat(
+        state,
+        player_idx,
+        &[token],
+        false, // not fortified
+        Some(player_pos),
+        options,
+    )
+    .map_err(|e| ApplyError::InternalError(format!("BurnMonastery: enter_combat failed: {:?}", e)))?;
+
+    // Set combat context
+    if let Some(ref mut combat) = state.combat {
+        combat.combat_context = CombatContext::BurnMonastery;
+        combat.discard_enemies_on_failure = true;
+    }
+
+    let player = &mut state.players[player_idx];
+    player.flags.insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+    player.flags.insert(PlayerFlags::HAS_COMBATTED_THIS_TURN);
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+fn apply_altar_tribute(
+    state: &mut GameState,
+    player_idx: usize,
+    mana_sources: &[mk_types::action::ManaSourceInfo],
+) -> Result<ApplyResult, ApplyError> {
+    let player_pos = state.players[player_idx]
+        .position
+        .ok_or_else(|| ApplyError::InternalError("AltarTribute: no position".into()))?;
+
+    let hex_key = player_pos.key();
+
+    // Get the ruins token from the hex
+    let token_id = state
+        .map
+        .hexes
+        .get(&hex_key)
+        .and_then(|h| h.ruins_token.as_ref())
+        .map(|t| t.token_id.clone())
+        .ok_or_else(|| ApplyError::InternalError("AltarTribute: no ruins token on hex".into()))?;
+
+    // Look up the altar definition
+    let altar = match mk_data::ruins_tokens::get_ruins_token(token_id.as_str()) {
+        Some(mk_data::ruins_tokens::RuinsTokenDef::Altar(a)) => *a,
+        _ => {
+            return Err(ApplyError::InternalError(
+                "AltarTribute: token is not an altar".into(),
+            ));
+        }
+    };
+
+    // Consume mana from the provided sources
+    for source in mana_sources {
+        card_play::consume_specific_mana_source(state, player_idx, source);
+    }
+
+    // Grant fame
+    state.players[player_idx].fame += altar.fame;
+
+    // Conquer the site
+    if let Some(hex) = state.map.hexes.get_mut(&hex_key) {
+        if let Some(ref mut site) = hex.site {
+            site.is_conquered = true;
+            site.owner = Some(state.players[player_idx].id.clone());
+        }
+        // Place shield token
+        hex.shield_tokens.push(state.players[player_idx].id.clone());
+        // Remove ruins token from hex and discard
+        hex.ruins_token = None;
+    }
+
+    // Discard token to ruins pile
+    state.ruins_tokens.discard.push(token_id);
+
+    // Set flags
+    state.players[player_idx]
+        .flags
+        .insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+
+    // Check for level-ups from fame gain
+    crate::end_turn::process_level_ups_pub(state, player_idx);
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+// =============================================================================
+// Banner assignment handlers
+// =============================================================================
+
+fn apply_assign_banner(
+    state: &mut GameState,
+    player_idx: usize,
+    hand_index: usize,
+    card_id: &CardId,
+    unit_instance_id: &mk_types::ids::UnitInstanceId,
+) -> Result<ApplyResult, ApplyError> {
+    let player = &mut state.players[player_idx];
+
+    // Validate hand index
+    if hand_index >= player.hand.len() || player.hand[hand_index] != *card_id {
+        return Err(ApplyError::InternalError(format!(
+            "AssignBanner: hand_index {} invalid or card mismatch",
+            hand_index
+        )));
+    }
+
+    // Validate unit exists
+    if !player.units.iter().any(|u| u.instance_id == *unit_instance_id) {
+        return Err(ApplyError::InternalError(format!(
+            "AssignBanner: unit '{}' not found",
+            unit_instance_id.as_str()
+        )));
+    }
+
+    // Remove card from hand, add to play area
+    let card = player.hand.remove(hand_index);
+    player.play_area.push(card);
+
+    // Create banner attachment
+    player.attached_banners.push(BannerAttachment {
+        banner_id: card_id.clone(),
+        unit_instance_id: unit_instance_id.clone(),
+        is_used_this_round: false,
+    });
+
+    // Banner assignment is a free action — does NOT set HAS_TAKEN_ACTION
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+fn apply_use_banner_courage(
+    state: &mut GameState,
+    player_idx: usize,
+    unit_instance_id: &mk_types::ids::UnitInstanceId,
+) -> Result<ApplyResult, ApplyError> {
+    let player = &mut state.players[player_idx];
+
+    // Find the banner attachment
+    let banner_idx = player
+        .attached_banners
+        .iter()
+        .position(|b| {
+            b.banner_id.as_str() == "banner_of_courage"
+                && b.unit_instance_id == *unit_instance_id
+                && !b.is_used_this_round
+        })
+        .ok_or_else(|| {
+            ApplyError::InternalError(format!(
+                "UseBannerCourage: no unused courage banner on unit '{}'",
+                unit_instance_id.as_str()
+            ))
+        })?;
+
+    // Mark banner as used this round
+    player.attached_banners[banner_idx].is_used_this_round = true;
+
+    // Ready the unit
+    let unit_idx = player
+        .units
+        .iter()
+        .position(|u| u.instance_id == *unit_instance_id)
+        .ok_or_else(|| {
+            ApplyError::InternalError(format!(
+                "UseBannerCourage: unit '{}' not found",
+                unit_instance_id.as_str()
+            ))
+        })?;
+
+    player.units[unit_idx].state = UnitState::Ready;
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+fn apply_use_banner_fear(
+    state: &mut GameState,
+    player_idx: usize,
+    unit_instance_id: &mk_types::ids::UnitInstanceId,
+    enemy_instance_id: &CombatInstanceId,
+    attack_index: usize,
+) -> Result<ApplyResult, ApplyError> {
+    let player = &mut state.players[player_idx];
+
+    // Find the banner attachment
+    let banner_idx = player
+        .attached_banners
+        .iter()
+        .position(|b| {
+            b.banner_id.as_str() == "banner_of_fear"
+                && b.unit_instance_id == *unit_instance_id
+                && !b.is_used_this_round
+        })
+        .ok_or_else(|| {
+            ApplyError::InternalError(format!(
+                "UseBannerFear: no unused fear banner on unit '{}'",
+                unit_instance_id.as_str()
+            ))
+        })?;
+
+    // Mark banner as used this round
+    player.attached_banners[banner_idx].is_used_this_round = true;
+
+    // Spend the unit (cost of using fear)
+    let unit_idx = player
+        .units
+        .iter()
+        .position(|u| u.instance_id == *unit_instance_id)
+        .ok_or_else(|| {
+            ApplyError::InternalError(format!(
+                "UseBannerFear: unit '{}' not found",
+                unit_instance_id.as_str()
+            ))
+        })?;
+
+    player.units[unit_idx].state = UnitState::Spent;
+
+    // Cancel the enemy attack
+    let combat = state.combat.as_mut().ok_or_else(|| {
+        ApplyError::InternalError("UseBannerFear: no combat".into())
+    })?;
+
+    let enemy = combat
+        .enemies
+        .iter_mut()
+        .find(|e| e.instance_id == *enemy_instance_id)
+        .ok_or_else(|| {
+            ApplyError::InternalError(format!(
+                "UseBannerFear: enemy '{}' not found",
+                enemy_instance_id.as_str()
+            ))
+        })?;
+
+    if attack_index < enemy.attacks_cancelled.len() {
+        enemy.attacks_cancelled[attack_index] = true;
+    }
+
+    // Grant +1 fame
+    state.players[player_idx].fame += 1;
+    crate::end_turn::process_level_ups_pub(state, player_idx);
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+/// Check if a unit's wound can be negated by Banner of Fortitude.
+/// Returns true if the wound was negated (banner consumed).
+pub fn try_negate_wound_with_fortitude(
+    state: &mut GameState,
+    player_idx: usize,
+    unit_instance_id: &mk_types::ids::UnitInstanceId,
+) -> bool {
+    let player = &mut state.players[player_idx];
+    if let Some(attachment) = player.attached_banners.iter_mut().find(|b| {
+        b.banner_id.as_str() == "banner_of_fortitude"
+            && b.unit_instance_id == *unit_instance_id
+            && !b.is_used_this_round
+    }) {
+        attachment.is_used_this_round = true;
+        return true; // wound negated
+    }
+    false
+}
+
+fn apply_select_reward(
+    state: &mut GameState,
+    player_idx: usize,
+    card_id: &CardId,
+) -> Result<ApplyResult, ApplyError> {
+    let player = &mut state.players[player_idx];
+
+    // Take the pending SiteRewardChoice
+    let pending = player.pending.active.take().ok_or_else(|| {
+        ApplyError::InternalError("SelectReward: no active pending".into())
+    })?;
+
+    let (reward, _reward_index) = match pending {
+        ActivePending::SiteRewardChoice { reward, reward_index } => (reward, reward_index),
+        _ => {
+            return Err(ApplyError::InternalError(
+                "SelectReward: active pending is not SiteRewardChoice".into(),
+            ));
+        }
+    };
+
+    match reward {
+        SiteReward::Spell { count } => {
+            // Move card to top of deed deck
+            state.players[player_idx].deck.insert(0, card_id.clone());
+            take_from_offer(
+                &mut state.offers.spells,
+                &mut state.decks.spell_deck,
+                card_id.as_str(),
+            );
+
+            // If count > 1, re-queue remainder
+            if count > 1 {
+                queue_site_reward(state, player_idx, SiteReward::Spell { count: count - 1 });
+            }
+        }
+        SiteReward::AdvancedAction { count } => {
+            state.players[player_idx].deck.insert(0, card_id.clone());
+            take_from_offer(
+                &mut state.offers.advanced_actions,
+                &mut state.decks.advanced_action_deck,
+                card_id.as_str(),
+            );
+
+            if count > 1 {
+                queue_site_reward(
+                    state,
+                    player_idx,
+                    SiteReward::AdvancedAction { count: count - 1 },
+                );
+            }
+        }
+        _ => {
+            return Err(ApplyError::InternalError(format!(
+                "SelectReward: unexpected reward type: {:?}",
+                reward
+            )));
+        }
+    }
+
+    // Promote next reward if any
+    promote_site_reward(state, player_idx);
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+// =============================================================================
+// Site reward queueing & promotion
+// =============================================================================
+
+/// Queue a site reward for the player. Auto-grants immediate rewards (Fame, CrystalRoll,
+/// Artifact) and queues choice rewards (Spell, AdvancedAction) as deferred.
+fn queue_site_reward(state: &mut GameState, player_idx: usize, reward: SiteReward) {
+    match reward {
+        SiteReward::Compound { rewards } => {
+            // Flatten compound rewards — process each sub-reward
+            for sub in rewards {
+                queue_site_reward(state, player_idx, sub);
+            }
+        }
+        SiteReward::Fame { amount } => {
+            state.players[player_idx].fame += amount;
+        }
+        SiteReward::CrystalRoll { count } => {
+            // Simplified: Gold die → Red crystal, Black → +1 fame.
+            // Roll 0-5 mapping to R/B/G/W/Gold/Black.
+            for _ in 0..count {
+                let roll = state.rng.next_int(0, 5) as usize;
+                let colors = [
+                    BasicManaColor::Red,
+                    BasicManaColor::Blue,
+                    BasicManaColor::Green,
+                    BasicManaColor::White,
+                ];
+                if roll < 4 {
+                    // Basic color → gain crystal of that color
+                    crate::mana::gain_crystal(&mut state.players[player_idx], colors[roll]);
+                } else if roll == 4 {
+                    // Gold → Red crystal
+                    crate::mana::gain_crystal(
+                        &mut state.players[player_idx],
+                        BasicManaColor::Red,
+                    );
+                } else {
+                    // Black → +1 fame
+                    state.players[player_idx].fame += 1;
+                }
+            }
+        }
+        SiteReward::Artifact { count } => {
+            // Draw from artifact deck to top of deed deck
+            for _ in 0..count {
+                if !state.decks.artifact_deck.is_empty() {
+                    let artifact = state.decks.artifact_deck.remove(0);
+                    state.players[player_idx].deck.insert(0, artifact);
+                }
+            }
+        }
+        SiteReward::Spell { .. } | SiteReward::AdvancedAction { .. } => {
+            // Queue as deferred reward
+            let player = &mut state.players[player_idx];
+            // Find existing Rewards deferred entry or create new one
+            let mut found = false;
+            for d in player.pending.deferred.iter_mut() {
+                if let DeferredPending::Rewards(ref mut rewards) = d {
+                    if !rewards.is_full() {
+                        rewards.push(reward.clone());
+                    }
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                let mut arr = ArrayVec::<SiteReward, MAX_REWARDS>::new();
+                arr.push(reward);
+                if !player.pending.deferred.is_full() {
+                    player.pending.deferred.push(DeferredPending::Rewards(arr));
+                }
+            }
+
+            // If no active pending, promote immediately
+            if player.pending.active.is_none() {
+                promote_site_reward(state, player_idx);
+            }
+        }
+        SiteReward::Unit => {
+            // Unit rewards: not yet implemented (would need unit offer selection)
+            // For now, auto-skip
+        }
+    }
+}
+
+/// Promote the first deferred site reward to active pending.
+fn promote_site_reward(state: &mut GameState, player_idx: usize) {
+    let player = &mut state.players[player_idx];
+
+    // Already have an active pending — don't overwrite
+    if player.pending.active.is_some() {
+        return;
+    }
+
+    // Find the first Rewards deferred entry and pop the first reward
+    let mut reward_to_promote: Option<SiteReward> = None;
+    let mut empty_deferred_idx: Option<usize> = None;
+
+    for (i, d) in player.pending.deferred.iter_mut().enumerate() {
+        if let DeferredPending::Rewards(ref mut rewards) = d {
+            if !rewards.is_empty() {
+                reward_to_promote = Some(rewards.remove(0));
+                if rewards.is_empty() {
+                    empty_deferred_idx = Some(i);
+                }
+                break;
+            }
+        }
+    }
+
+    // Clean up empty deferred entry
+    if let Some(idx) = empty_deferred_idx {
+        player.pending.deferred.remove(idx);
+    }
+
+    // Set as active pending
+    if let Some(reward) = reward_to_promote {
+        player.pending.active = Some(ActivePending::SiteRewardChoice {
+            reward,
+            reward_index: 0,
+        });
+    }
 }
 
 fn apply_resolve_glade_wound(
@@ -7711,6 +8979,602 @@ pub(crate) fn apply_resolve_source_opening_reroll(
         Ok(_) => Ok(ApplyResult { needs_reenumeration: true, game_ended: false, events: Vec::new() }),
         Err(e) => Err(ApplyError::InternalError(format!("end_turn after source opening reroll: {:?}", e))),
     }
+}
+
+// =============================================================================
+// Combat modifier hook helpers
+// =============================================================================
+
+/// Build a list of resistance elements that should be removed from targets
+/// based on active modifiers (RemovePhysicalResistance, RemoveFireResistance, etc.).
+fn build_removed_resistances(
+    modifiers: &[mk_types::modifier::ActiveModifier],
+    _target_pairs: &[(CombatEnemy, &mk_data::enemies::EnemyDefinition)],
+    _player_idx: usize,
+    player_id: &PlayerId,
+) -> Vec<ResistanceElement> {
+    use mk_types::modifier::ModifierEffect;
+
+    let mut removed = Vec::new();
+    for m in modifiers {
+        // Only consider modifiers created by the current player
+        let is_player = match &m.source {
+            mk_types::modifier::ModifierSource::Card { player_id: pid, .. }
+            | mk_types::modifier::ModifierSource::Skill { player_id: pid, .. }
+            | mk_types::modifier::ModifierSource::Unit { player_id: pid, .. }
+            | mk_types::modifier::ModifierSource::Tactic { player_id: pid, .. } => pid == player_id,
+            mk_types::modifier::ModifierSource::Site { .. } => false,
+        };
+        if !is_player {
+            continue;
+        }
+
+        match &m.effect {
+            ModifierEffect::RemovePhysicalResistance => {
+                if !removed.contains(&ResistanceElement::Physical) {
+                    removed.push(ResistanceElement::Physical);
+                }
+            }
+            ModifierEffect::RemoveFireResistance => {
+                if !removed.contains(&ResistanceElement::Fire) {
+                    removed.push(ResistanceElement::Fire);
+                }
+            }
+            ModifierEffect::RemoveIceResistance => {
+                if !removed.contains(&ResistanceElement::Ice) {
+                    removed.push(ResistanceElement::Ice);
+                }
+            }
+            ModifierEffect::RemoveResistances => {
+                // Already handled by are_resistances_removed() in legal_actions,
+                // but for attack resolution we need to strip them here too.
+                for r in &[ResistanceElement::Physical, ResistanceElement::Fire, ResistanceElement::Ice] {
+                    if !removed.contains(r) {
+                        removed.push(*r);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    removed
+}
+
+/// Count bonus fame from FamePerEnemyDefeated modifiers for defeated enemies.
+fn count_fame_per_enemy_bonus(
+    modifiers: &[mk_types::modifier::ActiveModifier],
+    player_id: &PlayerId,
+    defeated_summoned_flags: &[bool],
+) -> u32 {
+    use mk_types::modifier::ModifierEffect;
+
+    let mut total_bonus = 0u32;
+    for m in modifiers {
+        if let ModifierEffect::FamePerEnemyDefeated { fame_per_enemy, exclude_summoned } = &m.effect {
+            let is_player = m.created_by_player_id == *player_id;
+            if !is_player {
+                continue;
+            }
+            let eligible_count = if *exclude_summoned {
+                defeated_summoned_flags.iter().filter(|&&is_summoned| !is_summoned).count()
+            } else {
+                defeated_summoned_flags.len()
+            };
+            total_bonus += fame_per_enemy * eligible_count as u32;
+        }
+    }
+    total_bonus
+}
+
+/// Award crystals from SoulHarvesterCrystalTracking modifiers on enemy defeat.
+///
+/// Auto-selects crystal color based on first available non-max color.
+/// Decrements the tracker limit.
+fn resolve_soul_harvester_crystals(
+    state: &mut GameState,
+    player_idx: usize,
+    defeated_summoned_flags: &[bool],
+) {
+    use mk_types::modifier::ModifierEffect;
+
+    let player_id = state.players[player_idx].id.clone();
+
+    // Find the SoulHarvesterCrystalTracking modifier index
+    let mod_idx = state.active_modifiers.iter().position(|m| {
+        matches!(&m.effect, ModifierEffect::SoulHarvesterCrystalTracking { .. })
+            && m.created_by_player_id == player_id
+    });
+
+    let Some(idx) = mod_idx else { return };
+
+    let (limit, _track_by_attack) = match &state.active_modifiers[idx].effect {
+        ModifierEffect::SoulHarvesterCrystalTracking { limit, track_by_attack } => (*limit, *track_by_attack),
+        _ => return,
+    };
+
+    if limit == 0 {
+        return;
+    }
+
+    // Count eligible defeats (non-summoned only)
+    let eligible = defeated_summoned_flags.iter().filter(|&&s| !s).count() as u32;
+    let to_award = eligible.min(limit);
+
+    if to_award == 0 {
+        return;
+    }
+
+    // Auto-select crystal colors (cycle through basic colors)
+    let colors = [BasicManaColor::Red, BasicManaColor::Blue, BasicManaColor::Green, BasicManaColor::White];
+    for _ in 0..to_award {
+        // Pick the first color that isn't at max
+        let player = &state.players[player_idx];
+        let crystal_color = colors.iter().find(|&&c| {
+            let count = match c {
+                BasicManaColor::Red => player.crystals.red,
+                BasicManaColor::Blue => player.crystals.blue,
+                BasicManaColor::Green => player.crystals.green,
+                BasicManaColor::White => player.crystals.white,
+            };
+            count < 3
+        }).copied();
+        if let Some(color) = crystal_color {
+            crate::mana::gain_crystal(&mut state.players[player_idx], color);
+        }
+    }
+
+    // Decrement limit on the modifier
+    let new_limit = limit.saturating_sub(to_award);
+    if let ModifierEffect::SoulHarvesterCrystalTracking { ref mut limit, .. } = state.active_modifiers[idx].effect {
+        *limit = new_limit;
+    }
+}
+
+// =============================================================================
+// Gap 1: Convert Move to Attack / Influence to Block
+// =============================================================================
+
+fn apply_convert_move_to_attack(
+    state: &mut GameState,
+    player_idx: usize,
+    move_points: u32,
+    attack_type: mk_types::modifier::CombatValueType,
+) -> Result<ApplyResult, ApplyError> {
+    let player = &mut state.players[player_idx];
+
+    if player.move_points < move_points {
+        return Err(ApplyError::InternalError(format!(
+            "ConvertMoveToAttack: need {} move points, have {}",
+            move_points, player.move_points
+        )));
+    }
+
+    // Deduct move points
+    player.move_points -= move_points;
+
+    // Convert: 1 attack point per cost_per_point move points consumed
+    // The LegalAction already carries the total move_points to spend.
+    // We need to find the conversion ratio from the modifier.
+    let player_id = player.id.clone();
+    let cost_per_point = state
+        .active_modifiers
+        .iter()
+        .find_map(|m| {
+            if m.created_by_player_id != player_id {
+                return None;
+            }
+            if let mk_types::modifier::ModifierEffect::MoveToAttackConversion {
+                cost_per_point: cpp,
+                attack_type: at,
+            } = &m.effect
+            {
+                if *at == attack_type {
+                    return Some(*cpp);
+                }
+            }
+            None
+        })
+        .ok_or_else(|| {
+            ApplyError::InternalError("ConvertMoveToAttack: no matching modifier".into())
+        })?;
+
+    let attack_points = move_points / cost_per_point;
+
+    let player = &mut state.players[player_idx];
+    match attack_type {
+        mk_types::modifier::CombatValueType::Attack => {
+            player.combat_accumulator.attack.normal += attack_points;
+            player.combat_accumulator.attack.normal_elements.physical += attack_points;
+        }
+        mk_types::modifier::CombatValueType::Ranged => {
+            player.combat_accumulator.attack.ranged += attack_points;
+            player.combat_accumulator.attack.ranged_elements.physical += attack_points;
+        }
+        _ => {
+            return Err(ApplyError::InternalError(format!(
+                "ConvertMoveToAttack: unsupported attack type {:?}",
+                attack_type
+            )));
+        }
+    }
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+fn apply_convert_influence_to_block(
+    state: &mut GameState,
+    player_idx: usize,
+    influence_points: u32,
+    element: Option<Element>,
+) -> Result<ApplyResult, ApplyError> {
+    let player = &mut state.players[player_idx];
+
+    if player.influence_points < influence_points {
+        return Err(ApplyError::InternalError(format!(
+            "ConvertInfluenceToBlock: need {} influence, have {}",
+            influence_points, player.influence_points
+        )));
+    }
+
+    // Deduct influence
+    player.influence_points -= influence_points;
+
+    // Find cost_per_point from modifier
+    let player_id = player.id.clone();
+    let cost_per_point = state
+        .active_modifiers
+        .iter()
+        .find_map(|m| {
+            if m.created_by_player_id != player_id {
+                return None;
+            }
+            if let mk_types::modifier::ModifierEffect::InfluenceToBlockConversion {
+                cost_per_point: cpp,
+                element: el,
+            } = &m.effect
+            {
+                if *el == element {
+                    return Some(*cpp);
+                }
+            }
+            None
+        })
+        .ok_or_else(|| {
+            ApplyError::InternalError("ConvertInfluenceToBlock: no matching modifier".into())
+        })?;
+
+    let block_points = influence_points / cost_per_point;
+
+    let player = &mut state.players[player_idx];
+    player.combat_accumulator.block += block_points;
+    match element {
+        None | Some(Element::Physical) => {
+            player.combat_accumulator.block_elements.physical += block_points;
+        }
+        Some(Element::Fire) => {
+            player.combat_accumulator.block_elements.fire += block_points;
+        }
+        Some(Element::Ice) => {
+            player.combat_accumulator.block_elements.ice += block_points;
+        }
+        Some(Element::ColdFire) => {
+            player.combat_accumulator.block_elements.cold_fire += block_points;
+        }
+    }
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+// =============================================================================
+// Gap 2: Pay Heroes Assault Influence
+// =============================================================================
+
+fn apply_pay_heroes_assault_influence(
+    state: &mut GameState,
+    player_idx: usize,
+) -> Result<ApplyResult, ApplyError> {
+    let player = &mut state.players[player_idx];
+
+    if player.influence_points < 2 {
+        return Err(ApplyError::InternalError(
+            "PayHeroesAssaultInfluence: need 2 influence".into(),
+        ));
+    }
+
+    player.influence_points -= 2;
+
+    let combat = state.combat.as_mut().ok_or_else(|| {
+        ApplyError::InternalError("PayHeroesAssaultInfluence: no combat".into())
+    })?;
+
+    combat.paid_heroes_assault_influence = true;
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+// =============================================================================
+// Gap 3: Pay Thugs Damage Influence
+// =============================================================================
+
+fn apply_pay_thugs_damage_influence(
+    state: &mut GameState,
+    player_idx: usize,
+    unit_instance_id: &mk_types::ids::UnitInstanceId,
+) -> Result<ApplyResult, ApplyError> {
+    let player = &mut state.players[player_idx];
+
+    if player.influence_points < 2 {
+        return Err(ApplyError::InternalError(
+            "PayThugsDamageInfluence: need 2 influence".into(),
+        ));
+    }
+
+    player.influence_points -= 2;
+
+    let combat = state.combat.as_mut().ok_or_else(|| {
+        ApplyError::InternalError("PayThugsDamageInfluence: no combat".into())
+    })?;
+
+    combat
+        .paid_thugs_damage_influence
+        .insert(unit_instance_id.as_str().to_string(), true);
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+// =============================================================================
+// Gap 4: Resolve Unit Maintenance
+// =============================================================================
+
+fn apply_resolve_unit_maintenance(
+    state: &mut GameState,
+    player_idx: usize,
+    unit_instance_id: &mk_types::ids::UnitInstanceId,
+    keep_unit: bool,
+    crystal_color: Option<BasicManaColor>,
+    new_mana_token_color: Option<BasicManaColor>,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::pending::ActivePending;
+
+    if keep_unit {
+        // Deduct 1 crystal of the chosen color
+        let color = crystal_color.ok_or_else(|| {
+            ApplyError::InternalError("ResolveUnitMaintenance keep: no crystal color".into())
+        })?;
+        let token_color = new_mana_token_color.ok_or_else(|| {
+            ApplyError::InternalError("ResolveUnitMaintenance keep: no token color".into())
+        })?;
+
+        let player = &mut state.players[player_idx];
+        let crystal_ref = match color {
+            BasicManaColor::Red => &mut player.crystals.red,
+            BasicManaColor::Blue => &mut player.crystals.blue,
+            BasicManaColor::Green => &mut player.crystals.green,
+            BasicManaColor::White => &mut player.crystals.white,
+        };
+        if *crystal_ref == 0 {
+            return Err(ApplyError::InternalError(format!(
+                "ResolveUnitMaintenance: no {:?} crystal",
+                color
+            )));
+        }
+        *crystal_ref -= 1;
+
+        // Update unit's mana token
+        let unit = player
+            .units
+            .iter_mut()
+            .find(|u| u.instance_id == *unit_instance_id)
+            .ok_or_else(|| {
+                ApplyError::InternalError(format!(
+                    "ResolveUnitMaintenance: unit '{}' not found",
+                    unit_instance_id.as_str()
+                ))
+            })?;
+        unit.mana_token = Some(ManaToken {
+            color: ManaColor::from(token_color),
+            source: ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+    } else {
+        // Disband: remove unit
+        let player = &mut state.players[player_idx];
+        let unit_idx = player
+            .units
+            .iter()
+            .position(|u| u.instance_id == *unit_instance_id)
+            .ok_or_else(|| {
+                ApplyError::InternalError(format!(
+                    "ResolveUnitMaintenance disband: unit '{}' not found",
+                    unit_instance_id.as_str()
+                ))
+            })?;
+        player.units.remove(unit_idx);
+
+        // Clear bonds_of_loyalty if matching
+        if player
+            .bonds_of_loyalty_unit_instance_id
+            .as_ref()
+            .is_some_and(|id| id == unit_instance_id)
+        {
+            player.bonds_of_loyalty_unit_instance_id = None;
+        }
+
+        // Remove attached banners for this unit
+        player
+            .attached_banners
+            .retain(|b| b.unit_instance_id != *unit_instance_id);
+    }
+
+    // Remove entry from pending list
+    let player = &mut state.players[player_idx];
+    if let Some(ActivePending::UnitMaintenance(ref mut entries)) = player.pending.active {
+        entries.retain(|e| e.unit_instance_id != *unit_instance_id);
+        if entries.is_empty() {
+            player.pending.active = None;
+        }
+    }
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+// =============================================================================
+// Gap 5: Resolve Hex/Terrain Cost Reduction (Druidic Paths)
+// =============================================================================
+
+fn apply_resolve_hex_cost_reduction(
+    state: &mut GameState,
+    player_idx: usize,
+    coordinate: mk_types::hex::HexCoord,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::pending::{ActivePending, TerrainCostReductionMode};
+
+    let player = &state.players[player_idx];
+    let (reduction, minimum_cost) = match &player.pending.active {
+        Some(ActivePending::TerrainCostReduction(ref tcr))
+            if tcr.mode == TerrainCostReductionMode::Hex =>
+        {
+            if !tcr.available_coordinates.contains(&coordinate) {
+                return Err(ApplyError::InternalError(format!(
+                    "ResolveHexCostReduction: coord {:?} not in available list",
+                    coordinate
+                )));
+            }
+            (tcr.reduction, tcr.minimum_cost)
+        }
+        _ => {
+            return Err(ApplyError::InternalError(
+                "ResolveHexCostReduction: no TerrainCostReduction pending (Hex mode)".into(),
+            ));
+        }
+    };
+
+    // Clear pending
+    state.players[player_idx].pending.active = None;
+
+    // Determine the terrain at target coordinate
+    let terrain = state
+        .map
+        .hexes
+        .get(&coordinate.key())
+        .map(|h| h.terrain)
+        .ok_or_else(|| {
+            ApplyError::InternalError(format!(
+                "ResolveHexCostReduction: hex {:?} not found on map",
+                coordinate
+            ))
+        })?;
+
+    // Add a TerrainCost modifier for this specific terrain with Turn duration
+    let player_id = state.players[player_idx].id.clone();
+    let modifier_id = ModifierId::from(format!("druidic_hex_{}", state.next_instance_counter));
+    state.next_instance_counter += 1;
+
+    state.active_modifiers.push(mk_types::modifier::ActiveModifier {
+        id: modifier_id,
+        source: mk_types::modifier::ModifierSource::Card {
+            card_id: CardId::from("braevalar_druidic_paths"),
+            player_id: player_id.clone(),
+        },
+        duration: mk_types::modifier::ModifierDuration::Turn,
+        scope: mk_types::modifier::ModifierScope::SelfScope,
+        effect: mk_types::modifier::ModifierEffect::TerrainCost {
+            terrain: mk_types::modifier::TerrainOrAll::Specific(terrain),
+            amount: reduction,
+            minimum: minimum_cost,
+            replace_cost: Some(minimum_cost),
+        },
+        created_at_round: state.round,
+        created_by_player_id: player_id,
+    });
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+fn apply_resolve_terrain_cost_reduction(
+    state: &mut GameState,
+    player_idx: usize,
+    terrain: Terrain,
+) -> Result<ApplyResult, ApplyError> {
+    use mk_types::pending::{ActivePending, TerrainCostReductionMode};
+
+    let player = &state.players[player_idx];
+    let (reduction, minimum_cost) = match &player.pending.active {
+        Some(ActivePending::TerrainCostReduction(ref tcr))
+            if tcr.mode == TerrainCostReductionMode::Terrain =>
+        {
+            if !tcr.available_terrains.contains(&terrain) {
+                return Err(ApplyError::InternalError(format!(
+                    "ResolveTerrainCostReduction: terrain {:?} not in available list",
+                    terrain
+                )));
+            }
+            (tcr.reduction, tcr.minimum_cost)
+        }
+        _ => {
+            return Err(ApplyError::InternalError(
+                "ResolveTerrainCostReduction: no TerrainCostReduction pending (Terrain mode)"
+                    .into(),
+            ));
+        }
+    };
+
+    // Clear pending
+    state.players[player_idx].pending.active = None;
+
+    // Add a TerrainCost modifier for this terrain type with Turn duration
+    let player_id = state.players[player_idx].id.clone();
+    let modifier_id =
+        ModifierId::from(format!("druidic_terrain_{}", state.next_instance_counter));
+    state.next_instance_counter += 1;
+
+    state.active_modifiers.push(mk_types::modifier::ActiveModifier {
+        id: modifier_id,
+        source: mk_types::modifier::ModifierSource::Card {
+            card_id: CardId::from("braevalar_druidic_paths"),
+            player_id: player_id.clone(),
+        },
+        duration: mk_types::modifier::ModifierDuration::Turn,
+        scope: mk_types::modifier::ModifierScope::SelfScope,
+        effect: mk_types::modifier::ModifierEffect::TerrainCost {
+            terrain: mk_types::modifier::TerrainOrAll::Specific(terrain),
+            amount: reduction,
+            minimum: minimum_cost,
+            replace_cost: Some(minimum_cost),
+        },
+        created_at_round: state.round,
+        created_by_player_id: player_id,
+    });
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
 }
 
 // =============================================================================
@@ -17744,4 +19608,3727 @@ mod tests {
         assert!(state.dummy_player.is_none());
         assert!(state.dummy_player_tactic.is_none());
     }
+
+    // =========================================================================
+    // Site Commerce Tests
+    // =========================================================================
+
+    // --- BuySpell ---
+
+    #[test]
+    fn buy_spell_deducts_influence_and_adds_to_deck() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let coord = place_player_on_site(&mut state, SiteType::MageTower);
+        state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_conquered = true;
+        state.players[0].influence_points = 10;
+        state.offers.spells = vec![CardId::from("fireball"), CardId::from("ice_bolt")];
+        state.decks.spell_deck = vec![CardId::from("spare_spell")];
+
+        let epoch = state.action_epoch;
+        let mut undo = UndoStack::new();
+        let result = apply_legal_action(
+            &mut state,
+            &mut undo,
+            0,
+            &LegalAction::BuySpell {
+                card_id: CardId::from("fireball"),
+                offer_index: 0,
+            },
+            epoch,
+        );
+        assert!(result.is_ok());
+        assert_eq!(state.players[0].influence_points, 3); // 10 - 7
+        assert_eq!(state.players[0].deck[0].as_str(), "fireball"); // top of deck
+        // Spell removed from offer, replenished from deck
+        assert!(!state.offers.spells.iter().any(|s| s.as_str() == "fireball"));
+    }
+
+    #[test]
+    fn buy_spell_enumerated_at_conquered_mage_tower() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let coord = place_player_on_site(&mut state, SiteType::MageTower);
+        state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_conquered = true;
+        state.players[0].influence_points = 7;
+        state.offers.spells = vec![CardId::from("fireball")];
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let buy_spells: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::BuySpell { .. })).collect();
+        assert_eq!(buy_spells.len(), 1);
+    }
+
+    #[test]
+    fn buy_spell_not_enumerated_without_enough_influence() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let coord = place_player_on_site(&mut state, SiteType::MageTower);
+        state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_conquered = true;
+        state.players[0].influence_points = 6; // Need 7
+        state.offers.spells = vec![CardId::from("fireball")];
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let buy_spells: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::BuySpell { .. })).collect();
+        assert_eq!(buy_spells.len(), 0);
+    }
+
+    #[test]
+    fn buy_spell_not_enumerated_at_unconquered_mage_tower() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_site(&mut state, SiteType::MageTower);
+        state.players[0].influence_points = 10;
+        state.offers.spells = vec![CardId::from("fireball")];
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let buy_spells: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::BuySpell { .. })).collect();
+        assert_eq!(buy_spells.len(), 0);
+    }
+
+    #[test]
+    fn buy_spell_blocked_after_combat() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let coord = place_player_on_site(&mut state, SiteType::MageTower);
+        state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_conquered = true;
+        state.players[0].influence_points = 10;
+        state.players[0].flags.insert(PlayerFlags::HAS_COMBATTED_THIS_TURN);
+        state.offers.spells = vec![CardId::from("fireball")];
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let buy_spells: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::BuySpell { .. })).collect();
+        assert_eq!(buy_spells.len(), 0);
+    }
+
+    #[test]
+    fn buy_spell_empty_offer_no_actions() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let coord = place_player_on_site(&mut state, SiteType::MageTower);
+        state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_conquered = true;
+        state.players[0].influence_points = 10;
+        state.offers.spells.clear();
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let buy_spells: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::BuySpell { .. })).collect();
+        assert_eq!(buy_spells.len(), 0);
+    }
+
+    #[test]
+    fn buy_spell_multiple_offers_enumerated() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let coord = place_player_on_site(&mut state, SiteType::MageTower);
+        state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_conquered = true;
+        state.players[0].influence_points = 14; // enough for 2 spells
+        state.offers.spells = vec![CardId::from("fireball"), CardId::from("ice_bolt"), CardId::from("lightning")];
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let buy_spells: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::BuySpell { .. })).collect();
+        assert_eq!(buy_spells.len(), 3);
+    }
+
+    #[test]
+    fn buy_spell_sets_has_taken_action() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let coord = place_player_on_site(&mut state, SiteType::MageTower);
+        state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_conquered = true;
+        state.players[0].influence_points = 10;
+        state.offers.spells = vec![CardId::from("fireball")];
+
+        let epoch = state.action_epoch;
+        let mut undo = UndoStack::new();
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::BuySpell { card_id: CardId::from("fireball"), offer_index: 0 },
+            epoch,
+        ).unwrap();
+        assert!(state.players[0].flags.contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN));
+    }
+
+    // --- LearnAdvancedAction ---
+
+    #[test]
+    fn learn_aa_deducts_influence_and_adds_to_deck() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_site(&mut state, SiteType::Monastery);
+        state.players[0].influence_points = 8;
+        state.offers.monastery_advanced_actions = vec![CardId::from("crystal_mastery"), CardId::from("power_of_crystals")];
+
+        let epoch = state.action_epoch;
+        let mut undo = UndoStack::new();
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::LearnAdvancedAction { card_id: CardId::from("crystal_mastery"), offer_index: 0 },
+            epoch,
+        ).unwrap();
+        assert_eq!(state.players[0].influence_points, 2); // 8 - 6
+        assert_eq!(state.players[0].deck[0].as_str(), "crystal_mastery");
+        // Removed from monastery offer, no replenishment
+        assert!(!state.offers.monastery_advanced_actions.iter().any(|c| c.as_str() == "crystal_mastery"));
+    }
+
+    #[test]
+    fn learn_aa_enumerated_at_monastery() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_site(&mut state, SiteType::Monastery);
+        state.players[0].influence_points = 6;
+        state.offers.monastery_advanced_actions = vec![CardId::from("crystal_mastery")];
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let learn_aas: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::LearnAdvancedAction { .. })).collect();
+        assert_eq!(learn_aas.len(), 1);
+    }
+
+    #[test]
+    fn learn_aa_not_enumerated_without_enough_influence() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_site(&mut state, SiteType::Monastery);
+        state.players[0].influence_points = 5; // Need 6
+        state.offers.monastery_advanced_actions = vec![CardId::from("crystal_mastery")];
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let learn_aas: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::LearnAdvancedAction { .. })).collect();
+        assert_eq!(learn_aas.len(), 0);
+    }
+
+    #[test]
+    fn learn_aa_not_enumerated_at_burned_monastery() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let coord = place_player_on_site(&mut state, SiteType::Monastery);
+        state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_burned = true;
+        state.players[0].influence_points = 10;
+        state.offers.monastery_advanced_actions = vec![CardId::from("crystal_mastery")];
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let learn_aas: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::LearnAdvancedAction { .. })).collect();
+        assert_eq!(learn_aas.len(), 0);
+    }
+
+    #[test]
+    fn learn_aa_empty_monastery_offer_no_actions() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_site(&mut state, SiteType::Monastery);
+        state.players[0].influence_points = 10;
+        state.offers.monastery_advanced_actions.clear();
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let learn_aas: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::LearnAdvancedAction { .. })).collect();
+        assert_eq!(learn_aas.len(), 0);
+    }
+
+    #[test]
+    fn learn_aa_sets_has_taken_action() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_site(&mut state, SiteType::Monastery);
+        state.players[0].influence_points = 8;
+        state.offers.monastery_advanced_actions = vec![CardId::from("crystal_mastery")];
+
+        let epoch = state.action_epoch;
+        let mut undo = UndoStack::new();
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::LearnAdvancedAction { card_id: CardId::from("crystal_mastery"), offer_index: 0 },
+            epoch,
+        ).unwrap();
+        assert!(state.players[0].flags.contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN));
+    }
+
+    // --- BurnMonastery ---
+
+    #[test]
+    fn burn_monastery_enumerated_at_monastery() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_site(&mut state, SiteType::Monastery);
+        // Need violet tokens available
+        state.enemy_tokens.violet_draw = vec![EnemyTokenId::from("monks_1")];
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let burns: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::BurnMonastery)).collect();
+        assert_eq!(burns.len(), 1);
+    }
+
+    #[test]
+    fn burn_monastery_not_after_action() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_site(&mut state, SiteType::Monastery);
+        state.enemy_tokens.violet_draw = vec![EnemyTokenId::from("monks_1")];
+        state.players[0].flags.insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let burns: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::BurnMonastery)).collect();
+        assert_eq!(burns.len(), 0);
+    }
+
+    #[test]
+    fn burn_monastery_not_after_combat() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_site(&mut state, SiteType::Monastery);
+        state.enemy_tokens.violet_draw = vec![EnemyTokenId::from("monks_1")];
+        state.players[0].flags.insert(PlayerFlags::HAS_COMBATTED_THIS_TURN);
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let burns: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::BurnMonastery)).collect();
+        assert_eq!(burns.len(), 0);
+    }
+
+    #[test]
+    fn burn_monastery_not_at_burned_monastery() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let coord = place_player_on_site(&mut state, SiteType::Monastery);
+        state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_burned = true;
+        state.enemy_tokens.violet_draw = vec![EnemyTokenId::from("monks_1")];
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let burns: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::BurnMonastery)).collect();
+        assert_eq!(burns.len(), 0);
+    }
+
+    #[test]
+    fn burn_monastery_no_violet_tokens_blocks() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_site(&mut state, SiteType::Monastery);
+        state.enemy_tokens.violet_draw.clear();
+        state.enemy_tokens.violet_discard.clear();
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let burns: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::BurnMonastery)).collect();
+        assert_eq!(burns.len(), 0);
+    }
+
+    #[test]
+    fn burn_monastery_deducts_reputation() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_site(&mut state, SiteType::Monastery);
+        state.enemy_tokens.violet_draw = vec![EnemyTokenId::from("monks_1")];
+        let rep_before = state.players[0].reputation;
+
+        let epoch = state.action_epoch;
+        let mut undo = UndoStack::new();
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::BurnMonastery,
+            epoch,
+        ).unwrap();
+        assert_eq!(state.players[0].reputation as i32, rep_before as i32 - 3);
+    }
+
+    #[test]
+    fn burn_monastery_rep_capped_at_minus_seven() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_site(&mut state, SiteType::Monastery);
+        state.enemy_tokens.violet_draw = vec![EnemyTokenId::from("monks_1")];
+        state.players[0].reputation = -5;
+
+        let epoch = state.action_epoch;
+        let mut undo = UndoStack::new();
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::BurnMonastery,
+            epoch,
+        ).unwrap();
+        assert_eq!(state.players[0].reputation, -7);
+    }
+
+    #[test]
+    fn burn_monastery_enters_combat() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_site(&mut state, SiteType::Monastery);
+        state.enemy_tokens.violet_draw = vec![EnemyTokenId::from("monks_1")];
+
+        let epoch = state.action_epoch;
+        let mut undo = UndoStack::new();
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::BurnMonastery,
+            epoch,
+        ).unwrap();
+        assert!(state.combat.is_some());
+        let combat = state.combat.as_ref().unwrap();
+        assert_eq!(combat.combat_context, CombatContext::BurnMonastery);
+        assert!(combat.discard_enemies_on_failure);
+        assert!(!combat.units_allowed);
+    }
+
+    #[test]
+    fn burn_monastery_sets_flags() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_site(&mut state, SiteType::Monastery);
+        state.enemy_tokens.violet_draw = vec![EnemyTokenId::from("monks_1")];
+
+        let epoch = state.action_epoch;
+        let mut undo = UndoStack::new();
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::BurnMonastery,
+            epoch,
+        ).unwrap();
+        assert!(state.players[0].flags.contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN));
+        assert!(state.players[0].flags.contains(PlayerFlags::HAS_COMBATTED_THIS_TURN));
+    }
+
+    // --- BurnMonastery Victory/Defeat (end_combat integration) ---
+
+    /// Helper: set up game, place player on monastery, initiate BurnMonastery, return state.
+    fn setup_burn_monastery_combat(state: &mut GameState, undo: &mut UndoStack) {
+        place_player_on_site(state, SiteType::Monastery);
+        state.enemy_tokens.violet_draw = vec![EnemyTokenId::from("monks_1")];
+        state.decks.artifact_deck = vec![CardId::from("banner_of_command")];
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            state, undo, 0,
+            &LegalAction::BurnMonastery,
+            epoch,
+        ).unwrap();
+    }
+
+    /// Helper: defeat all enemies and end combat via EndCombatPhase at Attack phase.
+    fn win_burn_monastery_combat(state: &mut GameState, undo: &mut UndoStack) {
+        // Mark all combat enemies as defeated
+        let combat = state.combat.as_mut().unwrap();
+        for enemy in combat.enemies.iter_mut() {
+            enemy.is_defeated = true;
+        }
+        combat.phase = CombatPhase::Attack;
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            state, undo, 0,
+            &LegalAction::EndCombatPhase,
+            epoch,
+        ).unwrap();
+    }
+
+    #[test]
+    fn burn_monastery_victory_marks_conquered() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        setup_burn_monastery_combat(&mut state, &mut undo);
+
+        // Player is now at (99,99) due to place_player_on_site
+        let player_pos = state.players[0].position.unwrap();
+        win_burn_monastery_combat(&mut state, &mut undo);
+
+        let hex = &state.map.hexes[&player_pos.key()];
+        let site = hex.site.as_ref().unwrap();
+        assert!(site.is_conquered, "Monastery should be marked conquered after victory");
+        assert_eq!(
+            site.owner.as_ref().unwrap(),
+            &state.players[0].id,
+            "Monastery owner should be the player"
+        );
+    }
+
+    #[test]
+    fn burn_monastery_victory_places_shield_token() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        setup_burn_monastery_combat(&mut state, &mut undo);
+        let player_pos = state.players[0].position.unwrap();
+
+        win_burn_monastery_combat(&mut state, &mut undo);
+
+        let hex = &state.map.hexes[&player_pos.key()];
+        assert_eq!(hex.shield_tokens.len(), 1);
+        assert_eq!(hex.shield_tokens[0], state.players[0].id);
+    }
+
+    #[test]
+    fn burn_monastery_victory_burns_site() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        setup_burn_monastery_combat(&mut state, &mut undo);
+        let player_pos = state.players[0].position.unwrap();
+
+        win_burn_monastery_combat(&mut state, &mut undo);
+
+        let site = state.map.hexes[&player_pos.key()].site.as_ref().unwrap();
+        assert!(site.is_burned, "Monastery should be burned after victory");
+    }
+
+    #[test]
+    fn burn_monastery_victory_queues_artifact() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        setup_burn_monastery_combat(&mut state, &mut undo);
+
+        win_burn_monastery_combat(&mut state, &mut undo);
+
+        // Artifact should have been auto-drawn from artifact deck to top of deed deck
+        assert!(
+            state.players[0].deck.iter().any(|c| c.as_str() == "banner_of_command"),
+            "Artifact reward should be drawn to player's deck"
+        );
+    }
+
+    #[test]
+    fn burn_monastery_defeat_does_not_burn() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        setup_burn_monastery_combat(&mut state, &mut undo);
+        let player_pos = state.players[0].position.unwrap();
+
+        // End combat without defeating enemies (enemy still alive → defeat)
+        let combat = state.combat.as_mut().unwrap();
+        combat.phase = CombatPhase::Attack;
+        // Do NOT mark enemies as defeated
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::EndCombatPhase,
+            epoch,
+        ).unwrap();
+
+        let site = state.map.hexes[&player_pos.key()].site.as_ref().unwrap();
+        assert!(!site.is_burned, "Monastery should NOT be burned on defeat");
+    }
+
+    #[test]
+    fn burn_monastery_defeat_does_not_conquer() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        setup_burn_monastery_combat(&mut state, &mut undo);
+        let player_pos = state.players[0].position.unwrap();
+
+        // End combat without defeating enemies
+        let combat = state.combat.as_mut().unwrap();
+        combat.phase = CombatPhase::Attack;
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::EndCombatPhase,
+            epoch,
+        ).unwrap();
+
+        let site = state.map.hexes[&player_pos.key()].site.as_ref().unwrap();
+        assert!(!site.is_conquered, "Monastery should NOT be conquered on defeat");
+        assert!(site.owner.is_none(), "Monastery should have no owner on defeat");
+    }
+
+    #[test]
+    fn burn_monastery_defeat_no_shield_token() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        setup_burn_monastery_combat(&mut state, &mut undo);
+        let player_pos = state.players[0].position.unwrap();
+
+        // End combat without defeating enemies
+        let combat = state.combat.as_mut().unwrap();
+        combat.phase = CombatPhase::Attack;
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::EndCombatPhase,
+            epoch,
+        ).unwrap();
+
+        let hex = &state.map.hexes[&player_pos.key()];
+        assert!(hex.shield_tokens.is_empty(), "No shield token on defeat");
+    }
+
+    #[test]
+    fn burn_monastery_defeat_discards_enemy() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        setup_burn_monastery_combat(&mut state, &mut undo);
+
+        // End combat without defeating enemies
+        let combat = state.combat.as_mut().unwrap();
+        combat.phase = CombatPhase::Attack;
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::EndCombatPhase,
+            epoch,
+        ).unwrap();
+
+        // discard_enemies_on_failure means enemy should be discarded to violet pile
+        assert!(
+            state.enemy_tokens.violet_discard.contains(&EnemyTokenId::from("monks_1")),
+            "Enemy token should be discarded to violet pile on defeat"
+        );
+    }
+
+    #[test]
+    fn burn_monastery_shield_counts_in_scoring() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        setup_burn_monastery_combat(&mut state, &mut undo);
+
+        win_burn_monastery_combat(&mut state, &mut undo);
+
+        // Greatest Conqueror: +2 per shield on keep/mage tower/monastery
+        let score = crate::scoring::calculate_category_base_points(
+            mk_types::scoring::AchievementCategory::GreatestConqueror,
+            &state.players[0],
+            &state,
+        );
+        assert_eq!(score, 2, "One shield on a monastery should give +2 for Greatest Conqueror");
+    }
+
+    #[test]
+    fn burn_monastery_not_at_non_monastery_site() {
+        for site_type in [SiteType::Village, SiteType::Keep, SiteType::MageTower] {
+            let mut state = setup_playing_game(vec!["march"]);
+            place_player_on_site(&mut state, site_type);
+            state.enemy_tokens.violet_draw = vec![EnemyTokenId::from("monks_1")];
+
+            let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+            let burns: Vec<_> = actions.actions.iter()
+                .filter(|a| matches!(a, LegalAction::BurnMonastery))
+                .collect();
+            assert_eq!(burns.len(), 0, "BurnMonastery should not be available at {:?}", site_type);
+        }
+    }
+
+    #[test]
+    fn burn_monastery_available_with_discard_pile_tokens() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_site(&mut state, SiteType::Monastery);
+        // Draw pile empty, but discard has tokens (reshuffle should make it available)
+        state.enemy_tokens.violet_draw.clear();
+        state.enemy_tokens.violet_discard = vec![EnemyTokenId::from("monks_1")];
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let burns: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::BurnMonastery))
+            .collect();
+        assert_eq!(burns.len(), 1, "BurnMonastery should be available when tokens in discard pile");
+    }
+
+    #[test]
+    fn burn_monastery_combat_no_units() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        setup_burn_monastery_combat(&mut state, &mut undo);
+
+        let combat = state.combat.as_ref().unwrap();
+        assert!(!combat.units_allowed, "Units should not be allowed in BurnMonastery combat");
+    }
+
+    #[test]
+    fn burn_monastery_not_during_combat() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_site(&mut state, SiteType::Monastery);
+        state.enemy_tokens.violet_draw = vec![EnemyTokenId::from("monks_1")];
+        // Already in combat
+        state.combat = Some(Box::new(CombatState::default()));
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let burns: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::BurnMonastery))
+            .collect();
+        assert_eq!(burns.len(), 0, "BurnMonastery should not be available during combat");
+    }
+
+    #[test]
+    fn burn_monastery_not_while_resting() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_site(&mut state, SiteType::Monastery);
+        state.enemy_tokens.violet_draw = vec![EnemyTokenId::from("monks_1")];
+        state.players[0].flags.insert(PlayerFlags::IS_RESTING);
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let burns: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::BurnMonastery))
+            .collect();
+        assert_eq!(burns.len(), 0, "BurnMonastery should not be available while resting");
+    }
+
+    // --- Conquest Reward Queueing ---
+
+    #[test]
+    fn conquest_reward_fame_auto_granted() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let fame_before = state.players[0].fame;
+        queue_site_reward(&mut state, 0, SiteReward::Fame { amount: 5 });
+        assert_eq!(state.players[0].fame, fame_before + 5);
+    }
+
+    #[test]
+    fn conquest_reward_artifact_draws_from_deck() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.decks.artifact_deck = vec![CardId::from("banner_of_command"), CardId::from("ring_of_flame")];
+        let deck_before = state.players[0].deck.len();
+
+        queue_site_reward(&mut state, 0, SiteReward::Artifact { count: 1 });
+        assert_eq!(state.players[0].deck.len(), deck_before + 1);
+        assert_eq!(state.players[0].deck[0].as_str(), "banner_of_command");
+        assert_eq!(state.decks.artifact_deck.len(), 1); // one drawn
+    }
+
+    #[test]
+    fn conquest_reward_crystal_roll_grants_crystal_or_fame() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let fame_before = state.players[0].fame;
+        let crystals_before = state.players[0].crystals.red as u32
+            + state.players[0].crystals.blue as u32
+            + state.players[0].crystals.green as u32
+            + state.players[0].crystals.white as u32;
+
+        queue_site_reward(&mut state, 0, SiteReward::CrystalRoll { count: 3 });
+
+        // Either crystals increased or fame increased
+        let crystals_after = state.players[0].crystals.red as u32
+            + state.players[0].crystals.blue as u32
+            + state.players[0].crystals.green as u32
+            + state.players[0].crystals.white as u32;
+        let total_gain = (crystals_after - crystals_before) + (state.players[0].fame - fame_before);
+        assert!(total_gain >= 3, "3 crystal rolls should grant at least 3 rewards");
+    }
+
+    #[test]
+    fn conquest_reward_spell_queued_as_deferred() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.offers.spells = vec![CardId::from("fireball")];
+
+        queue_site_reward(&mut state, 0, SiteReward::Spell { count: 1 });
+
+        // Should be promoted to active pending (since no active pending existed)
+        assert!(matches!(
+            state.players[0].pending.active,
+            Some(ActivePending::SiteRewardChoice { .. })
+        ));
+    }
+
+    #[test]
+    fn conquest_reward_compound_flattened() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.decks.artifact_deck = vec![CardId::from("banner_of_command")];
+        state.offers.spells = vec![CardId::from("fireball")];
+        let fame_before = state.players[0].fame;
+
+        let compound = SiteReward::Compound {
+            rewards: vec![
+                SiteReward::Fame { amount: 2 },
+                SiteReward::Artifact { count: 1 },
+                SiteReward::Spell { count: 1 },
+            ],
+        };
+        queue_site_reward(&mut state, 0, compound);
+
+        // Fame auto-granted
+        assert_eq!(state.players[0].fame, fame_before + 2);
+        // Artifact auto-drawn
+        assert!(state.players[0].deck.iter().any(|c| c.as_str() == "banner_of_command"));
+        // Spell queued as pending
+        assert!(matches!(
+            state.players[0].pending.active,
+            Some(ActivePending::SiteRewardChoice { .. })
+        ));
+    }
+
+    // --- SelectReward ---
+
+    #[test]
+    fn select_reward_spell_moves_to_deck() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.offers.spells = vec![CardId::from("fireball"), CardId::from("ice_bolt")];
+        state.decks.spell_deck = vec![CardId::from("spare_spell")];
+        state.players[0].pending.active = Some(ActivePending::SiteRewardChoice {
+            reward: SiteReward::Spell { count: 1 },
+            reward_index: 0,
+        });
+
+        let epoch = state.action_epoch;
+        let mut undo = UndoStack::new();
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::SelectReward { card_id: CardId::from("fireball"), reward_index: 0 },
+            epoch,
+        ).unwrap();
+
+        assert_eq!(state.players[0].deck[0].as_str(), "fireball");
+        assert!(!state.offers.spells.iter().any(|s| s.as_str() == "fireball"));
+        // Pending cleared (no more rewards)
+        assert!(state.players[0].pending.active.is_none());
+    }
+
+    #[test]
+    fn select_reward_aa_moves_to_deck() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.offers.advanced_actions = vec![CardId::from("crystal_mastery"), CardId::from("power_of_crystals")];
+        state.decks.advanced_action_deck = vec![CardId::from("spare_aa")];
+        state.players[0].pending.active = Some(ActivePending::SiteRewardChoice {
+            reward: SiteReward::AdvancedAction { count: 1 },
+            reward_index: 0,
+        });
+
+        let epoch = state.action_epoch;
+        let mut undo = UndoStack::new();
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::SelectReward { card_id: CardId::from("crystal_mastery"), reward_index: 0 },
+            epoch,
+        ).unwrap();
+
+        assert_eq!(state.players[0].deck[0].as_str(), "crystal_mastery");
+        assert!(!state.offers.advanced_actions.iter().any(|a| a.as_str() == "crystal_mastery"));
+        assert!(state.players[0].pending.active.is_none());
+    }
+
+    #[test]
+    fn select_reward_multiple_spells_promotes_next() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.offers.spells = vec![CardId::from("fireball"), CardId::from("ice_bolt")];
+        state.decks.spell_deck = vec![CardId::from("spare_spell")];
+        state.players[0].pending.active = Some(ActivePending::SiteRewardChoice {
+            reward: SiteReward::Spell { count: 2 },
+            reward_index: 0,
+        });
+
+        let epoch = state.action_epoch;
+        let mut undo = UndoStack::new();
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::SelectReward { card_id: CardId::from("fireball"), reward_index: 0 },
+            epoch,
+        ).unwrap();
+
+        assert_eq!(state.players[0].deck[0].as_str(), "fireball");
+        // count was 2, so should have a remaining reward promoted
+        assert!(matches!(
+            state.players[0].pending.active,
+            Some(ActivePending::SiteRewardChoice {
+                reward: SiteReward::Spell { count: 1 },
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn select_reward_enumerated_for_spell_offer() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.offers.spells = vec![CardId::from("fireball"), CardId::from("ice_bolt")];
+        state.players[0].pending.active = Some(ActivePending::SiteRewardChoice {
+            reward: SiteReward::Spell { count: 1 },
+            reward_index: 0,
+        });
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let rewards: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::SelectReward { .. })).collect();
+        assert_eq!(rewards.len(), 2);
+    }
+
+    #[test]
+    fn select_reward_enumerated_for_aa_offer() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.offers.advanced_actions = vec![CardId::from("crystal_mastery"), CardId::from("power_of_crystals")];
+        state.players[0].pending.active = Some(ActivePending::SiteRewardChoice {
+            reward: SiteReward::AdvancedAction { count: 1 },
+            reward_index: 0,
+        });
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let rewards: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::SelectReward { .. })).collect();
+        assert_eq!(rewards.len(), 2);
+    }
+
+    // --- Promote Site Reward ---
+
+    #[test]
+    fn promote_site_reward_pops_first_deferred() {
+        let mut state = setup_playing_game(vec!["march"]);
+        // Set up deferred rewards
+        let mut arr = ArrayVec::<SiteReward, MAX_REWARDS>::new();
+        arr.push(SiteReward::Spell { count: 1 });
+        arr.push(SiteReward::AdvancedAction { count: 1 });
+        state.players[0].pending.deferred.push(DeferredPending::Rewards(arr));
+
+        promote_site_reward(&mut state, 0);
+
+        assert!(matches!(
+            state.players[0].pending.active,
+            Some(ActivePending::SiteRewardChoice {
+                reward: SiteReward::Spell { count: 1 },
+                ..
+            })
+        ));
+        // One reward remaining in deferred
+        let deferred_count = state.players[0].pending.deferred.iter()
+            .filter_map(|d| match d {
+                DeferredPending::Rewards(r) => Some(r.len()),
+                _ => None,
+            })
+            .sum::<usize>();
+        assert_eq!(deferred_count, 1);
+    }
+
+    #[test]
+    fn promote_site_reward_noop_when_active_pending_exists() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].pending.active = Some(ActivePending::PlunderDecision);
+        let mut arr = ArrayVec::<SiteReward, MAX_REWARDS>::new();
+        arr.push(SiteReward::Spell { count: 1 });
+        state.players[0].pending.deferred.push(DeferredPending::Rewards(arr));
+
+        promote_site_reward(&mut state, 0);
+
+        // Should NOT overwrite existing active pending
+        assert!(matches!(state.players[0].pending.active, Some(ActivePending::PlunderDecision)));
+    }
+
+    #[test]
+    fn promote_site_reward_noop_when_no_deferred() {
+        let mut state = setup_playing_game(vec!["march"]);
+        promote_site_reward(&mut state, 0);
+        assert!(state.players[0].pending.active.is_none());
+    }
+
+    // =========================================================================
+    // Ancient Ruins Tests
+    // =========================================================================
+
+    /// Helper: place player on an AncientRuins hex with a specific ruins token.
+    fn place_player_on_ruins(
+        state: &mut GameState,
+        token_id: &str,
+        is_revealed: bool,
+    ) -> HexCoord {
+        let coord = HexCoord { q: 99, r: 99 };
+        let hex = HexState {
+            coord,
+            terrain: Terrain::Plains,
+            tile_id: TileId::StartingA,
+            site: Some(Site {
+                site_type: SiteType::AncientRuins,
+                owner: None,
+                is_conquered: false,
+                is_burned: false,
+                city_color: None,
+                mine_color: None,
+                deep_mine_colors: None,
+            }),
+            rampaging_enemies: ArrayVec::new(),
+            enemies: ArrayVec::new(),
+            ruins_token: Some(mk_types::state::RuinsToken {
+                token_id: mk_types::ids::RuinsTokenId::from(token_id),
+                is_revealed,
+            }),
+            shield_tokens: Vec::new(),
+        };
+        state.map.hexes.insert(coord.key(), hex);
+        state.players[0].position = Some(coord);
+        coord
+    }
+
+    // --- Setup tests ---
+
+    #[test]
+    fn setup_initializes_ruins_token_draw_pile() {
+        let state = create_solo_game(42, Hero::Arythea);
+        assert_eq!(state.ruins_tokens.draw.len(), 15, "Should have 15 ruins tokens");
+    }
+
+    #[test]
+    fn setup_ruins_tokens_shuffled() {
+        let state1 = create_solo_game(42, Hero::Arythea);
+        let state2 = create_solo_game(999, Hero::Arythea);
+        // Different seeds should (almost certainly) produce different orderings
+        assert_ne!(
+            state1.ruins_tokens.draw, state2.ruins_tokens.draw,
+            "Different seeds should produce different token orderings"
+        );
+    }
+
+    #[test]
+    fn setup_ruins_discard_empty() {
+        let state = create_solo_game(42, Hero::Arythea);
+        assert!(state.ruins_tokens.discard.is_empty());
+    }
+
+    // --- Movement reveal tests ---
+
+    #[test]
+    fn move_to_ruins_hex_reveals_token() {
+        use crate::movement::execute_move;
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].move_points = 5;
+
+        // Place an unrevealed ruins token on an adjacent hex
+        let from = HexCoord { q: 0, r: 0 };
+        let target = HexCoord { q: 1, r: 0 };
+        state.players[0].position = Some(from);
+
+        // Create the from hex
+        state.map.hexes.insert(from.key(), HexState {
+            coord: from,
+            terrain: Terrain::Plains,
+            tile_id: TileId::StartingA,
+            site: None,
+            rampaging_enemies: ArrayVec::new(),
+            enemies: ArrayVec::new(),
+            ruins_token: None,
+            shield_tokens: Vec::new(),
+        });
+
+        // Create the target hex with unrevealed ruins token
+        state.map.hexes.insert(target.key(), HexState {
+            coord: target,
+            terrain: Terrain::Plains,
+            tile_id: TileId::StartingA,
+            site: Some(Site {
+                site_type: SiteType::AncientRuins,
+                owner: None,
+                is_conquered: false,
+                is_burned: false,
+                city_color: None,
+                mine_color: None,
+                deep_mine_colors: None,
+            }),
+            rampaging_enemies: ArrayVec::new(),
+            enemies: ArrayVec::new(),
+            ruins_token: Some(mk_types::state::RuinsToken {
+                token_id: mk_types::ids::RuinsTokenId::from("altar_blue"),
+                is_revealed: false,
+            }),
+            shield_tokens: Vec::new(),
+        });
+
+        let result = execute_move(&mut state, 0, target);
+        assert!(result.is_ok());
+
+        let hex = &state.map.hexes[&target.key()];
+        assert!(hex.ruins_token.as_ref().unwrap().is_revealed, "Moving to ruins hex should reveal token");
+    }
+
+    #[test]
+    fn move_to_non_ruins_hex_no_change() {
+        use crate::movement::execute_move;
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].move_points = 5;
+
+        let from = HexCoord { q: 0, r: 0 };
+        let target = HexCoord { q: 1, r: 0 };
+        state.players[0].position = Some(from);
+
+        state.map.hexes.insert(from.key(), HexState {
+            coord: from,
+            terrain: Terrain::Plains,
+            tile_id: TileId::StartingA,
+            site: None,
+            rampaging_enemies: ArrayVec::new(),
+            enemies: ArrayVec::new(),
+            ruins_token: None,
+            shield_tokens: Vec::new(),
+        });
+
+        state.map.hexes.insert(target.key(), HexState {
+            coord: target,
+            terrain: Terrain::Plains,
+            tile_id: TileId::StartingA,
+            site: None,
+            rampaging_enemies: ArrayVec::new(),
+            enemies: ArrayVec::new(),
+            ruins_token: None,
+            shield_tokens: Vec::new(),
+        });
+
+        let result = execute_move(&mut state, 0, target);
+        assert!(result.is_ok());
+        assert!(state.map.hexes[&target.key()].ruins_token.is_none());
+    }
+
+    // --- Dawn reveal tests ---
+
+    #[test]
+    fn dawn_reveals_all_face_down_ruins_tokens() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.time_of_day = TimeOfDay::Night;
+
+        // Place face-down ruins tokens on two hexes
+        let coord1 = HexCoord { q: 10, r: 10 };
+        let coord2 = HexCoord { q: 11, r: 10 };
+        for coord in [coord1, coord2] {
+            state.map.hexes.insert(coord.key(), HexState {
+                coord,
+                terrain: Terrain::Plains,
+                tile_id: TileId::StartingA,
+                site: Some(Site {
+                    site_type: SiteType::AncientRuins,
+                    owner: None,
+                    is_conquered: false,
+                    is_burned: false,
+                    city_color: None,
+                    mine_color: None,
+                    deep_mine_colors: None,
+                }),
+                rampaging_enemies: ArrayVec::new(),
+                enemies: ArrayVec::new(),
+                ruins_token: Some(mk_types::state::RuinsToken {
+                    token_id: mk_types::ids::RuinsTokenId::from("altar_blue"),
+                    is_revealed: false,
+                }),
+                shield_tokens: Vec::new(),
+            });
+        }
+
+        // Trigger end_round (night → day = dawn)
+        crate::end_turn::end_round(&mut state);
+
+        assert_eq!(state.time_of_day, TimeOfDay::Day);
+        for coord in [coord1, coord2] {
+            let hex = &state.map.hexes[&coord.key()];
+            assert!(
+                hex.ruins_token.as_ref().unwrap().is_revealed,
+                "Dawn should reveal face-down ruins tokens"
+            );
+        }
+    }
+
+    #[test]
+    fn dusk_does_not_reveal_tokens() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.time_of_day = TimeOfDay::Day;
+
+        let coord = HexCoord { q: 10, r: 10 };
+        state.map.hexes.insert(coord.key(), HexState {
+            coord,
+            terrain: Terrain::Plains,
+            tile_id: TileId::StartingA,
+            site: Some(Site {
+                site_type: SiteType::AncientRuins,
+                owner: None,
+                is_conquered: false,
+                is_burned: false,
+                city_color: None,
+                mine_color: None,
+                deep_mine_colors: None,
+            }),
+            rampaging_enemies: ArrayVec::new(),
+            enemies: ArrayVec::new(),
+            ruins_token: Some(mk_types::state::RuinsToken {
+                token_id: mk_types::ids::RuinsTokenId::from("altar_blue"),
+                is_revealed: false,
+            }),
+            shield_tokens: Vec::new(),
+        });
+
+        crate::end_turn::end_round(&mut state);
+
+        assert_eq!(state.time_of_day, TimeOfDay::Night);
+        let hex = &state.map.hexes[&coord.key()];
+        assert!(
+            !hex.ruins_token.as_ref().unwrap().is_revealed,
+            "Dusk (day→night) should NOT reveal tokens"
+        );
+    }
+
+    // --- Enumeration tests ---
+
+    #[test]
+    fn altar_tribute_enumerated_when_affordable() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_ruins(&mut state, "altar_blue", true);
+        // Give player 3 blue crystals
+        state.players[0].crystals.blue = 3;
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let tributes: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::AltarTribute { .. }))
+            .collect();
+        assert_eq!(tributes.len(), 1, "AltarTribute should be available with 3 blue crystals");
+    }
+
+    #[test]
+    fn altar_tribute_not_enumerated_when_unaffordable() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_ruins(&mut state, "altar_blue", true);
+        // Player has no mana tokens and no blue crystals
+        state.players[0].crystals = mk_types::state::Crystals::default();
+        state.players[0].pure_mana.clear();
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let tributes: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::AltarTribute { .. }))
+            .collect();
+        assert_eq!(tributes.len(), 0, "AltarTribute should NOT be available without enough mana");
+    }
+
+    #[test]
+    fn altar_tribute_affordable_with_tokens() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_ruins(&mut state, "altar_blue", true);
+        // Give player 3 blue mana tokens
+        for _ in 0..3 {
+            state.players[0].pure_mana.push(ManaToken {
+                color: ManaColor::Blue,
+                source: mk_types::state::ManaTokenSource::Effect,
+                cannot_power_spells: false,
+            });
+        }
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let tributes: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::AltarTribute { .. }))
+            .collect();
+        assert_eq!(tributes.len(), 1, "AltarTribute should be available with 3 blue mana tokens");
+    }
+
+    #[test]
+    fn altar_tribute_affordable_with_gold_tokens() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_ruins(&mut state, "altar_blue", true);
+        // Give player 3 gold mana tokens (wild)
+        for _ in 0..3 {
+            state.players[0].pure_mana.push(ManaToken {
+                color: ManaColor::Gold,
+                source: mk_types::state::ManaTokenSource::Effect,
+                cannot_power_spells: false,
+            });
+        }
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let tributes: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::AltarTribute { .. }))
+            .collect();
+        assert_eq!(tributes.len(), 1, "AltarTribute should be available with gold tokens");
+    }
+
+    #[test]
+    fn enter_site_enumerated_for_enemy_token() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_ruins(&mut state, "enemy_green_brown_artifact", true);
+        // Ensure green and brown enemy token piles have tokens
+        state.enemy_tokens.green_draw = vec![EnemyTokenId::from("orc_1")];
+        state.enemy_tokens.brown_draw = vec![EnemyTokenId::from("ogre_1")];
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let enters: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::EnterSite))
+            .collect();
+        assert_eq!(enters.len(), 1, "EnterSite should be available for enemy ruins token");
+    }
+
+    #[test]
+    fn enter_site_not_enumerated_without_enemy_tokens() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_ruins(&mut state, "enemy_green_brown_artifact", true);
+        // Empty green pile = can't draw green enemies
+        state.enemy_tokens.green_draw.clear();
+        state.enemy_tokens.green_discard.clear();
+        state.enemy_tokens.brown_draw = vec![EnemyTokenId::from("ogre_1")];
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let enters: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::EnterSite))
+            .collect();
+        assert_eq!(enters.len(), 0, "EnterSite should NOT be available without enough enemy tokens");
+    }
+
+    #[test]
+    fn no_actions_for_face_down_token() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_ruins(&mut state, "altar_blue", false);
+        state.players[0].crystals.blue = 3;
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let tributes: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::AltarTribute { .. }))
+            .collect();
+        let enters: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::EnterSite))
+            .collect();
+        assert_eq!(tributes.len(), 0, "No AltarTribute for face-down token");
+        assert_eq!(enters.len(), 0, "No EnterSite for face-down token");
+    }
+
+    #[test]
+    fn no_actions_for_conquered_ruins() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let coord = place_player_on_ruins(&mut state, "altar_blue", true);
+        state.players[0].crystals.blue = 3;
+        // Mark as conquered
+        state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_conquered = true;
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let tributes: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::AltarTribute { .. }))
+            .collect();
+        assert_eq!(tributes.len(), 0, "No actions for conquered ruins");
+    }
+
+    #[test]
+    fn ruins_not_interactable_during_combat() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_ruins(&mut state, "altar_blue", true);
+        state.players[0].crystals.blue = 3;
+        // Put player in combat
+        state.combat = Some(Box::new(CombatState::default()));
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let tributes: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::AltarTribute { .. }))
+            .collect();
+        assert_eq!(tributes.len(), 0, "No site actions during combat");
+    }
+
+    #[test]
+    fn ruins_not_interactable_while_resting() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_ruins(&mut state, "altar_blue", true);
+        state.players[0].crystals.blue = 3;
+        state.players[0].flags.insert(PlayerFlags::IS_RESTING);
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let tributes: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::AltarTribute { .. }))
+            .collect();
+        assert_eq!(tributes.len(), 0, "No site actions while resting");
+    }
+
+    #[test]
+    fn ruins_not_interactable_after_action_taken() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_ruins(&mut state, "altar_blue", true);
+        state.players[0].crystals.blue = 3;
+        state.players[0].flags.insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let tributes: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::AltarTribute { .. }))
+            .collect();
+        assert_eq!(tributes.len(), 0, "No site actions after action taken");
+    }
+
+    // --- Altar tribute execution tests ---
+
+    #[test]
+    fn altar_tribute_consumes_crystals() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_ruins(&mut state, "altar_blue", true);
+        state.players[0].crystals.blue = 3;
+
+        let mut undo = UndoStack::new();
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        let tribute = actions.actions.iter()
+            .find(|a| matches!(a, LegalAction::AltarTribute { .. }))
+            .unwrap()
+            .clone();
+
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &tribute, epoch).unwrap();
+
+        assert_eq!(state.players[0].crystals.blue, 0, "3 blue crystals should be consumed");
+    }
+
+    #[test]
+    fn altar_tribute_grants_fame() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_ruins(&mut state, "altar_blue", true);
+        state.players[0].crystals.blue = 3;
+        let fame_before = state.players[0].fame;
+
+        let mut undo = UndoStack::new();
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        let tribute = actions.actions.iter()
+            .find(|a| matches!(a, LegalAction::AltarTribute { .. }))
+            .unwrap()
+            .clone();
+
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &tribute, epoch).unwrap();
+
+        assert_eq!(state.players[0].fame, fame_before + 7, "Blue altar grants 7 fame");
+    }
+
+    #[test]
+    fn altar_tribute_all_colors_grants_10_fame() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_ruins(&mut state, "altar_all_colors", true);
+        // Need 1 of each basic color
+        state.players[0].crystals.blue = 1;
+        state.players[0].crystals.green = 1;
+        state.players[0].crystals.red = 1;
+        state.players[0].crystals.white = 1;
+        let fame_before = state.players[0].fame;
+
+        let mut undo = UndoStack::new();
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        let tribute = actions.actions.iter()
+            .find(|a| matches!(a, LegalAction::AltarTribute { .. }))
+            .unwrap()
+            .clone();
+
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &tribute, epoch).unwrap();
+
+        assert_eq!(state.players[0].fame, fame_before + 10, "All-colors altar grants 10 fame");
+    }
+
+    #[test]
+    fn altar_tribute_conquers_site() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let coord = place_player_on_ruins(&mut state, "altar_blue", true);
+        state.players[0].crystals.blue = 3;
+
+        let mut undo = UndoStack::new();
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        let tribute = actions.actions.iter()
+            .find(|a| matches!(a, LegalAction::AltarTribute { .. }))
+            .unwrap()
+            .clone();
+
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &tribute, epoch).unwrap();
+
+        let hex = &state.map.hexes[&coord.key()];
+        let site = hex.site.as_ref().unwrap();
+        assert!(site.is_conquered, "Site should be conquered");
+        assert_eq!(site.owner.as_ref().unwrap(), &state.players[0].id);
+    }
+
+    #[test]
+    fn altar_tribute_places_shield_token() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let coord = place_player_on_ruins(&mut state, "altar_blue", true);
+        state.players[0].crystals.blue = 3;
+
+        let mut undo = UndoStack::new();
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        let tribute = actions.actions.iter()
+            .find(|a| matches!(a, LegalAction::AltarTribute { .. }))
+            .unwrap()
+            .clone();
+
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &tribute, epoch).unwrap();
+
+        let hex = &state.map.hexes[&coord.key()];
+        assert!(hex.shield_tokens.contains(&state.players[0].id), "Shield token should be placed");
+    }
+
+    #[test]
+    fn altar_tribute_removes_ruins_token() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let coord = place_player_on_ruins(&mut state, "altar_blue", true);
+        state.players[0].crystals.blue = 3;
+
+        let mut undo = UndoStack::new();
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        let tribute = actions.actions.iter()
+            .find(|a| matches!(a, LegalAction::AltarTribute { .. }))
+            .unwrap()
+            .clone();
+
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &tribute, epoch).unwrap();
+
+        let hex = &state.map.hexes[&coord.key()];
+        assert!(hex.ruins_token.is_none(), "Ruins token should be removed from hex");
+    }
+
+    #[test]
+    fn altar_tribute_discards_token_to_pile() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_ruins(&mut state, "altar_blue", true);
+        state.players[0].crystals.blue = 3;
+        let discard_before = state.ruins_tokens.discard.len();
+
+        let mut undo = UndoStack::new();
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        let tribute = actions.actions.iter()
+            .find(|a| matches!(a, LegalAction::AltarTribute { .. }))
+            .unwrap()
+            .clone();
+
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &tribute, epoch).unwrap();
+
+        assert_eq!(
+            state.ruins_tokens.discard.len(),
+            discard_before + 1,
+            "Token should be discarded to pile"
+        );
+        assert_eq!(state.ruins_tokens.discard.last().unwrap().as_str(), "altar_blue");
+    }
+
+    #[test]
+    fn altar_tribute_sets_has_taken_action() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_player_on_ruins(&mut state, "altar_blue", true);
+        state.players[0].crystals.blue = 3;
+
+        let mut undo = UndoStack::new();
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        let tribute = actions.actions.iter()
+            .find(|a| matches!(a, LegalAction::AltarTribute { .. }))
+            .unwrap()
+            .clone();
+
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &tribute, epoch).unwrap();
+
+        assert!(
+            state.players[0].flags.contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN),
+            "HAS_TAKEN_ACTION_THIS_TURN should be set"
+        );
+    }
+
+    // --- Combat (enter site with enemy token) tests ---
+
+    /// Helper: set up ancient ruins combat (enter site with enemy token).
+    fn setup_ruins_combat(state: &mut GameState, undo: &mut UndoStack) {
+        place_player_on_ruins(state, "enemy_green_brown_artifact", true);
+        state.enemy_tokens.green_draw = vec![EnemyTokenId::from("orc_summoners_1")];
+        state.enemy_tokens.brown_draw = vec![EnemyTokenId::from("diggers_1")];
+        state.decks.artifact_deck = vec![CardId::from("banner_of_command")];
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            state, undo, 0,
+            &LegalAction::EnterSite,
+            epoch,
+        ).unwrap();
+    }
+
+    /// Helper: defeat all enemies and end combat.
+    fn win_ruins_combat(state: &mut GameState, undo: &mut UndoStack) {
+        let combat = state.combat.as_mut().unwrap();
+        for enemy in combat.enemies.iter_mut() {
+            enemy.is_defeated = true;
+        }
+        combat.phase = CombatPhase::Attack;
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            state, undo, 0,
+            &LegalAction::EndCombatPhase,
+            epoch,
+        ).unwrap();
+    }
+
+    #[test]
+    fn enter_ruins_enters_combat() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        setup_ruins_combat(&mut state, &mut undo);
+
+        assert!(state.combat.is_some(), "Should be in combat after entering ruins");
+    }
+
+    #[test]
+    fn enter_ruins_draws_enemies_by_color() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        setup_ruins_combat(&mut state, &mut undo);
+
+        let combat = state.combat.as_ref().unwrap();
+        assert_eq!(combat.enemies.len(), 2, "Should have 2 enemies (green + brown)");
+    }
+
+    #[test]
+    fn enter_ruins_combat_context_is_ancient_ruins() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        setup_ruins_combat(&mut state, &mut undo);
+
+        let combat = state.combat.as_ref().unwrap();
+        assert_eq!(
+            combat.combat_context,
+            CombatContext::AncientRuins,
+            "Combat context should be AncientRuins"
+        );
+    }
+
+    #[test]
+    fn enter_ruins_sets_has_taken_action() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        setup_ruins_combat(&mut state, &mut undo);
+
+        assert!(
+            state.players[0].flags.contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN),
+            "Should set HAS_TAKEN_ACTION flag"
+        );
+    }
+
+    #[test]
+    fn ruins_combat_victory_conquers_site() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        setup_ruins_combat(&mut state, &mut undo);
+        let player_pos = state.players[0].position.unwrap();
+        win_ruins_combat(&mut state, &mut undo);
+
+        let hex = &state.map.hexes[&player_pos.key()];
+        let site = hex.site.as_ref().unwrap();
+        assert!(site.is_conquered, "Site should be conquered after victory");
+        assert_eq!(site.owner.as_ref().unwrap(), &state.players[0].id);
+    }
+
+    #[test]
+    fn ruins_combat_victory_places_shield() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        setup_ruins_combat(&mut state, &mut undo);
+        let player_pos = state.players[0].position.unwrap();
+        win_ruins_combat(&mut state, &mut undo);
+
+        let hex = &state.map.hexes[&player_pos.key()];
+        assert!(hex.shield_tokens.contains(&state.players[0].id));
+    }
+
+    #[test]
+    fn ruins_combat_victory_removes_token() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        setup_ruins_combat(&mut state, &mut undo);
+        let player_pos = state.players[0].position.unwrap();
+        win_ruins_combat(&mut state, &mut undo);
+
+        let hex = &state.map.hexes[&player_pos.key()];
+        assert!(hex.ruins_token.is_none(), "Ruins token should be removed after victory");
+    }
+
+    #[test]
+    fn ruins_combat_victory_discards_token() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        let discard_before = state.ruins_tokens.discard.len();
+        setup_ruins_combat(&mut state, &mut undo);
+        win_ruins_combat(&mut state, &mut undo);
+
+        assert_eq!(
+            state.ruins_tokens.discard.len(),
+            discard_before + 1,
+            "Token should be in discard pile"
+        );
+    }
+
+    #[test]
+    fn ruins_combat_victory_queues_reward() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        setup_ruins_combat(&mut state, &mut undo);
+        win_ruins_combat(&mut state, &mut undo);
+
+        // enemy_green_brown_artifact → Artifact reward → drawn from artifact deck
+        // (Artifact is auto-granted, so check player deck)
+        let has_artifact = state.players[0].deck.iter()
+            .any(|c| c.as_str() == "banner_of_command");
+        assert!(has_artifact, "Should have received artifact reward");
+    }
+
+    #[test]
+    fn ruins_combat_defeat_keeps_token() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        setup_ruins_combat(&mut state, &mut undo);
+        let player_pos = state.players[0].position.unwrap();
+
+        // Retreat from combat (don't defeat enemies, just end attack phase)
+        {
+            let combat = state.combat.as_mut().unwrap();
+            // Don't defeat any enemies, just advance to attack phase
+            combat.phase = CombatPhase::Attack;
+        }
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::EndCombatPhase,
+            epoch,
+        ).unwrap();
+
+        // Token should still be on hex (not all enemies defeated → retreat)
+        // Note: The combat end handler only processes victory when all_defeated is true
+        // When not all defeated, the site stays unconquered
+        let hex = &state.map.hexes[&player_pos.key()];
+        let site = hex.site.as_ref().unwrap();
+        assert!(!site.is_conquered, "Site should NOT be conquered after defeat");
+    }
+
+    #[test]
+    fn ruins_combat_defeat_enemies_stay_on_hex() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        setup_ruins_combat(&mut state, &mut undo);
+        let player_pos = state.players[0].position.unwrap();
+
+        // Check enemies were drawn onto hex
+        let enemy_count_before = state.map.hexes[&player_pos.key()].enemies.len();
+        assert!(enemy_count_before > 0, "Should have enemies on hex during combat");
+
+        // Retreat from combat (don't defeat enemies)
+        {
+            let combat = state.combat.as_mut().unwrap();
+            combat.phase = CombatPhase::Attack;
+        }
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::EndCombatPhase,
+            epoch,
+        ).unwrap();
+
+        // Enemies should still be on the hex after retreat
+        let hex = &state.map.hexes[&player_pos.key()];
+        assert_eq!(
+            hex.enemies.len(), enemy_count_before,
+            "Enemies should persist on hex after retreat (not discarded like Burn Monastery)"
+        );
+    }
+
+    #[test]
+    fn ruins_combat_defeat_enemies_not_discarded_to_piles() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+
+        let green_discard_before = state.enemy_tokens.green_discard.len();
+        let brown_discard_before = state.enemy_tokens.brown_discard.len();
+
+        setup_ruins_combat(&mut state, &mut undo);
+
+        // Retreat without defeating
+        {
+            let combat = state.combat.as_mut().unwrap();
+            combat.phase = CombatPhase::Attack;
+        }
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::EndCombatPhase,
+            epoch,
+        ).unwrap();
+
+        // Enemy tokens should NOT have been discarded back to piles
+        assert_eq!(
+            state.enemy_tokens.green_discard.len(), green_discard_before,
+            "Green enemy should NOT be discarded to pile on retreat"
+        );
+        assert_eq!(
+            state.enemy_tokens.brown_discard.len(), brown_discard_before,
+            "Brown enemy should NOT be discarded to pile on retreat"
+        );
+    }
+
+    #[test]
+    fn ruins_reentry_uses_existing_enemies() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        setup_ruins_combat(&mut state, &mut undo);
+        let player_pos = state.players[0].position.unwrap();
+
+        // Collect the enemy token IDs placed on the hex
+        let enemy_tokens_first: Vec<String> = state.map.hexes[&player_pos.key()]
+            .enemies.iter().map(|e| e.token_id.to_string()).collect();
+
+        // Retreat without defeating
+        {
+            let combat = state.combat.as_mut().unwrap();
+            combat.phase = CombatPhase::Attack;
+        }
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::EndCombatPhase,
+            epoch,
+        ).unwrap();
+        assert!(state.combat.is_none(), "Combat should end after retreat");
+
+        // Reset HAS_TAKEN_ACTION so we can re-enter
+        state.players[0].flags.remove(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+        state.players[0].flags.remove(PlayerFlags::HAS_COMBATTED_THIS_TURN);
+
+        // Re-enter the site
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::EnterSite,
+            epoch,
+        ).unwrap();
+
+        assert!(state.combat.is_some(), "Should be in combat again");
+
+        // Verify same enemies are used (not new draws)
+        let enemy_tokens_second: Vec<String> = state.map.hexes[&player_pos.key()]
+            .enemies.iter().map(|e| e.token_id.to_string()).collect();
+        assert_eq!(
+            enemy_tokens_first, enemy_tokens_second,
+            "Re-entry should fight the SAME enemies, not draw new ones"
+        );
+    }
+
+    #[test]
+    fn ruins_reentry_does_not_draw_from_piles() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        setup_ruins_combat(&mut state, &mut undo);
+
+        // Record pile sizes after first draw
+        let green_draw_after_first = state.enemy_tokens.green_draw.len();
+        let brown_draw_after_first = state.enemy_tokens.brown_draw.len();
+
+        // Retreat without defeating
+        {
+            let combat = state.combat.as_mut().unwrap();
+            combat.phase = CombatPhase::Attack;
+        }
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::EndCombatPhase,
+            epoch,
+        ).unwrap();
+
+        // Reset flags for re-entry
+        state.players[0].flags.remove(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+        state.players[0].flags.remove(PlayerFlags::HAS_COMBATTED_THIS_TURN);
+
+        // Re-enter the site
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::EnterSite,
+            epoch,
+        ).unwrap();
+
+        // Piles should NOT have shrunk (no new draws)
+        assert_eq!(
+            state.enemy_tokens.green_draw.len(), green_draw_after_first,
+            "Green draw pile should not shrink on re-entry"
+        );
+        assert_eq!(
+            state.enemy_tokens.brown_draw.len(), brown_draw_after_first,
+            "Brown draw pile should not shrink on re-entry"
+        );
+    }
+
+    #[test]
+    fn ruins_reentry_enumerated_with_existing_enemies() {
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        setup_ruins_combat(&mut state, &mut undo);
+
+        // Retreat without defeating
+        {
+            let combat = state.combat.as_mut().unwrap();
+            combat.phase = CombatPhase::Attack;
+        }
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::EndCombatPhase,
+            epoch,
+        ).unwrap();
+
+        // Reset flags
+        state.players[0].flags.remove(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+        state.players[0].flags.remove(PlayerFlags::HAS_COMBATTED_THIS_TURN);
+
+        // Empty the draw piles — shouldn't matter since enemies are already on hex
+        state.enemy_tokens.green_draw.clear();
+        state.enemy_tokens.green_discard.clear();
+        state.enemy_tokens.brown_draw.clear();
+        state.enemy_tokens.brown_discard.clear();
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let enters: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::EnterSite))
+            .collect();
+        assert_eq!(
+            enters.len(), 1,
+            "EnterSite should be available even with empty piles when enemies are already on hex"
+        );
+    }
+
+    // --- Reward type coverage tests (TS parity) ---
+
+    /// Helper: set up ruins combat with a specific token and matching enemy draws.
+    fn setup_ruins_combat_with_token(
+        state: &mut GameState,
+        undo: &mut UndoStack,
+        token_id: &str,
+        enemy_draws: Vec<(&str, &str)>, // (color pile field, enemy token id)
+    ) {
+        place_player_on_ruins(state, token_id, true);
+
+        for (color, token) in &enemy_draws {
+            let token_id = EnemyTokenId::from(*token);
+            match *color {
+                "green" => state.enemy_tokens.green_draw.push(token_id),
+                "brown" => state.enemy_tokens.brown_draw.push(token_id),
+                "gray" => state.enemy_tokens.gray_draw.push(token_id),
+                "violet" => state.enemy_tokens.violet_draw.push(token_id),
+                "white" => state.enemy_tokens.white_draw.push(token_id),
+                "red" => state.enemy_tokens.red_draw.push(token_id),
+                _ => panic!("Unknown color: {}", color),
+            }
+        }
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            state, undo, 0,
+            &LegalAction::EnterSite,
+            epoch,
+        ).unwrap();
+    }
+
+    #[test]
+    fn ruins_victory_spell_reward_queues_deferred() {
+        // enemy_brown_violet_spell_crystals → Spell + Crystals4
+        // Test that the Spell portion creates a deferred reward (choice)
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        // Ensure spell offer exists
+        state.offers.spells = vec![CardId::from("fireball")];
+        setup_ruins_combat_with_token(
+            &mut state, &mut undo,
+            "enemy_brown_violet_spell_crystals",
+            vec![("brown", "diggers_1"), ("violet", "monks_1")],
+        );
+        win_ruins_combat(&mut state, &mut undo);
+
+        // Spell reward is deferred (requires player choice), so check pending
+        // The Compound reward processes Spell (deferred) + CrystalRoll (auto-granted)
+        // Spell should have been promoted to active pending since no other pending exists
+        assert!(
+            matches!(
+                state.players[0].pending.active,
+                Some(ActivePending::SiteRewardChoice { .. })
+            ),
+            "Spell reward should be promoted to active pending for player choice"
+        );
+    }
+
+    #[test]
+    fn ruins_victory_crystal_reward_grants_crystals() {
+        // enemy_green_green_crystals → Crystals4 (4 random crystals, auto-granted)
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+
+        let crystals_before = state.players[0].crystals.red
+            + state.players[0].crystals.blue
+            + state.players[0].crystals.green
+            + state.players[0].crystals.white;
+
+        setup_ruins_combat_with_token(
+            &mut state, &mut undo,
+            "enemy_green_green_crystals",
+            vec![("green", "orc_summoners_1"), ("green", "orc_summoners_2")],
+        );
+        win_ruins_combat(&mut state, &mut undo);
+
+        let crystals_after = state.players[0].crystals.red
+            + state.players[0].crystals.blue
+            + state.players[0].crystals.green
+            + state.players[0].crystals.white;
+
+        // CrystalRoll grants up to 4 crystals (some rolls may grant fame instead of crystal)
+        // At minimum, total should increase (RNG with seed gives deterministic results)
+        let gained = crystals_after as i32 - crystals_before as i32
+            + state.players[0].fame as i32; // some rolls grant fame instead
+        assert!(gained > 0, "Should have gained crystals and/or fame from CrystalRoll reward");
+    }
+
+    #[test]
+    fn ruins_victory_compound_reward_processes_both() {
+        // enemy_green_grey_artifact_spell → Artifact + Spell (compound)
+        let mut state = setup_playing_game(vec!["march"]);
+        let mut undo = UndoStack::new();
+        state.decks.artifact_deck = vec![CardId::from("banner_of_courage")];
+        state.offers.spells = vec![CardId::from("fireball")];
+
+        setup_ruins_combat_with_token(
+            &mut state, &mut undo,
+            "enemy_green_grey_artifact_spell",
+            vec![("gray", "werewolf_1"), ("white", "zealots_1")],
+        );
+        win_ruins_combat(&mut state, &mut undo);
+
+        // Artifact is auto-granted → should be in player's deck
+        let has_artifact = state.players[0].deck.iter()
+            .any(|c| c.as_str() == "banner_of_courage");
+        assert!(has_artifact, "Artifact reward should be auto-granted to deck");
+
+        // Spell is deferred → should be in active pending
+        assert!(
+            matches!(
+                state.players[0].pending.active,
+                Some(ActivePending::SiteRewardChoice { .. })
+            ),
+            "Spell reward should be promoted to active pending for player choice"
+        );
+    }
+
+    #[test]
+    fn altar_token_does_not_enumerate_enter_site() {
+        // Altar tokens should only produce AltarTribute, never EnterSite
+        let mut state = setup_playing_game(vec!["march"]);
+        // Give player enough crystals to afford the altar
+        state.players[0].crystals.blue = 3;
+        place_player_on_ruins(&mut state, "altar_blue", true);
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let enter_actions: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::EnterSite))
+            .collect();
+        assert!(
+            enter_actions.is_empty(),
+            "Altar token should NOT produce EnterSite action"
+        );
+
+        // But AltarTribute should be available
+        let altar_actions: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(a, LegalAction::AltarTribute { .. }))
+            .collect();
+        assert_eq!(
+            altar_actions.len(), 1,
+            "AltarTribute should be available for affordable altar"
+        );
+    }
+
+    #[test]
+    fn no_actions_for_hex_with_no_ruins_token() {
+        // When ruins_token is None (already claimed), no site actions should be available
+        let mut state = setup_playing_game(vec!["march"]);
+        let coord = HexCoord { q: 99, r: 99 };
+        let hex = HexState {
+            coord,
+            terrain: Terrain::Plains,
+            tile_id: TileId::StartingA,
+            site: Some(Site {
+                site_type: SiteType::AncientRuins,
+                owner: Some(state.players[0].id.clone()),
+                is_conquered: true,
+                is_burned: false,
+                city_color: None,
+                mine_color: None,
+                deep_mine_colors: None,
+            }),
+            rampaging_enemies: ArrayVec::new(),
+            enemies: ArrayVec::new(),
+            ruins_token: None, // Already claimed
+            shield_tokens: Vec::new(),
+        };
+        state.map.hexes.insert(coord.key(), hex);
+        state.players[0].position = Some(coord);
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        let site_actions: Vec<_> = actions.actions.iter()
+            .filter(|a| matches!(
+                a,
+                LegalAction::EnterSite
+                | LegalAction::AltarTribute { .. }
+                | LegalAction::InteractSite { .. }
+            ))
+            .collect();
+        assert!(
+            site_actions.is_empty(),
+            "No site actions should be available when ruins token is already claimed"
+        );
+    }
+
+    // =========================================================================
+    // Step 2: UnitCombatBonus tests
+    // =========================================================================
+
+    fn setup_combat_with_unit_and_bonus(
+        enemy_ids: &[&str],
+        attack_bonus: i32,
+        block_bonus: i32,
+    ) -> (GameState, UndoStack) {
+        use mk_types::modifier::*;
+        use mk_types::ids::{ModifierId, UnitInstanceId};
+
+        let mut state = setup_combat_game(enemy_ids);
+        let undo = UndoStack::new();
+        let pid = state.players[0].id.clone();
+
+        // Add a peasants unit (Attack 2 Physical, Block 2 Physical)
+        state.players[0].units.push(PlayerUnit {
+            instance_id: UnitInstanceId::from("unit_0"),
+            unit_id: mk_types::ids::UnitId::from("peasants"),
+            level: 1,
+            state: UnitState::Ready,
+            wounded: false,
+            used_resistance_this_combat: false,
+            used_ability_indices: vec![],
+            mana_token: None,
+        });
+
+        // Add UnitCombatBonus modifier
+        if attack_bonus != 0 || block_bonus != 0 {
+            state.active_modifiers.push(ActiveModifier {
+                id: ModifierId::from("ucb_1"),
+                source: ModifierSource::Card {
+                    card_id: CardId::from("banner_of_glory"),
+                    player_id: pid.clone(),
+                },
+                duration: ModifierDuration::Turn,
+                scope: ModifierScope::AllUnits,
+                effect: ModifierEffect::UnitCombatBonus {
+                    attack_bonus,
+                    block_bonus,
+                },
+                created_at_round: 1,
+                created_by_player_id: pid,
+            });
+        }
+
+        (state, undo)
+    }
+
+    #[test]
+    fn unit_combat_bonus_adds_to_attack() {
+        let (mut state, mut undo) = setup_combat_with_unit_and_bonus(&["prowlers"], 2, 0);
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state,
+            &mut undo,
+            0,
+            &LegalAction::ActivateUnit {
+                unit_instance_id: mk_types::ids::UnitInstanceId::from("unit_0"),
+                ability_index: 0, // Attack 2 Physical
+            },
+            epoch,
+        )
+        .unwrap();
+        // Attack should be 2 (base) + 2 (bonus) = 4
+        assert_eq!(state.players[0].combat_accumulator.attack.normal, 4);
+    }
+
+    #[test]
+    fn unit_combat_bonus_adds_to_block() {
+        let (mut state, mut undo) = setup_combat_with_unit_and_bonus(&["prowlers"], 0, 3);
+        // Move to Block phase
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state,
+            &mut undo,
+            0,
+            &LegalAction::ActivateUnit {
+                unit_instance_id: mk_types::ids::UnitInstanceId::from("unit_0"),
+                ability_index: 1, // Block 2 Physical
+            },
+            epoch,
+        )
+        .unwrap();
+        // Block should be 2 (base) + 3 (bonus) = 5
+        assert_eq!(state.players[0].combat_accumulator.block, 5);
+    }
+
+    #[test]
+    fn unit_combat_bonus_no_modifier_baseline() {
+        let (mut state, mut undo) = setup_combat_with_unit_and_bonus(&["prowlers"], 0, 0);
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state,
+            &mut undo,
+            0,
+            &LegalAction::ActivateUnit {
+                unit_instance_id: mk_types::ids::UnitInstanceId::from("unit_0"),
+                ability_index: 0, // Attack 2 Physical
+            },
+            epoch,
+        )
+        .unwrap();
+        // Just base value, no bonus
+        assert_eq!(state.players[0].combat_accumulator.attack.normal, 2);
+    }
+
+    // =========================================================================
+    // Step 5: Banner assignment tests
+    // =========================================================================
+
+    fn setup_game_with_banner_and_unit() -> (GameState, UndoStack) {
+        use mk_types::ids::UnitInstanceId;
+
+        let mut state = setup_playing_game(vec!["banner_of_courage"]);
+        let undo = UndoStack::new();
+
+        // Add a unit
+        state.players[0].units.push(PlayerUnit {
+            instance_id: UnitInstanceId::from("unit_0"),
+            unit_id: mk_types::ids::UnitId::from("peasants"),
+            level: 1,
+            state: UnitState::Ready,
+            wounded: false,
+            used_resistance_this_combat: false,
+            used_ability_indices: vec![],
+            mana_token: None,
+        });
+
+        (state, undo)
+    }
+
+    #[test]
+    fn assign_banner_moves_card_and_creates_attachment() {
+        let (mut state, mut undo) = setup_game_with_banner_and_unit();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state,
+            &mut undo,
+            0,
+            &LegalAction::AssignBanner {
+                hand_index: 0,
+                card_id: CardId::from("banner_of_courage"),
+                unit_instance_id: mk_types::ids::UnitInstanceId::from("unit_0"),
+            },
+            epoch,
+        )
+        .unwrap();
+
+        // Card removed from hand
+        assert!(state.players[0].hand.is_empty());
+        // Card added to play area
+        assert_eq!(state.players[0].play_area.len(), 1);
+        assert_eq!(state.players[0].play_area[0].as_str(), "banner_of_courage");
+        // Banner attachment created
+        assert_eq!(state.players[0].attached_banners.len(), 1);
+        assert_eq!(
+            state.players[0].attached_banners[0].banner_id.as_str(),
+            "banner_of_courage"
+        );
+        assert_eq!(
+            state.players[0].attached_banners[0]
+                .unit_instance_id
+                .as_str(),
+            "unit_0"
+        );
+        assert!(!state.players[0].attached_banners[0].is_used_this_round);
+    }
+
+    #[test]
+    fn assign_banner_is_free_action() {
+        let (mut state, mut undo) = setup_game_with_banner_and_unit();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state,
+            &mut undo,
+            0,
+            &LegalAction::AssignBanner {
+                hand_index: 0,
+                card_id: CardId::from("banner_of_courage"),
+                unit_instance_id: mk_types::ids::UnitInstanceId::from("unit_0"),
+            },
+            epoch,
+        )
+        .unwrap();
+
+        // HAS_TAKEN_ACTION_THIS_TURN should NOT be set
+        assert!(!state.players[0]
+            .flags
+            .contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN));
+    }
+
+    // =========================================================================
+    // Step 6: Banner of Courage tests
+    // =========================================================================
+
+    #[test]
+    fn banner_courage_readies_spent_unit() {
+        let (mut state, mut undo) = setup_game_with_banner_and_unit();
+        let unit_iid = mk_types::ids::UnitInstanceId::from("unit_0");
+
+        // Manually attach banner and make unit spent
+        state.players[0]
+            .attached_banners
+            .push(BannerAttachment {
+                banner_id: CardId::from("banner_of_courage"),
+                unit_instance_id: unit_iid.clone(),
+                is_used_this_round: false,
+            });
+        state.players[0].units[0].state = UnitState::Spent;
+        state.players[0].hand.clear(); // remove banner from hand
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state,
+            &mut undo,
+            0,
+            &LegalAction::UseBannerCourage {
+                unit_instance_id: unit_iid.clone(),
+            },
+            epoch,
+        )
+        .unwrap();
+
+        // Unit readied
+        assert_eq!(state.players[0].units[0].state, UnitState::Ready);
+        // Banner marked as used
+        assert!(state.players[0].attached_banners[0].is_used_this_round);
+    }
+
+    #[test]
+    fn banner_courage_cannot_use_twice() {
+        let (mut state, _undo) = setup_game_with_banner_and_unit();
+        let unit_iid = mk_types::ids::UnitInstanceId::from("unit_0");
+
+        // Attach banner already used
+        state.players[0]
+            .attached_banners
+            .push(BannerAttachment {
+                banner_id: CardId::from("banner_of_courage"),
+                unit_instance_id: unit_iid.clone(),
+                is_used_this_round: true, // already used
+            });
+        state.players[0].units[0].state = UnitState::Spent;
+        state.players[0].hand.clear();
+
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        let result = apply_legal_action(
+            &mut state,
+            &mut undo,
+            0,
+            &LegalAction::UseBannerCourage {
+                unit_instance_id: unit_iid,
+            },
+            epoch,
+        );
+        assert!(result.is_err());
+    }
+
+    // =========================================================================
+    // Step 7: Banner of Fortitude tests
+    // =========================================================================
+
+    #[test]
+    fn fortitude_negates_unit_wound() {
+        let unit_iid = mk_types::ids::UnitInstanceId::from("unit_0");
+        let mut state = setup_combat_game(&["prowlers"]);
+
+        // Add unit
+        state.players[0].units.push(PlayerUnit {
+            instance_id: unit_iid.clone(),
+            unit_id: mk_types::ids::UnitId::from("peasants"),
+            level: 1,
+            state: UnitState::Ready,
+            wounded: false,
+            used_resistance_this_combat: false,
+            used_ability_indices: vec![],
+            mana_token: None,
+        });
+
+        // Attach Banner of Fortitude
+        state.players[0]
+            .attached_banners
+            .push(BannerAttachment {
+                banner_id: CardId::from("banner_of_fortitude"),
+                unit_instance_id: unit_iid.clone(),
+                is_used_this_round: false,
+            });
+
+        // Try to negate wound
+        let negated = try_negate_wound_with_fortitude(&mut state, 0, &unit_iid);
+        assert!(negated);
+        assert!(state.players[0].attached_banners[0].is_used_this_round);
+    }
+
+    #[test]
+    fn fortitude_only_negates_once() {
+        let unit_iid = mk_types::ids::UnitInstanceId::from("unit_0");
+        let mut state = setup_combat_game(&["prowlers"]);
+
+        state.players[0].units.push(PlayerUnit {
+            instance_id: unit_iid.clone(),
+            unit_id: mk_types::ids::UnitId::from("peasants"),
+            level: 1,
+            state: UnitState::Ready,
+            wounded: false,
+            used_resistance_this_combat: false,
+            used_ability_indices: vec![],
+            mana_token: None,
+        });
+
+        state.players[0]
+            .attached_banners
+            .push(BannerAttachment {
+                banner_id: CardId::from("banner_of_fortitude"),
+                unit_instance_id: unit_iid.clone(),
+                is_used_this_round: false,
+            });
+
+        // First negate succeeds
+        assert!(try_negate_wound_with_fortitude(&mut state, 0, &unit_iid));
+        // Second negate fails
+        assert!(!try_negate_wound_with_fortitude(&mut state, 0, &unit_iid));
+    }
+
+    #[test]
+    fn fortitude_no_banner_no_negate() {
+        let unit_iid = mk_types::ids::UnitInstanceId::from("unit_0");
+        let mut state = setup_combat_game(&["prowlers"]);
+
+        state.players[0].units.push(PlayerUnit {
+            instance_id: unit_iid.clone(),
+            unit_id: mk_types::ids::UnitId::from("peasants"),
+            level: 1,
+            state: UnitState::Ready,
+            wounded: false,
+            used_resistance_this_combat: false,
+            used_ability_indices: vec![],
+            mana_token: None,
+        });
+
+        let negated = try_negate_wound_with_fortitude(&mut state, 0, &unit_iid);
+        assert!(!negated);
+    }
+
+    // =========================================================================
+    // Step 8: Banner of Fear tests
+    // =========================================================================
+
+    #[test]
+    fn banner_fear_cancels_attack_and_grants_fame() {
+        let unit_iid = mk_types::ids::UnitInstanceId::from("unit_0");
+        let enemy_iid = CombatInstanceId::from("enemy_0");
+        let mut state = setup_combat_game(&["prowlers"]);
+        let mut undo = UndoStack::new();
+
+        // Add unit
+        state.players[0].units.push(PlayerUnit {
+            instance_id: unit_iid.clone(),
+            unit_id: mk_types::ids::UnitId::from("peasants"),
+            level: 1,
+            state: UnitState::Ready,
+            wounded: false,
+            used_resistance_this_combat: false,
+            used_ability_indices: vec![],
+            mana_token: None,
+        });
+
+        // Attach Banner of Fear
+        state.players[0]
+            .attached_banners
+            .push(BannerAttachment {
+                banner_id: CardId::from("banner_of_fear"),
+                unit_instance_id: unit_iid.clone(),
+                is_used_this_round: false,
+            });
+
+        // Set to Block phase
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+
+        let initial_fame = state.players[0].fame;
+        let epoch = state.action_epoch;
+
+        apply_legal_action(
+            &mut state,
+            &mut undo,
+            0,
+            &LegalAction::UseBannerFear {
+                unit_instance_id: unit_iid.clone(),
+                enemy_instance_id: enemy_iid.clone(),
+                attack_index: 0,
+            },
+            epoch,
+        )
+        .unwrap();
+
+        // Unit becomes spent
+        assert_eq!(state.players[0].units[0].state, UnitState::Spent);
+        // Banner marked as used
+        assert!(state.players[0].attached_banners[0].is_used_this_round);
+        // Enemy attack cancelled
+        assert!(state.combat.as_ref().unwrap().enemies[0].attacks_cancelled[0]);
+        // +1 fame
+        assert_eq!(state.players[0].fame, initial_fame + 1);
+    }
+
+    // =========================================================================
+    // Banner of Glory — comprehensive behavioral tests
+    // =========================================================================
+
+    /// Helper: setup combat with a unit and banner of glory UnitCombatBonus modifier.
+    fn setup_glory_combat(attack_bonus: i32, block_bonus: i32) -> (GameState, UndoStack) {
+        setup_combat_with_unit_and_bonus(&["prowlers"], attack_bonus, block_bonus)
+    }
+
+    #[test]
+    fn glory_attack_bonus_stacks_with_base() {
+        // Banner of Glory powered gives +1/+1 to all units.
+        // Peasants have Attack 2 Physical → with +1 bonus → 3 total.
+        let (mut state, mut undo) = setup_glory_combat(1, 1);
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ActivateUnit {
+                unit_instance_id: mk_types::ids::UnitInstanceId::from("unit_0"),
+                ability_index: 0,
+            },
+            epoch,
+        ).unwrap();
+        assert_eq!(state.players[0].combat_accumulator.attack.normal, 3);
+    }
+
+    #[test]
+    fn glory_block_bonus_stacks_with_base() {
+        // Peasants Block 2 Physical → with +1 bonus → 3 total.
+        let (mut state, mut undo) = setup_glory_combat(0, 1);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ActivateUnit {
+                unit_instance_id: mk_types::ids::UnitInstanceId::from("unit_0"),
+                ability_index: 1,
+            },
+            epoch,
+        ).unwrap();
+        assert_eq!(state.players[0].combat_accumulator.block, 3);
+    }
+
+    #[test]
+    fn glory_both_attack_and_block_bonus() {
+        // +2 attack, +3 block stacks.
+        let (mut state, mut undo) = setup_combat_with_unit_and_bonus(&["prowlers"], 2, 3);
+
+        // Activate attack first
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ActivateUnit {
+                unit_instance_id: mk_types::ids::UnitInstanceId::from("unit_0"),
+                ability_index: 0,
+            },
+            epoch,
+        ).unwrap();
+        assert_eq!(state.players[0].combat_accumulator.attack.normal, 4); // 2+2
+    }
+
+    #[test]
+    fn glory_multiple_modifiers_stack() {
+        // Two separate UnitCombatBonus modifiers should stack.
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+        let (mut state, mut undo) = setup_glory_combat(1, 0);
+        let pid = state.players[0].id.clone();
+
+        // Add a second bonus
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("ucb_2"),
+            source: ModifierSource::Card {
+                card_id: CardId::from("into_the_heat"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::AllUnits,
+            effect: ModifierEffect::UnitCombatBonus {
+                attack_bonus: 2,
+                block_bonus: 0,
+            },
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ActivateUnit {
+                unit_instance_id: mk_types::ids::UnitInstanceId::from("unit_0"),
+                ability_index: 0,
+            },
+            epoch,
+        ).unwrap();
+        // 2 (base) + 1 (first) + 2 (second) = 5
+        assert_eq!(state.players[0].combat_accumulator.attack.normal, 5);
+    }
+
+    #[test]
+    fn glory_bonus_applies_to_ranged_attack() {
+        // UnitCombatBonus also applies to RangedAttack and SiegeAttack.
+        // Utem Crossbowmen: Attack 3P, Block 3P, Ranged 2P (ability indices 0,1,2).
+        use mk_types::modifier::*;
+        use mk_types::ids::{ModifierId, UnitInstanceId};
+
+        let mut state = setup_combat_game(&["prowlers"]);
+        let mut undo = UndoStack::new();
+        let pid = state.players[0].id.clone();
+
+        state.players[0].units.push(PlayerUnit {
+            instance_id: UnitInstanceId::from("unit_0"),
+            unit_id: mk_types::ids::UnitId::from("utem_crossbowmen"),
+            level: 2,
+            state: UnitState::Ready,
+            wounded: false,
+            used_resistance_this_combat: false,
+            used_ability_indices: vec![],
+            mana_token: None,
+        });
+
+        // Add +2 attack bonus
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("ucb_r"),
+            source: ModifierSource::Card {
+                card_id: CardId::from("banner_of_glory"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::AllUnits,
+            effect: ModifierEffect::UnitCombatBonus {
+                attack_bonus: 2,
+                block_bonus: 0,
+            },
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ActivateUnit {
+                unit_instance_id: UnitInstanceId::from("unit_0"),
+                ability_index: 2, // Ranged 2 Physical
+            },
+            epoch,
+        ).unwrap();
+        // 2 (base ranged) + 2 (bonus) = 4
+        assert_eq!(state.players[0].combat_accumulator.attack.ranged, 4);
+    }
+
+    #[test]
+    fn glory_negative_bonus_floors_at_zero() {
+        // If bonus is negative, attack/block shouldn't go below 0.
+        let (mut state, mut undo) = setup_combat_with_unit_and_bonus(&["prowlers"], -10, 0);
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ActivateUnit {
+                unit_instance_id: mk_types::ids::UnitInstanceId::from("unit_0"),
+                ability_index: 0,
+            },
+            epoch,
+        ).unwrap();
+        // 2 - 10 = -8, clamped to 0
+        assert_eq!(state.players[0].combat_accumulator.attack.normal, 0);
+    }
+
+    #[test]
+    fn glory_unit_block_bonus_adds_to_block_not_attack() {
+        // UnitBlockBonus modifier should add to block only, not attack.
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+
+        let mut state = setup_combat_game(&["prowlers"]);
+        let mut undo = UndoStack::new();
+        let pid = state.players[0].id.clone();
+
+        state.players[0].units.push(PlayerUnit {
+            instance_id: mk_types::ids::UnitInstanceId::from("unit_0"),
+            unit_id: mk_types::ids::UnitId::from("peasants"),
+            level: 1,
+            state: UnitState::Ready,
+            wounded: false,
+            used_resistance_this_combat: false,
+            used_ability_indices: vec![],
+            mana_token: None,
+        });
+
+        // Add UnitBlockBonus (separate from UnitCombatBonus)
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("ubb_1"),
+            source: ModifierSource::Card {
+                card_id: CardId::from("banner_of_protection"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::AllUnits,
+            effect: ModifierEffect::UnitBlockBonus { amount: 3 },
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+
+        // Activate block
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ActivateUnit {
+                unit_instance_id: mk_types::ids::UnitInstanceId::from("unit_0"),
+                ability_index: 1, // Block 2 Physical
+            },
+            epoch,
+        ).unwrap();
+        // Block: 2 (base) + 3 (UnitBlockBonus) = 5
+        assert_eq!(state.players[0].combat_accumulator.block, 5);
+    }
+
+    #[test]
+    fn glory_unit_block_bonus_does_not_affect_attack() {
+        // UnitBlockBonus should NOT affect attack.
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+
+        let mut state = setup_combat_game(&["prowlers"]);
+        let mut undo = UndoStack::new();
+        let pid = state.players[0].id.clone();
+
+        state.players[0].units.push(PlayerUnit {
+            instance_id: mk_types::ids::UnitInstanceId::from("unit_0"),
+            unit_id: mk_types::ids::UnitId::from("peasants"),
+            level: 1,
+            state: UnitState::Ready,
+            wounded: false,
+            used_resistance_this_combat: false,
+            used_ability_indices: vec![],
+            mana_token: None,
+        });
+
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("ubb_2"),
+            source: ModifierSource::Card {
+                card_id: CardId::from("banner_of_protection"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::AllUnits,
+            effect: ModifierEffect::UnitBlockBonus { amount: 5 },
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ActivateUnit {
+                unit_instance_id: mk_types::ids::UnitInstanceId::from("unit_0"),
+                ability_index: 0, // Attack 2 Physical (NOT block)
+            },
+            epoch,
+        ).unwrap();
+        // Attack should just be base 2 — no UnitBlockBonus applied to attack
+        assert_eq!(state.players[0].combat_accumulator.attack.normal, 2);
+    }
+
+    // =========================================================================
+    // Banner of Fear — comprehensive tests
+    // =========================================================================
+
+    #[test]
+    fn banner_fear_unit_becomes_spent() {
+        let unit_iid = mk_types::ids::UnitInstanceId::from("unit_0");
+        let enemy_iid = CombatInstanceId::from("enemy_0");
+        let mut state = setup_combat_game(&["prowlers"]);
+        let mut undo = UndoStack::new();
+
+        state.players[0].units.push(PlayerUnit {
+            instance_id: unit_iid.clone(),
+            unit_id: mk_types::ids::UnitId::from("peasants"),
+            level: 1,
+            state: UnitState::Ready,
+            wounded: false,
+            used_resistance_this_combat: false,
+            used_ability_indices: vec![],
+            mana_token: None,
+        });
+        state.players[0].attached_banners.push(BannerAttachment {
+            banner_id: CardId::from("banner_of_fear"),
+            unit_instance_id: unit_iid.clone(),
+            is_used_this_round: false,
+        });
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseBannerFear {
+                unit_instance_id: unit_iid,
+                enemy_instance_id: enemy_iid,
+                attack_index: 0,
+            },
+            epoch,
+        ).unwrap();
+
+        assert_eq!(state.players[0].units[0].state, UnitState::Spent);
+    }
+
+    #[test]
+    fn banner_fear_cannot_use_on_already_cancelled_attack() {
+        let unit_iid = mk_types::ids::UnitInstanceId::from("unit_0");
+        let enemy_iid = CombatInstanceId::from("enemy_0");
+        let mut state = setup_combat_game(&["prowlers"]);
+        let mut undo = UndoStack::new();
+
+        state.players[0].units.push(PlayerUnit {
+            instance_id: unit_iid.clone(),
+            unit_id: mk_types::ids::UnitId::from("peasants"),
+            level: 1,
+            state: UnitState::Ready,
+            wounded: false,
+            used_resistance_this_combat: false,
+            used_ability_indices: vec![],
+            mana_token: None,
+        });
+        state.players[0].attached_banners.push(BannerAttachment {
+            banner_id: CardId::from("banner_of_fear"),
+            unit_instance_id: unit_iid.clone(),
+            is_used_this_round: false,
+        });
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+
+        // Use fear once (succeeds)
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseBannerFear {
+                unit_instance_id: unit_iid.clone(),
+                enemy_instance_id: enemy_iid.clone(),
+                attack_index: 0,
+            },
+            epoch,
+        ).unwrap();
+
+        // Attack is now cancelled
+        assert!(state.combat.as_ref().unwrap().enemies[0].attacks_cancelled[0]);
+
+        // Banner is now used — a second attempt should fail
+        let epoch2 = state.action_epoch;
+        let result = apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseBannerFear {
+                unit_instance_id: unit_iid,
+                enemy_instance_id: enemy_iid,
+                attack_index: 0,
+            },
+            epoch2,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn banner_fear_multiple_enemies() {
+        // Two enemies — cancel one attack from each using two different banners.
+        let unit0 = mk_types::ids::UnitInstanceId::from("unit_0");
+        let unit1 = mk_types::ids::UnitInstanceId::from("unit_1");
+        let mut state = setup_combat_game(&["prowlers", "diggers"]);
+        let mut undo = UndoStack::new();
+
+        // Two units
+        for (i, uid) in [&unit0, &unit1].iter().enumerate() {
+            state.players[0].units.push(PlayerUnit {
+                instance_id: (*uid).clone(),
+                unit_id: mk_types::ids::UnitId::from("peasants"),
+                level: 1,
+                state: UnitState::Ready,
+                wounded: false,
+                used_resistance_this_combat: false,
+                used_ability_indices: vec![],
+                mana_token: None,
+            });
+            state.players[0].attached_banners.push(BannerAttachment {
+                banner_id: CardId::from("banner_of_fear"),
+                unit_instance_id: (*uid).clone(),
+                is_used_this_round: false,
+            });
+            let _ = i;
+        }
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+
+        // Cancel prowlers attack with unit_0
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseBannerFear {
+                unit_instance_id: unit0.clone(),
+                enemy_instance_id: CombatInstanceId::from("enemy_0"),
+                attack_index: 0,
+            },
+            epoch,
+        ).unwrap();
+
+        // Cancel diggers attack with unit_1
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::UseBannerFear {
+                unit_instance_id: unit1.clone(),
+                enemy_instance_id: CombatInstanceId::from("enemy_1"),
+                attack_index: 0,
+            },
+            epoch,
+        ).unwrap();
+
+        // Both attacks cancelled
+        assert!(state.combat.as_ref().unwrap().enemies[0].attacks_cancelled[0]);
+        assert!(state.combat.as_ref().unwrap().enemies[1].attacks_cancelled[0]);
+        // Both units spent
+        assert_eq!(state.players[0].units[0].state, UnitState::Spent);
+        assert_eq!(state.players[0].units[1].state, UnitState::Spent);
+        // +2 fame total
+        assert_eq!(state.players[0].fame, 2);
+    }
+
+    #[test]
+    fn banner_fear_not_enumerated_outside_block_phase() {
+        // UseBannerFear should NOT appear in legal actions during RangedSiege phase.
+        let unit_iid = mk_types::ids::UnitInstanceId::from("unit_0");
+        let mut state = setup_combat_game(&["prowlers"]);
+        let undo = UndoStack::new();
+
+        state.players[0].units.push(PlayerUnit {
+            instance_id: unit_iid.clone(),
+            unit_id: mk_types::ids::UnitId::from("peasants"),
+            level: 1,
+            state: UnitState::Ready,
+            wounded: false,
+            used_resistance_this_combat: false,
+            used_ability_indices: vec![],
+            mana_token: None,
+        });
+        state.players[0].attached_banners.push(BannerAttachment {
+            banner_id: CardId::from("banner_of_fear"),
+            unit_instance_id: unit_iid.clone(),
+            is_used_this_round: false,
+        });
+        // Phase is RangedSiege (default), not Block
+        assert_eq!(
+            state.combat.as_ref().unwrap().phase,
+            CombatPhase::RangedSiege
+        );
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        let has_fear = actions.actions.iter().any(|a| matches!(a, LegalAction::UseBannerFear { .. }));
+        assert!(!has_fear, "UseBannerFear should not be available during RangedSiege phase");
+    }
+
+    #[test]
+    fn banner_fear_enumerated_in_block_phase() {
+        // UseBannerFear SHOULD appear in legal actions during Block phase.
+        let unit_iid = mk_types::ids::UnitInstanceId::from("unit_0");
+        let mut state = setup_combat_game(&["prowlers"]);
+        let undo = UndoStack::new();
+
+        state.players[0].units.push(PlayerUnit {
+            instance_id: unit_iid.clone(),
+            unit_id: mk_types::ids::UnitId::from("peasants"),
+            level: 1,
+            state: UnitState::Ready,
+            wounded: false,
+            used_resistance_this_combat: false,
+            used_ability_indices: vec![],
+            mana_token: None,
+        });
+        state.players[0].attached_banners.push(BannerAttachment {
+            banner_id: CardId::from("banner_of_fear"),
+            unit_instance_id: unit_iid.clone(),
+            is_used_this_round: false,
+        });
+        // Move to Block phase
+        state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        let has_fear = actions.actions.iter().any(|a| matches!(a, LegalAction::UseBannerFear { .. }));
+        assert!(has_fear, "UseBannerFear should be available during Block phase");
+    }
+
+    // =========================================================================
+    // Banner of Fortitude — damage interaction tests
+    // =========================================================================
+
+    /// Helper to create a combat state with a unit that has fortitude attached,
+    /// facing a specific enemy, and assign damage to the unit.
+    fn fortitude_damage_test(
+        enemy_id: &str,
+        enemy_attack_index: usize,
+    ) -> (GameState, bool) {
+        let unit_iid = mk_types::ids::UnitInstanceId::from("unit_0");
+        let mut state = setup_combat_game(&[enemy_id]);
+        let mut undo = UndoStack::new();
+
+        state.players[0].units.push(PlayerUnit {
+            instance_id: unit_iid.clone(),
+            unit_id: mk_types::ids::UnitId::from("peasants"),
+            level: 1,
+            state: UnitState::Ready,
+            wounded: false,
+            used_resistance_this_combat: false,
+            used_ability_indices: vec![],
+            mana_token: None,
+        });
+        state.players[0].attached_banners.push(BannerAttachment {
+            banner_id: CardId::from("banner_of_fortitude"),
+            unit_instance_id: unit_iid.clone(),
+            is_used_this_round: false,
+        });
+
+        // Move to AssignDamage phase
+        state.combat.as_mut().unwrap().phase = CombatPhase::AssignDamage;
+
+        let epoch = state.action_epoch;
+        let _ = apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::AssignDamageToUnit {
+                enemy_index: 0,
+                attack_index: enemy_attack_index,
+                unit_instance_id: unit_iid,
+            },
+            epoch,
+        );
+
+        let is_wounded = state.players[0].units.get(0).map(|u| u.wounded).unwrap_or(true);
+        let banner_used = state.players[0].attached_banners.get(0)
+            .map(|b| b.is_used_this_round)
+            .unwrap_or(false);
+
+        (state, is_wounded)
+    }
+
+    #[test]
+    fn fortitude_prevents_wound_from_damage_assignment() {
+        // Prowlers: Attack 4 Physical, no abilities.
+        // Peasants: Level 1, armor 3. Damage 4 > armor 3, so wound.
+        // Fortitude prevents the wound.
+        let (state, is_wounded) = fortitude_damage_test("prowlers", 0);
+
+        // Unit survives AND is NOT wounded (fortitude negated)
+        assert!(!is_wounded);
+        assert_eq!(state.players[0].units.len(), 1);
+        // Banner is used
+        assert!(state.players[0].attached_banners[0].is_used_this_round);
+    }
+
+    #[test]
+    fn fortitude_prevents_wound_only_once_per_round() {
+        // After first wound is negated, second wound goes through.
+        let unit_iid = mk_types::ids::UnitInstanceId::from("unit_0");
+        let mut state = setup_combat_game(&["prowlers", "prowlers"]);
+        let mut undo = UndoStack::new();
+
+        state.players[0].units.push(PlayerUnit {
+            instance_id: unit_iid.clone(),
+            unit_id: mk_types::ids::UnitId::from("peasants"),
+            level: 1,
+            state: UnitState::Ready,
+            wounded: false,
+            used_resistance_this_combat: false,
+            used_ability_indices: vec![],
+            mana_token: None,
+        });
+        state.players[0].attached_banners.push(BannerAttachment {
+            banner_id: CardId::from("banner_of_fortitude"),
+            unit_instance_id: unit_iid.clone(),
+            is_used_this_round: false,
+        });
+
+        state.combat.as_mut().unwrap().phase = CombatPhase::AssignDamage;
+
+        // First damage assignment — fortitude should prevent
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::AssignDamageToUnit {
+                enemy_index: 0,
+                attack_index: 0,
+                unit_instance_id: unit_iid.clone(),
+            },
+            epoch,
+        ).unwrap();
+        assert!(!state.players[0].units[0].wounded); // prevented
+        assert!(state.players[0].attached_banners[0].is_used_this_round);
+
+        // Second damage assignment — fortitude already used, wound goes through
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::AssignDamageToUnit {
+                enemy_index: 1,
+                attack_index: 0,
+                unit_instance_id: unit_iid.clone(),
+            },
+            epoch,
+        ).unwrap();
+        assert!(state.players[0].units[0].wounded); // wound goes through
+    }
+
+    #[test]
+    fn fortitude_does_not_prevent_unit_destruction() {
+        // When a wounded unit takes another wound, it's destroyed.
+        // Fortitude only prevents wound (not destruction from double-wound).
+        let unit_iid = mk_types::ids::UnitInstanceId::from("unit_0");
+        let mut state = setup_combat_game(&["prowlers"]);
+        let mut undo = UndoStack::new();
+
+        state.players[0].units.push(PlayerUnit {
+            instance_id: unit_iid.clone(),
+            unit_id: mk_types::ids::UnitId::from("peasants"),
+            level: 1,
+            state: UnitState::Ready,
+            wounded: true, // Already wounded!
+            used_resistance_this_combat: false,
+            used_ability_indices: vec![],
+            mana_token: None,
+        });
+        state.players[0].attached_banners.push(BannerAttachment {
+            banner_id: CardId::from("banner_of_fortitude"),
+            unit_instance_id: unit_iid.clone(),
+            is_used_this_round: false,
+        });
+
+        state.combat.as_mut().unwrap().phase = CombatPhase::AssignDamage;
+
+        let epoch = state.action_epoch;
+        let _ = apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::AssignDamageToUnit {
+                enemy_index: 0,
+                attack_index: 0,
+                unit_instance_id: unit_iid,
+            },
+            epoch,
+        );
+
+        // Unit is destroyed (removed) — fortitude doesn't prevent destruction
+        assert!(state.players[0].units.is_empty());
+    }
+
+    #[test]
+    fn fortitude_without_banner_unit_gets_wounded() {
+        // No banner attached — unit takes wound normally.
+        let unit_iid = mk_types::ids::UnitInstanceId::from("unit_0");
+        let mut state = setup_combat_game(&["prowlers"]);
+        let mut undo = UndoStack::new();
+
+        state.players[0].units.push(PlayerUnit {
+            instance_id: unit_iid.clone(),
+            unit_id: mk_types::ids::UnitId::from("peasants"),
+            level: 1,
+            state: UnitState::Ready,
+            wounded: false,
+            used_resistance_this_combat: false,
+            used_ability_indices: vec![],
+            mana_token: None,
+        });
+        // No banner attached!
+        state.combat.as_mut().unwrap().phase = CombatPhase::AssignDamage;
+
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::AssignDamageToUnit {
+                enemy_index: 0,
+                attack_index: 0,
+                unit_instance_id: unit_iid,
+            },
+            epoch,
+        ).unwrap();
+        // Unit is wounded normally
+        assert!(state.players[0].units[0].wounded);
+    }
+
+    // =========================================================================
+    // Soul Harvester — crystal resolution tests
+    // =========================================================================
+
+    #[test]
+    fn soul_harvester_basic_grants_one_crystal() {
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+
+        let mut state = setup_combat_game(&["prowlers"]);
+        let pid = state.players[0].id.clone();
+
+        // Add SoulHarvesterCrystalTracking modifier (basic: limit 1)
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("sh_1"),
+            source: ModifierSource::Card {
+                card_id: CardId::from("soul_harvester"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Combat,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::SoulHarvesterCrystalTracking {
+                limit: 1,
+                track_by_attack: false,
+            },
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+
+        // Simulate defeating 1 non-summoned enemy
+        resolve_soul_harvester_crystals(&mut state, 0, &[false]);
+
+        // Should have gained 1 crystal (Red, first non-max color)
+        assert_eq!(state.players[0].crystals.red, 1);
+    }
+
+    #[test]
+    fn soul_harvester_basic_limits_to_one_even_with_multiple_defeats() {
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+
+        let mut state = setup_combat_game(&["prowlers", "diggers"]);
+        let pid = state.players[0].id.clone();
+
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("sh_1"),
+            source: ModifierSource::Card {
+                card_id: CardId::from("soul_harvester"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Combat,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::SoulHarvesterCrystalTracking {
+                limit: 1,
+                track_by_attack: false,
+            },
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+
+        // 2 non-summoned enemies defeated
+        resolve_soul_harvester_crystals(&mut state, 0, &[false, false]);
+
+        // Only 1 crystal granted (basic limit)
+        let total_crystals = state.players[0].crystals.red
+            + state.players[0].crystals.blue
+            + state.players[0].crystals.green
+            + state.players[0].crystals.white;
+        assert_eq!(total_crystals, 1);
+    }
+
+    #[test]
+    fn soul_harvester_powered_grants_one_per_defeat() {
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+
+        let mut state = setup_combat_game(&["prowlers", "diggers", "prowlers"]);
+        let pid = state.players[0].id.clone();
+
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("sh_p"),
+            source: ModifierSource::Card {
+                card_id: CardId::from("soul_harvester"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Combat,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::SoulHarvesterCrystalTracking {
+                limit: 99, // powered: unlimited
+                track_by_attack: false,
+            },
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+
+        // 3 non-summoned enemies
+        resolve_soul_harvester_crystals(&mut state, 0, &[false, false, false]);
+
+        let total_crystals = state.players[0].crystals.red
+            + state.players[0].crystals.blue
+            + state.players[0].crystals.green
+            + state.players[0].crystals.white;
+        assert_eq!(total_crystals, 3);
+    }
+
+    #[test]
+    fn soul_harvester_excludes_summoned_enemies() {
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+
+        let mut state = setup_combat_game(&["prowlers", "diggers"]);
+        let pid = state.players[0].id.clone();
+
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("sh_s"),
+            source: ModifierSource::Card {
+                card_id: CardId::from("soul_harvester"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Combat,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::SoulHarvesterCrystalTracking {
+                limit: 99,
+                track_by_attack: false,
+            },
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+
+        // First is non-summoned, second IS summoned
+        resolve_soul_harvester_crystals(&mut state, 0, &[false, true]);
+
+        let total_crystals = state.players[0].crystals.red
+            + state.players[0].crystals.blue
+            + state.players[0].crystals.green
+            + state.players[0].crystals.white;
+        // Only 1 crystal (summoned enemy excluded)
+        assert_eq!(total_crystals, 1);
+    }
+
+    #[test]
+    fn soul_harvester_no_modifier_does_nothing() {
+        let mut state = setup_combat_game(&["prowlers"]);
+        // No modifier added
+        resolve_soul_harvester_crystals(&mut state, 0, &[false]);
+
+        let total = state.players[0].crystals.red
+            + state.players[0].crystals.blue
+            + state.players[0].crystals.green
+            + state.players[0].crystals.white;
+        assert_eq!(total, 0);
+    }
+
+    #[test]
+    fn soul_harvester_crystal_overflow_cycles_colors() {
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+
+        let mut state = setup_combat_game(&["prowlers"]);
+        let pid = state.players[0].id.clone();
+
+        // Max out red crystals
+        state.players[0].crystals.red = 3;
+
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("sh_o"),
+            source: ModifierSource::Card {
+                card_id: CardId::from("soul_harvester"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Combat,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::SoulHarvesterCrystalTracking {
+                limit: 1,
+                track_by_attack: false,
+            },
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+
+        resolve_soul_harvester_crystals(&mut state, 0, &[false]);
+
+        // Red is maxed, so should get blue instead
+        assert_eq!(state.players[0].crystals.red, 3); // still 3
+        assert_eq!(state.players[0].crystals.blue, 1); // overflow to blue
+    }
+
+    #[test]
+    fn soul_harvester_decrements_limit() {
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+
+        let mut state = setup_combat_game(&["prowlers"]);
+        let pid = state.players[0].id.clone();
+
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("sh_d"),
+            source: ModifierSource::Card {
+                card_id: CardId::from("soul_harvester"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Combat,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::SoulHarvesterCrystalTracking {
+                limit: 3,
+                track_by_attack: false,
+            },
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+
+        resolve_soul_harvester_crystals(&mut state, 0, &[false, false]);
+
+        // Limit should be decremented from 3 to 1 (2 consumed)
+        let remaining = state.active_modifiers.iter().find_map(|m| {
+            if let ModifierEffect::SoulHarvesterCrystalTracking { limit, .. } = &m.effect {
+                Some(*limit)
+            } else {
+                None
+            }
+        });
+        assert_eq!(remaining, Some(1));
+    }
+
+    // =========================================================================
+    // Combat Hook: DoublePhysicalAttacks (Sword of Justice powered)
+    // =========================================================================
+
+    fn add_double_physical_modifier(state: &mut GameState, player_idx: usize) {
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+        let pid = state.players[player_idx].id.clone();
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("double_phys"),
+            source: ModifierSource::Card {
+                card_id: CardId::from("sword_of_justice"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Combat,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::DoublePhysicalAttacks,
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+    }
+
+    #[test]
+    fn double_physical_doubles_melee_physical_attack() {
+        let mut state = setup_combat_game(&["prowlers"]); // armor 3
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+        add_double_physical_modifier(&mut state, 0);
+
+        // Set 3 physical attack — with doubling becomes 6, enough to defeat prowlers (armor 3)
+        state.players[0].combat_accumulator.attack.normal = 3;
+        state.players[0].combat_accumulator.attack.normal_elements.physical = 3;
+
+        let mut undo = UndoStack::new();
+        execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
+
+        assert!(state.combat.as_ref().unwrap().enemies[0].is_defeated);
+    }
+
+    #[test]
+    fn double_physical_does_not_double_elemental_attack() {
+        let mut state = setup_combat_game(&["prowlers"]); // armor 3
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+        add_double_physical_modifier(&mut state, 0);
+
+        // Only fire attack (2), doubled only affects physical
+        state.players[0].combat_accumulator.attack.normal = 2;
+        state.players[0].combat_accumulator.attack.normal_elements.fire = 2;
+
+        let mut undo = UndoStack::new();
+        execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
+
+        // 2 fire (not doubled) vs 3 armor → not defeated
+        assert!(!state.combat.as_ref().unwrap().enemies[0].is_defeated);
+    }
+
+    #[test]
+    fn double_physical_works_with_ranged() {
+        let mut state = setup_combat_game(&["prowlers"]); // armor 3
+        // RangedSiege phase for ranged attacks
+        state.players[0].combat_accumulator.attack.ranged = 2;
+        state.players[0].combat_accumulator.attack.ranged_elements.physical = 2;
+        add_double_physical_modifier(&mut state, 0);
+
+        let mut undo = UndoStack::new();
+        execute_attack(&mut state, &mut undo, CombatType::Ranged, 1);
+
+        // 2 physical * 2 = 4 vs 3 armor → defeated
+        assert!(state.combat.as_ref().unwrap().enemies[0].is_defeated);
+    }
+
+    #[test]
+    fn double_physical_without_modifier_no_doubling() {
+        let mut state = setup_combat_game(&["prowlers"]); // armor 3
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+        // No modifier! 2 physical → stays 2
+
+        state.players[0].combat_accumulator.attack.normal = 2;
+        state.players[0].combat_accumulator.attack.normal_elements.physical = 2;
+
+        let mut undo = UndoStack::new();
+        execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
+
+        // 2 < 3 armor → not defeated
+        assert!(!state.combat.as_ref().unwrap().enemies[0].is_defeated);
+    }
+
+    // =========================================================================
+    // Combat Hook: FamePerEnemyDefeated (Banner of Glory, Sword of Justice)
+    // =========================================================================
+
+    fn add_fame_per_enemy_modifier(state: &mut GameState, player_idx: usize, fame: u32, exclude_summoned: bool) {
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+        let pid = state.players[player_idx].id.clone();
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("fame_per_enemy"),
+            source: ModifierSource::Card {
+                card_id: CardId::from("banner_of_glory"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Combat,
+            scope: ModifierScope::AllUnits,
+            effect: ModifierEffect::FamePerEnemyDefeated { fame_per_enemy: fame, exclude_summoned },
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+    }
+
+    #[test]
+    fn fame_per_enemy_bonus_on_single_defeat() {
+        let mut state = setup_combat_game(&["prowlers"]); // fame 2
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+        add_fame_per_enemy_modifier(&mut state, 0, 1, false);
+
+        state.players[0].combat_accumulator.attack.normal = 10;
+        state.players[0].combat_accumulator.attack.normal_elements.physical = 10;
+        state.players[0].fame = 0;
+
+        let mut undo = UndoStack::new();
+        execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
+
+        // Base fame 2 + bonus 1 = 3
+        assert_eq!(state.players[0].fame, 3);
+    }
+
+    #[test]
+    fn fame_per_enemy_bonus_on_multiple_defeats() {
+        let mut state = setup_combat_game(&["prowlers", "prowlers"]); // each fame 2
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+        add_fame_per_enemy_modifier(&mut state, 0, 1, false);
+
+        state.players[0].combat_accumulator.attack.normal = 20;
+        state.players[0].combat_accumulator.attack.normal_elements.physical = 20;
+        state.players[0].fame = 0;
+
+        let mut undo = UndoStack::new();
+        execute_attack(&mut state, &mut undo, CombatType::Melee, 2);
+
+        // Base fame 4 (2*2) + bonus 2 (1*2) = 6
+        assert_eq!(state.players[0].fame, 6);
+    }
+
+    #[test]
+    fn fame_per_enemy_excludes_summoned_when_flagged() {
+        let mut state = setup_combat_game(&["prowlers", "prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+        // Mark second enemy as summoned
+        state.combat.as_mut().unwrap().enemies[1].summoned_by_instance_id =
+            Some(mk_types::ids::CombatInstanceId::from("enemy_0"));
+        add_fame_per_enemy_modifier(&mut state, 0, 2, true); // exclude_summoned=true
+
+        state.players[0].combat_accumulator.attack.normal = 20;
+        state.players[0].combat_accumulator.attack.normal_elements.physical = 20;
+        state.players[0].fame = 0;
+
+        let mut undo = UndoStack::new();
+        execute_attack(&mut state, &mut undo, CombatType::Melee, 2);
+
+        // Base fame 2 (only non-summoned prowler) + bonus 2 (2*1 non-summoned) = 4
+        assert_eq!(state.players[0].fame, 4);
+    }
+
+    #[test]
+    fn fame_per_enemy_includes_summoned_when_not_flagged() {
+        let mut state = setup_combat_game(&["prowlers", "prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+        state.combat.as_mut().unwrap().enemies[1].summoned_by_instance_id =
+            Some(mk_types::ids::CombatInstanceId::from("enemy_0"));
+        add_fame_per_enemy_modifier(&mut state, 0, 2, false); // exclude_summoned=false
+
+        state.players[0].combat_accumulator.attack.normal = 20;
+        state.players[0].combat_accumulator.attack.normal_elements.physical = 20;
+        state.players[0].fame = 0;
+
+        let mut undo = UndoStack::new();
+        execute_attack(&mut state, &mut undo, CombatType::Melee, 2);
+
+        // Base fame 2 (summoned gives 0) + bonus 4 (2*2 — both count even summoned) = 6
+        assert_eq!(state.players[0].fame, 6);
+    }
+
+    // =========================================================================
+    // Combat Hook: BowPhaseFameTracking (Bow of Starsdawn powered)
+    // =========================================================================
+
+    fn add_bow_phase_fame_modifier(state: &mut GameState, player_idx: usize, fame_per: u32) {
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+        let pid = state.players[player_idx].id.clone();
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("bow_fame"),
+            source: ModifierSource::Card {
+                card_id: CardId::from("bow_of_starsdawn"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Combat,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::BowPhaseFameTracking { fame_per_enemy: fame_per },
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+    }
+
+    #[test]
+    fn bow_phase_fame_awards_on_ranged_siege_transition() {
+        let mut state = setup_combat_game(&["prowlers"]); // armor 3
+        // RangedSiege phase — defeat with ranged
+        add_bow_phase_fame_modifier(&mut state, 0, 2);
+
+        state.players[0].combat_accumulator.attack.ranged = 10;
+        state.players[0].combat_accumulator.attack.ranged_elements.physical = 10;
+        state.players[0].fame = 0;
+
+        let mut undo = UndoStack::new();
+        execute_attack(&mut state, &mut undo, CombatType::Ranged, 1);
+
+        let fame_before_transition = state.players[0].fame;
+        // End RangedSiege phase → Block
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::EndCombatPhase,
+            epoch,
+        ).unwrap();
+
+        // Bow phase fame: 2 per enemy * 1 defeat = 2 extra
+        assert_eq!(state.players[0].fame, fame_before_transition + 2);
+    }
+
+    #[test]
+    fn bow_phase_fame_zero_defeats_no_bonus() {
+        let mut state = setup_combat_game(&["prowlers"]);
+        add_bow_phase_fame_modifier(&mut state, 0, 2);
+        state.players[0].fame = 0;
+
+        // No defeats — just transition
+        let mut undo = UndoStack::new();
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::EndCombatPhase,
+            epoch,
+        ).unwrap();
+
+        // No defeat → no bonus fame
+        assert_eq!(state.players[0].fame, 0);
+    }
+
+    #[test]
+    fn bow_phase_fame_multiple_defeats() {
+        let mut state = setup_combat_game(&["prowlers", "prowlers"]);
+        add_bow_phase_fame_modifier(&mut state, 0, 1);
+
+        state.players[0].combat_accumulator.attack.ranged = 20;
+        state.players[0].combat_accumulator.attack.ranged_elements.physical = 20;
+        state.players[0].fame = 0;
+
+        let mut undo = UndoStack::new();
+        execute_attack(&mut state, &mut undo, CombatType::Ranged, 2);
+
+        let fame_before = state.players[0].fame;
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::EndCombatPhase,
+            epoch,
+        ).unwrap();
+
+        // 1 fame * 2 defeats = 2 bonus
+        assert_eq!(state.players[0].fame, fame_before + 2);
+    }
+
+    // =========================================================================
+    // Combat Hook: Resistance Removal (Know Your Prey, various artifacts)
+    // =========================================================================
+
+    fn add_remove_resistance_modifier(state: &mut GameState, player_idx: usize, effect: mk_types::modifier::ModifierEffect) {
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+        let pid = state.players[player_idx].id.clone();
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("resist_remove"),
+            source: ModifierSource::Skill {
+                skill_id: SkillId::from("know_your_prey"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Combat,
+            scope: ModifierScope::SelfScope,
+            effect,
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+    }
+
+    #[test]
+    fn remove_physical_resistance_enables_defeat_with_physical() {
+        // ice_golems: armor 4, resist Physical + Ice
+        let mut state = setup_combat_game(&["ice_golems"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+
+        // 4 physical normally bounces off Physical resistance
+        state.players[0].combat_accumulator.attack.normal = 4;
+        state.players[0].combat_accumulator.attack.normal_elements.physical = 4;
+
+        add_remove_resistance_modifier(&mut state, 0,
+            mk_types::modifier::ModifierEffect::RemovePhysicalResistance);
+
+        let mut undo = UndoStack::new();
+        execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
+
+        // Physical resistance removed → 4 physical vs 4 armor → defeated
+        assert!(state.combat.as_ref().unwrap().enemies[0].is_defeated);
+    }
+
+    #[test]
+    fn remove_fire_resistance_enables_defeat_with_fire() {
+        // fire_golems: armor 4, resist Fire + Physical
+        let mut state = setup_combat_game(&["fire_golems"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+
+        // 5 fire normally resisted, plus remove fire resistance
+        state.players[0].combat_accumulator.attack.normal = 5;
+        state.players[0].combat_accumulator.attack.normal_elements.fire = 5;
+
+        add_remove_resistance_modifier(&mut state, 0,
+            mk_types::modifier::ModifierEffect::RemoveFireResistance);
+        // Also remove physical since fire_golems has both
+        state.active_modifiers.push(mk_types::modifier::ActiveModifier {
+            id: mk_types::ids::ModifierId::from("resist_remove2"),
+            source: mk_types::modifier::ModifierSource::Skill {
+                skill_id: SkillId::from("know_your_prey"),
+                player_id: state.players[0].id.clone(),
+            },
+            duration: mk_types::modifier::ModifierDuration::Combat,
+            scope: mk_types::modifier::ModifierScope::SelfScope,
+            effect: mk_types::modifier::ModifierEffect::RemovePhysicalResistance,
+            created_at_round: 1,
+            created_by_player_id: state.players[0].id.clone(),
+        });
+
+        let mut undo = UndoStack::new();
+        execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
+
+        // Both resistances removed → 5 fire vs 4 armor → defeated
+        assert!(state.combat.as_ref().unwrap().enemies[0].is_defeated);
+    }
+
+    #[test]
+    fn remove_all_resistances_strips_everything() {
+        // ice_golems: armor 4, resist Physical + Ice
+        let mut state = setup_combat_game(&["ice_golems"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+
+        // 4 physical + 1 ice = 5 total vs 4 armor
+        state.players[0].combat_accumulator.attack.normal = 5;
+        state.players[0].combat_accumulator.attack.normal_elements.physical = 4;
+        state.players[0].combat_accumulator.attack.normal_elements.ice = 1;
+
+        add_remove_resistance_modifier(&mut state, 0,
+            mk_types::modifier::ModifierEffect::RemoveResistances);
+
+        let mut undo = UndoStack::new();
+        execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
+
+        // All resistances removed → 5 total vs 4 armor → defeated
+        assert!(state.combat.as_ref().unwrap().enemies[0].is_defeated);
+    }
+
+    #[test]
+    fn no_resistance_removal_physical_blocked() {
+        // ice_golems: armor 4, resist Physical + Ice
+        let mut state = setup_combat_game(&["ice_golems"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+
+        // 4 physical → halved by Physical resistance → 2 effective
+        state.players[0].combat_accumulator.attack.normal = 4;
+        state.players[0].combat_accumulator.attack.normal_elements.physical = 4;
+
+        // No resistance removal modifier!
+        let mut undo = UndoStack::new();
+        execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
+
+        // Physical halved: 2 effective vs 4 armor → not defeated
+        assert!(!state.combat.as_ref().unwrap().enemies[0].is_defeated);
+    }
+
+    #[test]
+    fn remove_ice_resistance_with_ice_attack() {
+        // ice_golems: armor 4, resist Physical + Ice
+        let mut state = setup_combat_game(&["ice_golems"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+
+        // 4 ice — normally halved by Ice resistance
+        state.players[0].combat_accumulator.attack.normal = 4;
+        state.players[0].combat_accumulator.attack.normal_elements.ice = 4;
+
+        add_remove_resistance_modifier(&mut state, 0,
+            mk_types::modifier::ModifierEffect::RemoveIceResistance);
+
+        let mut undo = UndoStack::new();
+        execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
+
+        // Ice resistance removed → 4 ice vs 4 armor → defeated
+        assert!(state.combat.as_ref().unwrap().enemies[0].is_defeated);
+    }
+
 }

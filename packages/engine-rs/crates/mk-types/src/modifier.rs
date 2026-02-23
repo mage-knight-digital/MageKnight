@@ -185,7 +185,9 @@ pub enum ModifierEffect {
         attack_index: Option<u32>,
         per_resistance: bool,
         fortified_amount: Option<i32>,
-        exclude_resistance: Option<Element>,
+        /// When set, enemies with this resistance are excluded from this modifier.
+        #[serde(default)]
+        exclude_resistance: Option<ResistanceElement>,
     },
     RuleOverride {
         rule: RuleOverride,
@@ -314,6 +316,10 @@ pub enum ModifierEffect {
     },
     BowPhaseFameTracking {
         fame_per_enemy: u32,
+    },
+    FamePerEnemyDefeated {
+        fame_per_enemy: u32,
+        exclude_summoned: bool,
     },
     BowAttackTransformation,
     SoulHarvesterCrystalTracking {

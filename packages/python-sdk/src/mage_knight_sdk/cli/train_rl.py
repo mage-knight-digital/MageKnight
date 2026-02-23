@@ -126,6 +126,13 @@ def main() -> int:
                         help="Base port for per-worker game servers (e.g. 3001 → workers use 3001,3002,...). "
                              "Start servers with: bun packages/server/cluster.ts --workers N --base-port PORT")
 
+    # Native Rust engine (default: True)
+    parser.add_argument("--native", action="store_true", default=True,
+                        help="Use native Rust engine (default, no server needed)")
+    parser.add_argument("--no-native", dest="native", action="store_false",
+                        help="Use legacy WebSocket server path")
+    parser.add_argument("--hero", default="arythea", help="Hero for native mode (default: arythea)")
+
     # PPO flags
     parser.add_argument("--ppo", action="store_true", help="Use PPO instead of REINFORCE")
     parser.add_argument("--batch-episodes", type=int, default=16, help="Episodes per PPO update batch (sequential, default: 16)")
@@ -242,6 +249,8 @@ def main() -> int:
     print("-" * 88)
 
     try:
+        if args.native and not args.ppo:
+            return _train_native_sequential(args, policy, reward_config, checkpoint_dir, metrics_path, tb, resume_episode_offset)
         if args.ppo:
             if args.workers > 1:
                 return _train_ppo_distributed(args, policy, reward_config, checkpoint_dir, metrics_path, components, replay_dir, tb, resume_episode_offset)
@@ -256,6 +265,78 @@ def main() -> int:
 # ---------------------------------------------------------------------------
 # REINFORCE training loops (existing)
 # ---------------------------------------------------------------------------
+
+
+def _train_native_sequential(
+    args: argparse.Namespace,
+    policy: Any,
+    reward_config: Any,
+    checkpoint_dir: Path,
+    metrics_path: Path,
+    tb: _TBWriter | None = None,
+    resume_episode_offset: int = 0,
+) -> int:
+    """Native Rust engine training loop — no WebSocket server needed."""
+    from mage_knight_sdk.sim.rl.native_rl_runner import run_native_rl_game
+
+    for episode in range(args.episodes):
+        global_ep = resume_episode_offset + episode + 1
+        seed = args.seed + resume_episode_offset + episode
+
+        result, stats = run_native_rl_game(
+            seed=seed,
+            hero=args.hero,
+            policy=policy,
+            reward_config=reward_config,
+            max_steps=args.max_steps,
+        )
+
+        if stats is None:
+            print(f"ep={global_ep:04d} seed={seed} ERROR: {result.reason}", file=sys.stderr)
+            continue
+
+        _append_metrics_log_from_stats(
+            path=metrics_path,
+            episode=global_ep - 1,
+            seed=seed,
+            stats=stats,
+        )
+
+        print(
+            f"ep={global_ep:04d} seed={seed} outcome={result.outcome:<17} "
+            f"steps={result.steps:<6} fame={result.fame:<4} reward={stats.total_reward:>8.3f} "
+            f"loss={stats.optimization.loss:>9.4f} entropy={stats.optimization.entropy:>7.4f}"
+        )
+
+        if tb is not None:
+            tb.log_episode(global_ep, stats)
+
+        if args.checkpoint_every > 0 and global_ep % args.checkpoint_every == 0:
+            checkpoint_path = checkpoint_dir / f"policy_ep_{global_ep:04d}.pt"
+            policy.save_checkpoint(
+                checkpoint_path,
+                metadata={
+                    "episode": global_ep,
+                    "seed": seed,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                },
+            )
+
+    if not args.no_final_checkpoint:
+        final_ep = resume_episode_offset + args.episodes
+        final_path = checkpoint_dir / "policy_final.pt"
+        policy.save_checkpoint(
+            final_path,
+            metadata={
+                "episode": final_ep,
+                "seed": args.seed + resume_episode_offset + args.episodes - 1,
+                "timestamp": datetime.now(UTC).isoformat(),
+            },
+        )
+        print(f"Final checkpoint: {final_path}")
+
+    print(f"Metrics log: {metrics_path}")
+    return 0
 
 
 def _train_sequential(

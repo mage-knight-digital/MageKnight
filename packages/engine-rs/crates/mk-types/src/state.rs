@@ -426,6 +426,9 @@ pub struct CombatState {
 
     // Damage assignment tracking
     pub has_paralyze_damage_to_hero: bool,
+
+    // Phase tracking for BowPhaseFameTracking
+    pub ranged_siege_defeats: u32,
 }
 
 impl Default for CombatState {
@@ -460,6 +463,7 @@ impl Default for CombatState {
             declared_block_target: None,
             declared_block_attack_index: None,
             has_paralyze_damage_to_hero: false,
+            ranged_siege_defeats: 0,
         }
     }
 }
@@ -598,6 +602,8 @@ pub struct GameOffers {
     pub artifacts: Vec<CardId>,
     /// Common skill pool — unchosen skills from level-up rewards.
     pub common_skills: Vec<SkillId>,
+    /// Per-monastery AA offers — drawn when monastery hexes are explored.
+    pub monastery_advanced_actions: Vec<CardId>,
 }
 
 /// Card draw decks.

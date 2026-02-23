@@ -222,6 +222,7 @@ pub enum CombatContext {
     Standard,
     BurnMonastery,
     CooperativeAssault,
+    AncientRuins,
 }
 
 // =============================================================================
@@ -236,17 +237,18 @@ pub enum CardColor {
     Green,
     White,
     Wound,
+    Colorless,
 }
 
 impl CardColor {
-    /// Convert to BasicManaColor if not Wound.
+    /// Convert to BasicManaColor if not Wound or Colorless.
     pub fn to_basic_mana_color(self) -> Option<BasicManaColor> {
         match self {
             Self::Red => Some(BasicManaColor::Red),
             Self::Blue => Some(BasicManaColor::Blue),
             Self::Green => Some(BasicManaColor::Green),
             Self::White => Some(BasicManaColor::White),
-            Self::Wound => None,
+            Self::Wound | Self::Colorless => None,
         }
     }
 }

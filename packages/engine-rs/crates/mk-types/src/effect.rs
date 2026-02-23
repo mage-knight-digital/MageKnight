@@ -261,6 +261,11 @@ pub enum EffectType {
 
     // === Shield Bash ===
     ShieldBash,
+
+    // === Druidic Staff ===
+    DruidicStaffBasic,
+    DruidicStaffPowered,
+    ResolveDruidicStaffDiscard,
 }
 
 // =============================================================================
@@ -475,6 +480,155 @@ pub enum CardEffect {
     },
     /// Disease: set armor to 1 for all fully-blocked enemies in combat.
     Disease,
+
+    /// Energy Flow: ready a spent unit (any level), optionally heal if wounded.
+    EnergyFlow {
+        heal: bool,
+    },
+    /// Mana Bolt: pay 1 mana token → attack based on color.
+    /// Blue=Melee Ice base, Red=Melee ColdFire base-1, White=Ranged Ice base-2, Green=Siege Ice base-3.
+    ManaBolt {
+        base_value: u32,
+    },
+    /// Discard a non-wound card from hand → gain crystal of card's color.
+    DiscardForCrystal {
+        optional: bool,
+    },
+    /// Sacrifice (Offering powered): choose crystal pair combo → convert to tokens + attack per pair.
+    Sacrifice,
+    /// Mana Claim: select unclaimed basic-color die, choose burst (3 tokens) or sustained (1/turn).
+    ManaClaim {
+        with_curse: bool,
+    },
+
+    // === Advanced Action effects ===
+
+    /// Force of Nature basic: select a unit, grant it a modifier.
+    SelectUnitForModifier {
+        modifier: ModifierEffect,
+        duration: ModifierDuration,
+    },
+    /// Song of Wind powered: Move 2 + terrain reductions + optional blue mana for lake cost 0.
+    SongOfWindPowered,
+    /// Rush of Adrenaline: retroactive wound draw + modifier for future wounds.
+    RushOfAdrenaline {
+        mode: crate::pending::EffectMode,
+    },
+    /// Power of Crystals basic: gain crystal of a color below max.
+    PowerOfCrystalsBasic,
+    /// Power of Crystals powered: choice of Move/Heal/Draw scaled by complete crystal sets.
+    PowerOfCrystalsPowered,
+    /// Crystal Mastery basic: gain crystal of a color you already own (below cap).
+    CrystalMasteryBasic,
+    /// Crystal Mastery powered: set flag for end-of-turn crystal return.
+    CrystalMasteryPowered,
+    /// Mana Storm basic: select basic-color source die → gain crystal + reroll.
+    ManaStormBasic,
+    /// Mana Storm powered: reroll all dice + push rule overrides.
+    ManaStormPowered,
+    /// Spell Forge basic: choose spell from offer → gain crystal of its color.
+    SpellForgeBasic,
+    /// Spell Forge powered: choose 2 spells from offer → gain crystal of each color.
+    SpellForgePowered,
+    /// Magic Talent basic: discard colored card → play matching spell from offer (pay mana).
+    MagicTalentBasic,
+    /// Magic Talent powered: pay mana → gain matching spell from offer to discard.
+    MagicTalentPowered,
+    /// Blood of Ancients basic: wound → pay mana → gain matching AA from offer.
+    BloodOfAncientsBasic,
+    /// Blood of Ancients powered: wound → select any AA → use its powered effect free.
+    BloodOfAncientsPowered,
+    /// Peaceful Moment action mode: gain influence + enter conversion loop.
+    PeacefulMomentAction {
+        influence: u32,
+        allow_refresh: bool,
+    },
+    /// Peaceful Moment conversion loop (internal effect generated during resolution).
+    PeacefulMomentConvert {
+        influence_remaining: u32,
+        allow_refresh: bool,
+        refreshed: bool,
+    },
+
+    // === Spell effects (new) ===
+
+    /// Mana Meltdown: basic (solo: skip), powered (Mana Radiance: choose color → wounds → crystals).
+    ManaMeltdown { powered: bool },
+    /// Mind Read: basic/powered (solo: choose color → gain crystal).
+    MindRead { powered: bool },
+    /// Call to Arms: basic (borrow unit ability from offer).
+    CallToArms,
+    /// Free Recruit: recruit any unit from offer for free (Call to Arms powered).
+    FreeRecruit,
+    /// Wings of Night: iterative enemy targeting (skip attack, scaling move cost).
+    WingsOfNight,
+    /// Possess Enemy: target enemy → skip attack + gain melee attack equal to enemy's attack.
+    PossessEnemy,
+    /// Meditation: basic (random 2 cards from discard) / powered (choose 2 from discard).
+    Meditation { powered: bool },
+    /// Ready Units Budget: iteratively ready spent units up to total_levels.
+    ReadyUnitsBudget { total_levels: u32 },
+    /// Grant wound immunity: next wound from enemy is ignored (Mist Form powered).
+    GrantWoundImmunity,
+
+    // === Artifact effects ===
+
+    /// Ready all owned units (regardless of level).
+    ReadyAllUnits,
+    /// Heal all owned units completely.
+    HealAllUnits,
+    /// Activate Banner of Protection — flag for end-turn wound removal.
+    ActivateBannerProtection,
+    /// Apply FamePerEnemyDefeated tracking modifier (Banner of Glory, etc.).
+    FamePerEnemyDefeated {
+        amount: u32,
+        /// If true, summoned enemies don't count.
+        exclude_summoned: bool,
+    },
+    /// Roll N dice; for each black/red result, take a wound (Horn of Wrath basic).
+    RollDieForWound {
+        die_count: u32,
+    },
+    /// Iterative risk/reward: roll die, +bonus siege attack per safe roll, wound on black/red.
+    /// Player can stop anytime after first roll (Horn of Wrath powered).
+    ChooseBonusWithRisk {
+        bonus_per_roll: u32,
+        combat_type: CombatType,
+        element: Element,
+        accumulated: u32,
+        rolled: bool,
+    },
+    /// Roll N dice; gain crystal matching each die color (Endless Gem Pouch basic).
+    /// Black → fame +1 instead of crystal.
+    RollForCrystals {
+        die_count: u32,
+    },
+    /// Book of Wisdom: discard action card → gain same-color AA (basic) or spell+crystal (powered).
+    BookOfWisdom {
+        mode: crate::pending::EffectMode,
+    },
+    /// Tome of All Spells: discard card → use matching-color spell from offer.
+    TomeOfAllSpells {
+        mode: crate::pending::EffectMode,
+    },
+    /// Circlet of Proficiency basic: use non-interactive skill from offer (one-time).
+    CircletOfProficiencyBasic,
+    /// Circlet of Proficiency powered: acquire skill permanently.
+    CircletOfProficiencyPowered,
+    /// Mysterious Box: reveal top artifact, use as that artifact's basic effect.
+    MysteriousBox,
+    /// Druidic Staff basic: discard card → effect based on card color.
+    DruidicStaffBasic,
+    /// Druidic Staff powered: choose one of 6 dual-color combinations.
+    DruidicStaffPowered,
+
+    /// BowAttackTransformation resolved: apply the chosen attack (doubled or converted).
+    GainAttackBowResolved {
+        amount: u32,
+        #[serde(rename = "combatType")]
+        combat_type: CombatType,
+        element: Element,
+    },
 
     /// Catch-all for effect types not yet fully modeled.
     /// Stores the effect type discriminant for routing.

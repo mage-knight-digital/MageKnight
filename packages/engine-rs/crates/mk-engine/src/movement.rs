@@ -264,7 +264,18 @@ pub fn evaluate_move_entry(
         }
     }
 
-    // TODO: terrain prohibition modifiers (EFFECT_TERRAIN_PROHIBITION)
+    // Terrain prohibition modifiers (e.g., Mist Form prohibits Hills/Mountain)
+    use mk_types::modifier::ModifierEffect;
+    for modifier in &state.active_modifiers {
+        if let ModifierEffect::TerrainProhibition {
+            prohibited_terrains,
+        } = &modifier.effect
+        {
+            if prohibited_terrains.contains(&hex.terrain) {
+                return MoveEntryResult::blocked(MoveBlockReason::Impassable);
+            }
+        }
+    }
 
     MoveEntryResult::passable(cost)
 }
@@ -439,6 +450,7 @@ fn enter_assault_combat(
         declared_block_target: None,
         declared_block_attack_index: None,
         has_paralyze_damage_to_hero: false,
+        ranged_siege_defeats: 0,
     };
 
     // Clear healing points
@@ -623,7 +635,14 @@ pub fn execute_move(
     // During daytime, reveal face-down enemies at newly adjacent fortified sites
     reveal_garrison_at_adjacent_sites(state, from, target);
 
-    // TODO: ruins token reveal
+    // Ruins token reveal: entering a hex with face-down ruins token reveals it
+    if let Some(hex) = state.map.hexes.get_mut(&target.key()) {
+        if let Some(ref mut ruins_token) = hex.ruins_token {
+            if !ruins_token.is_revealed {
+                ruins_token.is_revealed = true;
+            }
+        }
+    }
 
     Ok(MoveResult {
         cost,
@@ -806,6 +825,42 @@ pub(crate) fn draw_enemies_on_tile(
     }
 }
 
+/// Draw ruins tokens onto Ancient Ruins hexes of a newly placed tile.
+///
+/// For each hex with `SiteType::AncientRuins`, pop a token from the ruins draw pile
+/// (reshuffling discard→draw if empty) and place it face-down on the hex.
+/// During daytime, tokens are placed face-up instead.
+pub(crate) fn draw_ruins_tokens_on_tile(
+    state: &mut GameState,
+    center: HexCoord,
+    tile_hexes: &[mk_data::tiles::TileHex],
+) {
+    for tile_hex in tile_hexes {
+        if tile_hex.site_type != Some(SiteType::AncientRuins) {
+            continue;
+        }
+
+        let coord = HexCoord::new(center.q + tile_hex.local.q, center.r + tile_hex.local.r);
+
+        // Draw from ruins pile (reshuffle if needed)
+        if state.ruins_tokens.draw.is_empty() && !state.ruins_tokens.discard.is_empty() {
+            let mut reshuffled = std::mem::take(&mut state.ruins_tokens.discard);
+            state.rng.shuffle(&mut reshuffled);
+            state.ruins_tokens.draw = reshuffled;
+        }
+
+        if let Some(token_id) = state.ruins_tokens.draw.pop() {
+            let is_revealed = state.time_of_day == TimeOfDay::Day;
+            if let Some(hex) = state.map.hexes.get_mut(&coord.key()) {
+                hex.ruins_token = Some(RuinsToken {
+                    token_id,
+                    is_revealed,
+                });
+            }
+        }
+    }
+}
+
 // =============================================================================
 // execute_explore
 // =============================================================================
@@ -881,7 +936,9 @@ pub fn execute_explore(
     // Draw enemies from piles for rampaging hexes and site defenders
     draw_enemies_on_tile(state, new_center, tile_hexes);
 
-    // TODO: draw ruins tokens for ancient ruins
+    // Draw ruins tokens for ancient ruins hexes on the new tile
+    draw_ruins_tokens_on_tile(state, new_center, tile_hexes);
+
     // TODO: monastery AA reveals
 
     // Fame award for exploring (scenarioConfig.famePerTileExplored)

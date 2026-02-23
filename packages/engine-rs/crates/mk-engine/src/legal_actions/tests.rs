@@ -662,17 +662,28 @@ fn pending_choice_emits_resolve_choices() {
 }
 
 #[test]
-#[should_panic(expected = "Unsupported active pending in legal action pipeline")]
-fn pending_non_choice_panics_fast() {
+fn pending_meditation_select_cards_enumeration() {
     let mut state = setup_game(vec!["march"]);
+    // Put some cards in discard for meditation to pick from
+    state.players[0].discard.push(mk_types::ids::CardId::from("rage"));
+    state.players[0].discard.push(mk_types::ids::CardId::from("stamina"));
     state.players[0].pending.active = Some(ActivePending::Meditation(
         mk_types::pending::PendingMeditation {
-            version: mk_types::pending::EffectMode::Basic,
+            version: mk_types::pending::EffectMode::Powered,
             phase: mk_types::pending::MeditationPhase::SelectCards,
             selected_card_ids: vec![],
         },
     ));
-    let _ = enumerate_legal_actions(&state, 0);
+    let legal = enumerate_legal_actions(&state, 0);
+    let med_actions: Vec<_> = legal
+        .actions
+        .iter()
+        .filter(|a| matches!(a, LegalAction::ResolveMeditation { .. }))
+        .collect();
+    // Should have 2 meditation card selections (rage + stamina)
+    assert_eq!(med_actions.len(), 2, "Should enumerate 2 discard cards for meditation");
+    // No MeditationDoneSelecting yet (0 selected)
+    assert!(!legal.actions.iter().any(|a| matches!(a, LegalAction::MeditationDoneSelecting)));
 }
 
 // =========================================================================
@@ -5229,4 +5240,364 @@ fn crystal_joy_gold_token_affords_all_colors() {
         })
         .count();
     assert_eq!(powered_count, 4, "Gold token should afford all 4 basic colors");
+}
+
+// =========================================================================
+// Banner assignment enumeration
+// =========================================================================
+
+#[test]
+fn assign_banner_enumerated_when_banner_in_hand_and_unit_present() {
+    use mk_types::ids::UnitInstanceId;
+
+    let mut state = setup_game(vec!["banner_of_courage"]);
+    state.players[0].units.push(PlayerUnit {
+        instance_id: UnitInstanceId::from("unit_0"),
+        unit_id: mk_types::ids::UnitId::from("peasants"),
+        level: 1,
+        state: UnitState::Ready,
+        wounded: false,
+        used_resistance_this_combat: false,
+        used_ability_indices: vec![],
+        mana_token: None,
+    });
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let assign_count = legal.actions.iter().filter(|a| matches!(a, LegalAction::AssignBanner { .. })).count();
+    assert_eq!(assign_count, 1, "Should have 1 AssignBanner action for 1 banner × 1 unit");
+}
+
+#[test]
+fn assign_banner_not_enumerated_without_units() {
+    let state = setup_game(vec!["banner_of_courage"]);
+    // No units
+    let legal = enumerate_legal_actions(&state, 0);
+    let assign_count = legal.actions.iter().filter(|a| matches!(a, LegalAction::AssignBanner { .. })).count();
+    assert_eq!(assign_count, 0);
+}
+
+#[test]
+fn assign_banner_not_enumerated_for_non_banner_cards() {
+    use mk_types::ids::UnitInstanceId;
+
+    let mut state = setup_game(vec!["march"]);
+    state.players[0].units.push(PlayerUnit {
+        instance_id: UnitInstanceId::from("unit_0"),
+        unit_id: mk_types::ids::UnitId::from("peasants"),
+        level: 1,
+        state: UnitState::Ready,
+        wounded: false,
+        used_resistance_this_combat: false,
+        used_ability_indices: vec![],
+        mana_token: None,
+    });
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let assign_count = legal.actions.iter().filter(|a| matches!(a, LegalAction::AssignBanner { .. })).count();
+    assert_eq!(assign_count, 0, "march is not a banner card");
+}
+
+#[test]
+fn assign_banner_multiple_units_get_multiple_actions() {
+    use mk_types::ids::UnitInstanceId;
+
+    let mut state = setup_game(vec!["banner_of_courage"]);
+    for i in 0..3 {
+        state.players[0].units.push(PlayerUnit {
+            instance_id: UnitInstanceId::from(format!("unit_{}", i).as_str()),
+            unit_id: mk_types::ids::UnitId::from("peasants"),
+            level: 1,
+            state: UnitState::Ready,
+            wounded: false,
+            used_resistance_this_combat: false,
+            used_ability_indices: vec![],
+            mana_token: None,
+        });
+    }
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let assign_count = legal.actions.iter().filter(|a| matches!(a, LegalAction::AssignBanner { .. })).count();
+    assert_eq!(assign_count, 3, "1 banner × 3 units = 3 AssignBanner actions");
+}
+
+#[test]
+fn assign_banner_already_attached_skipped() {
+    use mk_types::ids::UnitInstanceId;
+    use mk_types::state::BannerAttachment;
+
+    let mut state = setup_game(vec!["banner_of_courage"]);
+    state.players[0].units.push(PlayerUnit {
+        instance_id: UnitInstanceId::from("unit_0"),
+        unit_id: mk_types::ids::UnitId::from("peasants"),
+        level: 1,
+        state: UnitState::Ready,
+        wounded: false,
+        used_resistance_this_combat: false,
+        used_ability_indices: vec![],
+        mana_token: None,
+    });
+    // Already attached
+    state.players[0].attached_banners.push(BannerAttachment {
+        banner_id: CardId::from("banner_of_courage"),
+        unit_instance_id: UnitInstanceId::from("unit_0"),
+        is_used_this_round: false,
+    });
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let assign_count = legal.actions.iter().filter(|a| matches!(a, LegalAction::AssignBanner { .. })).count();
+    assert_eq!(assign_count, 0, "Banner already attached to this unit — no duplicate");
+}
+
+// =========================================================================
+// Banner of Courage enumeration
+// =========================================================================
+
+#[test]
+fn banner_courage_enumerated_for_spent_unit() {
+    use mk_types::ids::UnitInstanceId;
+    use mk_types::state::BannerAttachment;
+
+    let mut state = setup_game(vec!["march"]); // some card so turn is valid
+    state.players[0].units.push(PlayerUnit {
+        instance_id: UnitInstanceId::from("unit_0"),
+        unit_id: mk_types::ids::UnitId::from("peasants"),
+        level: 1,
+        state: UnitState::Spent,
+        wounded: false,
+        used_resistance_this_combat: false,
+        used_ability_indices: vec![],
+        mana_token: None,
+    });
+    state.players[0].attached_banners.push(BannerAttachment {
+        banner_id: CardId::from("banner_of_courage"),
+        unit_instance_id: UnitInstanceId::from("unit_0"),
+        is_used_this_round: false,
+    });
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let courage_count = legal.actions.iter().filter(|a| matches!(a, LegalAction::UseBannerCourage { .. })).count();
+    assert_eq!(courage_count, 1);
+}
+
+#[test]
+fn banner_courage_not_enumerated_for_ready_unit() {
+    use mk_types::ids::UnitInstanceId;
+    use mk_types::state::BannerAttachment;
+
+    let mut state = setup_game(vec!["march"]);
+    state.players[0].units.push(PlayerUnit {
+        instance_id: UnitInstanceId::from("unit_0"),
+        unit_id: mk_types::ids::UnitId::from("peasants"),
+        level: 1,
+        state: UnitState::Ready, // Already ready
+        wounded: false,
+        used_resistance_this_combat: false,
+        used_ability_indices: vec![],
+        mana_token: None,
+    });
+    state.players[0].attached_banners.push(BannerAttachment {
+        banner_id: CardId::from("banner_of_courage"),
+        unit_instance_id: UnitInstanceId::from("unit_0"),
+        is_used_this_round: false,
+    });
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let courage_count = legal.actions.iter().filter(|a| matches!(a, LegalAction::UseBannerCourage { .. })).count();
+    assert_eq!(courage_count, 0, "Unit is already ready, courage not needed");
+}
+
+#[test]
+fn banner_courage_not_enumerated_when_used_this_round() {
+    use mk_types::ids::UnitInstanceId;
+    use mk_types::state::BannerAttachment;
+
+    let mut state = setup_game(vec!["march"]);
+    state.players[0].units.push(PlayerUnit {
+        instance_id: UnitInstanceId::from("unit_0"),
+        unit_id: mk_types::ids::UnitId::from("peasants"),
+        level: 1,
+        state: UnitState::Spent,
+        wounded: false,
+        used_resistance_this_combat: false,
+        used_ability_indices: vec![],
+        mana_token: None,
+    });
+    state.players[0].attached_banners.push(BannerAttachment {
+        banner_id: CardId::from("banner_of_courage"),
+        unit_instance_id: UnitInstanceId::from("unit_0"),
+        is_used_this_round: true, // Already used
+    });
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let courage_count = legal.actions.iter().filter(|a| matches!(a, LegalAction::UseBannerCourage { .. })).count();
+    assert_eq!(courage_count, 0, "Banner already used this round");
+}
+
+// =========================================================================
+// Banner of Fear enumeration in combat
+// =========================================================================
+
+fn setup_fear_combat(enemy_ids: &[&str]) -> GameState {
+    let mut state = setup_game(vec!["march"]);
+    let tokens: Vec<mk_types::ids::EnemyTokenId> = enemy_ids
+        .iter()
+        .map(|id| mk_types::ids::EnemyTokenId::from(format!("{}_1", id).as_str()))
+        .collect();
+    crate::combat::execute_enter_combat(
+        &mut state, 0, &tokens, false, None, Default::default(),
+    ).unwrap();
+    state
+}
+
+#[test]
+fn banner_fear_arcane_immune_enemies_excluded() {
+    use mk_types::ids::UnitInstanceId;
+    use mk_types::state::BannerAttachment;
+
+    // Sorcerers have ArcaneImmunity
+    let mut state = setup_fear_combat(&["sorcerers"]);
+
+    state.players[0].units.push(PlayerUnit {
+        instance_id: UnitInstanceId::from("unit_0"),
+        unit_id: mk_types::ids::UnitId::from("peasants"),
+        level: 1,
+        state: UnitState::Ready,
+        wounded: false,
+        used_resistance_this_combat: false,
+        used_ability_indices: vec![],
+        mana_token: None,
+    });
+    state.players[0].attached_banners.push(BannerAttachment {
+        banner_id: CardId::from("banner_of_fear"),
+        unit_instance_id: UnitInstanceId::from("unit_0"),
+        is_used_this_round: false,
+    });
+    state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let fear_count = legal.actions.iter().filter(|a| matches!(a, LegalAction::UseBannerFear { .. })).count();
+    assert_eq!(fear_count, 0, "Arcane Immune enemies cannot be targeted by Banner of Fear");
+}
+
+#[test]
+fn banner_fear_spent_unit_not_eligible() {
+    use mk_types::ids::UnitInstanceId;
+    use mk_types::state::BannerAttachment;
+
+    let mut state = setup_fear_combat(&["prowlers"]);
+
+    state.players[0].units.push(PlayerUnit {
+        instance_id: UnitInstanceId::from("unit_0"),
+        unit_id: mk_types::ids::UnitId::from("peasants"),
+        level: 1,
+        state: UnitState::Spent, // Spent!
+        wounded: false,
+        used_resistance_this_combat: false,
+        used_ability_indices: vec![],
+        mana_token: None,
+    });
+    state.players[0].attached_banners.push(BannerAttachment {
+        banner_id: CardId::from("banner_of_fear"),
+        unit_instance_id: UnitInstanceId::from("unit_0"),
+        is_used_this_round: false,
+    });
+    state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let fear_count = legal.actions.iter().filter(|a| matches!(a, LegalAction::UseBannerFear { .. })).count();
+    assert_eq!(fear_count, 0, "Spent unit cannot use Banner of Fear");
+}
+
+#[test]
+fn banner_fear_defeated_enemy_not_targetable() {
+    use mk_types::ids::UnitInstanceId;
+    use mk_types::state::BannerAttachment;
+
+    let mut state = setup_fear_combat(&["prowlers"]);
+
+    state.players[0].units.push(PlayerUnit {
+        instance_id: UnitInstanceId::from("unit_0"),
+        unit_id: mk_types::ids::UnitId::from("peasants"),
+        level: 1,
+        state: UnitState::Ready,
+        wounded: false,
+        used_resistance_this_combat: false,
+        used_ability_indices: vec![],
+        mana_token: None,
+    });
+    state.players[0].attached_banners.push(BannerAttachment {
+        banner_id: CardId::from("banner_of_fear"),
+        unit_instance_id: UnitInstanceId::from("unit_0"),
+        is_used_this_round: false,
+    });
+    state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+    // Mark enemy as defeated
+    state.combat.as_mut().unwrap().enemies[0].is_defeated = true;
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let fear_count = legal.actions.iter().filter(|a| matches!(a, LegalAction::UseBannerFear { .. })).count();
+    assert_eq!(fear_count, 0, "Defeated enemy cannot be targeted by fear");
+}
+
+#[test]
+fn banner_fear_already_cancelled_attack_excluded() {
+    use mk_types::ids::UnitInstanceId;
+    use mk_types::state::BannerAttachment;
+
+    let mut state = setup_fear_combat(&["prowlers"]);
+
+    state.players[0].units.push(PlayerUnit {
+        instance_id: UnitInstanceId::from("unit_0"),
+        unit_id: mk_types::ids::UnitId::from("peasants"),
+        level: 1,
+        state: UnitState::Ready,
+        wounded: false,
+        used_resistance_this_combat: false,
+        used_ability_indices: vec![],
+        mana_token: None,
+    });
+    state.players[0].attached_banners.push(BannerAttachment {
+        banner_id: CardId::from("banner_of_fear"),
+        unit_instance_id: UnitInstanceId::from("unit_0"),
+        is_used_this_round: false,
+    });
+    state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+    // Mark attack as already cancelled
+    state.combat.as_mut().unwrap().enemies[0].attacks_cancelled[0] = true;
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let fear_count = legal.actions.iter().filter(|a| matches!(a, LegalAction::UseBannerFear { .. })).count();
+    assert_eq!(fear_count, 0, "Already cancelled attack cannot be targeted");
+}
+
+#[test]
+fn banner_fear_multiple_units_multiple_enemies() {
+    use mk_types::ids::UnitInstanceId;
+    use mk_types::state::BannerAttachment;
+
+    let mut state = setup_fear_combat(&["prowlers", "diggers"]);
+
+    for i in 0..2 {
+        state.players[0].units.push(PlayerUnit {
+            instance_id: UnitInstanceId::from(format!("unit_{}", i).as_str()),
+            unit_id: mk_types::ids::UnitId::from("peasants"),
+            level: 1,
+            state: UnitState::Ready,
+            wounded: false,
+            used_resistance_this_combat: false,
+            used_ability_indices: vec![],
+            mana_token: None,
+        });
+        state.players[0].attached_banners.push(BannerAttachment {
+            banner_id: CardId::from("banner_of_fear"),
+            unit_instance_id: UnitInstanceId::from(format!("unit_{}", i).as_str()),
+            is_used_this_round: false,
+        });
+    }
+    state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let fear_count = legal.actions.iter().filter(|a| matches!(a, LegalAction::UseBannerFear { .. })).count();
+    // 2 units × 2 enemies × 1 attack each = 4
+    assert_eq!(fear_count, 4, "2 units × 2 enemies = 4 UseBannerFear actions");
 }

@@ -1,6 +1,6 @@
 use mk_types::enums::{DeedCardType, DiscardForBonusFilter, GladeWoundChoice};
 use mk_types::legal_action::{LegalAction, TacticDecisionData};
-use mk_types::pending::{ActivePending, PendingLevelUpReward, PendingTacticDecision};
+use mk_types::pending::{ActivePending, PendingLevelUpReward, PendingTacticDecision, SiteReward};
 
 use crate::effect_queue::{is_resolvable, WOUND_CARD_ID};
 use crate::undo::UndoStack;
@@ -166,42 +166,226 @@ pub(super) fn enumerate_pending(
             actions.push(LegalAction::ResolveSourceOpeningReroll { reroll: true });
             actions.push(LegalAction::ResolveSourceOpeningReroll { reroll: false });
         }
-        ActivePending::Training(ref pending) => {
+        ActivePending::BookOfWisdom(ref bow) => {
+            use mk_types::pending::BookOfWisdomPhase;
             let player = &state.players[player_idx];
-            match pending.phase {
-                mk_types::pending::BookOfWisdomPhase::SelectCard => {
-                    // Enumerate eligible hand cards (non-wound action cards)
-                    for (i, card_id) in player.hand.iter().enumerate() {
+            match bow.phase {
+                BookOfWisdomPhase::SelectCard => {
+                    // Enumerate eligible hand cards: non-wound, non-self, with color
+                    for (idx, card_id) in player.hand.iter().enumerate() {
+                        if card_id.as_str() == WOUND_CARD_ID || card_id.as_str() == "book_of_wisdom" {
+                            continue;
+                        }
+                        if mk_data::cards::get_card_color(card_id.as_str()).is_none() {
+                            continue;
+                        }
+                        // Basic mode: accept BasicAction/AdvancedAction cards
+                        // Powered mode: accept spells too (any colored card)
+                        let is_action = mk_data::cards::get_card(card_id.as_str())
+                            .map(|d| matches!(d.card_type, DeedCardType::BasicAction | DeedCardType::AdvancedAction))
+                            .unwrap_or(false);
+                        let is_spell = mk_data::cards::get_spell_card(card_id.as_str()).is_some();
+                        if is_action || is_spell {
+                            actions.push(LegalAction::ResolveBookOfWisdom {
+                                selection_index: idx,
+                            });
+                        }
+                    }
+                }
+                BookOfWisdomPhase::SelectFromOffer => {
+                    for i in 0..bow.available_offer_cards.len() {
+                        actions.push(LegalAction::ResolveBookOfWisdom {
+                            selection_index: i,
+                        });
+                    }
+                }
+            }
+        }
+        ActivePending::Training(ref t) => {
+            use mk_types::pending::BookOfWisdomPhase;
+            let player = &state.players[player_idx];
+            match t.phase {
+                BookOfWisdomPhase::SelectCard => {
+                    // Enumerate eligible hand cards to throw away (BasicAction or AdvancedAction)
+                    for (idx, card_id) in player.hand.iter().enumerate() {
                         if let Some(def) = mk_data::cards::get_card(card_id.as_str()) {
-                            if matches!(def.card_type, DeedCardType::BasicAction | DeedCardType::AdvancedAction) {
-                                actions.push(LegalAction::ResolveTraining { selection_index: i });
+                            if matches!(
+                                def.card_type,
+                                DeedCardType::BasicAction | DeedCardType::AdvancedAction
+                            ) {
+                                actions.push(LegalAction::ResolveTraining {
+                                    selection_index: idx,
+                                });
                             }
                         }
                     }
                 }
-                mk_types::pending::BookOfWisdomPhase::SelectFromOffer => {
-                    for i in 0..pending.available_offer_cards.len() {
-                        actions.push(LegalAction::ResolveTraining { selection_index: i });
+                BookOfWisdomPhase::SelectFromOffer => {
+                    // Enumerate available offer cards
+                    for i in 0..t.available_offer_cards.len() {
+                        actions.push(LegalAction::ResolveTraining {
+                            selection_index: i,
+                        });
                     }
                 }
             }
         }
         ActivePending::MaximalEffect(_) => {
+            // Enumerate eligible hand cards (BasicAction or AdvancedAction)
             let player = &state.players[player_idx];
-            for (i, card_id) in player.hand.iter().enumerate() {
+            for (idx, card_id) in player.hand.iter().enumerate() {
                 if let Some(def) = mk_data::cards::get_card(card_id.as_str()) {
-                    if matches!(def.card_type, DeedCardType::BasicAction | DeedCardType::AdvancedAction) {
-                        actions.push(LegalAction::ResolveMaximalEffect { hand_index: i });
+                    if matches!(
+                        def.card_type,
+                        DeedCardType::BasicAction | DeedCardType::AdvancedAction
+                    ) {
+                        actions.push(LegalAction::ResolveMaximalEffect {
+                            hand_index: idx,
+                        });
                     }
                 }
             }
         }
-        // Non-choice pending states are not wired into LegalAction yet.
-        // Panic instead of silently returning no actions to avoid deadlocked turns.
-        other => panic!(
-            "Unsupported active pending in legal action pipeline: {}",
-            active_pending_kind(other)
-        ),
+        ActivePending::Meditation(ref med) => {
+            use mk_types::pending::MeditationPhase;
+            let player = &state.players[player_idx];
+            match med.phase {
+                MeditationPhase::SelectCards => {
+                    // Powered: choose cards from discard (up to 3)
+                    let max_selections = 3;
+                    let current_count = med.selected_card_ids.len();
+                    if current_count < max_selections {
+                        for (i, card_id) in player.discard.iter().enumerate() {
+                            if card_id.as_str() != WOUND_CARD_ID
+                                && !med.selected_card_ids.contains(card_id)
+                            {
+                                actions.push(LegalAction::ResolveMeditation {
+                                    selection_index: i,
+                                    place_on_top: None,
+                                });
+                            }
+                        }
+                    }
+                    // Allow finishing selection (if at least 1 selected)
+                    if current_count > 0 {
+                        actions.push(LegalAction::MeditationDoneSelecting);
+                    }
+                }
+                MeditationPhase::PlaceCards => {
+                    // Place each selected card on top or bottom of deck
+                    // Present choices for the first remaining card
+                    if !med.selected_card_ids.is_empty() {
+                        actions.push(LegalAction::ResolveMeditation {
+                            selection_index: 0,
+                            place_on_top: Some(true),
+                        });
+                        actions.push(LegalAction::ResolveMeditation {
+                            selection_index: 0,
+                            place_on_top: Some(false),
+                        });
+                    }
+                }
+            }
+        }
+        ActivePending::SiteRewardChoice { ref reward, reward_index } => {
+            enumerate_site_reward_choice(reward, *reward_index, state, actions);
+        }
+        ActivePending::TomeOfAllSpells(ref tome) => {
+            use mk_types::pending::TomeOfAllSpellsPhase;
+            let player = &state.players[player_idx];
+            match tome.phase {
+                TomeOfAllSpellsPhase::SelectCard => {
+                    // Eligible: colored non-wound, non-self cards (actions + spells)
+                    for (idx, card_id) in player.hand.iter().enumerate() {
+                        if card_id.as_str() == WOUND_CARD_ID || card_id.as_str() == "tome_of_all_spells" {
+                            continue;
+                        }
+                        if mk_data::cards::get_card_color(card_id.as_str()).is_none() {
+                            continue;
+                        }
+                        actions.push(LegalAction::ResolveTomeOfAllSpells {
+                            selection_index: idx,
+                        });
+                    }
+                }
+                TomeOfAllSpellsPhase::SelectSpell => {
+                    for i in 0..tome.available_spells.len() {
+                        actions.push(LegalAction::ResolveTomeOfAllSpells {
+                            selection_index: i,
+                        });
+                    }
+                }
+            }
+        }
+        ActivePending::CircletOfProficiency(ref circlet) => {
+            for i in 0..circlet.available_skills.len() {
+                actions.push(LegalAction::ResolveCircletOfProficiency {
+                    selection_index: i,
+                });
+            }
+        }
+        ActivePending::UnitMaintenance(ref entries) => {
+            let player = &state.players[player_idx];
+            for entry in entries.iter() {
+                // Disband option: always available
+                actions.push(LegalAction::ResolveUnitMaintenance {
+                    unit_instance_id: entry.unit_instance_id.clone(),
+                    keep_unit: false,
+                    crystal_color: None,
+                    new_mana_token_color: None,
+                });
+
+                // Keep options: one per affordable crystal color × 4 mana token colors
+                let crystal_colors = [
+                    (mk_types::enums::BasicManaColor::Red, player.crystals.red),
+                    (mk_types::enums::BasicManaColor::Blue, player.crystals.blue),
+                    (mk_types::enums::BasicManaColor::Green, player.crystals.green),
+                    (mk_types::enums::BasicManaColor::White, player.crystals.white),
+                ];
+                let all_basic = [
+                    mk_types::enums::BasicManaColor::Red,
+                    mk_types::enums::BasicManaColor::Blue,
+                    mk_types::enums::BasicManaColor::Green,
+                    mk_types::enums::BasicManaColor::White,
+                ];
+                for &(color, count) in &crystal_colors {
+                    if count == 0 {
+                        continue;
+                    }
+                    for &token_color in &all_basic {
+                        actions.push(LegalAction::ResolveUnitMaintenance {
+                            unit_instance_id: entry.unit_instance_id.clone(),
+                            keep_unit: true,
+                            crystal_color: Some(color),
+                            new_mana_token_color: Some(token_color),
+                        });
+                    }
+                }
+            }
+        }
+        ActivePending::TerrainCostReduction(ref tcr) => {
+            use mk_types::pending::TerrainCostReductionMode;
+            match tcr.mode {
+                TerrainCostReductionMode::Hex => {
+                    for coord in &tcr.available_coordinates {
+                        actions.push(LegalAction::ResolveHexCostReduction {
+                            coordinate: *coord,
+                        });
+                    }
+                }
+                TerrainCostReductionMode::Terrain => {
+                    for terrain in &tcr.available_terrains {
+                        actions.push(LegalAction::ResolveTerrainCostReduction {
+                            terrain: *terrain,
+                        });
+                    }
+                }
+            }
+        }
+        ActivePending::Discard(_) | ActivePending::DiscardForAttack(_) | ActivePending::DiscardForCrystal(_) => {
+            // These pending states have dedicated handling through
+            // ResolveChoice/ResolveDiscardForCrystal actions, not via this function.
+        }
     }
 
     // Category 12: Undo.
@@ -218,8 +402,18 @@ fn enumerate_tactic_decision(
 ) {
     match td {
         PendingTacticDecision::ManaSteal => {
+            let current_player_id = &state.players[player_idx].id;
             for (idx, die) in state.source.dice.iter().enumerate() {
-                if !die.is_depleted && die.taken_by_player_id.is_none() && die.color.is_basic() {
+                if die.is_depleted || !die.color.is_basic() {
+                    continue;
+                }
+                // Include unclaimed dice AND dice claimed by other players (steal)
+                let is_available = die.taken_by_player_id.is_none();
+                let is_stealable = die
+                    .taken_by_player_id
+                    .as_ref()
+                    .is_some_and(|owner| owner != current_player_id);
+                if is_available || is_stealable {
                     actions.push(LegalAction::ResolveTacticDecision {
                         data: TacticDecisionData::ManaSteal { die_index: idx },
                     });
@@ -276,6 +470,40 @@ fn enumerate_level_up_reward(
     }
 }
 
+fn enumerate_site_reward_choice(
+    reward: &SiteReward,
+    reward_index: usize,
+    state: &mk_types::state::GameState,
+    actions: &mut Vec<LegalAction>,
+) {
+    match reward {
+        SiteReward::Spell { .. } => {
+            for (idx, card_id) in state.offers.spells.iter().enumerate() {
+                actions.push(LegalAction::SelectReward {
+                    card_id: card_id.clone(),
+                    reward_index: idx,
+                });
+            }
+        }
+        SiteReward::AdvancedAction { .. } => {
+            for (idx, card_id) in state.offers.advanced_actions.iter().enumerate() {
+                actions.push(LegalAction::SelectReward {
+                    card_id: card_id.clone(),
+                    reward_index: idx,
+                });
+            }
+        }
+        _ => {
+            // CrystalRoll, Artifact, Fame, Unit, Compound should be auto-resolved,
+            // not presented as choices. This arm should never be reached.
+            panic!(
+                "enumerate_site_reward_choice: unexpected reward type at index {}: {:?}",
+                reward_index, reward
+            );
+        }
+    }
+}
+
 fn count_eligible_for_discard(
     hand: &[mk_types::ids::CardId],
     filter: DiscardForBonusFilter,
@@ -288,31 +516,3 @@ fn count_eligible_for_discard(
     }
 }
 
-fn active_pending_kind(pending: &ActivePending) -> &'static str {
-    match pending {
-        ActivePending::Choice(_) => "choice",
-        ActivePending::Discard(_) => "discard",
-        ActivePending::DiscardForAttack(_) => "discard_for_attack",
-        ActivePending::DiscardForBonus(_) => "discard_for_bonus",
-        ActivePending::DiscardForCrystal(_) => "discard_for_crystal",
-        ActivePending::Decompose(_) => "decompose",
-        ActivePending::MaximalEffect(_) => "maximal_effect",
-        ActivePending::BookOfWisdom(_) => "book_of_wisdom",
-        ActivePending::Training(_) => "training",
-        ActivePending::TacticDecision(_) => "tactic_decision",
-        ActivePending::LevelUpReward(_) => "level_up_reward",
-        ActivePending::DeepMineChoice { .. } => "deep_mine_choice",
-        ActivePending::GladeWoundChoice => "glade_wound_choice",
-        ActivePending::BannerProtectionChoice => "banner_protection_choice",
-        ActivePending::SourceOpeningReroll { .. } => "source_opening_reroll",
-        ActivePending::Meditation(_) => "meditation",
-        ActivePending::PlunderDecision => "plunder_decision",
-        ActivePending::UnitMaintenance(_) => "unit_maintenance",
-        ActivePending::TerrainCostReduction(_) => "terrain_cost_reduction",
-        ActivePending::CrystalJoyReclaim(_) => "crystal_joy_reclaim",
-        ActivePending::SteadyTempoDeckPlacement(_) => "steady_tempo_deck_placement",
-        ActivePending::UnitAbilityChoice { .. } => "unit_ability_choice",
-        ActivePending::SubsetSelection(_) => "subset_selection",
-        ActivePending::SelectCombatEnemy { .. } => "select_combat_enemy",
-    }
-}

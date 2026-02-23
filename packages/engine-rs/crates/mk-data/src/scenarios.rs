@@ -257,6 +257,7 @@ mod tests {
         assert_eq!(config.max_players, 2);
         assert_eq!(config.total_rounds, 3);
         assert_eq!(config.dummy_tactic_order, DummyTacticOrder::None);
+        assert_eq!(config.tactic_removal_mode, TacticRemovalMode::RemoveTwo);
         assert!(config.scoring_config.is_none());
     }
 

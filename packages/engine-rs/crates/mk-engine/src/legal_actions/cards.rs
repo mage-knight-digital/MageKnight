@@ -41,14 +41,19 @@ pub(super) fn enumerate_normal_cards(
         }
 
         // Category 3: PlayCardPowered — allowed during rest (FAQ S3).
+        // Time Bending chain prevention: cannot play Space Bending powered during a time-bent turn.
+        let time_bending_blocked = player.flags.contains(PlayerFlags::IS_TIME_BENT_TURN)
+            && card_id.as_str() == "space_bending";
         match card_def.powered_by {
             PoweredBy::Single(color) => {
-                if is_effect_playable_for_enumeration(
-                    state,
-                    player_idx,
-                    hand_index,
-                    &card_def.powered_effect,
-                ) && can_afford_powered(state, player_idx, color)
+                if !time_bending_blocked
+                    && is_effect_playable_for_enumeration(
+                        state,
+                        player_idx,
+                        hand_index,
+                        &card_def.powered_effect,
+                    )
+                    && can_afford_powered(state, player_idx, color)
                 {
                     powered_actions.push(LegalAction::PlayCardPowered {
                         hand_index,
@@ -163,14 +168,19 @@ pub(super) fn enumerate_combat_cards(
         }
 
         // Category 3: PlayCardPowered.
+        // Time Bending chain prevention: cannot play Space Bending powered during a time-bent turn.
+        let time_bending_blocked = player.flags.contains(PlayerFlags::IS_TIME_BENT_TURN)
+            && card_id.as_str() == "space_bending";
         match card_def.powered_by {
             PoweredBy::Single(color) => {
-                if is_effect_playable_for_enumeration(
-                    state,
-                    player_idx,
-                    hand_index,
-                    &card_def.powered_effect,
-                ) && can_afford_powered(state, player_idx, color)
+                if !time_bending_blocked
+                    && is_effect_playable_for_enumeration(
+                        state,
+                        player_idx,
+                        hand_index,
+                        &card_def.powered_effect,
+                    )
+                    && can_afford_powered(state, player_idx, color)
                 {
                     powered_actions.push(LegalAction::PlayCardPowered {
                         hand_index,
@@ -180,12 +190,14 @@ pub(super) fn enumerate_combat_cards(
                 }
             }
             PoweredBy::AnyBasic => {
-                if is_effect_playable_for_enumeration(
-                    state,
-                    player_idx,
-                    hand_index,
-                    &card_def.powered_effect,
-                ) {
+                if !time_bending_blocked
+                    && is_effect_playable_for_enumeration(
+                        state,
+                        player_idx,
+                        hand_index,
+                        &card_def.powered_effect,
+                    )
+                {
                     for &color in &ALL_BASIC_MANA_COLORS {
                         if can_afford_powered(state, player_idx, color) {
                             powered_actions.push(LegalAction::PlayCardPowered {
@@ -391,7 +403,7 @@ fn can_afford_powered(state: &GameState, player_idx: usize, color: BasicManaColo
         .contains(PlayerFlags::USED_MANA_FROM_SOURCE)
     {
         let has_matching_die = state.source.dice.iter().any(|die| {
-            !die.is_depleted
+            crate::card_play::is_die_available_with_overrides(die, state, player_idx)
                 && die.taken_by_player_id.is_none()
                 && (die.color == target || die.color == ManaColor::Gold)
         });
