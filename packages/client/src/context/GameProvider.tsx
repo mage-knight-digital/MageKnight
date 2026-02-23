@@ -174,7 +174,7 @@ export function GameProvider(props: GameProviderProps) {
         serverRef.current.disconnect(myPlayerId);
       }
     };
-  }, [mode, props, myPlayerId, handleStateUpdate]);
+  }, [mode, localProps.seed, localProps.config, myPlayerId, handleStateUpdate]);
 
   // Network mode: connect via WebSocket
   useEffect(() => {
@@ -204,7 +204,7 @@ export function GameProvider(props: GameProviderProps) {
       connection.disconnect();
       wsConnectionRef.current = null;
     };
-  }, [mode, props, handleStateUpdate]);
+  }, [mode, networkProps.gameId, networkProps.playerId, networkProps.serverUrl, networkProps.sessionToken, handleStateUpdate]);
 
   // Rust mode: connect via WebSocket to mk-server
   useEffect(() => {
@@ -261,7 +261,7 @@ export function GameProvider(props: GameProviderProps) {
       connection.disconnect();
       rustConnectionRef.current = null;
     };
-  }, [mode, props]);
+  }, [mode, rustProps.serverUrl, rustProps.hero, rustProps.seed]);
 
   const sendAction = useCallback((action: Parameters<GameContextValue["sendAction"]>[0]) => {
     // Log action for debugging
