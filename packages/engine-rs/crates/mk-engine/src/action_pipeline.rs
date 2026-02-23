@@ -3815,9 +3815,9 @@ fn setup_puppet_master_use_mode(
     let player = &state.players[player_idx];
     let token = &player.kept_enemy_tokens[token_index];
 
-    let attack_value = (token.attack + 1) / 2; // ceil(attack/2)
+    let attack_value = token.attack.div_ceil(2);
     let attack_element = token.attack_element;
-    let block_value = (token.armor + 1) / 2; // ceil(armor/2)
+    let block_value = token.armor.div_ceil(2);
 
     // Derive block element from enemy resistances
     let block_element = derive_block_element_from_enemy(token.enemy_id.as_str());
@@ -3870,6 +3870,7 @@ pub(crate) fn execute_puppet_master_select_token(
     setup_puppet_master_use_mode(state, player_idx, skill_id, token_index);
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn execute_puppet_master_use_mode(
     state: &mut GameState,
     player_idx: usize,
@@ -3994,7 +3995,7 @@ fn classify_effect_for_shapeshift(effect: &mk_types::effect::CardEffect) -> Opti
         }
         mk_types::effect::CardEffect::Choice { options } => {
             // For Choice cards like Rage (Attack 2 or Block 2), classify by first option
-            options.first().and_then(|first| classify_effect_for_shapeshift(first))
+            options.first().and_then(classify_effect_for_shapeshift)
         }
         _ => None,
     }
@@ -4052,6 +4053,7 @@ pub(crate) fn execute_shapeshift_card_select(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn execute_shapeshift_type_select(
     state: &mut GameState,
     player_idx: usize,
@@ -7243,7 +7245,7 @@ fn apply_natures_vengeance(
     let eligible: Vec<String> = combat.enemies.iter()
         .filter(|e| {
             !e.is_defeated && !e.is_summoner_hidden
-            && mk_data::enemies::get_enemy(e.enemy_id.as_str()).map_or(false, |def| {
+            && mk_data::enemies::get_enemy(e.enemy_id.as_str()).is_some_and( |def| {
                 !combat_resolution::has_ability(def, EnemyAbilityType::Summon)
                 && !combat_resolution::has_ability(def, EnemyAbilityType::SummonGreen)
             })
@@ -7389,7 +7391,7 @@ fn apply_return_interactive_skill(
             let eligible: Vec<String> = combat.enemies.iter()
                 .filter(|e| {
                     !e.is_defeated && !e.is_summoner_hidden
-                    && mk_data::enemies::get_enemy(e.enemy_id.as_str()).map_or(false, |def| {
+                    && mk_data::enemies::get_enemy(e.enemy_id.as_str()).is_some_and( |def| {
                         !combat_resolution::has_ability(def, EnemyAbilityType::Summon)
                         && !combat_resolution::has_ability(def, EnemyAbilityType::SummonGreen)
                     })

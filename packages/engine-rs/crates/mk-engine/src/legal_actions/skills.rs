@@ -214,17 +214,13 @@ pub(super) fn enumerate_skill_activations(
         }
 
         // Puppet Master requires: in combat + at least one kept enemy token.
-        if skill_id.as_str() == "krang_puppet_master" {
-            if player.kept_enemy_tokens.is_empty() {
-                continue;
-            }
+        if skill_id.as_str() == "krang_puppet_master" && player.kept_enemy_tokens.is_empty() {
+            continue;
         }
 
         // Shapeshift requires: in combat + at least one basic action card in hand.
-        if skill_id.as_str() == "braevalar_shapeshift" {
-            if !crate::action_pipeline::has_shapeshift_eligible_cards(state, player_idx) {
-                continue;
-            }
+        if skill_id.as_str() == "braevalar_shapeshift" && !crate::action_pipeline::has_shapeshift_eligible_cards(state, player_idx) {
+            continue;
         }
 
         // Nature's Vengeance requires: in combat + at least one alive non-summoner enemy.
@@ -232,7 +228,7 @@ pub(super) fn enumerate_skill_activations(
             if let Some(ref combat) = state.combat {
                 let has_eligible = combat.enemies.iter().any(|e| {
                     !e.is_defeated && !e.is_summoner_hidden
-                    && mk_data::enemies::get_enemy(e.enemy_id.as_str()).map_or(false, |def| {
+                    && mk_data::enemies::get_enemy(e.enemy_id.as_str()).is_some_and( |def| {
                         !crate::combat_resolution::has_ability(def, mk_types::enums::EnemyAbilityType::Summon)
                         && !crate::combat_resolution::has_ability(def, mk_types::enums::EnemyAbilityType::SummonGreen)
                     })

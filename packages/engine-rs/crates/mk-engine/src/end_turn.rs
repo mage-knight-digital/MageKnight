@@ -783,10 +783,17 @@ fn check_round_end(state: &mut GameState, current_player_idx: usize) -> bool {
     // Auto-announce if hand and deck are both empty
     if player.hand.is_empty() && player.deck.is_empty() && state.end_of_round_announced_by.is_none()
     {
-        state.end_of_round_announced_by = Some(player.id.clone());
-        // In solo, all players get final turns — but solo only has 1 player,
-        // so the round ends immediately.
+        let announcer_id = player.id.clone();
+        state.end_of_round_announced_by = Some(announcer_id.clone());
         // In multiplayer: other players get their final turns.
+        if state.players.len() > 1 {
+            state.players_with_final_turn = state
+                .players
+                .iter()
+                .filter(|p| p.id != announcer_id)
+                .map(|p| p.id.clone())
+                .collect();
+        }
     }
 
     // If announced, check if all final turns are done
@@ -934,7 +941,7 @@ fn end_round(state: &mut GameState) {
                 .available_tactics
                 .retain(|t| !state.removed_tactics.contains(t));
         }
-        TacticRemovalMode::None | TacticRemovalMode::VoteOne => {
+        TacticRemovalMode::None | TacticRemovalMode::VoteOne | TacticRemovalMode::RemoveOne | TacticRemovalMode::RemoveTwo => {
             // None: tactics recycled each round
             // VoteOne: cooperative mode, not yet implemented
         }

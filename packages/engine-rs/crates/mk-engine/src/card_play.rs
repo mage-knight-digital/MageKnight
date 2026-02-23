@@ -76,7 +76,7 @@ pub fn play_card(
     let (effect, consumed_color, mana_choice) = if powered {
         // Validate the card can be powered
         let required_color = override_mana_color
-            .or_else(|| match card_def.powered_by {
+            .or(match card_def.powered_by {
                 PoweredBy::Single(c) => Some(c),
                 _ => None,
             })

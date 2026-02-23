@@ -34,6 +34,11 @@ pub(super) fn enumerate_turn_options(
         actions.push(LegalAction::EndTurn);
     }
 
+    // AnnounceEndOfRound — multiplayer only, when not yet announced.
+    if state.players.len() > 1 && state.end_of_round_announced_by.is_none() {
+        actions.push(LegalAction::AnnounceEndOfRound);
+    }
+
     // Category 10: DeclareRest.
     if !is_resting
         && state.combat.is_none()

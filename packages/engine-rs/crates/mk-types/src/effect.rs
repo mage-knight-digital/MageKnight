@@ -421,6 +421,16 @@ pub enum CardEffect {
     Decompose {
         mode: crate::pending::EffectMode,
     },
+    /// Training: discard a non-wound action card, gain an AA of matching color from offer.
+    /// Basic: gained AA goes to discard. Powered: gained AA goes to hand.
+    Training {
+        mode: crate::pending::EffectMode,
+    },
+    /// Maximal Effect: choose a non-wound action card, multiply its basic/powered effect.
+    /// Basic: multiply by 3. Powered: multiply by 2 (uses powered effect).
+    MaximalEffect {
+        mode: crate::pending::EffectMode,
+    },
     /// Discard an action card for a color-based attack.
     /// `attacks_by_color` maps each card color to the attack effect.
     DiscardForAttack {

@@ -30,9 +30,11 @@ use mk_types::effect::*;
 use mk_types::enums::*;
 use mk_types::ids::{CardId, ModifierId};
 use mk_types::modifier::*;
+use arrayvec::ArrayVec;
 use mk_types::pending::{
-    ActivePending, AttackDefeatFameTracker, ChoiceResolution, ContinuationEntry, DeferredPending,
-    EffectMode, PendingChoice, PendingDecompose,
+    ActivePending, AttackDefeatFameTracker, BookOfWisdomPhase, ChoiceResolution,
+    ContinuationEntry, DeferredPending, EffectMode, PendingChoice, PendingDecompose,
+    PendingMaximalEffect, PendingTraining,
 };
 use mk_types::state::*;
 
@@ -753,6 +755,14 @@ pub fn resolve_discard_for_bonus(
 // Resolve decompose (public API for RESOLVE_DECOMPOSE action)
 // =============================================================================
 
+/// Replenish the advanced action offer from the deck after one is taken.
+pub fn replenish_aa_offer(state: &mut GameState) {
+    if !state.decks.advanced_action_deck.is_empty() {
+        let new_card = state.decks.advanced_action_deck.remove(0);
+        state.offers.advanced_actions.insert(0, new_card);
+    }
+}
+
 /// Resolve a pending decompose by picking which hand card to decompose.
 ///
 /// The selected card is removed from hand to `removed_cards` (permanent removal).
@@ -1013,6 +1023,8 @@ fn resolve_one(state: &mut GameState, player_idx: usize, effect: &CardEffect) ->
             *discard_filter,
         ),
         CardEffect::Decompose { mode } => apply_decompose(state, player_idx, *mode),
+        CardEffect::Training { mode } => apply_training(state, player_idx, *mode),
+        CardEffect::MaximalEffect { mode } => apply_maximal_effect(state, player_idx, *mode),
         CardEffect::DiscardForAttack { attacks_by_color } => {
             apply_discard_for_attack(state, player_idx, attacks_by_color)
         }
@@ -1675,6 +1687,92 @@ fn apply_decompose(
     ResolveResult::PendingSet
 }
 
+/// Apply Training effect — select a non-wound action card to discard, then gain an AA
+/// of matching color from the offer.
+/// Basic: gained AA goes to discard. Powered: gained AA goes to hand.
+fn apply_training(
+    state: &mut GameState,
+    player_idx: usize,
+    mode: EffectMode,
+) -> ResolveResult {
+    let player = &state.players[player_idx];
+
+    // Check if there are any eligible hand cards (non-wound action cards)
+    let has_eligible = player.hand.iter().any(|card_id| {
+        mk_data::cards::get_card(card_id.as_str()).is_some_and(|def| {
+            matches!(
+                def.card_type,
+                DeedCardType::BasicAction | DeedCardType::AdvancedAction
+            )
+        })
+    });
+
+    if !has_eligible {
+        return ResolveResult::Skipped;
+    }
+
+    let source_card_id = state.players[player_idx]
+        .play_area
+        .last()
+        .cloned()
+        .unwrap_or_else(|| CardId::from("training"));
+
+    state.players[player_idx].pending.active =
+        Some(ActivePending::Training(PendingTraining {
+            source_card_id,
+            mode,
+            phase: BookOfWisdomPhase::SelectCard,
+            thrown_card_color: None,
+            available_offer_cards: ArrayVec::new(),
+        }));
+
+    ResolveResult::PendingSet
+}
+
+/// Apply MaximalEffect — select a non-wound action card in hand, then play its
+/// basic/powered effect multiplied.
+/// Basic: multiplier 3. Powered: multiplier 2 (uses powered effect).
+fn apply_maximal_effect(
+    state: &mut GameState,
+    player_idx: usize,
+    mode: EffectMode,
+) -> ResolveResult {
+    let player = &state.players[player_idx];
+
+    let has_eligible = player.hand.iter().any(|card_id| {
+        mk_data::cards::get_card(card_id.as_str()).is_some_and(|def| {
+            matches!(
+                def.card_type,
+                DeedCardType::BasicAction | DeedCardType::AdvancedAction
+            )
+        })
+    });
+
+    if !has_eligible {
+        return ResolveResult::Skipped;
+    }
+
+    let source_card_id = state.players[player_idx]
+        .play_area
+        .last()
+        .cloned()
+        .unwrap_or_else(|| CardId::from("maximal_effect"));
+
+    let multiplier = match mode {
+        EffectMode::Basic => 3,
+        EffectMode::Powered => 2,
+    };
+
+    state.players[player_idx].pending.active =
+        Some(ActivePending::MaximalEffect(PendingMaximalEffect {
+            source_card_id,
+            multiplier,
+            effect_kind: mode,
+        }));
+
+    ResolveResult::PendingSet
+}
+
 /// Apply DiscardForAttack effect — discard an action card, then gain attack based on card color.
 ///
 /// Finds eligible hand cards (BasicAction or AdvancedAction), presents as choice.
@@ -2259,6 +2357,7 @@ fn resolve_disease(state: &mut GameState, player_idx: usize) -> ResolveResult {
                 attack_index: None,
                 per_resistance: false,
                 fortified_amount: None,
+                exclude_resistance: None,
             },
             created_at_round: state.round,
             created_by_player_id: player_id.clone(),
@@ -2408,6 +2507,21 @@ pub(crate) fn is_resolvable(state: &GameState, player_idx: usize, effect: &CardE
         | CardEffect::Decompose { .. }
         | CardEffect::DiscardForAttack { .. }
         | CardEffect::PureMagic { .. } => true,
+
+        // Training/MaximalEffect: need at least one non-wound action card in hand
+        // besides the source card itself (which will move to play area on resolution).
+        // Require >= 2 eligible cards since the source card is one of them.
+        CardEffect::Training { .. } | CardEffect::MaximalEffect { .. } => {
+            let eligible_count = state.players[player_idx].hand.iter().filter(|card_id| {
+                mk_data::cards::get_card(card_id.as_str()).is_some_and(|def| {
+                    matches!(
+                        def.card_type,
+                        DeedCardType::BasicAction | DeedCardType::AdvancedAction
+                    )
+                })
+            }).count();
+            eligible_count >= 2
+        }
 
         // SelectCombatEnemy: only in combat
         CardEffect::SelectCombatEnemy { .. } => state.combat.is_some(),
