@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   narrateEvent,
+  narrateRustEvent,
+  isRustEvent,
   type ActivityMessage,
   type NarrationPlayer,
 } from "@mage-knight/shared";
@@ -26,7 +28,9 @@ export function ActivityFeed() {
     if (events.length === 0 || players.length === 0) return [];
     const result: ActivityMessage[] = [];
     for (const event of events) {
-      const msg = narrateEvent(event, players);
+      const msg = isRustEvent(event)
+        ? narrateRustEvent(event, players)
+        : narrateEvent(event, players);
       if (msg) result.push(msg);
     }
     return result.slice(-MAX_MESSAGES);

@@ -8,6 +8,7 @@ pub mod action;
 pub mod client_state;
 pub mod effect;
 pub mod enums;
+pub mod events;
 pub mod hex;
 pub mod ids;
 pub mod legal_action;
@@ -20,6 +21,7 @@ pub mod state;
 // Re-export commonly used types at crate root
 pub use action::PlayerAction;
 pub use enums::*;
+pub use events::GameEvent;
 pub use hex::{HexCoord, HexDirection};
 pub use ids::*;
 pub use rng::RngState;

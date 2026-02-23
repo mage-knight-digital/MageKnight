@@ -824,7 +824,7 @@ pub fn execute_explore(
     state: &mut GameState,
     player_idx: usize,
     direction: HexDirection,
-) -> Result<(), ExploreError> {
+) -> Result<TileId, ExploreError> {
     let pos = state.players[player_idx]
         .position
         .ok_or(ExploreError::NoPosition)?;
@@ -900,7 +900,7 @@ pub fn execute_explore(
         state.final_turns_remaining = Some(state.players.len() as u32);
     }
 
-    Ok(())
+    Ok(tile_id)
 }
 
 // =============================================================================

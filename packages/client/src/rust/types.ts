@@ -96,5 +96,5 @@ export type ClientMessage =
 
 /** Messages the server sends to the client. */
 export type ServerMessage =
-  | { type: "game_update"; state: Record<string, unknown>; legal_actions: LegalAction[]; epoch: number }
+  | { type: "state_update"; state: Record<string, unknown>; events: unknown[]; legal_actions: LegalAction[]; epoch: number }
   | { type: "error"; message: string };

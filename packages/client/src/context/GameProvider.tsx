@@ -212,12 +212,16 @@ export function GameProvider(props: GameProviderProps) {
 
     const connection = new RustGameConnection({
       serverUrl: rustProps.serverUrl,
-      onGameUpdate: (rawState, actions, newEpoch) => {
+      onGameUpdate: (rawState, actions, newEpoch, rawEvents) => {
         const camelState = patchRustState(snakeToCamel(rawState)) as ClientGameState;
         setState(camelState);
         setLegalActions(actions);
         setEpoch(newEpoch);
         epochRef.current = newEpoch;
+        // Accumulate events for ActivityFeed
+        if (rawEvents.length > 0) {
+          setEvents((prev) => [...prev, ...(rawEvents as GameEvent[])]);
+        }
 
         // Debug: log Rust state updates to diagnose rendering issues
         if (import.meta.env.DEV) {

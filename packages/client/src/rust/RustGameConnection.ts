@@ -3,7 +3,7 @@
  *
  * Protocol:
  *   Client -> Server: { type: "new_game", hero, seed } | { type: "action", action, epoch } | { type: "undo" }
- *   Server -> Client: { type: "game_update", state, legal_actions, epoch } | { type: "error", message }
+ *   Server -> Client: { type: "state_update", state, events, legal_actions, epoch } | { type: "error", message }
  */
 
 import type { LegalAction, ServerMessage } from "./types";
@@ -12,7 +12,7 @@ export type ConnectionStatus = "connecting" | "connected" | "reconnecting" | "di
 
 export interface RustGameConnectionOptions {
   serverUrl: string;
-  onGameUpdate: (state: Record<string, unknown>, legalActions: LegalAction[], epoch: number) => void;
+  onGameUpdate: (state: Record<string, unknown>, legalActions: LegalAction[], epoch: number, events: unknown[]) => void;
   onError: (message: string) => void;
   onStatusChange: (status: ConnectionStatus) => void;
 }
@@ -50,8 +50,8 @@ export class RustGameConnection {
 
     this.ws.onmessage = (event) => {
       const msg = JSON.parse(event.data as string) as ServerMessage;
-      if (msg.type === "game_update") {
-        this.options.onGameUpdate(msg.state, msg.legal_actions, msg.epoch);
+      if (msg.type === "state_update") {
+        this.options.onGameUpdate(msg.state, msg.legal_actions, msg.epoch, msg.events);
       } else if (msg.type === "error") {
         this.options.onError(msg.message);
       }
