@@ -117,8 +117,11 @@ pub(super) fn end_combat(state: &mut GameState, player_idx: usize) {
         // BurnMonastery has its own conquest + shield logic below, skip the general path.
         let is_burn = combat.combat_context == CombatContext::BurnMonastery;
         if !is_burn && ((has_any_required && all_required_defeated) || (!has_any_required && all_defeated)) {
+            // Count defeated enemies for per-enemy shield placement at cities
+            let defeated_count = combat.enemies.iter().filter(|e| e.is_defeated).count();
             if let Some(hex_coord) = combat.combat_hex_coord {
                 if let Some(hex) = state.map.hexes.get_mut(&hex_coord.key()) {
+                    let is_city = hex.site.as_ref().map(|s| s.site_type == SiteType::City).unwrap_or(false);
                     if let Some(ref mut site) = hex.site {
                         if !site.is_conquered {
                             site.is_conquered = true;
@@ -126,8 +129,11 @@ pub(super) fn end_combat(state: &mut GameState, player_idx: usize) {
                             conquered_site_type = Some(site.site_type);
                         }
                     }
-                    // Place shield token
-                    hex.shield_tokens.push(state.players[player_idx].id.clone());
+                    // Place shield tokens: cities get 1 per defeated enemy, other sites get 1
+                    let token_count = if is_city { defeated_count } else { 1 };
+                    for _ in 0..token_count {
+                        hex.shield_tokens.push(state.players[player_idx].id.clone());
+                    }
                     // Clear remaining enemies from hex (all defeated)
                     hex.enemies.clear();
                 }
@@ -194,7 +200,7 @@ pub(super) fn end_combat(state: &mut GameState, player_idx: usize) {
             // Half fame (rounded up): fame was added incrementally during attacks,
             // subtract the excess so the player keeps only ceil(fame/2).
             let full_fame = combat.fame_gained;
-            let half_fame = (full_fame + 1) / 2;
+            let half_fame = full_fame.div_ceil(2);
             let reduction = full_fame - half_fame;
             if reduction > 0 {
                 state.players[player_idx].fame =

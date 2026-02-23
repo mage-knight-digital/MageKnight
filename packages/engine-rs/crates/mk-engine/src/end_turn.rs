@@ -575,10 +575,11 @@ fn cleanup_end_turn_mana(state: &mut GameState, player_idx: usize) {
 // Card flow
 // =============================================================================
 
-/// Count hand limit bonus from adjacent owned Cities and Keeps.
+/// Count hand limit bonus from adjacent conquered Cities and Keeps.
 ///
-/// +1 per City you own, if you end turn on or adjacent to any owned City.
-/// +1 per Keep you own, if you end turn on or adjacent to any owned Keep.
+/// **Keep**: +1 if player has a shield token there.
+/// **City**: +2 if player is the leader (most shield tokens; tie-break = first placed),
+///           +1 if player has shield tokens but is not the leader.
 fn count_adjacent_site_hand_bonus(state: &GameState, player_idx: usize) -> usize {
     let player_pos = match state.players[player_idx].position {
         Some(pos) => pos,
@@ -595,16 +596,55 @@ fn count_adjacent_site_hand_bonus(state: &GameState, player_idx: usize) -> usize
         let key = coord.key();
         if let Some(hex_state) = state.map.hexes.get(&key) {
             if let Some(ref site) = hex_state.site {
-                if (site.site_type == SiteType::City || site.site_type == SiteType::Keep)
-                    && site.is_conquered
-                    && hex_state.shield_tokens.contains(player_id)
-                {
-                    bonus += 1;
+                if !site.is_conquered {
+                    continue;
+                }
+                match site.site_type {
+                    SiteType::Keep => {
+                        if hex_state.shield_tokens.contains(player_id) {
+                            bonus += 1;
+                        }
+                    }
+                    SiteType::City => {
+                        if hex_state.shield_tokens.contains(player_id) {
+                            bonus += city_leader_bonus(player_id, &hex_state.shield_tokens);
+                        }
+                    }
+                    _ => {}
                 }
             }
         }
     }
     bonus
+}
+
+/// Determine the hand limit bonus for a player at a conquered city.
+///
+/// The leader (player with the most shield tokens) gets +2; other players
+/// with tokens get +1. Ties are broken by first placement order (the first
+/// player to reach the max count is the leader, since shield_tokens is
+/// ordered by placement time).
+fn city_leader_bonus(player_id: &mk_types::ids::PlayerId, shield_tokens: &[mk_types::ids::PlayerId]) -> usize {
+    // Count tokens per player, preserving insertion order for tie-breaking
+    let mut counts: Vec<(&mk_types::ids::PlayerId, usize)> = Vec::new();
+    for token in shield_tokens {
+        if let Some(entry) = counts.iter_mut().find(|(id, _)| *id == token) {
+            entry.1 += 1;
+        } else {
+            counts.push((token, 1));
+        }
+    }
+
+    // Find max count
+    let max_count = counts.iter().map(|(_, c)| *c).max().unwrap_or(0);
+    // Leader is the first player who reached max_count (tie-break = first placed)
+    let leader = counts.iter().find(|(_, c)| *c == max_count).map(|(id, _)| *id);
+
+    if leader == Some(player_id) {
+        2
+    } else {
+        1
+    }
 }
 
 /// Move play area to discard, draw up to hand limit.
@@ -826,23 +866,7 @@ fn advance_turn(state: &mut GameState, current_player_idx: usize, is_time_bendin
             continue;
         }
 
-        // Check if this real player has a flipped token (cooperative assault invitee)
-        let pid = state
-            .players
-            .iter()
-            .position(|p| p.id == *turn_id)
-            .expect("Turn order entry not found in players");
-        if state.players[pid]
-            .flags
-            .contains(PlayerFlags::ROUND_ORDER_TOKEN_FLIPPED)
-        {
-            state.players[pid]
-                .flags
-                .remove(PlayerFlags::ROUND_ORDER_TOKEN_FLIPPED);
-            next_turn_idx = (next_turn_idx + 1) % turn_order_len;
-            continue;
-        }
-
+        // Real player found — break out; flipped-token handling is below
         break;
     }
 

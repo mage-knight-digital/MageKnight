@@ -497,17 +497,22 @@ fn enter_assault_combat(
 
 /// Reveal face-down garrison enemies at fortified sites newly adjacent to the player.
 ///
-/// During daytime only: checks hexes within reveal distance of `to` that were NOT
-/// within reveal distance of `from`. Default distance is 1; GarrisonRevealDistance2
-/// extends it to 2.
+/// During daytime: reveals garrison at all fortified sites (Keeps, Mage Towers, Cities).
+/// At night: only Cities reveal their garrison (Cities are always visible).
+/// Checks hexes within reveal distance of `to` that were NOT within reveal distance
+/// of `from`. Default distance is 1; GarrisonRevealDistance2 extends it to 2.
 fn reveal_garrison_at_adjacent_sites(
     state: &mut GameState,
     player_idx: usize,
     from: HexCoord,
     to: HexCoord,
 ) {
-    if state.time_of_day != TimeOfDay::Day {
-        return;
+    let is_day = state.time_of_day == TimeOfDay::Day;
+
+    // At night, only cities reveal. If not day and no cities could reveal, skip entirely.
+    // (We still need to check individual hexes for city type at night.)
+    if !is_day {
+        // Continue — we'll filter per-hex below for cities only.
     }
 
     let distance_2 = is_rule_active(
@@ -539,15 +544,19 @@ fn reveal_garrison_at_adjacent_sites(
 
         let key = neighbor.key();
         if let Some(hex) = state.map.hexes.get(&key) {
-            let has_fortified_site = hex
-                .site
-                .as_ref()
-                .map(|s| get_site_properties(s.site_type).fortified)
+            let site_type = hex.site.as_ref().map(|s| s.site_type);
+            let is_fortified = site_type
+                .map(|st| get_site_properties(st).fortified)
                 .unwrap_or(false);
+
+            // At night, only cities reveal garrison
+            if !is_day && site_type != Some(SiteType::City) {
+                continue;
+            }
 
             let has_unrevealed = hex.enemies.iter().any(|e| !e.is_revealed);
 
-            if has_fortified_site && has_unrevealed {
+            if is_fortified && has_unrevealed {
                 // Reveal all enemies at this hex
                 if let Some(hex) = state.map.hexes.get_mut(&key) {
                     for enemy in &mut hex.enemies {
@@ -1042,11 +1051,11 @@ pub fn execute_explore(
 
     // Draw 1 Advanced Action per monastery on the new tile.
     for tile_hex in tile_hexes {
-        if tile_hex.site_type == Some(SiteType::Monastery) {
-            if !state.decks.advanced_action_deck.is_empty() {
-                let card_id = state.decks.advanced_action_deck.remove(0);
-                state.offers.monastery_advanced_actions.push(card_id);
-            }
+        if tile_hex.site_type == Some(SiteType::Monastery)
+            && !state.decks.advanced_action_deck.is_empty()
+        {
+            let card_id = state.decks.advanced_action_deck.remove(0);
+            state.offers.monastery_advanced_actions.push(card_id);
         }
     }
 

@@ -6,6 +6,8 @@ use super::*;
 
 use arrayvec::ArrayVec;
 use mk_types::hex::HexCoord;
+use mk_types::ids::{CombatInstanceId, EnemyId};
+use mk_types::state::CombatEnemy;
 
 /// Helper: place player on a hex with a specific site.
 fn place_player_on_site(state: &mut GameState, site_type: SiteType) -> HexCoord {
@@ -4335,13 +4337,13 @@ fn hand_limit_plus_one_near_conquered_city() {
     state.players[0].flags.insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
     let base_hand_limit = state.players[0].hand_limit as usize; // Usually 5
 
-    // End turn should draw base_hand_limit + 1 cards (city bonus)
+    // End turn should draw base_hand_limit + 2 cards (city leader bonus)
     let _ = end_turn(&mut state, 0);
 
     assert_eq!(
         state.players[0].hand.len(),
-        base_hand_limit + 1,
-        "Should draw base hand limit + 1 for city adjacency bonus"
+        base_hand_limit + 2,
+        "Should draw base hand limit + 2 for city leader bonus (sole owner = leader)"
     );
 }
 
@@ -4439,8 +4441,8 @@ fn hand_limit_bonus_from_adjacent_hex() {
 
     assert_eq!(
         state.players[0].hand.len(),
-        base_hand_limit + 1,
-        "Should get +1 hand limit from adjacent conquered city with shield"
+        base_hand_limit + 2,
+        "Should get +2 hand limit from adjacent conquered city (sole owner = leader)"
     );
 }
 
@@ -4497,6 +4499,573 @@ fn hand_limit_no_bonus_two_hexes_away() {
         state.players[0].hand.len(),
         base_hand_limit,
         "No city bonus when city is 2 hexes away"
+    );
+}
+
+// =========================================================================
+// Gap 2a: Night garrison reveal for cities
+// =========================================================================
+
+#[test]
+fn city_garrison_revealed_at_night() {
+    use crate::movement::execute_move;
+    use mk_types::ids::EnemyTokenId;
+
+    let mut state = setup_playing_game(vec!["march"]);
+    state.time_of_day = TimeOfDay::Night;
+    state.players[0].move_points = 10;
+
+    // Player at (0,0)
+    let player_coord = HexCoord::new(0, 0);
+    state.players[0].position = Some(player_coord);
+    state.map.hexes.insert(
+        player_coord.key(),
+        HexState {
+            coord: player_coord,
+            terrain: Terrain::Plains,
+            tile_id: TileId::StartingA,
+            site: None,
+            rampaging_enemies: ArrayVec::new(),
+            enemies: ArrayVec::new(),
+            ruins_token: None,
+            shield_tokens: vec![],
+        },
+    );
+
+    // Adjacent hex at (1,0)
+    let move_target = HexCoord::new(1, 0);
+    state.map.hexes.insert(
+        move_target.key(),
+        HexState {
+            coord: move_target,
+            terrain: Terrain::Plains,
+            tile_id: TileId::StartingA,
+            site: None,
+            rampaging_enemies: ArrayVec::new(),
+            enemies: ArrayVec::new(),
+            ruins_token: None,
+            shield_tokens: vec![],
+        },
+    );
+
+    // City at (2,-1) — adjacent to (1,0) but not to (0,0)
+    let city_coord = HexCoord::new(2, -1);
+    state.map.hexes.insert(
+        city_coord.key(),
+        HexState {
+            coord: city_coord,
+            terrain: Terrain::Plains,
+            tile_id: TileId::StartingA,
+            site: Some(Site {
+                site_type: SiteType::City,
+                owner: None,
+                is_conquered: false,
+                is_burned: false,
+                city_color: Some(BasicManaColor::Blue),
+                mine_color: None,
+                deep_mine_colors: None,
+            }),
+            rampaging_enemies: ArrayVec::new(),
+            enemies: {
+                let mut e = ArrayVec::new();
+                e.push(HexEnemy {
+                    token_id: EnemyTokenId::from("guardsmen_1"),
+                    color: EnemyColor::Gray,
+                    is_revealed: false,
+                });
+                e
+            },
+            ruins_token: None,
+            shield_tokens: vec![],
+        },
+    );
+
+    execute_move(&mut state, 0, move_target).unwrap();
+
+    let city_hex = state.map.hexes.get(&city_coord.key()).unwrap();
+    assert!(
+        city_hex.enemies[0].is_revealed,
+        "City garrison should be revealed at night when player moves adjacent"
+    );
+}
+
+#[test]
+fn keep_garrison_not_revealed_at_night() {
+    use crate::movement::execute_move;
+    use mk_types::ids::EnemyTokenId;
+
+    let mut state = setup_playing_game(vec!["march"]);
+    state.time_of_day = TimeOfDay::Night;
+    state.players[0].move_points = 10;
+
+    let player_coord = HexCoord::new(0, 0);
+    state.players[0].position = Some(player_coord);
+    state.map.hexes.insert(
+        player_coord.key(),
+        HexState {
+            coord: player_coord,
+            terrain: Terrain::Plains,
+            tile_id: TileId::StartingA,
+            site: None,
+            rampaging_enemies: ArrayVec::new(),
+            enemies: ArrayVec::new(),
+            ruins_token: None,
+            shield_tokens: vec![],
+        },
+    );
+
+    let move_target = HexCoord::new(1, 0);
+    state.map.hexes.insert(
+        move_target.key(),
+        HexState {
+            coord: move_target,
+            terrain: Terrain::Plains,
+            tile_id: TileId::StartingA,
+            site: None,
+            rampaging_enemies: ArrayVec::new(),
+            enemies: ArrayVec::new(),
+            ruins_token: None,
+            shield_tokens: vec![],
+        },
+    );
+
+    // Keep at (2,-1) — adjacent to (1,0) but not to (0,0)
+    let keep_coord = HexCoord::new(2, -1);
+    state.map.hexes.insert(
+        keep_coord.key(),
+        HexState {
+            coord: keep_coord,
+            terrain: Terrain::Plains,
+            tile_id: TileId::StartingA,
+            site: Some(Site {
+                site_type: SiteType::Keep,
+                owner: None,
+                is_conquered: false,
+                is_burned: false,
+                city_color: None,
+                mine_color: None,
+                deep_mine_colors: None,
+            }),
+            rampaging_enemies: ArrayVec::new(),
+            enemies: {
+                let mut e = ArrayVec::new();
+                e.push(HexEnemy {
+                    token_id: EnemyTokenId::from("guardsmen_1"),
+                    color: EnemyColor::Gray,
+                    is_revealed: false,
+                });
+                e
+            },
+            ruins_token: None,
+            shield_tokens: vec![],
+        },
+    );
+
+    execute_move(&mut state, 0, move_target).unwrap();
+
+    let keep_hex = state.map.hexes.get(&keep_coord.key()).unwrap();
+    assert!(
+        !keep_hex.enemies[0].is_revealed,
+        "Keep garrison should NOT be revealed at night"
+    );
+}
+
+// =========================================================================
+// Gap 2b: Per-enemy shield token placement at cities
+// =========================================================================
+
+#[test]
+fn city_conquest_places_shield_per_defeated_enemy() {
+    let mut state = setup_playing_game(vec!["march"]);
+    let city_coord = HexCoord::new(5, 5);
+    let pid = state.players[0].id.clone();
+
+    // Set up city hex with enemies
+    state.map.hexes.insert(
+        city_coord.key(),
+        HexState {
+            coord: city_coord,
+            terrain: Terrain::Plains,
+            tile_id: TileId::StartingA,
+            site: Some(Site {
+                site_type: SiteType::City,
+                owner: None,
+                is_conquered: false,
+                is_burned: false,
+                city_color: Some(BasicManaColor::Blue),
+                mine_color: None,
+                deep_mine_colors: None,
+            }),
+            rampaging_enemies: ArrayVec::new(),
+            enemies: ArrayVec::new(),
+            ruins_token: None,
+            shield_tokens: vec![],
+        },
+    );
+
+    // Set up combat with 3 enemies, all defeated and required for conquest
+    state.combat = Some(Box::new(CombatState {
+        combat_hex_coord: Some(city_coord),
+        enemies: vec![
+            CombatEnemy {
+                instance_id: CombatInstanceId::from("enemy_0"),
+                enemy_id: EnemyId::from("guardsmen"),
+                is_blocked: false,
+                is_defeated: true,
+                damage_assigned: false,
+                is_required_for_conquest: true,
+                summoned_by_instance_id: None,
+                is_summoner_hidden: false,
+                attacks_blocked: vec![],
+                attacks_damage_assigned: vec![],
+                attacks_cancelled: vec![],
+            },
+            CombatEnemy {
+                instance_id: CombatInstanceId::from("enemy_1"),
+                enemy_id: EnemyId::from("swordsmen"),
+                is_blocked: false,
+                is_defeated: true,
+                damage_assigned: false,
+                is_required_for_conquest: true,
+                summoned_by_instance_id: None,
+                is_summoner_hidden: false,
+                attacks_blocked: vec![],
+                attacks_damage_assigned: vec![],
+                attacks_cancelled: vec![],
+            },
+            CombatEnemy {
+                instance_id: CombatInstanceId::from("enemy_2"),
+                enemy_id: EnemyId::from("crossbowmen"),
+                is_blocked: false,
+                is_defeated: true,
+                damage_assigned: false,
+                is_required_for_conquest: true,
+                summoned_by_instance_id: None,
+                is_summoner_hidden: false,
+                attacks_blocked: vec![],
+                attacks_damage_assigned: vec![],
+                attacks_cancelled: vec![],
+            },
+        ],
+        ..CombatState::default()
+    }));
+
+    super::combat_end::end_combat(&mut state, 0);
+
+    let hex = state.map.hexes.get(&city_coord.key()).unwrap();
+    assert_eq!(
+        hex.shield_tokens.len(), 3,
+        "City conquest should place 1 shield per defeated enemy (3 enemies = 3 shields)"
+    );
+    assert!(
+        hex.shield_tokens.iter().all(|t| *t == pid),
+        "All shield tokens should belong to the conquering player"
+    );
+}
+
+#[test]
+fn keep_conquest_places_single_shield() {
+    let mut state = setup_playing_game(vec!["march"]);
+    let keep_coord = HexCoord::new(5, 5);
+    let pid = state.players[0].id.clone();
+
+    state.map.hexes.insert(
+        keep_coord.key(),
+        HexState {
+            coord: keep_coord,
+            terrain: Terrain::Plains,
+            tile_id: TileId::StartingA,
+            site: Some(Site {
+                site_type: SiteType::Keep,
+                owner: None,
+                is_conquered: false,
+                is_burned: false,
+                city_color: None,
+                mine_color: None,
+                deep_mine_colors: None,
+            }),
+            rampaging_enemies: ArrayVec::new(),
+            enemies: ArrayVec::new(),
+            ruins_token: None,
+            shield_tokens: vec![],
+        },
+    );
+
+    // 2 enemies defeated
+    state.combat = Some(Box::new(CombatState {
+        combat_hex_coord: Some(keep_coord),
+        enemies: vec![
+            CombatEnemy {
+                instance_id: CombatInstanceId::from("enemy_0"),
+                enemy_id: EnemyId::from("guardsmen"),
+                is_blocked: false,
+                is_defeated: true,
+                damage_assigned: false,
+                is_required_for_conquest: true,
+                summoned_by_instance_id: None,
+                is_summoner_hidden: false,
+                attacks_blocked: vec![],
+                attacks_damage_assigned: vec![],
+                attacks_cancelled: vec![],
+            },
+            CombatEnemy {
+                instance_id: CombatInstanceId::from("enemy_1"),
+                enemy_id: EnemyId::from("swordsmen"),
+                is_blocked: false,
+                is_defeated: true,
+                damage_assigned: false,
+                is_required_for_conquest: true,
+                summoned_by_instance_id: None,
+                is_summoner_hidden: false,
+                attacks_blocked: vec![],
+                attacks_damage_assigned: vec![],
+                attacks_cancelled: vec![],
+            },
+        ],
+        ..CombatState::default()
+    }));
+
+    super::combat_end::end_combat(&mut state, 0);
+
+    let hex = state.map.hexes.get(&keep_coord.key()).unwrap();
+    assert_eq!(
+        hex.shield_tokens.len(), 1,
+        "Keep conquest should place exactly 1 shield token regardless of enemy count"
+    );
+    assert_eq!(hex.shield_tokens[0], pid);
+}
+
+// =========================================================================
+// Gap 2c/2d: City leader tracking + hand limit bonus
+// =========================================================================
+
+#[test]
+fn city_leader_gets_plus_two_hand_bonus() {
+    use crate::end_turn::end_turn;
+
+    let mut state = setup_playing_game(vec!["march"]);
+    let city_coord = HexCoord::new(5, 5);
+    let pid = state.players[0].id.clone();
+
+    // Player is leader: 3 shields vs nobody else
+    state.map.hexes.insert(
+        city_coord.key(),
+        HexState {
+            coord: city_coord,
+            terrain: Terrain::Plains,
+            tile_id: TileId::StartingA,
+            site: Some(Site {
+                site_type: SiteType::City,
+                owner: Some(pid.clone()),
+                is_conquered: true,
+                is_burned: false,
+                city_color: Some(BasicManaColor::Blue),
+                mine_color: None,
+                deep_mine_colors: None,
+            }),
+            rampaging_enemies: ArrayVec::new(),
+            enemies: ArrayVec::new(),
+            ruins_token: None,
+            shield_tokens: vec![pid.clone(), pid.clone(), pid.clone()],
+        },
+    );
+    state.players[0].position = Some(city_coord);
+    state.players[0].hand.clear();
+    state.players[0].deck = (0..20).map(|i| CardId::from(format!("card_{}", i).as_str())).collect();
+    state.players[0].flags.insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
+    let base = state.players[0].hand_limit as usize;
+
+    let _ = end_turn(&mut state, 0);
+
+    assert_eq!(
+        state.players[0].hand.len(),
+        base + 2,
+        "City leader should get +2 hand limit bonus"
+    );
+}
+
+#[test]
+fn city_non_leader_gets_plus_one_hand_bonus() {
+    use crate::end_turn::end_turn;
+
+    let mut state = setup_playing_game(vec!["march"]);
+    let city_coord = HexCoord::new(5, 5);
+    let pid = state.players[0].id.clone();
+    let other_pid = mk_types::ids::PlayerId::from("player_1");
+
+    // Other player has 3 shields, we have 1 — we are NOT the leader
+    state.map.hexes.insert(
+        city_coord.key(),
+        HexState {
+            coord: city_coord,
+            terrain: Terrain::Plains,
+            tile_id: TileId::StartingA,
+            site: Some(Site {
+                site_type: SiteType::City,
+                owner: Some(other_pid.clone()),
+                is_conquered: true,
+                is_burned: false,
+                city_color: Some(BasicManaColor::Red),
+                mine_color: None,
+                deep_mine_colors: None,
+            }),
+            rampaging_enemies: ArrayVec::new(),
+            enemies: ArrayVec::new(),
+            ruins_token: None,
+            shield_tokens: vec![other_pid.clone(), other_pid.clone(), other_pid.clone(), pid.clone()],
+        },
+    );
+    state.players[0].position = Some(city_coord);
+    state.players[0].hand.clear();
+    state.players[0].deck = (0..20).map(|i| CardId::from(format!("card_{}", i).as_str())).collect();
+    state.players[0].flags.insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
+    let base = state.players[0].hand_limit as usize;
+
+    let _ = end_turn(&mut state, 0);
+
+    assert_eq!(
+        state.players[0].hand.len(),
+        base + 1,
+        "City non-leader (with tokens) should get +1 hand limit bonus"
+    );
+}
+
+#[test]
+fn city_leader_tiebreak_first_placed() {
+    use crate::end_turn::end_turn;
+
+    let mut state = setup_playing_game(vec!["march"]);
+    let city_coord = HexCoord::new(5, 5);
+    let pid = state.players[0].id.clone();
+    let other_pid = mk_types::ids::PlayerId::from("player_1");
+
+    // Both have 2 shields — but other_pid placed first → other_pid is leader
+    // Our player should get +1 (non-leader)
+    state.map.hexes.insert(
+        city_coord.key(),
+        HexState {
+            coord: city_coord,
+            terrain: Terrain::Plains,
+            tile_id: TileId::StartingA,
+            site: Some(Site {
+                site_type: SiteType::City,
+                owner: Some(other_pid.clone()),
+                is_conquered: true,
+                is_burned: false,
+                city_color: Some(BasicManaColor::Green),
+                mine_color: None,
+                deep_mine_colors: None,
+            }),
+            rampaging_enemies: ArrayVec::new(),
+            enemies: ArrayVec::new(),
+            ruins_token: None,
+            // other_pid placed first (tokens interleaved: other, ours, other, ours)
+            shield_tokens: vec![other_pid.clone(), pid.clone(), other_pid.clone(), pid.clone()],
+        },
+    );
+    state.players[0].position = Some(city_coord);
+    state.players[0].hand.clear();
+    state.players[0].deck = (0..20).map(|i| CardId::from(format!("card_{}", i).as_str())).collect();
+    state.players[0].flags.insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
+    let base = state.players[0].hand_limit as usize;
+
+    let _ = end_turn(&mut state, 0);
+
+    assert_eq!(
+        state.players[0].hand.len(),
+        base + 1,
+        "When tied on shields, first-placed player is leader; our player should get +1"
+    );
+}
+
+#[test]
+fn city_leader_tiebreak_first_placed_we_are_leader() {
+    use crate::end_turn::end_turn;
+
+    let mut state = setup_playing_game(vec!["march"]);
+    let city_coord = HexCoord::new(5, 5);
+    let pid = state.players[0].id.clone();
+    let other_pid = mk_types::ids::PlayerId::from("player_1");
+
+    // Both have 2 shields — but we placed first → we are leader (+2)
+    state.map.hexes.insert(
+        city_coord.key(),
+        HexState {
+            coord: city_coord,
+            terrain: Terrain::Plains,
+            tile_id: TileId::StartingA,
+            site: Some(Site {
+                site_type: SiteType::City,
+                owner: Some(pid.clone()),
+                is_conquered: true,
+                is_burned: false,
+                city_color: Some(BasicManaColor::White),
+                mine_color: None,
+                deep_mine_colors: None,
+            }),
+            rampaging_enemies: ArrayVec::new(),
+            enemies: ArrayVec::new(),
+            ruins_token: None,
+            // We placed first
+            shield_tokens: vec![pid.clone(), other_pid.clone(), pid.clone(), other_pid.clone()],
+        },
+    );
+    state.players[0].position = Some(city_coord);
+    state.players[0].hand.clear();
+    state.players[0].deck = (0..20).map(|i| CardId::from(format!("card_{}", i).as_str())).collect();
+    state.players[0].flags.insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
+    let base = state.players[0].hand_limit as usize;
+
+    let _ = end_turn(&mut state, 0);
+
+    assert_eq!(
+        state.players[0].hand.len(),
+        base + 2,
+        "When tied on shields and we placed first, we are leader → +2 bonus"
+    );
+}
+
+#[test]
+fn keep_stays_at_plus_one() {
+    use crate::end_turn::end_turn;
+
+    let mut state = setup_playing_game(vec!["march"]);
+    let keep_coord = HexCoord::new(5, 5);
+    let pid = state.players[0].id.clone();
+
+    state.map.hexes.insert(
+        keep_coord.key(),
+        HexState {
+            coord: keep_coord,
+            terrain: Terrain::Plains,
+            tile_id: TileId::StartingA,
+            site: Some(Site {
+                site_type: SiteType::Keep,
+                owner: Some(pid.clone()),
+                is_conquered: true,
+                is_burned: false,
+                city_color: None,
+                mine_color: None,
+                deep_mine_colors: None,
+            }),
+            rampaging_enemies: ArrayVec::new(),
+            enemies: ArrayVec::new(),
+            ruins_token: None,
+            shield_tokens: vec![pid.clone()],
+        },
+    );
+    state.players[0].position = Some(keep_coord);
+    state.players[0].hand.clear();
+    state.players[0].deck = (0..20).map(|i| CardId::from(format!("card_{}", i).as_str())).collect();
+    state.players[0].flags.insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
+    let base = state.players[0].hand_limit as usize;
+
+    let _ = end_turn(&mut state, 0);
+
+    assert_eq!(
+        state.players[0].hand.len(),
+        base + 1,
+        "Keep should give +1 hand limit bonus (not affected by city leader rules)"
     );
 }
 
