@@ -12,6 +12,7 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
+from .hero_selection import resolve_hero
 from .reporting import (
     ActionTraceEntry,
     MessageLogEntry,
@@ -55,7 +56,7 @@ def _record_frame(
 def run_native_game(
     seed: int,
     *,
-    hero: str = "arythea",
+    hero: str = "random",
     max_steps: int = 10000,
     allow_undo: bool = True,
     run_index: int = 0,
@@ -85,6 +86,8 @@ def run_native_game(
         with outcome, step count, and optional artifact data.
     """
     from mk_python import GameEngine
+
+    hero = resolve_hero(hero, seed)
 
     if rng is None:
         rng = random.Random(seed)
@@ -255,7 +258,7 @@ def _run_native_sweep_parallel(
     seeds: list[int],
     *,
     workers: int,
-    hero: str = "arythea",
+    hero: str = "random",
     max_steps: int = 10000,
     allow_undo: bool = True,
     stop_on_failure: bool = False,
@@ -348,7 +351,7 @@ def _run_native_sweep_parallel(
 def run_native_sweep(
     seeds: list[int],
     *,
-    hero: str = "arythea",
+    hero: str = "random",
     max_steps: int = 10000,
     allow_undo: bool = True,
     stop_on_failure: bool = False,

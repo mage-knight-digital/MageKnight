@@ -13,6 +13,8 @@ import argparse
 import random
 import time
 
+from mage_knight_sdk.sim.hero_selection import resolve_hero
+
 from mage_knight_sdk.sim.native_runner import run_native_game, run_native_sweep
 from mage_knight_sdk.sim.reporting import OUTCOME_ENDED, RunResult, summarize
 
@@ -63,7 +65,7 @@ def main() -> int:
     parser.add_argument("--end-seed", type=int, help="Last seed in range (inclusive)")
     parser.add_argument("--count", type=int, help="Number of sequential seeds")
     parser.add_argument("--max-steps", type=int, default=10000, help="Max steps per game (default: 10000)")
-    parser.add_argument("--hero", default="arythea", help="Hero name (default: arythea)")
+    parser.add_argument("--hero", default="random", help="Hero name, or 'random' for seeded rotation (default: random)")
     parser.add_argument("--no-undo", action="store_true", help="Disable UNDO actions")
     parser.add_argument("--stop-on-failure", action="store_true", help="Stop at first non-ended outcome")
     parser.add_argument("--quiet", action="store_true", help="Only print summary, not per-seed progress")
@@ -77,10 +79,11 @@ def main() -> int:
     if len(seeds) == 1:
         # Single game mode — more detailed output
         seed = seeds[0]
+        hero = resolve_hero(args.hero, seed)
         rng = random.Random(seed)
         result = run_native_game(
             seed,
-            hero=args.hero,
+            hero=hero,
             max_steps=args.max_steps,
             allow_undo=not args.no_undo,
             rng=rng,
@@ -90,7 +93,7 @@ def main() -> int:
 
         print(f"\n{'=' * 60}")
         print(f"Engine: Rust (native, no server)")
-        print(f"Hero: {args.hero}, Seed: {seed}")
+        print(f"Hero: {hero}, Seed: {seed}")
         print(f"Outcome: {result.outcome}")
         print(f"Steps: {result.steps}")
         if result.reason:
@@ -100,11 +103,12 @@ def main() -> int:
 
         return 0 if result.outcome == OUTCOME_ENDED else 1
     else:
-        # Sweep mode
+        # Sweep mode — resolve hero for display (sweep uses per-seed resolution internally)
+        hero_display = args.hero if args.hero.lower() != "random" else "random (seeded)"
         mode_desc = f"random seeds" if args.runs else f"seeds {seeds[0]}..{seeds[-1]}"
         workers_desc = f", workers={args.workers}" if args.workers > 1 else ""
         print(f"Running {len(seeds)} games ({mode_desc}) with Rust engine{workers_desc}")
-        print(f"Hero: {args.hero}, max_steps={args.max_steps}, allow_undo={not args.no_undo}")
+        print(f"Hero: {hero_display}, max_steps={args.max_steps}, allow_undo={not args.no_undo}")
         print("-" * 72)
 
         results, summary = run_native_sweep(

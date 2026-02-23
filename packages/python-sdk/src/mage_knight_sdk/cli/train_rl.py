@@ -11,6 +11,8 @@ from pathlib import Path
 import sys
 from typing import Any
 
+from mage_knight_sdk.sim.hero_selection import resolve_hero
+
 
 _METRIC_DESCRIPTIONS: dict[str, str] = {
     "reward/total": "Total shaped reward for the episode. Includes fame, step penalty, end bonus, and victory bonuses.",
@@ -77,7 +79,7 @@ def main() -> int:
     parser.add_argument("--episodes", type=int, default=100, help="Number of episodes to train")
     parser.add_argument("--seed", type=int, default=1, help="Base seed for game creation")
     parser.add_argument("--max-steps", type=int, default=10000, help="Max steps per episode")
-    parser.add_argument("--hero", default="arythea", help="Hero to play (default: arythea)")
+    parser.add_argument("--hero", default="random", help="Hero to play, or 'random' for seeded rotation (default: random)")
 
     parser.add_argument("--learning-rate", type=float, default=3e-4, help="Adam learning rate")
     parser.add_argument("--gamma", type=float, default=0.99, help="Discount factor")
@@ -160,7 +162,8 @@ def main() -> int:
         _write_run_manifest(run_dir, args, policy, reward_config)
 
     algo = "PPO" if args.ppo else "REINFORCE"
-    print(f"Training episodes={args.episodes} seed={args.seed} max_steps={args.max_steps} algorithm={algo} hero={args.hero}")
+    hero_display = args.hero if args.hero.lower() != "random" else "random (seeded rotation)"
+    print(f"Training episodes={args.episodes} seed={args.seed} max_steps={args.max_steps} algorithm={algo} hero={hero_display}")
     print(
         "Rewards: "
         f"fame_delta_scale={args.fame_delta_scale} "
@@ -218,17 +221,18 @@ def _train_native_sequential(
     for episode in range(args.episodes):
         global_ep = resume_episode_offset + episode + 1
         seed = args.seed + resume_episode_offset + episode
+        hero = resolve_hero(args.hero, seed)
 
         result, stats = run_native_rl_game(
             seed=seed,
-            hero=args.hero,
+            hero=hero,
             policy=policy,
             reward_config=reward_config,
             max_steps=args.max_steps,
         )
 
         if stats is None:
-            print(f"ep={global_ep:04d} seed={seed} ERROR: {result.reason}", file=sys.stderr)
+            print(f"ep={global_ep:04d} seed={seed} hero={hero} ERROR: {result.reason}", file=sys.stderr)
             continue
 
         _append_metrics_log(
@@ -304,17 +308,18 @@ def _train_ppo_native(
 
         for i in range(batch_size):
             seed = args.seed + resume_episode_offset + episode_num + i
+            hero = resolve_hero(args.hero, seed)
 
             result, transitions = run_native_rl_game_ppo(
                 seed=seed,
-                hero=args.hero,
+                hero=hero,
                 policy=policy,
                 reward_config=reward_config,
                 max_steps=args.max_steps,
             )
 
             if result.outcome == "engine_error" or not transitions:
-                print(f"  seed={seed} ERROR: {result.reason}", file=sys.stderr)
+                print(f"  seed={seed} hero={hero} ERROR: {result.reason}", file=sys.stderr)
                 # Still count toward episode_num to avoid infinite loop
                 batch_stats.append(EpisodeTrainingStats(
                     outcome=result.outcome,
