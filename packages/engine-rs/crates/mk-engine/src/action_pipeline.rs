@@ -8,6 +8,7 @@ use mk_data::enemies::{attack_count, get_enemy};
 use mk_data::enemy_piles::{discard_enemy_token, draw_enemy_token, enemy_id_from_token};
 use mk_data::tactics::tactic_turn_order;
 use mk_types::enums::*;
+use mk_types::events::{CardPlayMode, GameEvent};
 use mk_types::ids::{CardId, CombatInstanceId, EnemyId, EnemyTokenId, PlayerId, SkillId, SourceDieId};
 use arrayvec::ArrayVec;
 use mk_types::legal_action::{LegalAction, TacticDecisionData};
@@ -45,6 +46,8 @@ pub struct ApplyResult {
     pub needs_reenumeration: bool,
     /// Whether the game has ended.
     pub game_ended: bool,
+    /// Events emitted by this action (for replay recording / activity feed).
+    pub events: Vec<GameEvent>,
 }
 
 // =============================================================================
@@ -75,36 +78,81 @@ pub fn apply_legal_action(
         });
     }
 
-    let result = match action {
+    // Capture pre-action state for event generation
+    let player_id = state.players[player_idx].id.clone();
+    let pre_position = state.players[player_idx].position;
+    let pre_fame = state.players[player_idx].fame;
+    let pre_combat = state.combat.is_some();
+    let pre_level = state.players[player_idx].level;
+    let pre_wound_count = state.players[player_idx]
+        .hand
+        .iter()
+        .filter(|c| c.as_str() == "wound")
+        .count();
+    let pre_crystals = state.players[player_idx].crystals;
+    let pre_defeated: Vec<CombatInstanceId> = state
+        .combat
+        .as_ref()
+        .map(|c| {
+            c.enemies
+                .iter()
+                .filter(|e| e.is_defeated)
+                .map(|e| e.instance_id.clone())
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let mut events = Vec::new();
+
+    let mut result = match action {
         LegalAction::SelectTactic { tactic_id } => {
             // Irreversible: set checkpoint
             undo_stack.set_checkpoint();
+            events.push(GameEvent::TacticSelected {
+                player_id: player_id.clone(),
+                tactic_id: tactic_id.clone(),
+            });
             apply_select_tactic(state, player_idx, tactic_id)?
         }
 
-        LegalAction::PlayCardBasic { hand_index, .. } => {
+        LegalAction::PlayCardBasic { hand_index, card_id } => {
             // Reversible: save snapshot
             undo_stack.save(state);
+            events.push(GameEvent::CardPlayed {
+                player_id: player_id.clone(),
+                card_id: card_id.clone(),
+                mode: CardPlayMode::Basic,
+            });
             apply_play_card(state, player_idx, *hand_index, false, None)?
         }
 
         LegalAction::PlayCardPowered {
             hand_index,
+            card_id,
             mana_color,
-            ..
         } => {
             // Reversible: save snapshot
             undo_stack.save(state);
+            events.push(GameEvent::CardPlayed {
+                player_id: player_id.clone(),
+                card_id: card_id.clone(),
+                mode: CardPlayMode::Powered,
+            });
             apply_play_card(state, player_idx, *hand_index, true, Some(*mana_color))?
         }
 
         LegalAction::PlayCardSideways {
             hand_index,
+            card_id,
             sideways_as,
-            ..
         } => {
             // Reversible: save snapshot
             undo_stack.save(state);
+            events.push(GameEvent::CardPlayed {
+                player_id: player_id.clone(),
+                card_id: card_id.clone(),
+                mode: CardPlayMode::Sideways(*sideways_as),
+            });
             apply_play_card_sideways(state, player_idx, *hand_index, *sideways_as)?
         }
 
@@ -144,6 +192,10 @@ pub fn apply_legal_action(
         LegalAction::ResolveChoice { choice_index } => {
             // Reversible: save snapshot
             undo_stack.save(state);
+            events.push(GameEvent::ChoiceResolved {
+                player_id: player_id.clone(),
+                choice_index: *choice_index,
+            });
             apply_resolve_choice(state, player_idx, *choice_index)?
         }
 
@@ -198,6 +250,12 @@ pub fn apply_legal_action(
         LegalAction::EnterSite => {
             // Irreversible: draws enemy tokens (RNG)
             undo_stack.set_checkpoint();
+            if let Some(hex) = state.players[player_idx].position {
+                events.push(GameEvent::SiteEntered {
+                    player_id: player_id.clone(),
+                    hex,
+                });
+            }
             apply_enter_site(state, player_idx)?
         }
 
@@ -297,6 +355,9 @@ pub fn apply_legal_action(
         LegalAction::EndTurn => {
             // Irreversible: set checkpoint
             undo_stack.set_checkpoint();
+            events.push(GameEvent::TurnEnded {
+                player_id: player_id.clone(),
+            });
             apply_end_turn(state, player_idx)?
         }
 
@@ -347,7 +408,13 @@ pub fn apply_legal_action(
             apply_announce_end_of_round(state, player_idx)?
         }
 
-        LegalAction::Undo => apply_undo(state, undo_stack)?,
+        LegalAction::Undo => {
+            let r = apply_undo(state, undo_stack)?;
+            events.push(GameEvent::Undone {
+                player_id: player_id.clone(),
+            });
+            r
+        }
 
         LegalAction::ResolveSourceOpeningReroll { reroll } => {
             // Irreversible: RNG may be consumed
@@ -397,6 +464,7 @@ pub fn apply_legal_action(
             ApplyResult {
                 needs_reenumeration: true,
                 game_ended: false,
+                events: Vec::new(),
             }
         }
 
@@ -407,6 +475,7 @@ pub fn apply_legal_action(
             ApplyResult {
                 needs_reenumeration: true,
                 game_ended: false,
+                events: Vec::new(),
             }
         }
 
@@ -417,14 +486,134 @@ pub fn apply_legal_action(
             ApplyResult {
                 needs_reenumeration: true,
                 game_ended: false,
+                events: Vec::new(),
             }
         }
     };
+
+    // Post-action event generation based on state deltas
+    let post_position = state.players[player_idx].position;
+    if post_position != pre_position {
+        if let (Some(from), Some(to)) = (pre_position, post_position) {
+            events.push(GameEvent::PlayerMoved {
+                player_id: player_id.clone(),
+                from,
+                to,
+            });
+        }
+    }
+
+    // Detect combat start/end
+    let post_combat = state.combat.is_some();
+    if !pre_combat && post_combat {
+        if let Some(hex) = post_position {
+            events.push(GameEvent::CombatStarted {
+                player_id: player_id.clone(),
+                hex,
+            });
+        }
+    } else if pre_combat && !post_combat {
+        events.push(GameEvent::CombatEnded {
+            player_id: player_id.clone(),
+        });
+    }
+
+    // Detect fame gain
+    let post_fame = state.players[player_idx].fame;
+    if post_fame > pre_fame {
+        events.push(GameEvent::FameGained {
+            player_id: player_id.clone(),
+            amount: post_fame - pre_fame,
+        });
+    }
+
+    // Detect wound gain
+    let post_wound_count = state.players[player_idx]
+        .hand
+        .iter()
+        .filter(|c| c.as_str() == "wound")
+        .count();
+    for _ in pre_wound_count..post_wound_count {
+        events.push(GameEvent::WoundTaken {
+            player_id: player_id.clone(),
+        });
+    }
+
+    // Detect level up
+    let post_level = state.players[player_idx].level;
+    if post_level > pre_level {
+        events.push(GameEvent::LevelUp {
+            player_id: player_id.clone(),
+            new_level: post_level,
+        });
+    }
+
+    // Detect enemy defeats
+    if let Some(combat) = &state.combat {
+        for enemy in &combat.enemies {
+            if enemy.is_defeated && !pre_defeated.contains(&enemy.instance_id) {
+                events.push(GameEvent::EnemyDefeated {
+                    player_id: player_id.clone(),
+                    enemy_id: enemy.enemy_id.clone(),
+                });
+            }
+        }
+    }
+
+    // Detect crystal gains
+    let post_crystals = state.players[player_idx].crystals;
+    for (color, pre, post) in [
+        (BasicManaColor::Red, pre_crystals.red, post_crystals.red),
+        (BasicManaColor::Blue, pre_crystals.blue, post_crystals.blue),
+        (BasicManaColor::Green, pre_crystals.green, post_crystals.green),
+        (BasicManaColor::White, pre_crystals.white, post_crystals.white),
+    ] {
+        for _ in pre..post {
+            events.push(GameEvent::CrystalGained {
+                player_id: player_id.clone(),
+                color,
+            });
+        }
+    }
+
+    // Detect game end
+    if result.game_ended {
+        events.push(GameEvent::GameEnded {
+            reason: "game_over".to_string(),
+        });
+    }
+
+    // Merge events: action-specific events first, then delta-detected events
+    if result.events.is_empty() {
+        result.events = events;
+    } else {
+        let mut merged = events;
+        merged.append(&mut result.events);
+        result.events = merged;
+    }
 
     // Increment epoch after every action
     state.action_epoch += 1;
 
     Ok(result)
+}
+
+/// Generate the initial batch of events for a newly created game.
+///
+/// Called once after `create_solo_game()` + `place_initial_tiles()` to produce
+/// the first set of events (GameStarted, TurnStarted) that go into the first
+/// replay frame.
+pub fn initial_events(state: &GameState, seed: u32, hero: Hero) -> Vec<GameEvent> {
+    let mut events = Vec::new();
+    events.push(GameEvent::GameStarted { seed, hero });
+    if let Some(player) = state.players.first() {
+        events.push(GameEvent::TurnStarted {
+            player_id: player.id.clone(),
+            round: state.round,
+            time_of_day: state.time_of_day,
+        });
+    }
+    events
 }
 
 // =============================================================================
@@ -459,6 +648,7 @@ fn apply_select_tactic(
         return Ok(ApplyResult {
             needs_reenumeration: true,
             game_ended: false,
+            events: Vec::new(),
         });
     }
 
@@ -542,6 +732,7 @@ fn apply_select_tactic(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -692,6 +883,7 @@ fn apply_resolve_tactic_decision(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -732,6 +924,7 @@ fn apply_subset_select(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -852,6 +1045,7 @@ fn finalize_subset_selection(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -910,6 +1104,7 @@ fn apply_activate_tactic(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -956,6 +1151,7 @@ fn apply_initiate_mana_search(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -1000,6 +1196,7 @@ fn apply_initiate_attack(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -1014,6 +1211,7 @@ fn apply_play_card(
         .map(|_| ApplyResult {
             needs_reenumeration: true,
             game_ended: false,
+            events: Vec::new(),
         })
         .map_err(|e| ApplyError::InternalError(format!("play_card failed: {:?}", e)))
 }
@@ -1028,6 +1226,7 @@ fn apply_play_card_sideways(
         .map(|_| ApplyResult {
             needs_reenumeration: true,
             game_ended: false,
+            events: Vec::new(),
         })
         .map_err(|e| ApplyError::InternalError(format!("play_card_sideways failed: {:?}", e)))
 }
@@ -1041,6 +1240,7 @@ fn apply_move(
         .map(|_| ApplyResult {
             needs_reenumeration: true,
             game_ended: false,
+            events: Vec::new(),
         })
         .map_err(|e| ApplyError::InternalError(format!("execute_move failed: {:?}", e)))
 }
@@ -1050,10 +1250,16 @@ fn apply_explore(
     player_idx: usize,
     direction: mk_types::hex::HexDirection,
 ) -> Result<ApplyResult, ApplyError> {
+    let player_id = state.players[player_idx].id.clone();
     movement::execute_explore(state, player_idx, direction)
-        .map(|_| ApplyResult {
+        .map(|tile_id| ApplyResult {
             needs_reenumeration: true,
             game_ended: false,
+            events: vec![GameEvent::TileExplored {
+                player_id,
+                direction,
+                tile_id,
+            }],
         })
         .map_err(|e| ApplyError::InternalError(format!("execute_explore failed: {:?}", e)))
 }
@@ -1078,6 +1284,7 @@ fn apply_challenge_rampaging(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -1101,6 +1308,7 @@ fn apply_resolve_choice(
         return Ok(ApplyResult {
             needs_reenumeration: true,
             game_ended: false,
+            events: Vec::new(),
         });
     }
 
@@ -1144,6 +1352,7 @@ fn apply_resolve_choice(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -1197,6 +1406,7 @@ fn apply_resolve_training(
                 Ok(ApplyResult {
                     needs_reenumeration: true,
                     game_ended: false,
+                    events: Vec::new(),
                 })
             } else if available.len() == 1 {
                 // Auto-select the only option
@@ -1214,6 +1424,7 @@ fn apply_resolve_training(
                 Ok(ApplyResult {
                     needs_reenumeration: true,
                     game_ended: false,
+                    events: Vec::new(),
                 })
             } else {
                 // Multiple matching AAs — set phase to SelectFromOffer
@@ -1226,6 +1437,7 @@ fn apply_resolve_training(
                 Ok(ApplyResult {
                     needs_reenumeration: true,
                     game_ended: false,
+                    events: Vec::new(),
                 })
             }
         }
@@ -1253,6 +1465,7 @@ fn apply_resolve_training(
             Ok(ApplyResult {
                 needs_reenumeration: true,
                 game_ended: false,
+                events: Vec::new(),
             })
         }
     }
@@ -1308,6 +1521,7 @@ fn apply_resolve_maximal_effect(
             Ok(ApplyResult {
                 needs_reenumeration: true,
                 game_ended: false,
+                events: Vec::new(),
             })
         }
         effect_queue::DrainResult::NeedsChoice { options, continuation, resolution } => {
@@ -1332,12 +1546,14 @@ fn apply_resolve_maximal_effect(
             Ok(ApplyResult {
                 needs_reenumeration: true,
                 game_ended: false,
+                events: Vec::new(),
             })
         }
         effect_queue::DrainResult::PendingSet => {
             Ok(ApplyResult {
                 needs_reenumeration: true,
                 game_ended: false,
+                events: Vec::new(),
             })
         }
     }
@@ -1418,6 +1634,7 @@ fn apply_resolve_meditation(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -1442,6 +1659,7 @@ fn apply_meditation_done_selecting(
         return Ok(ApplyResult {
             needs_reenumeration: true,
             game_ended: false,
+            events: Vec::new(),
         });
     }
 
@@ -1454,6 +1672,7 @@ fn apply_meditation_done_selecting(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -1468,6 +1687,7 @@ fn apply_resolve_decompose(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -1485,6 +1705,7 @@ fn apply_resolve_discard_for_bonus(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -1571,6 +1792,7 @@ fn apply_choose_level_up_reward(
         return Ok(ApplyResult {
             needs_reenumeration: true,
             game_ended: false,
+            events: Vec::new(),
         });
     }
 
@@ -1582,20 +1804,58 @@ fn apply_choose_level_up_reward(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended,
+        events: Vec::new(),
     })
 }
 
 fn end_turn_result_to_apply(
     result: Result<end_turn::EndTurnResult, end_turn::EndTurnError>,
+    state: &GameState,
 ) -> Result<ApplyResult, ApplyError> {
     match result {
         Ok(end_turn::EndTurnResult::GameEnded) => Ok(ApplyResult {
             needs_reenumeration: true,
             game_ended: true,
+            events: Vec::new(),
         }),
+        Ok(end_turn::EndTurnResult::RoundEnded { new_round }) => {
+            let mut events = Vec::new();
+            events.push(GameEvent::RoundEnded {
+                round: new_round.saturating_sub(1),
+            });
+            // After round end, a new turn starts for the first player
+            if let Some(player) = state.players.first() {
+                events.push(GameEvent::TurnStarted {
+                    player_id: player.id.clone(),
+                    round: state.round,
+                    time_of_day: state.time_of_day,
+                });
+            }
+            Ok(ApplyResult {
+                needs_reenumeration: true,
+                game_ended: false,
+                events,
+            })
+        }
+        Ok(end_turn::EndTurnResult::NextPlayer { next_player_idx }) => {
+            let mut events = Vec::new();
+            if let Some(player) = state.players.get(next_player_idx) {
+                events.push(GameEvent::TurnStarted {
+                    player_id: player.id.clone(),
+                    round: state.round,
+                    time_of_day: state.time_of_day,
+                });
+            }
+            Ok(ApplyResult {
+                needs_reenumeration: true,
+                game_ended: false,
+                events,
+            })
+        }
         Ok(_) => Ok(ApplyResult {
             needs_reenumeration: true,
             game_ended: false,
+            events: Vec::new(),
         }),
         Err(e) => Err(ApplyError::InternalError(format!(
             "end_turn failed: {:?}",
@@ -1624,11 +1884,12 @@ fn apply_announce_end_of_round(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
 fn apply_end_turn(state: &mut GameState, player_idx: usize) -> Result<ApplyResult, ApplyError> {
-    end_turn_result_to_apply(end_turn::end_turn(state, player_idx))
+    end_turn_result_to_apply(end_turn::end_turn(state, player_idx), state)
 }
 
 fn apply_resolve_crystal_joy_reclaim(
@@ -1649,7 +1910,7 @@ fn apply_resolve_crystal_joy_reclaim(
     // Skip: no card moved
 
     // Resume end_turn flow
-    end_turn_result_to_apply(end_turn::end_turn(state, player_idx))
+    end_turn_result_to_apply(end_turn::end_turn(state, player_idx), state)
 }
 
 fn apply_resolve_steady_tempo(
@@ -1691,7 +1952,7 @@ fn apply_resolve_steady_tempo(
     // Skip: card stays in play_area, will be discarded normally in card flow
 
     // Resume end_turn flow
-    end_turn_result_to_apply(end_turn::end_turn(state, player_idx))
+    end_turn_result_to_apply(end_turn::end_turn(state, player_idx), state)
 }
 
 fn apply_resolve_banner_protection(
@@ -1740,7 +2001,7 @@ fn apply_resolve_banner_protection(
     }
 
     // Resume end_turn flow
-    end_turn_result_to_apply(end_turn::end_turn(state, player_idx))
+    end_turn_result_to_apply(end_turn::end_turn(state, player_idx), state)
 }
 
 fn apply_declare_rest(state: &mut GameState, player_idx: usize) -> ApplyResult {
@@ -1750,6 +2011,7 @@ fn apply_declare_rest(state: &mut GameState, player_idx: usize) -> ApplyResult {
     ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     }
 }
 
@@ -1811,6 +2073,7 @@ fn apply_complete_rest(
                 return Ok(ApplyResult {
                     needs_reenumeration: true,
                     game_ended: false,
+                    events: Vec::new(),
                 });
             }
             // No wounds — fall through to finish rest immediately.
@@ -1827,6 +2090,7 @@ fn apply_complete_rest(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -1903,6 +2167,7 @@ fn apply_declare_block(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -2143,6 +2408,7 @@ fn apply_declare_attack_inner(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -2174,6 +2440,7 @@ fn apply_spend_move_on_cumbersome(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -2500,6 +2767,7 @@ fn apply_end_combat_phase(
             return Ok(ApplyResult {
                 needs_reenumeration: true,
                 game_ended: false,
+                events: Vec::new(),
             });
         }
     }
@@ -2507,6 +2775,7 @@ fn apply_end_combat_phase(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -2889,6 +3158,7 @@ fn apply_assign_damage_to_hero(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -3009,6 +3279,7 @@ fn apply_assign_damage_to_unit(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -3124,6 +3395,7 @@ fn apply_use_skill(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -3219,6 +3491,7 @@ fn apply_power_of_pain(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -3267,6 +3540,7 @@ fn apply_i_dont_give_a_damn(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -3327,6 +3601,7 @@ fn apply_who_needs_magic(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -3401,6 +3676,7 @@ fn apply_universal_power(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -3479,6 +3755,7 @@ fn apply_wolfs_howl(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -3525,6 +3802,7 @@ fn apply_puppet_master(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -3537,9 +3815,9 @@ fn setup_puppet_master_use_mode(
     let player = &state.players[player_idx];
     let token = &player.kept_enemy_tokens[token_index];
 
-    let attack_value = (token.attack + 1) / 2; // ceil(attack/2)
+    let attack_value = token.attack.div_ceil(2);
     let attack_element = token.attack_element;
-    let block_value = (token.armor + 1) / 2; // ceil(armor/2)
+    let block_value = token.armor.div_ceil(2);
 
     // Derive block element from enemy resistances
     let block_element = derive_block_element_from_enemy(token.enemy_id.as_str());
@@ -3592,6 +3870,7 @@ pub(crate) fn execute_puppet_master_select_token(
     setup_puppet_master_use_mode(state, player_idx, skill_id, token_index);
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn execute_puppet_master_use_mode(
     state: &mut GameState,
     player_idx: usize,
@@ -3683,6 +3962,7 @@ fn apply_shapeshift(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -3715,7 +3995,7 @@ fn classify_effect_for_shapeshift(effect: &mk_types::effect::CardEffect) -> Opti
         }
         mk_types::effect::CardEffect::Choice { options } => {
             // For Choice cards like Rage (Attack 2 or Block 2), classify by first option
-            options.first().and_then(|first| classify_effect_for_shapeshift(first))
+            options.first().and_then(classify_effect_for_shapeshift)
         }
         _ => None,
     }
@@ -3773,6 +4053,7 @@ pub(crate) fn execute_shapeshift_card_select(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn execute_shapeshift_type_select(
     state: &mut GameState,
     player_idx: usize,
@@ -3908,6 +4189,7 @@ fn apply_secret_ways(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -4001,6 +4283,7 @@ fn apply_regenerate(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -4158,6 +4441,7 @@ fn apply_dueling(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -4399,6 +4683,7 @@ fn apply_invocation(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -4605,6 +4890,7 @@ fn apply_polarization(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -4737,6 +5023,7 @@ fn apply_curse(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -4977,6 +5264,7 @@ fn apply_forked_lightning(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -5126,6 +5414,7 @@ fn apply_know_your_prey(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -5588,6 +5877,7 @@ fn apply_recruit_unit(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -5772,6 +6062,7 @@ fn apply_activate_unit(
             return Ok(ApplyResult {
                 needs_reenumeration: true,
                 game_ended: false,
+                events: Vec::new(),
             });
         }
         UnitAbility::AttackOrBlockWoundSelf { value, element } => {
@@ -5791,6 +6082,7 @@ fn apply_activate_unit(
             return Ok(ApplyResult {
                 needs_reenumeration: true,
                 game_ended: false,
+                events: Vec::new(),
             });
         }
         UnitAbility::ReadyUnit { max_level } => {
@@ -5953,6 +6245,7 @@ fn apply_activate_unit(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -6020,6 +6313,7 @@ fn apply_resolve_unit_ability_choice(
         Ok(ApplyResult {
             needs_reenumeration: true,
             game_ended: false,
+            events: Vec::new(),
         })
     } else {
         // Put back what we took and error
@@ -6120,6 +6414,7 @@ fn apply_select_combat_enemy_activation(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -6200,6 +6495,7 @@ fn apply_resolve_select_enemy(
         Ok(ApplyResult {
             needs_reenumeration: true,
             game_ended: false,
+            events: Vec::new(),
         })
     } else {
         state.players[player_idx].pending.active = Some(pending);
@@ -6474,6 +6770,7 @@ fn apply_undo(
             Ok(ApplyResult {
                 needs_reenumeration: true,
                 game_ended: false,
+                events: Vec::new(),
             })
         }
         None => Err(ApplyError::InternalError("Undo stack empty".to_string())),
@@ -6606,6 +6903,7 @@ fn apply_enter_site(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -6661,6 +6959,7 @@ fn apply_interact_site(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -6704,6 +7003,7 @@ fn apply_plunder_site(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -6717,6 +7017,7 @@ fn apply_decline_plunder(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -6749,6 +7050,7 @@ fn apply_resolve_glade_wound(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
+        events: Vec::new(),
     })
 }
 
@@ -6861,7 +7163,7 @@ fn apply_prayer_of_weather(
 
     place_skill_in_center(state, player_idx, skill_id);
 
-    Ok(ApplyResult { needs_reenumeration: true, game_ended: false })
+    Ok(ApplyResult { needs_reenumeration: true, game_ended: false, events: Vec::new() })
 }
 
 /// Ritual of Pain: optionally discard 0-2 wounds, place in center.
@@ -6901,7 +7203,7 @@ fn apply_ritual_of_pain(
         ));
     }
 
-    Ok(ApplyResult { needs_reenumeration: true, game_ended: false })
+    Ok(ApplyResult { needs_reenumeration: true, game_ended: false, events: Vec::new() })
 }
 
 /// Execute Ritual of Pain discard resolution.
@@ -6943,7 +7245,7 @@ fn apply_natures_vengeance(
     let eligible: Vec<String> = combat.enemies.iter()
         .filter(|e| {
             !e.is_defeated && !e.is_summoner_hidden
-            && mk_data::enemies::get_enemy(e.enemy_id.as_str()).map_or(false, |def| {
+            && mk_data::enemies::get_enemy(e.enemy_id.as_str()).is_some_and( |def| {
                 !combat_resolution::has_ability(def, EnemyAbilityType::Summon)
                 && !combat_resolution::has_ability(def, EnemyAbilityType::SummonGreen)
             })
@@ -6981,7 +7283,7 @@ fn apply_natures_vengeance(
         }
     }
 
-    Ok(ApplyResult { needs_reenumeration: true, game_ended: false })
+    Ok(ApplyResult { needs_reenumeration: true, game_ended: false, events: Vec::new() })
 }
 
 /// Apply Nature's Vengeance effects to a target enemy: Attack -1 + Cumbersome.
@@ -7089,7 +7391,7 @@ fn apply_return_interactive_skill(
             let eligible: Vec<String> = combat.enemies.iter()
                 .filter(|e| {
                     !e.is_defeated && !e.is_summoner_hidden
-                    && mk_data::enemies::get_enemy(e.enemy_id.as_str()).map_or(false, |def| {
+                    && mk_data::enemies::get_enemy(e.enemy_id.as_str()).is_some_and( |def| {
                         !combat_resolution::has_ability(def, EnemyAbilityType::Summon)
                         && !combat_resolution::has_ability(def, EnemyAbilityType::SummonGreen)
                     })
@@ -7150,7 +7452,7 @@ fn apply_return_interactive_skill(
         _ => {}
     }
 
-    Ok(ApplyResult { needs_reenumeration: true, game_ended: false })
+    Ok(ApplyResult { needs_reenumeration: true, game_ended: false, events: Vec::new() })
 }
 
 // =============================================================================
@@ -7237,7 +7539,7 @@ fn apply_mana_overload(
         },
     ));
 
-    Ok(ApplyResult { needs_reenumeration: true, game_ended: false })
+    Ok(ApplyResult { needs_reenumeration: true, game_ended: false, events: Vec::new() })
 }
 
 /// Execute Mana Overload color selection.
@@ -7308,7 +7610,7 @@ fn apply_source_opening(
         ));
     }
 
-    Ok(ApplyResult { needs_reenumeration: true, game_ended: false })
+    Ok(ApplyResult { needs_reenumeration: true, game_ended: false, events: Vec::new() })
 }
 
 /// Execute Source Opening die selection.
@@ -7362,7 +7664,7 @@ fn apply_master_of_chaos(
     let mut queue = effect_queue::EffectQueue::new();
     queue.push(effect, None);
     match queue.drain(state, player_idx) {
-        effect_queue::DrainResult::Complete => Ok(ApplyResult { needs_reenumeration: true, game_ended: false }),
+        effect_queue::DrainResult::Complete => Ok(ApplyResult { needs_reenumeration: true, game_ended: false, events: Vec::new() }),
         effect_queue::DrainResult::NeedsChoice { options, continuation, resolution: _ } => {
             // Gold position → choice
             state.players[player_idx].pending.active = Some(ActivePending::Choice(
@@ -7379,9 +7681,9 @@ fn apply_master_of_chaos(
                     resolution: ChoiceResolution::MasterOfChaosGoldChoice,
                 },
             ));
-            Ok(ApplyResult { needs_reenumeration: true, game_ended: false })
+            Ok(ApplyResult { needs_reenumeration: true, game_ended: false, events: Vec::new() })
         }
-        effect_queue::DrainResult::PendingSet => Ok(ApplyResult { needs_reenumeration: true, game_ended: false }),
+        effect_queue::DrainResult::PendingSet => Ok(ApplyResult { needs_reenumeration: true, game_ended: false, events: Vec::new() }),
     }
 }
 
@@ -7406,7 +7708,7 @@ pub(crate) fn apply_resolve_source_opening_reroll(
 
     // Resume end-turn flow
     match crate::end_turn::end_turn(state, player_idx) {
-        Ok(_) => Ok(ApplyResult { needs_reenumeration: true, game_ended: false }),
+        Ok(_) => Ok(ApplyResult { needs_reenumeration: true, game_ended: false, events: Vec::new() }),
         Err(e) => Err(ApplyError::InternalError(format!("end_turn after source opening reroll: {:?}", e))),
     }
 }

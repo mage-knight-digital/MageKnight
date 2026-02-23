@@ -500,6 +500,27 @@ fn format_action(action: &LegalAction, state: &GameState, player_idx: usize) -> 
         LegalAction::ResolveSourceOpeningReroll { reroll } => {
             if *reroll { "Reroll extra die (Source Opening)".into() } else { "Skip reroll (Source Opening)".into() }
         }
+        LegalAction::ResolveDiscardForCrystal { card_id } => {
+            match card_id {
+                Some(id) => format!("Discard {} for crystal", id.as_str()),
+                None => "Skip discard for crystal".into(),
+            }
+        }
+        LegalAction::ResolveTraining { selection_index } => {
+            format!("Training: select option {}", selection_index + 1)
+        }
+        LegalAction::ResolveMaximalEffect { hand_index } => {
+            format!("Maximal Effect: consume card at hand index {}", hand_index)
+        }
+        LegalAction::ResolveMeditation { selection_index, place_on_top } => {
+            match place_on_top {
+                Some(true) => format!("Meditation: place card {} on top", selection_index),
+                Some(false) => format!("Meditation: place card {} on bottom", selection_index),
+                None => format!("Meditation: select card {}", selection_index),
+            }
+        }
+        LegalAction::MeditationDoneSelecting => "Meditation: done selecting".into(),
+        _ => format!("{:?}", action),
     }
 }
 

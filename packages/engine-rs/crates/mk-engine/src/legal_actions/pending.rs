@@ -166,6 +166,36 @@ pub(super) fn enumerate_pending(
             actions.push(LegalAction::ResolveSourceOpeningReroll { reroll: true });
             actions.push(LegalAction::ResolveSourceOpeningReroll { reroll: false });
         }
+        ActivePending::Training(ref pending) => {
+            let player = &state.players[player_idx];
+            match pending.phase {
+                mk_types::pending::BookOfWisdomPhase::SelectCard => {
+                    // Enumerate eligible hand cards (non-wound action cards)
+                    for (i, card_id) in player.hand.iter().enumerate() {
+                        if let Some(def) = mk_data::cards::get_card(card_id.as_str()) {
+                            if matches!(def.card_type, DeedCardType::BasicAction | DeedCardType::AdvancedAction) {
+                                actions.push(LegalAction::ResolveTraining { selection_index: i });
+                            }
+                        }
+                    }
+                }
+                mk_types::pending::BookOfWisdomPhase::SelectFromOffer => {
+                    for i in 0..pending.available_offer_cards.len() {
+                        actions.push(LegalAction::ResolveTraining { selection_index: i });
+                    }
+                }
+            }
+        }
+        ActivePending::MaximalEffect(_) => {
+            let player = &state.players[player_idx];
+            for (i, card_id) in player.hand.iter().enumerate() {
+                if let Some(def) = mk_data::cards::get_card(card_id.as_str()) {
+                    if matches!(def.card_type, DeedCardType::BasicAction | DeedCardType::AdvancedAction) {
+                        actions.push(LegalAction::ResolveMaximalEffect { hand_index: i });
+                    }
+                }
+            }
+        }
         // Non-choice pending states are not wired into LegalAction yet.
         // Panic instead of silently returning no actions to avoid deadlocked turns.
         other => panic!(

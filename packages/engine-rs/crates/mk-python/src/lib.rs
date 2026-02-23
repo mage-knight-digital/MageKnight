@@ -9,13 +9,14 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 
-use mk_engine::action_pipeline::{apply_legal_action, ApplyError};
+use mk_engine::action_pipeline::{apply_legal_action, initial_events, ApplyError};
 use mk_engine::client_state::to_client_state;
 use mk_engine::legal_actions::enumerate_legal_actions_with_undo;
 use mk_engine::scoring::calculate_final_scores;
 use mk_engine::setup::{create_solo_game, place_initial_tiles};
 use mk_engine::undo::UndoStack;
 use mk_types::enums::Hero;
+use mk_types::events::GameEvent;
 use mk_types::legal_action::LegalActionSet;
 use mk_types::state::GameState;
 
@@ -60,6 +61,8 @@ struct GameEngine {
     action_set: LegalActionSet,
     player_idx: usize,
     step_count: u64,
+    /// Events from the last action (or initial events on new game).
+    last_events: Vec<GameEvent>,
 }
 
 #[pymethods]
@@ -78,6 +81,7 @@ impl GameEngine {
         let undo_stack = UndoStack::new();
         let player_idx = 0;
         let action_set = enumerate_legal_actions_with_undo(&state, player_idx, &undo_stack);
+        let events = initial_events(&state, seed, hero_enum);
 
         Ok(Self {
             state,
@@ -85,6 +89,7 @@ impl GameEngine {
             action_set,
             player_idx,
             step_count: 0,
+            last_events: events,
         })
     }
 
@@ -135,6 +140,7 @@ impl GameEngine {
         match result {
             Ok(Ok(apply_result)) => {
                 self.step_count += 1;
+                self.last_events = apply_result.events;
                 // Re-enumerate legal actions after state change.
                 self.action_set = enumerate_legal_actions_with_undo(
                     &self.state,
@@ -200,6 +206,9 @@ impl GameEngine {
     fn undo(&mut self) -> bool {
         if let Some(restored) = self.undo_stack.undo() {
             self.state = restored;
+            self.last_events = vec![GameEvent::Undone {
+                player_id: self.state.players[self.player_idx].id.clone(),
+            }];
             self.action_set = enumerate_legal_actions_with_undo(
                 &self.state,
                 self.player_idx,
@@ -217,6 +226,34 @@ impl GameEngine {
     /// or when Python code needs to inspect action details.
     fn legal_actions_json(&self) -> PyResult<String> {
         serde_json::to_string(&self.action_set.actions)
+            .map_err(|e| PyValueError::new_err(format!("Serialization error: {e}")))
+    }
+
+    /// Get a single legal action as a JSON string by index.
+    ///
+    /// Args:
+    ///     action_index: Index into the legal actions list (0-based).
+    ///
+    /// Returns a JSON string of the LegalAction at the given index.
+    fn legal_action_json(&self, action_index: usize) -> PyResult<String> {
+        let action = self.action_set.actions.get(action_index).ok_or_else(|| {
+            PyValueError::new_err(format!(
+                "Action index {} out of range (0..{})",
+                action_index,
+                self.action_set.actions.len()
+            ))
+        })?;
+        serde_json::to_string(action)
+            .map_err(|e| PyValueError::new_err(format!("Serialization error: {e}")))
+    }
+
+    /// Get the events from the last action as a JSON string.
+    ///
+    /// Returns a JSON array of GameEvent objects. After `new()`, returns
+    /// the initial events (GameStarted, TurnStarted). After each
+    /// `apply_action()`, returns events from that action.
+    fn events_json(&self) -> PyResult<String> {
+        serde_json::to_string(&self.last_events)
             .map_err(|e| PyValueError::new_err(format!("Serialization error: {e}")))
     }
 

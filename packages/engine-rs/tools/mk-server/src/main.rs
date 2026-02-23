@@ -1,7 +1,7 @@
 //! WebSocket game server for Mage Knight.
 //!
 //! Protocol:
-//! - Client sends JSON messages, server responds with game updates.
+//! - Client sends JSON messages, server responds with state updates.
 //! - Each WS connection owns one game session.
 //!
 //! Client → Server messages:
@@ -10,7 +10,7 @@
 //!   { "type": "undo" }
 //!
 //! Server → Client messages:
-//!   { "type": "game_update", "state": <ClientGameState>, "legal_actions": [<LegalAction>], "epoch": 5 }
+//!   { "type": "state_update", "state": <ClientGameState>, "events": [...], "legal_actions": [...], "epoch": 5 }
 //!   { "type": "error", "message": "..." }
 
 use axum::{
@@ -22,13 +22,14 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use tower_http::cors::CorsLayer;
 
-use mk_engine::action_pipeline::{apply_legal_action, ApplyError};
+use mk_engine::action_pipeline::{apply_legal_action, initial_events, ApplyError};
 use mk_engine::client_state::to_client_state;
 use mk_engine::legal_actions::enumerate_legal_actions_with_undo;
 use mk_engine::setup::{create_solo_game, place_initial_tiles};
 use mk_engine::undo::UndoStack;
 use mk_types::client_state::ClientGameState;
 use mk_types::enums::Hero;
+use mk_types::events::GameEvent;
 use mk_types::legal_action::LegalAction;
 use mk_types::state::GameState;
 
@@ -58,8 +59,9 @@ fn default_seed() -> u32 {
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum ServerMessage {
-    GameUpdate {
+    StateUpdate {
         state: Box<ClientGameState>,
+        events: Vec<GameEvent>,
         legal_actions: Vec<LegalAction>,
         epoch: u64,
     },
@@ -76,46 +78,56 @@ struct GameSession {
     state: GameState,
     undo_stack: UndoStack,
     player_idx: usize,
+    /// Pending events from the last action, consumed by `make_update`.
+    pending_events: Vec<GameEvent>,
 }
 
 impl GameSession {
     fn new(seed: u32, hero: Hero) -> Self {
         let mut state = create_solo_game(seed, hero);
         place_initial_tiles(&mut state);
+        let events = initial_events(&state, seed, hero);
         Self {
             state,
             undo_stack: UndoStack::new(),
             player_idx: 0,
+            pending_events: events,
         }
     }
 
-    fn make_update(&self) -> ServerMessage {
+    fn make_update(&mut self) -> ServerMessage {
         let player_id = self.state.players[self.player_idx].id.clone();
         let client_state = to_client_state(&self.state, &player_id);
         let action_set =
             enumerate_legal_actions_with_undo(&self.state, self.player_idx, &self.undo_stack);
+        let events = std::mem::take(&mut self.pending_events);
 
-        ServerMessage::GameUpdate {
+        ServerMessage::StateUpdate {
             epoch: action_set.epoch,
             legal_actions: action_set.actions,
             state: Box::new(client_state),
+            events,
         }
     }
 
     fn apply_action(&mut self, action: &LegalAction, epoch: u64) -> Result<(), ApplyError> {
-        apply_legal_action(
+        let result = apply_legal_action(
             &mut self.state,
             &mut self.undo_stack,
             self.player_idx,
             action,
             epoch,
         )?;
+        self.pending_events = result.events;
         Ok(())
     }
 
     fn undo(&mut self) -> bool {
         if let Some(restored) = self.undo_stack.undo() {
             self.state = restored;
+            self.pending_events = vec![GameEvent::Undone {
+                player_id: self.state.players[self.player_idx].id.clone(),
+            }];
             true
         } else {
             false
@@ -162,7 +174,7 @@ async fn handle_socket(mut socket: WebSocket) {
 
         let response = match client_msg {
             ClientMessage::NewGame { hero, seed } => {
-                let s = GameSession::new(seed, hero);
+                let mut s = GameSession::new(seed, hero);
                 let update = s.make_update();
                 session = Some(s);
                 update

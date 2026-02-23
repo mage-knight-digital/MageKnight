@@ -74,14 +74,13 @@ export function GameView() {
     setIsOfferViewVisible(true);
   }, []);
 
+  // Check if we're in tactic selection mode
+  // Only dim the world after intro completes - don't dim during the theatrical reveal
+  const tacticOptions = useMemo(() => extractTacticOptions(legalActions), [legalActions]);
+
   if (!state) {
     return <div className="loading">Loading game state...</div>;
   }
-
-  // Check if we're in tactic selection mode
-  // Only dim the world after intro completes - don't dim during the theatrical reveal
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const tacticOptions = useMemo(() => extractTacticOptions(legalActions), [legalActions]);
   const isTacticSelectionActive = isRustMode
     ? (player && player.selectedTacticId === null && tacticOptions.length > 0)
     : (player && player.selectedTacticId === null && state.validActions?.mode === "tactics_selection");

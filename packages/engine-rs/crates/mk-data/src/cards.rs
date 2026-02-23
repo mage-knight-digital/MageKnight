@@ -2256,11 +2256,11 @@ fn maximal_effect() -> CardDefinition {
         color: CardColor::Red,
         card_type: DeedCardType::AdvancedAction,
         powered_by: PoweredBy::Single(BasicManaColor::Red),
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::MaximalEffect,
+        basic_effect: CardEffect::MaximalEffect {
+            mode: EffectMode::Basic,
         },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::MaximalEffect,
+        powered_effect: CardEffect::MaximalEffect {
+            mode: EffectMode::Powered,
         },
         sideways_value: 1,
     }
@@ -2350,11 +2350,11 @@ fn training() -> CardDefinition {
         color: CardColor::Green,
         card_type: DeedCardType::AdvancedAction,
         powered_by: PoweredBy::Single(BasicManaColor::Green),
-        basic_effect: CardEffect::Other {
-            effect_type: EffectType::Training,
+        basic_effect: CardEffect::Training {
+            mode: EffectMode::Basic,
         },
-        powered_effect: CardEffect::Other {
-            effect_type: EffectType::Training,
+        powered_effect: CardEffect::Training {
+            mode: EffectMode::Powered,
         },
         sideways_value: 1,
     }
@@ -2649,6 +2649,7 @@ fn tremor() -> CardDefinition {
                         attack_index: None,
                         per_resistance: false,
                         fortified_amount: None,
+                        exclude_resistance: None,
                     },
                     duration: ModifierDuration::Combat,
                     scope: ModifierScope::AllEnemies,
@@ -2674,6 +2675,7 @@ fn tremor() -> CardDefinition {
                         attack_index: None,
                         per_resistance: false,
                         fortified_amount: Some(-4),
+                        exclude_resistance: None,
                     },
                     duration: ModifierDuration::Combat,
                     scope: ModifierScope::AllEnemies,
@@ -3525,8 +3527,8 @@ mod tests {
             CardEffect::Compound { effects } => {
                 assert_eq!(effects.len(), 5); // TakeWound + 3 mana choices + crystallize choice
                 assert!(matches!(effects[0], CardEffect::TakeWound));
-                for i in 1..=3 {
-                    match &effects[i] {
+                for (i, effect) in effects.iter().enumerate().take(4).skip(1) {
+                    match effect {
                         CardEffect::Choice { options } => assert_eq!(options.len(), 6),
                         _ => panic!("Expected Choice for mana at index {}", i),
                     }
@@ -4011,8 +4013,8 @@ mod tests {
                 assert_eq!(effects.len(), 4);
                 assert!(matches!(effects[0], CardEffect::GainMove { amount: 2 }));
                 // 3 terrain cost modifiers for plains/desert/wasteland
-                for i in 1..=3 {
-                    match &effects[i] {
+                for (i, eff) in effects.iter().enumerate().take(4).skip(1) {
+                    match eff {
                         CardEffect::ApplyModifier { effect, .. } => {
                             assert!(matches!(
                                 effect,

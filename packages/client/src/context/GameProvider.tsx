@@ -174,7 +174,7 @@ export function GameProvider(props: GameProviderProps) {
         serverRef.current.disconnect(myPlayerId);
       }
     };
-  }, [mode, props, myPlayerId, handleStateUpdate]);
+  }, [mode, localProps.seed, localProps.config, myPlayerId, handleStateUpdate]);
 
   // Network mode: connect via WebSocket
   useEffect(() => {
@@ -204,7 +204,7 @@ export function GameProvider(props: GameProviderProps) {
       connection.disconnect();
       wsConnectionRef.current = null;
     };
-  }, [mode, props, handleStateUpdate]);
+  }, [mode, networkProps.gameId, networkProps.playerId, networkProps.serverUrl, networkProps.sessionToken, handleStateUpdate]);
 
   // Rust mode: connect via WebSocket to mk-server
   useEffect(() => {
@@ -212,12 +212,16 @@ export function GameProvider(props: GameProviderProps) {
 
     const connection = new RustGameConnection({
       serverUrl: rustProps.serverUrl,
-      onGameUpdate: (rawState, actions, newEpoch) => {
+      onGameUpdate: (rawState, actions, newEpoch, rawEvents) => {
         const camelState = patchRustState(snakeToCamel(rawState)) as ClientGameState;
         setState(camelState);
         setLegalActions(actions);
         setEpoch(newEpoch);
         epochRef.current = newEpoch;
+        // Accumulate events for ActivityFeed
+        if (rawEvents.length > 0) {
+          setEvents((prev) => [...prev, ...(rawEvents as GameEvent[])]);
+        }
 
         // Debug: log Rust state updates to diagnose rendering issues
         if (import.meta.env.DEV) {
@@ -257,7 +261,7 @@ export function GameProvider(props: GameProviderProps) {
       connection.disconnect();
       rustConnectionRef.current = null;
     };
-  }, [mode, props]);
+  }, [mode, rustProps.serverUrl, rustProps.hero, rustProps.seed]);
 
   const sendAction = useCallback((action: Parameters<GameContextValue["sendAction"]>[0]) => {
     // Log action for debugging

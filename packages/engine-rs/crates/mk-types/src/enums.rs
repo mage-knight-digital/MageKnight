@@ -676,6 +676,8 @@ pub enum TacticRemovalMode {
     None,
     AllUsed,
     VoteOne,
+    RemoveOne,
+    RemoveTwo,
 }
 
 // =============================================================================

@@ -9,6 +9,7 @@ import {
 import type { ClientGameState, GameEvent } from "@mage-knight/shared";
 import { GameContext, type GameContextValue } from "./GameContext";
 import { ReplayContext, type ReplayContextValue } from "./ReplayContext";
+import { snakeToCamel, patchRustState } from "../rust";
 
 // ---------------------------------------------------------------------------
 // Artifact types (matches Python SDK reporting.py)
@@ -32,7 +33,7 @@ interface ArtifactMessageLogEntry {
 
 export interface ArtifactData {
   run: ArtifactRunMetadata;
-  actionTrace: unknown[];
+  actionTrace?: unknown[];
   messageLog: ArtifactMessageLogEntry[];
 }
 
@@ -45,6 +46,11 @@ interface ReplayFrame {
   events: readonly GameEvent[];
 }
 
+/** Detect if state uses snake_case keys (Rust engine output). */
+function isRustState(state: Record<string, unknown>): boolean {
+  return "time_of_day" in state || "action_epoch" in state;
+}
+
 function extractFrames(artifact: ArtifactData, playerId: string): ReplayFrame[] {
   const frames: ReplayFrame[] = [];
   for (const entry of artifact.messageLog) {
@@ -53,8 +59,14 @@ function extractFrames(artifact: ArtifactData, playerId: string): ReplayFrame[] 
       entry.message_type === "state_update" &&
       entry.payload?.state
     ) {
+      // Normalize Rust snake_case state to camelCase + patch structural differences
+      const rawState = entry.payload.state as Record<string, unknown>;
+      const state = isRustState(rawState)
+        ? patchRustState(snakeToCamel(rawState)) as ClientGameState
+        : entry.payload.state;
+
       frames.push({
-        state: entry.payload.state,
+        state,
         events: (entry.payload.events ?? []) as GameEvent[],
       });
     }
@@ -190,7 +202,7 @@ export function ReplayProvider({ artifact, playerId, artifactName, children }: R
       setActionLogEnabled: NOOP_CLEAR_LOG,
       legalActions: [],
       epoch: 0,
-      isRustMode: false,
+      isRustMode: true,
     }),
     [currentState, accumulatedEvents, playerId]
   );

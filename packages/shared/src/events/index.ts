@@ -135,6 +135,9 @@ export * from "./dummyPlayer.js";
 // Event narration (activity feed)
 export * from "./narrateEvent.js";
 
+// Rust event narration (Rust engine activity feed)
+export * from "./narrateRustEvent.js";
+
 // ============================================================================
 // IMPORT FOR UNION TYPE
 // ============================================================================

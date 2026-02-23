@@ -185,6 +185,7 @@ pub enum ModifierEffect {
         attack_index: Option<u32>,
         per_resistance: bool,
         fortified_amount: Option<i32>,
+        exclude_resistance: Option<Element>,
     },
     RuleOverride {
         rule: RuleOverride,
