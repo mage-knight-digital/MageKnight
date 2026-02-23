@@ -2,12 +2,12 @@
 # Launch TensorBoard dashboard (requires: pip install -e ".[rl]")
 # Usage: bun run tensorboard
 #        bun run tensorboard -- --logdir /path/to/specific/run
-# Default: shows all runs under sim-artifacts/runs/ for comparison
+# Default: shows all runs under training/runs/ for comparison
 cd "$(dirname "$0")/.."
 
 # Default to runs directory if no --logdir specified
 if ! echo "$*" | grep -q -- '--logdir'; then
-  set -- --logdir sim-artifacts/runs "$@"
+  set -- --logdir training/runs "$@"
 fi
 
 # Resolve the python interpreter from the venv

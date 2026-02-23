@@ -14,9 +14,19 @@ from typing import Any
 from .features import ActionFeatures, EncodedStep, StateFeatures
 from .policy_gradient import OptimizationStats, ReinforcePolicy, StepInfo, Transition
 from .rewards import RewardConfig
-from .trainer import EpisodeTrainingStats
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class EpisodeTrainingStats:
+    outcome: str
+    steps: int
+    total_reward: float
+    optimization: OptimizationStats
+    scenario_triggered: bool = False
+    achievement_bonus: float = 0.0
+
 
 # Lazy-import mk_python to avoid import errors when Rust module isn't built.
 _GameEngine: type | None = None

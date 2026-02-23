@@ -1,124 +1,57 @@
-# mage-knight-ws-client
+# mage-knight-sdk
 
-Python async SDK for Mage Knight's WebSocket multiplayer protocol.
+Python SDK for Mage Knight RL training and game simulation, powered by a native Rust engine via PyO3.
 
 ## Features
 
-- Generated typed protocol models from shared JSON schema artifacts.
-- Runtime parsing/validation for all server messages.
-- Async WebSocket client with reconnect backoff.
-- Connection state transition stream (`connecting`, `connected`, `reconnecting`, `disconnected`, `error`).
-- Optional lobby subscribe/resume message support.
+- Native Rust game engine (no server required) exposed to Python via PyO3.
+- REINFORCE and PPO policy gradient training with TensorBoard logging.
+- Rust-side feature encoding for high-throughput training.
+- Random-policy game runner for smoke testing and seed sweeps.
+- Organized training artifact layout with auto-naming and smart resume.
 
 ## Install
 
-First, create and activate a virtual environment:
-
 ```bash
 cd packages/python-sdk
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -e ".[rl]"
 ```
 
-Then install the SDK in editable mode:
+The native Rust engine must be built separately:
 
 ```bash
-python3 -m pip install -e .
+cd packages/engine-rs
+maturin develop --release
 ```
 
 ## Quick Start
 
-```python
-import asyncio
-
-from mage_knight_sdk import MageKnightClient
-
-
-async def main() -> None:
-    async with MageKnightClient(
-        server_url="ws://127.0.0.1:3001",
-        game_id="g_example123",
-        player_id="player-1",
-    ) as client:
-        await client.send_action({"type": "END_TURN"})
-
-        async for message in client.messages():
-            print(message)
-
-
-asyncio.run(main())
-```
-
-This example requires a Mage Knight server running locally. See `examples/local_dev_client.py` for a more complete example.
-
-## Random-Policy Simulation Harness
-
-The SDK includes a headless integration harness for running multiplayer games over bootstrap + WebSocket APIs without the React client.
-
-### What It Validates
-
-- Agent always selects from server-advertised `validActions`.
-- Server does not reject actions advertised as valid.
-- Turn ownership invariants stay coherent (`currentPlayerId` is always in `turnOrder`).
-- Per-run outcomes are tracked: `ended`, `max_steps`, `disconnect`, `protocol_error`, `invariant_failure`.
-- A lightweight `run_summary.ndjson` is always written (seed, outcome, steps, fame).
-- Full failure artifacts (action trace + message log) are optional—runs are reproducible by seed.
-
-### Programmatic Usage
-
-```python
-from mage_knight_sdk import RunnerConfig, run_simulations_sync, save_summary
-
-config = RunnerConfig(
-    bootstrap_api_base_url="http://127.0.0.1:3002",
-    ws_server_url="ws://127.0.0.1:3001",
-    player_count=2,
-    runs=5,
-    base_seed=42,
-    max_steps=200,
-    artifacts_dir="sim_artifacts",
-    write_failure_artifacts=False,  # default: summary-only; set True to dump full trace on failures
-)
-
-results, summary = run_simulations_sync(config)
-save_summary("sim_artifacts/summary.json", results, summary)
-print(summary)
-```
-
-### Deterministic Failure Reproduction
-
-Use the same `base_seed`, `player_count`, and API/WS endpoints to replay the same random decision stream.
-For validation testing, you can force an invalid action via `forced_invalid_action_step` and assert it is reported as `protocol_error`.
-
-### Sim Artifact Viewer
-
-Full failure artifacts (e.g. `sim-artifacts/run_*_seed_*.json`) are written only when `--save-failures` / `write_failure_artifacts=True`. They can be inspected with a local streaming viewer.
-
-**One-time setup** (from repo root or `packages/python-sdk`):
+### Run a single game (random policy)
 
 ```bash
-cd packages/python-sdk
-pip install -e ".[viewer]"   # or create a venv first, then install
+mage-knight-run-native --seed 42 --hero arythea
 ```
 
-**Start the viewer:**
+### Run a seed sweep
 
 ```bash
-# From repo root (easiest):
-bun run viewer
-
-# From packages/python-sdk (uses .venv if present):
-./scripts/run-viewer
-
-# Or with the installed CLI:
-mage-knight-viewer
+mage-knight-run-native --start-seed 1 --count 100
 ```
 
-Then open http://127.0.0.1:8765. Choose an artifact; on first open it is converted to NDJSON + index (one-time, may take a while for huge files). After that you can scroll through the action trace; only the visible range is loaded.
+### Programmatic usage
+
+```python
+from mage_knight_sdk import run_native_game, RunResult
+
+result: RunResult = run_native_game(seed=42, hero="arythea", max_steps=5000)
+print(f"Outcome: {result.outcome}, Steps: {result.steps}, Fame: {result.fame}")
+```
 
 ## RL Training
 
-The SDK can train a REINFORCE policy against the simulation harness (requires a running Mage Knight server). All agents in the game use the same learned policy to choose actions.
+Train a policy gradient agent against the native Rust engine. Supports both REINFORCE (per-episode updates) and PPO (batched updates with GAE).
 
 **Install RL extras:**
 
@@ -126,44 +59,73 @@ The SDK can train a REINFORCE policy against the simulation harness (requires a 
 pip install -e ".[rl]"
 ```
 
-**Run training** (from repo root, with server on port 3001):
+**Train:**
 
 ```bash
-# From packages/python-sdk (uses .venv if present):
-./scripts/run-train-rl --episodes 100 --no-undo
+# Direct CLI (auto-generates run directory under training/runs/)
+mage-knight-train-rl --episodes 100 --hero arythea
 
-# Or with the installed CLI:
-mage-knight-train-rl --episodes 100 --checkpoint-dir ./my-run --no-undo
+# PPO training
+mage-knight-train-rl --ppo --episodes 1000 --batch-episodes 16
+
+# Resume from checkpoint
+mage-knight-train-rl --ppo --episodes 500 --resume training/runs/baseline/checkpoints/policy_final.pt
+
+# Named run via session manager (detaches, survives shell exit)
+./scripts/train start baseline -- --episodes 10000
+./scripts/train stop
+./scripts/train status
+./scripts/train list
 ```
 
-- Checkpoints and a `training_log.ndjson` are written to `--checkpoint-dir` (default `./sim-artifacts/rl-checkpoints`).
-- `run_config.json` in that directory records policy/reward config and CLI args for reproducibility.
-- **Resume** from a checkpoint: `mage-knight-train-rl --resume ./my-run/policy_final.pt --episodes 50`
+### Training Directory Layout
 
-Rewards are configurable: fame deltas (dense), step penalty, and terminal bonuses/penalties. You can add **sparse reward components** (e.g. conquest, level-up) by implementing the `RewardComponent` protocol and passing them in `RewardConfig(..., components=(YourComponent(), ...))`. See `sim/rl/rewards.py`.
-
-## Generate Models
-
-Protocol models are generated from:
-
-- `packages/shared/schemas/network-protocol/v1/client-to-server.schema.json`
-- `packages/shared/schemas/network-protocol/v1/server-to-client.schema.json`
-
-To regenerate after updating protocol schemas:
-
-```bash
-cd packages/python-sdk
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-python3 scripts/generate_protocol_models.py
+```
+training/
+  runs/
+    baseline/                    ← one directory per experiment
+      run_config.json            ← frozen config at training start
+      training_log.ndjson        ← per-episode metrics (appended)
+      tensorboard/               ← TensorBoard events
+      checkpoints/               ← model snapshots
+        policy_ep_000100.pt
+        policy_final.pt
+      train.log                  ← stdout/stderr (scripts/train only)
+    run-20260223T093000/         ← auto-generated name (direct CLI)
 ```
 
-## Local Integration Tests
+- Checkpoints and logs are separated — checkpoints in `checkpoints/`, everything else at run root.
+- `run_config.json` records policy/reward config and CLI args for reproducibility.
+- **Resume** derives the run directory from the checkpoint path automatically.
+- Rewards are configurable: fame deltas (dense), step penalty, and terminal bonuses/penalties. See `sim/rl/rewards.py`.
+
+### TensorBoard
+
+Training automatically logs to TensorBoard when installed (included in `.[rl]` extras).
 
 ```bash
-cd packages/python-sdk
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Compare all runs side-by-side:
+./scripts/run-tensorboard
+# Or manually:
+tensorboard --logdir training/runs
+
+# Import existing NDJSON logs into TensorBoard:
+mage-knight-import-tb training/runs/baseline/training_log.ndjson
+```
+
+## Artifact Viewer
+
+Flask web app for inspecting simulation artifacts (action traces, game state snapshots).
+
+```bash
+pip install -e ".[viewer]"
+mage-knight-viewer
+# Open http://127.0.0.1:8765
+```
+
+## Tests
+
+```bash
+source .venv/bin/activate
 python3 -m unittest discover -s tests -p 'test_*.py'
-
-# Harness integration tests (includes CI-friendly smoke run)
-python3 -m unittest discover -s tests/integration -p 'test_sim_runner.py'
 ```

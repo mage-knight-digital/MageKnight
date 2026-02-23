@@ -3,9 +3,9 @@
 # Training session manager — prevents duplicate processes, auto-resumes
 # from the latest checkpoint, and keeps TensorBoard clean.
 #
-# Each run gets its own directory under sim-artifacts/runs/<name>/.
+# Each run gets its own directory under training/runs/<name>/.
 # TensorBoard compares runs side-by-side:
-#   tensorboard --logdir sim-artifacts/runs
+#   tensorboard --logdir training/runs
 #
 # Usage:
 #   ./scripts/train start <run-name> [-- extra train_rl flags]
@@ -21,7 +21,7 @@
 #   ./scripts/train status                          # show progress
 #   ./scripts/train list                            # list all runs
 #
-#   tensorboard --logdir sim-artifacts/runs          # compare all runs
+#   tensorboard --logdir training/runs          # compare all runs
 #
 set -euo pipefail
 
@@ -30,28 +30,20 @@ SDK_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$SDK_DIR"
 
 # --- Configuration ---
-RUNS_DIR="$SDK_DIR/sim-artifacts/runs"
-GLOBAL_PID_FILE="$RUNS_DIR/.train.pid"
-GLOBAL_RUN_FILE="$RUNS_DIR/.active_run"
+RUNS_DIR="$SDK_DIR/training/runs"
+GLOBAL_PID_FILE="$SDK_DIR/training/.train.pid"
+GLOBAL_RUN_FILE="$SDK_DIR/training/.active_run"
 
 # Default training flags
 DEFAULT_FLAGS=(
     --episodes 100000
     --seed 1
-    --player-count 1
-    --no-undo
     --ppo
-    --workers 8
-    --episodes-per-sync 24
     --hidden-size 512
     --embedding-dim 16
     --num-hidden-layers 2
     --mini-batch-size 256
-    --base-port 3001
     --checkpoint-every 10000
-    --save-top-games 30
-    --save-long-games 1000
-    --benchmark
 )
 
 # --- Helpers ---
@@ -89,7 +81,7 @@ _run_dir() {
 }
 
 _find_latest_checkpoint() {
-    local dir="$1"
+    local dir="$1/checkpoints"
     local latest
     latest=$(ls "$dir"/policy_ep_*.pt 2>/dev/null \
         | sed 's/.*policy_ep_0*//' | sed 's/\.pt//' \
@@ -234,7 +226,7 @@ cmd_start() {
     train_pid=$(_launch_detached "$log_file" \
         "$python_bin" -m mage_knight_sdk.cli.train_rl "${flags[@]}")
 
-    mkdir -p "$RUNS_DIR"
+    mkdir -p "$RUNS_DIR" "$(dirname "$GLOBAL_PID_FILE")"
     echo "$train_pid" > "$GLOBAL_PID_FILE"
     echo "$run_name" > "$GLOBAL_RUN_FILE"
 
@@ -418,8 +410,7 @@ for name in sorted(os.listdir(runs_dir)):
         layers = pc.get('num_hidden_layers', '?')
         lr = pc.get('learning_rate', cli.get('learning_rate', '?'))
         algo = 'PPO' if cli.get('ppo') else 'REINFORCE'
-        workers = cli.get('workers', 1)
-        parts.append(f'{algo} h={h} emb={emb} layers={layers} lr={lr} w={workers}')
+        parts.append(f'{algo} h={h} emb={emb} layers={layers} lr={lr}')
         config_summary = ' '.join(parts)
 
     rows.append((name, eps, avg_r, max_r, gps, config_summary))
@@ -483,7 +474,7 @@ case "${1:-}" in
         echo "  list                     List all runs with stats"
         echo "  config <name>            Show full config for a run"
         echo ""
-        echo "  tensorboard --logdir sim-artifacts/runs   # compare all runs"
+        echo "  tensorboard --logdir training/runs   # compare all runs"
         exit 1
         ;;
 esac
