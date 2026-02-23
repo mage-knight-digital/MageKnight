@@ -555,11 +555,40 @@ fn cleanup_end_turn_mana(state: &mut GameState, player_idx: usize) {
 // Card flow
 // =============================================================================
 
+/// Count hand limit bonus from adjacent conquered cities with player's shield token.
+/// +1 per conquered city within 1 hex (player's hex + 6 neighbors).
+fn count_adjacent_city_hand_bonus(state: &GameState, player_idx: usize) -> usize {
+    let player = &state.players[player_idx];
+    let pos = match player.position {
+        Some(p) => p,
+        None => return 0,
+    };
+    let player_id = &player.id;
+    let mut bonus = 0;
+    // Check player's hex + all 6 neighbors
+    for hex_coord in std::iter::once(pos).chain(pos.neighbors()) {
+        if let Some(hex) = state.map.hexes.get(&hex_coord.key()) {
+            if let Some(ref site) = hex.site {
+                if site.site_type == SiteType::City
+                    && site.is_conquered
+                    && hex.shield_tokens.iter().any(|id| id == player_id)
+                {
+                    bonus += 1;
+                }
+            }
+        }
+    }
+    bonus
+}
+
 /// Move play area to discard, draw up to hand limit.
 ///
 /// Matches TS `processCardFlow()` in `cardFlow.ts`.
 /// No mid-round reshuffle — stops drawing if deck empties.
 fn process_card_flow(state: &mut GameState, player_idx: usize) {
+    // Compute city bonus before mutable borrow (needs shared access to map)
+    let city_bonus = count_adjacent_city_hand_bonus(state, player_idx);
+
     let player = &mut state.players[player_idx];
 
     // Move play area → discard
@@ -576,7 +605,7 @@ fn process_card_flow(state: &mut GameState, player_idx: usize) {
     };
     // TODO: Keep bonus (adjacent to owned keep)
     let draw_limit =
-        (player.hand_limit as usize) + planning_bonus + (player.meditation_hand_limit_bonus as usize);
+        (player.hand_limit as usize) + planning_bonus + (player.meditation_hand_limit_bonus as usize) + city_bonus;
 
     while player.hand.len() < draw_limit {
         if player.deck.is_empty() {
@@ -653,6 +682,9 @@ fn reset_player_turn_inner(player: &mut PlayerState) {
     player
         .flags
         .remove(PlayerFlags::CRYSTAL_MASTERY_POWERED_ACTIVE);
+    player
+        .flags
+        .remove(PlayerFlags::SHIELD_INFLUENCE_CLAIMED_THIS_TURN);
 
     // Clear mana state (crystals persist, tokens don't)
     player.pure_mana.clear();
@@ -751,18 +783,42 @@ fn advance_turn(state: &mut GameState, current_player_idx: usize, is_time_bendin
     let turn_order_len = state.turn_order.len();
     let mut next_turn_idx = (state.current_player_index as usize + 1) % turn_order_len;
 
-    // Auto-execute dummy player turns (skip over them)
-    while crate::dummy_player::is_dummy_player(state.turn_order[next_turn_idx].as_str()) {
-        if let Some(ref mut dummy) = state.dummy_player {
-            if crate::dummy_player::execute_dummy_turn(dummy).is_none() {
-                // Dummy deck exhausted → announce end of round
-                state.end_of_round_announced_by =
-                    Some(PlayerId::from(crate::dummy_player::DUMMY_PLAYER_ID));
-                state.players_with_final_turn =
-                    state.players.iter().map(|p| p.id.clone()).collect();
+    // Auto-execute dummy player turns and skip flipped-token players (FAQ S17)
+    loop {
+        let turn_id = &state.turn_order[next_turn_idx];
+
+        if crate::dummy_player::is_dummy_player(turn_id.as_str()) {
+            if let Some(ref mut dummy) = state.dummy_player {
+                if crate::dummy_player::execute_dummy_turn(dummy).is_none() {
+                    // Dummy deck exhausted → announce end of round
+                    state.end_of_round_announced_by =
+                        Some(PlayerId::from(crate::dummy_player::DUMMY_PLAYER_ID));
+                    state.players_with_final_turn =
+                        state.players.iter().map(|p| p.id.clone()).collect();
+                }
             }
+            next_turn_idx = (next_turn_idx + 1) % turn_order_len;
+            continue;
         }
-        next_turn_idx = (next_turn_idx + 1) % turn_order_len;
+
+        // Check if this real player has a flipped token (cooperative assault invitee)
+        let pid = state
+            .players
+            .iter()
+            .position(|p| p.id == *turn_id)
+            .expect("Turn order entry not found in players");
+        if state.players[pid]
+            .flags
+            .contains(PlayerFlags::ROUND_ORDER_TOKEN_FLIPPED)
+        {
+            state.players[pid]
+                .flags
+                .remove(PlayerFlags::ROUND_ORDER_TOKEN_FLIPPED);
+            next_turn_idx = (next_turn_idx + 1) % turn_order_len;
+            continue;
+        }
+
+        break;
     }
 
     state.current_player_index = next_turn_idx as u32;

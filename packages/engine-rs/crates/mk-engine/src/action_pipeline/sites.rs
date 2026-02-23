@@ -3,8 +3,8 @@
 use mk_data::enemy_piles::{draw_enemy_token, enemy_id_from_token};
 use mk_data::offers::{take_from_monastery_offer, take_from_offer};
 use mk_data::sites::{
-    BURN_MONASTERY_REP_PENALTY, MONASTERY_AA_PURCHASE_COST,
-    SPELL_PURCHASE_COST,
+    BURN_MONASTERY_REP_PENALTY, CITY_AA_PURCHASE_COST, CITY_ARTIFACT_PURCHASE_COST,
+    CITY_ELITE_UNIT_COST, MONASTERY_AA_PURCHASE_COST, SPELL_PURCHASE_COST,
 };
 use mk_types::enums::*;
 use arrayvec::ArrayVec;
@@ -358,7 +358,11 @@ pub(super) fn apply_buy_spell(
     state: &mut GameState,
     player_idx: usize,
     card_id: &CardId,
+    mana_color: BasicManaColor,
 ) -> Result<ApplyResult, ApplyError> {
+    // Apply shield influence bonus if needed and not yet claimed
+    apply_shield_influence_if_needed(state, player_idx, SPELL_PURCHASE_COST)?;
+
     let player = &mut state.players[player_idx];
 
     if player.influence_points < SPELL_PURCHASE_COST {
@@ -368,8 +372,11 @@ pub(super) fn apply_buy_spell(
     // Deduct influence
     player.influence_points -= SPELL_PURCHASE_COST;
 
+    // Consume matching mana (token → gold token → crystal)
+    consume_mana_of_color(state, player_idx, mana_color)?;
+
     // Insert card at top of deed deck
-    player.deck.insert(0, card_id.clone());
+    state.players[player_idx].deck.insert(0, card_id.clone());
 
     // Take from spell offer (replenishes from deck)
     take_from_offer(
@@ -759,10 +766,313 @@ pub fn try_negate_wound_with_fortitude(
 }
 
 
+// =============================================================================
+// City commerce handlers
+// =============================================================================
+
+pub(super) fn apply_buy_artifact(
+    state: &mut GameState,
+    player_idx: usize,
+) -> Result<ApplyResult, ApplyError> {
+    // Apply shield influence bonus if needed
+    apply_shield_influence_if_needed(state, player_idx, CITY_ARTIFACT_PURCHASE_COST)?;
+
+    let player = &mut state.players[player_idx];
+
+    if player.influence_points < CITY_ARTIFACT_PURCHASE_COST {
+        return Err(ApplyError::InternalError("BuyArtifact: insufficient influence".into()));
+    }
+
+    // Deduct influence
+    player.influence_points -= CITY_ARTIFACT_PURCHASE_COST;
+
+    // Draw up to 2 from artifact deck
+    let first = state.decks.artifact_deck.remove(0);
+    if state.decks.artifact_deck.is_empty() {
+        // Only 1 card in deck: auto-grant (no choice)
+        state.players[player_idx].deck.insert(0, first);
+    } else {
+        // Draw second card, create pending selection
+        let second = state.decks.artifact_deck.remove(0);
+        let mut choices = ArrayVec::new();
+        choices.push(first);
+        choices.push(second);
+        state.players[player_idx].pending.active =
+            Some(mk_types::pending::ActivePending::ArtifactSelection(
+                mk_types::pending::PendingArtifactSelection { choices },
+            ));
+    }
+
+    state.players[player_idx]
+        .flags
+        .insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+
+pub(super) fn apply_buy_city_advanced_action(
+    state: &mut GameState,
+    player_idx: usize,
+    card_id: &CardId,
+) -> Result<ApplyResult, ApplyError> {
+    // Apply shield influence bonus if needed
+    apply_shield_influence_if_needed(state, player_idx, CITY_AA_PURCHASE_COST)?;
+
+    let player = &mut state.players[player_idx];
+
+    if player.influence_points < CITY_AA_PURCHASE_COST {
+        return Err(ApplyError::InternalError("BuyCityAA: insufficient influence".into()));
+    }
+
+    // Deduct influence
+    player.influence_points -= CITY_AA_PURCHASE_COST;
+
+    // Insert card at top of deed deck
+    player.deck.insert(0, card_id.clone());
+
+    // Take from main AA offer (replenishes from deck)
+    take_from_offer(
+        &mut state.offers.advanced_actions,
+        &mut state.decks.advanced_action_deck,
+        card_id.as_str(),
+    );
+
+    state.players[player_idx]
+        .flags
+        .insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+
+pub(super) fn apply_buy_city_aa_from_deck(
+    state: &mut GameState,
+    player_idx: usize,
+) -> Result<ApplyResult, ApplyError> {
+    // Apply shield influence bonus if needed
+    apply_shield_influence_if_needed(state, player_idx, CITY_AA_PURCHASE_COST)?;
+
+    let player = &mut state.players[player_idx];
+
+    if player.influence_points < CITY_AA_PURCHASE_COST {
+        return Err(ApplyError::InternalError("BuyCityAAFromDeck: insufficient influence".into()));
+    }
+
+    // Deduct influence
+    player.influence_points -= CITY_AA_PURCHASE_COST;
+
+    // Pop top card from AA deck (blind draw)
+    if state.decks.advanced_action_deck.is_empty() {
+        return Err(ApplyError::InternalError("BuyCityAAFromDeck: AA deck empty".into()));
+    }
+    let card = state.decks.advanced_action_deck.remove(0);
+
+    // Insert at top of deed deck
+    state.players[player_idx].deck.insert(0, card);
+
+    state.players[player_idx]
+        .flags
+        .insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+
+pub(super) fn apply_add_elite_to_offer(
+    state: &mut GameState,
+    player_idx: usize,
+) -> Result<ApplyResult, ApplyError> {
+    // Apply shield influence bonus if needed
+    apply_shield_influence_if_needed(state, player_idx, CITY_ELITE_UNIT_COST)?;
+
+    let player = &mut state.players[player_idx];
+
+    if player.influence_points < CITY_ELITE_UNIT_COST {
+        return Err(ApplyError::InternalError("AddEliteToOffer: insufficient influence".into()));
+    }
+
+    // Deduct influence
+    player.influence_points -= CITY_ELITE_UNIT_COST;
+
+    // Pop from unit deck and add to unit offer
+    if let Some(unit_id) = state.decks.unit_deck.pop() {
+        state.offers.units.push(unit_id);
+    }
+
+    // Free action — does NOT set HAS_TAKEN_ACTION_THIS_TURN
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+
+pub(super) fn apply_select_artifact(
+    state: &mut GameState,
+    player_idx: usize,
+    card_id: &CardId,
+) -> Result<ApplyResult, ApplyError> {
+    let pending = state.players[player_idx].pending.active.take().ok_or_else(|| {
+        ApplyError::InternalError("SelectArtifact: no active pending".into())
+    })?;
+
+    let choices = match pending {
+        mk_types::pending::ActivePending::ArtifactSelection(sel) => sel.choices,
+        _ => {
+            return Err(ApplyError::InternalError(
+                "SelectArtifact: active pending is not ArtifactSelection".into(),
+            ));
+        }
+    };
+
+    // Validate chosen card is one of the choices
+    if !choices.iter().any(|c| c == card_id) {
+        return Err(ApplyError::InternalError(format!(
+            "SelectArtifact: '{}' not among choices",
+            card_id.as_str()
+        )));
+    }
+
+    // Keep chosen card (top of deed deck), return other to artifact deck bottom
+    state.players[player_idx].deck.insert(0, card_id.clone());
+    for c in choices {
+        if c != *card_id {
+            state.decks.artifact_deck.push(c);
+        }
+    }
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+
+// =============================================================================
+// Shield influence + mana consumption helpers
+// =============================================================================
+
+/// Apply shield token influence bonus if the player is at a conquered city
+/// and hasn't claimed it this turn. Only grants enough to cover the shortfall.
+fn apply_shield_influence_if_needed(
+    state: &mut GameState,
+    player_idx: usize,
+    cost: u32,
+) -> Result<(), ApplyError> {
+    let player = &mut state.players[player_idx];
+    if player
+        .flags
+        .contains(PlayerFlags::SHIELD_INFLUENCE_CLAIMED_THIS_TURN)
+    {
+        return Ok(());
+    }
+    if player.influence_points >= cost {
+        return Ok(());
+    }
+
+    // Find current hex and city shield bonus
+    let pos = match player.position {
+        Some(p) => p,
+        None => return Ok(()),
+    };
+    let hex = match state.map.hexes.get(&pos.key()) {
+        Some(h) => h,
+        None => return Ok(()),
+    };
+    let is_conquered_city = hex
+        .site
+        .as_ref()
+        .is_some_and(|s| s.site_type == SiteType::City && s.is_conquered);
+    if !is_conquered_city {
+        return Ok(());
+    }
+
+    let player_id = state.players[player_idx].id.clone();
+    let shield_count = hex
+        .shield_tokens
+        .iter()
+        .filter(|id| **id == player_id)
+        .count() as u32;
+    if shield_count == 0 {
+        return Ok(());
+    }
+
+    // Grant just enough to cover shortfall (up to shield_count)
+    let shortfall = cost - state.players[player_idx].influence_points;
+    let bonus = shortfall.min(shield_count);
+    state.players[player_idx].influence_points += bonus;
+    state.players[player_idx]
+        .flags
+        .insert(PlayerFlags::SHIELD_INFLUENCE_CLAIMED_THIS_TURN);
+
+    Ok(())
+}
+
+/// Consume one mana of the given basic color: matching token → gold token → crystal.
+fn consume_mana_of_color(
+    state: &mut GameState,
+    player_idx: usize,
+    color: BasicManaColor,
+) -> Result<ManaColor, ApplyError> {
+    let target_mana = ManaColor::from(color);
+    let player = &mut state.players[player_idx];
+
+    // 1. Try matching-color mana token
+    if let Some(idx) = player.pure_mana.iter().position(|t| t.color == target_mana) {
+        player.pure_mana.remove(idx);
+        return Ok(target_mana);
+    }
+
+    // 2. Try gold mana token (wild)
+    if let Some(idx) = player
+        .pure_mana
+        .iter()
+        .position(|t| t.color == ManaColor::Gold)
+    {
+        player.pure_mana.remove(idx);
+        return Ok(ManaColor::Gold);
+    }
+
+    // 3. Try matching-color crystal
+    let crystal = match color {
+        BasicManaColor::Red => &mut player.crystals.red,
+        BasicManaColor::Blue => &mut player.crystals.blue,
+        BasicManaColor::Green => &mut player.crystals.green,
+        BasicManaColor::White => &mut player.crystals.white,
+    };
+    if *crystal > 0 {
+        *crystal -= 1;
+        return Ok(target_mana);
+    }
+
+    Err(ApplyError::InternalError(format!(
+        "BuySpell: cannot afford mana cost {:?}",
+        color
+    )))
+}
+
+
 pub(super) fn apply_select_reward(
     state: &mut GameState,
     player_idx: usize,
     card_id: &CardId,
+    unit_id: &Option<mk_types::ids::UnitId>,
 ) -> Result<ApplyResult, ApplyError> {
     let player = &mut state.players[player_idx];
 
@@ -809,6 +1119,44 @@ pub(super) fn apply_select_reward(
                     player_idx,
                     SiteReward::AdvancedAction { count: count - 1 },
                 );
+            }
+        }
+        SiteReward::Unit => {
+            let uid = unit_id.as_ref().ok_or_else(|| {
+                ApplyError::InternalError("SelectReward Unit: no unit_id provided".into())
+            })?;
+
+            // Find and remove the unit from the offer
+            let offer_idx = state.offers.units.iter()
+                .position(|u| u == uid)
+                .ok_or_else(|| {
+                    ApplyError::InternalError(format!(
+                        "SelectReward Unit: unit '{}' not in offer",
+                        uid.as_str()
+                    ))
+                })?;
+
+            let removed_unit_id = state.offers.units.remove(offer_idx);
+
+            // Create PlayerUnit and add to player
+            let unit_def = mk_data::units::get_unit(removed_unit_id.as_str());
+            let instance_id = mk_types::ids::UnitInstanceId::from(
+                format!("unit_{}", state.players[player_idx].units.len()).as_str(),
+            );
+            state.players[player_idx].units.push(mk_types::state::PlayerUnit {
+                unit_id: removed_unit_id,
+                instance_id,
+                level: unit_def.map_or(1, |d| d.level),
+                state: mk_types::enums::UnitState::Ready,
+                wounded: false,
+                used_resistance_this_combat: false,
+                used_ability_indices: Vec::new(),
+                mana_token: None,
+            });
+
+            // Replenish offer from unit deck
+            if let Some(next_unit) = state.decks.unit_deck.pop() {
+                state.offers.units.push(next_unit);
             }
         }
         _ => {
@@ -882,7 +1230,12 @@ pub(super) fn queue_site_reward(state: &mut GameState, player_idx: usize, reward
                 }
             }
         }
-        SiteReward::Spell { .. } | SiteReward::AdvancedAction { .. } => {
+        SiteReward::Spell { .. } | SiteReward::AdvancedAction { .. } | SiteReward::Unit => {
+            // Auto-skip Unit if no units available in offer
+            if matches!(reward, SiteReward::Unit) && state.offers.units.is_empty() {
+                return;
+            }
+
             // Queue as deferred reward
             let player = &mut state.players[player_idx];
             // Find existing Rewards deferred entry or create new one
@@ -908,10 +1261,6 @@ pub(super) fn queue_site_reward(state: &mut GameState, player_idx: usize, reward
             if player.pending.active.is_none() {
                 promote_site_reward(state, player_idx);
             }
-        }
-        SiteReward::Unit => {
-            // Unit rewards: not yet implemented (would need unit offer selection)
-            // For now, auto-skip
         }
     }
 }

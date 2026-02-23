@@ -58,6 +58,7 @@ pub fn derive_mode_str(state: &GameState, player_idx: usize) -> &'static str {
             ActivePending::SiteRewardChoice { .. } => "pending_reward",
             ActivePending::TomeOfAllSpells(_) => "pending_choice",
             ActivePending::CircletOfProficiency(_) => "pending_choice",
+            ActivePending::ArtifactSelection(_) => "pending_choice",
         };
     }
 

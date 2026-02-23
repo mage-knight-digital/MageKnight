@@ -19,6 +19,15 @@ pub const MONASTERY_AA_PURCHASE_COST: u32 = 6;
 /// Reputation penalty for burning a monastery.
 pub const BURN_MONASTERY_REP_PENALTY: i32 = 3;
 
+/// Influence cost to buy an artifact at a conquered red city.
+pub const CITY_ARTIFACT_PURCHASE_COST: u32 = 12;
+
+/// Influence cost to buy an AA from the main offer at a conquered green city.
+pub const CITY_AA_PURCHASE_COST: u32 = 6;
+
+/// Influence cost to add an elite unit from the deck to the offer (white city).
+pub const CITY_ELITE_UNIT_COST: u32 = 2;
+
 // =============================================================================
 // Conquest rewards
 // =============================================================================

@@ -565,6 +565,12 @@ pub struct PendingCircletOfProficiency {
     pub available_skills: Vec<SkillId>,
 }
 
+/// Pending artifact selection — Red City draw 2, keep 1.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PendingArtifactSelection {
+    pub choices: ArrayVec<CardId, 2>,
+}
+
 /// Level-up reward for even levels.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PendingLevelUpReward {
@@ -749,6 +755,8 @@ pub enum ActivePending {
     },
     TomeOfAllSpells(PendingTomeOfAllSpells),
     CircletOfProficiency(PendingCircletOfProficiency),
+    /// Red City: draw 2 artifacts, player picks 1 to keep.
+    ArtifactSelection(PendingArtifactSelection),
     /// Unit ability that targets a combat enemy (cancel attack, weaken, freeze, etc.).
     SelectCombatEnemy {
         /// None for card-sourced, Some for unit-sourced.

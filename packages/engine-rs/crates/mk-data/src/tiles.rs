@@ -398,6 +398,17 @@ pub fn all_city_core_tiles() -> Vec<TileId> {
     ]
 }
 
+/// Returns the city color for a city tile, or None for non-city tiles.
+pub fn city_color_for_tile(tile_id: TileId) -> Option<BasicManaColor> {
+    match tile_id {
+        TileId::Core5GreenCity => Some(BasicManaColor::Green),
+        TileId::Core6BlueCity => Some(BasicManaColor::Blue),
+        TileId::Core7WhiteCity => Some(BasicManaColor::White),
+        TileId::Core8RedCity => Some(BasicManaColor::Red),
+        _ => None,
+    }
+}
+
 /// Returns true if this tile contains a City hex.
 pub fn is_city_tile(tile_id: TileId) -> bool {
     matches!(

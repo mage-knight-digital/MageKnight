@@ -532,10 +532,40 @@ pub fn apply_legal_action(
             }
         }
 
-        LegalAction::BuySpell { card_id, .. } => {
-            // Reversible: save snapshot
-            undo_stack.save(state);
-            sites::apply_buy_spell(state, player_idx, card_id)?
+        LegalAction::BuyArtifact => {
+            // Irreversible: draws from artifact deck
+            undo_stack.set_checkpoint();
+            sites::apply_buy_artifact(state, player_idx)?
+        }
+
+        LegalAction::BuyCityAdvancedAction { card_id, .. } => {
+            // Irreversible: modifies offers
+            undo_stack.set_checkpoint();
+            sites::apply_buy_city_advanced_action(state, player_idx, card_id)?
+        }
+
+        LegalAction::BuyCityAdvancedActionFromDeck => {
+            // Irreversible: draws from AA deck
+            undo_stack.set_checkpoint();
+            sites::apply_buy_city_aa_from_deck(state, player_idx)?
+        }
+
+        LegalAction::AddEliteToOffer => {
+            // Irreversible: draws from unit deck
+            undo_stack.set_checkpoint();
+            sites::apply_add_elite_to_offer(state, player_idx)?
+        }
+
+        LegalAction::SelectArtifact { card_id } => {
+            // Irreversible: modifies artifact deck
+            undo_stack.set_checkpoint();
+            sites::apply_select_artifact(state, player_idx, card_id)?
+        }
+
+        LegalAction::BuySpell { card_id, mana_color, .. } => {
+            // Irreversible: consumes mana
+            undo_stack.set_checkpoint();
+            sites::apply_buy_spell(state, player_idx, card_id, *mana_color)?
         }
 
         LegalAction::LearnAdvancedAction { card_id, .. } => {
@@ -550,10 +580,10 @@ pub fn apply_legal_action(
             sites::apply_burn_monastery(state, player_idx)?
         }
 
-        LegalAction::SelectReward { card_id, .. } => {
+        LegalAction::SelectReward { card_id, unit_id, .. } => {
             // Irreversible: modifies offers
             undo_stack.set_checkpoint();
-            sites::apply_select_reward(state, player_idx, card_id)?
+            sites::apply_select_reward(state, player_idx, card_id, unit_id)?
         }
 
         LegalAction::AltarTribute { mana_sources } => {

@@ -210,10 +210,11 @@ pub enum LegalAction {
     },
     /// Cancel a cooperative assault proposal (initiator only).
     CancelCooperativeProposal,
-    /// Buy a spell from the offer at a conquered Mage Tower (7 influence).
+    /// Buy a spell from the offer at a conquered Mage Tower or Blue City (7 influence + matching mana).
     BuySpell {
         card_id: CardId,
         offer_index: usize,
+        mana_color: BasicManaColor,
     },
     /// Learn an AA from the monastery offer (6 influence).
     LearnAdvancedAction {
@@ -222,10 +223,11 @@ pub enum LegalAction {
     },
     /// Burn a monastery — enter combat with a violet enemy.
     BurnMonastery,
-    /// Select a reward card from the offer after site conquest.
+    /// Select a reward card/unit from the offer after site conquest.
     SelectReward {
         card_id: CardId,
         reward_index: usize,
+        unit_id: Option<UnitId>,
     },
     /// Pay mana tribute at an Ancient Ruins altar for fame.
     AltarTribute {
@@ -246,6 +248,21 @@ pub enum LegalAction {
         unit_instance_id: UnitInstanceId,
         enemy_instance_id: CombatInstanceId,
         attack_index: usize,
+    },
+    /// Buy an artifact at a conquered red city (drawn blind from deck top).
+    BuyArtifact,
+    /// Buy an Advanced Action at a conquered green city (from main AA offer, replenished).
+    BuyCityAdvancedAction {
+        card_id: CardId,
+        offer_index: usize,
+    },
+    /// Blind draw from AA deck at a conquered green city (6 influence).
+    BuyCityAdvancedActionFromDeck,
+    /// Pay 2 Influence to add an elite unit from the unit deck to the offer (white city).
+    AddEliteToOffer,
+    /// Select one artifact to keep from a draw-2 at Red City.
+    SelectArtifact {
+        card_id: CardId,
     },
     /// Convert accumulated move points to attack during combat (Agility card).
     ConvertMoveToAttack {

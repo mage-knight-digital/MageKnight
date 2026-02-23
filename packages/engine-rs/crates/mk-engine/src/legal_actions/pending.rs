@@ -382,6 +382,13 @@ pub(super) fn enumerate_pending(
                 }
             }
         }
+        ActivePending::ArtifactSelection(ref sel) => {
+            for card_id in sel.choices.iter() {
+                actions.push(LegalAction::SelectArtifact {
+                    card_id: card_id.clone(),
+                });
+            }
+        }
         ActivePending::Discard(_) | ActivePending::DiscardForCrystal(_) => {
             // These pending states have dedicated handling through
             // ResolveChoice/ResolveDiscardForCrystal actions, not via this function.
@@ -482,6 +489,7 @@ fn enumerate_site_reward_choice(
                 actions.push(LegalAction::SelectReward {
                     card_id: card_id.clone(),
                     reward_index: idx,
+                    unit_id: None,
                 });
             }
         }
@@ -490,11 +498,21 @@ fn enumerate_site_reward_choice(
                 actions.push(LegalAction::SelectReward {
                     card_id: card_id.clone(),
                     reward_index: idx,
+                    unit_id: None,
+                });
+            }
+        }
+        SiteReward::Unit => {
+            for (idx, unit_id) in state.offers.units.iter().enumerate() {
+                actions.push(LegalAction::SelectReward {
+                    card_id: mk_types::ids::CardId::from(""),
+                    reward_index: idx,
+                    unit_id: Some(unit_id.clone()),
                 });
             }
         }
         _ => {
-            // CrystalRoll, Artifact, Fame, Unit, Compound should be auto-resolved,
+            // CrystalRoll, Artifact, Fame, Compound should be auto-resolved,
             // not presented as choices. This arm should never be reached.
             panic!(
                 "enumerate_site_reward_choice: unexpected reward type at index {}: {:?}",

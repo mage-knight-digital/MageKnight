@@ -119,6 +119,7 @@ pub fn execute_enter_combat(
         declared_block_attack_index: None,
         has_paralyze_damage_to_hero: false,
         ranged_siege_defeats: 0,
+        city_color: None,
     };
 
     // Clear healing points (rulebook: unspent healing disappears when entering combat)

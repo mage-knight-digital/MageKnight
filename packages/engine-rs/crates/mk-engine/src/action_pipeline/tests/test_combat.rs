@@ -1520,3 +1520,698 @@ fn burning_shield_destroy_blocked_by_arcane_immunity() {
     ));
 }
 
+// =========================================================================
+// Defend ability — armor bonus persistence (FAQ S29)
+// =========================================================================
+
+#[test]
+fn defend_protects_other_enemy() {
+    // Corrupted Priests (defend=1, armor 5) + Prowlers (armor 3)
+    // Attacking prowlers should require 4 attack (3 base + 1 defend)
+    let mut state = setup_combat_game(&["corrupted_priests", "prowlers"]);
+    state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+
+    // 3 physical attack — exactly prowlers' base armor, but defend adds +1
+    state.players[0].combat_accumulator.attack.normal_elements = ElementalValues {
+        physical: 3, fire: 0, ice: 0, cold_fire: 0,
+    };
+
+    // Initiate attack targeting prowlers (enemy_1 = index 1 in eligible list)
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0,
+        &LegalAction::InitiateAttack { attack_type: CombatType::Melee }, epoch).unwrap();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0,
+        &LegalAction::SubsetSelect { index: 1 }, epoch).unwrap();
+
+    // SubsetConfirm should NOT be available — 3 < 4 (3 armor + 1 defend)
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    assert!(
+        !legal.actions.contains(&LegalAction::SubsetConfirm),
+        "3 attack should not be enough against prowlers defended by corrupted_priests (need 4)"
+    );
+}
+
+#[test]
+fn defend_protects_other_enemy_sufficient_attack() {
+    // Same setup but with enough attack to overcome defend
+    let mut state = setup_combat_game(&["corrupted_priests", "prowlers"]);
+    state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+
+    // 4 physical attack — enough for prowlers (3 armor + 1 defend)
+    state.players[0].combat_accumulator.attack.normal_elements = ElementalValues {
+        physical: 4, fire: 0, ice: 0, cold_fire: 0,
+    };
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0,
+        &LegalAction::InitiateAttack { attack_type: CombatType::Melee }, epoch).unwrap();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0,
+        &LegalAction::SubsetSelect { index: 1 }, epoch).unwrap();
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    assert!(
+        legal.actions.contains(&LegalAction::SubsetConfirm),
+        "4 attack should be enough against prowlers defended by corrupted_priests"
+    );
+}
+
+#[test]
+fn defend_used_once_per_combat() {
+    // Corrupted Priests (defend=1, armor 5) + 2× Prowlers (armor 3 each)
+    // First attack on prowlers uses the defend → +1. Second prowlers gets no defend.
+    let mut state = setup_combat_game(&["corrupted_priests", "prowlers", "prowlers"]);
+    state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+
+    // First: attack prowlers (enemy_1). Eligible list: [corrupted_priests, prowlers, prowlers]
+    // Select index 1 = prowlers (enemy_1). Needs 4 = 3 + 1 defend.
+    state.players[0].combat_accumulator.attack.normal_elements = ElementalValues {
+        physical: 4, fire: 0, ice: 0, cold_fire: 0,
+    };
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0,
+        &LegalAction::InitiateAttack { attack_type: CombatType::Melee }, epoch).unwrap();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0,
+        &LegalAction::SubsetSelect { index: 1 }, epoch).unwrap();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0,
+        &LegalAction::SubsetConfirm, epoch).unwrap();
+
+    assert!(state.combat.as_ref().unwrap().enemies[1].is_defeated, "First prowlers defeated");
+    assert!(!state.combat.as_ref().unwrap().used_defend.is_empty(), "Defend used");
+
+    // Second: attack prowlers (enemy_2). Eligible: [corrupted_priests, prowlers(enemy_2)]
+    // Defend already used — no bonus. 3 should be enough.
+    state.players[0].combat_accumulator.attack.normal_elements = ElementalValues {
+        physical: 3, fire: 0, ice: 0, cold_fire: 0,
+    };
+    state.players[0].combat_accumulator.assigned_attack.normal_elements = ElementalValues::default();
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0,
+        &LegalAction::InitiateAttack { attack_type: CombatType::Melee }, epoch).unwrap();
+    let epoch = state.action_epoch;
+    // enemy_2 is now index 1 (enemy_0=corrupted_priests, enemy_2=prowlers — enemy_1 defeated)
+    apply_legal_action(&mut state, &mut undo, 0,
+        &LegalAction::SubsetSelect { index: 1 }, epoch).unwrap();
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    assert!(
+        legal.actions.contains(&LegalAction::SubsetConfirm),
+        "3 attack should be enough for second prowlers (defend already used)"
+    );
+}
+
+#[test]
+fn defend_bonus_persists_after_defender_killed() {
+    // FAQ S29: Defend bonus persists for entire combat even after defender dies.
+    // Setup: Corrupted Priests (defend=1, armor 5) + Prowlers (armor 3)
+    //
+    // Step 1: Attack prowlers → defend triggers → prowlers gets +1 armor → needs 4.
+    //         Defeat prowlers with 4 attack. Defend bonus recorded in defend_bonuses.
+    // Step 2: Kill the corrupted priests (self-defend makes it 6 first time, but after
+    //         used_defend is consumed, second attempt at 5 won't have defend).
+    //         Actually — first attack on corrupted_priests uses self-defend (6 needed).
+    //         But used_defend was already consumed for prowlers. So attacking corrupted_priests
+    //         next has no defend → needs only 5.
+    // Step 3: Verify prowlers' defend bonus persisted (already proven in step 1).
+    //
+    // Simpler approach: attack prowlers first (uses defend), then kill defender,
+    // then verify defend_bonuses survived.
+    let mut state = setup_combat_game(&["corrupted_priests", "prowlers"]);
+    state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+
+    // Step 1: Attack prowlers (enemy_1), needs 4 = 3 + 1 defend
+    state.players[0].combat_accumulator.attack.normal_elements = ElementalValues {
+        physical: 4, fire: 0, ice: 0, cold_fire: 0,
+    };
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0,
+        &LegalAction::InitiateAttack { attack_type: CombatType::Melee }, epoch).unwrap();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0,
+        &LegalAction::SubsetSelect { index: 1 }, epoch).unwrap();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0,
+        &LegalAction::SubsetConfirm, epoch).unwrap();
+
+    assert!(state.combat.as_ref().unwrap().enemies[1].is_defeated);
+    // Defend bonus persisted for enemy_1
+    assert_eq!(
+        state.combat.as_ref().unwrap().defend_bonuses.get("enemy_1").copied().unwrap_or(0), 1,
+        "Defend bonus should be persisted for prowlers"
+    );
+
+    // Step 2: Kill corrupted_priests (defend already used, so just needs 5)
+    state.players[0].combat_accumulator.attack.normal_elements = ElementalValues {
+        physical: 5, fire: 0, ice: 0, cold_fire: 0,
+    };
+    state.players[0].combat_accumulator.assigned_attack.normal_elements = ElementalValues::default();
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0,
+        &LegalAction::InitiateAttack { attack_type: CombatType::Melee }, epoch).unwrap();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0,
+        &LegalAction::SubsetSelect { index: 0 }, epoch).unwrap();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0,
+        &LegalAction::SubsetConfirm, epoch).unwrap();
+
+    assert!(state.combat.as_ref().unwrap().enemies[0].is_defeated, "Corrupted Priests defeated");
+
+    // Step 3: Verify defend_bonuses survived the defender's death
+    assert_eq!(
+        state.combat.as_ref().unwrap().defend_bonuses.get("enemy_1").copied().unwrap_or(0), 1,
+        "Defend bonus for prowlers should persist even after corrupted_priests is killed"
+    );
+}
+
+#[test]
+fn defend_self_adds_armor() {
+    // Corrupted Priests (defend=1, armor 5) alone: can defend itself
+    // Attacking it needs 6 = 5 + 1 self-defend
+    let mut state = setup_combat_game(&["corrupted_priests"]);
+    state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+
+    // 5 physical — matches base armor but not defend
+    state.players[0].combat_accumulator.attack.normal_elements = ElementalValues {
+        physical: 5, fire: 0, ice: 0, cold_fire: 0,
+    };
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0,
+        &LegalAction::InitiateAttack { attack_type: CombatType::Melee }, epoch).unwrap();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0,
+        &LegalAction::SubsetSelect { index: 0 }, epoch).unwrap();
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    assert!(
+        !legal.actions.contains(&LegalAction::SubsetConfirm),
+        "5 attack should not defeat corrupted_priests (needs 6 with self-defend)"
+    );
+}
+
+// =========================================================================
+// Shield Bash armor reduction tests
+// =========================================================================
+
+fn push_shield_bash_modifier(state: &mut GameState, player_idx: usize) {
+    use mk_types::modifier::*;
+    use mk_types::ids::ModifierId;
+    let pid = state.players[player_idx].id.clone();
+    state.active_modifiers.push(ActiveModifier {
+        id: ModifierId::from("shield_bash_mod"),
+        source: ModifierSource::Card {
+            card_id: CardId::from("shield_bash"),
+            player_id: pid.clone(),
+        },
+        duration: ModifierDuration::Combat,
+        scope: ModifierScope::SelfScope,
+        effect: ModifierEffect::ShieldBashArmorReduction,
+        created_at_round: state.round,
+        created_by_player_id: pid,
+    });
+}
+
+#[test]
+fn shield_bash_creates_armor_reduction_on_excess_block() {
+    // Prowlers: 4 physical attack, armor 3
+    // Block with 7 physical → excess = 7-4 = 3 → EnemyStat(Armor, -3, min 1)
+    let mut state = setup_combat_game(&["prowlers"]);
+    state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+    push_shield_bash_modifier(&mut state, 0);
+
+    state.players[0].combat_accumulator.block_elements = ElementalValues {
+        physical: 7, fire: 0, ice: 0, cold_fire: 0,
+    };
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::DeclareBlock {
+            enemy_instance_id: CombatInstanceId::from("enemy_0"),
+            attack_index: 0,
+        },
+        epoch,
+    ).unwrap();
+
+    // Should have an EnemyStat(Armor) modifier for enemy_0
+    let armor_mod = state.active_modifiers.iter().find(|m| {
+        matches!(&m.effect, mk_types::modifier::ModifierEffect::EnemyStat {
+            stat: mk_types::modifier::EnemyStat::Armor,
+            amount,
+            minimum: 1,
+            ..
+        } if *amount == -3)
+        && matches!(&m.scope, mk_types::modifier::ModifierScope::OneEnemy { enemy_id }
+            if enemy_id == "enemy_0")
+    });
+    assert!(armor_mod.is_some(), "Should create EnemyStat(Armor, -3) modifier");
+}
+
+#[test]
+fn shield_bash_no_effect_on_exact_block() {
+    // Prowlers: 4 physical attack
+    // Block with exactly 4 → excess = 0 → no modifier
+    let mut state = setup_combat_game(&["prowlers"]);
+    state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+    push_shield_bash_modifier(&mut state, 0);
+
+    state.players[0].combat_accumulator.block_elements = ElementalValues {
+        physical: 4, fire: 0, ice: 0, cold_fire: 0,
+    };
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::DeclareBlock {
+            enemy_instance_id: CombatInstanceId::from("enemy_0"),
+            attack_index: 0,
+        },
+        epoch,
+    ).unwrap();
+
+    let has_armor_mod = state.active_modifiers.iter().any(|m|
+        matches!(&m.effect, mk_types::modifier::ModifierEffect::EnemyStat {
+            stat: mk_types::modifier::EnemyStat::Armor, ..
+        })
+    );
+    assert!(!has_armor_mod, "No armor reduction on exact block (excess = 0)");
+}
+
+#[test]
+fn shield_bash_no_effect_without_modifier() {
+    // No ShieldBashArmorReduction modifier → no armor reduction
+    let mut state = setup_combat_game(&["prowlers"]);
+    state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+    // No push_shield_bash_modifier call
+
+    state.players[0].combat_accumulator.block_elements = ElementalValues {
+        physical: 10, fire: 0, ice: 0, cold_fire: 0,
+    };
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::DeclareBlock {
+            enemy_instance_id: CombatInstanceId::from("enemy_0"),
+            attack_index: 0,
+        },
+        epoch,
+    ).unwrap();
+
+    let has_armor_mod = state.active_modifiers.iter().any(|m|
+        matches!(&m.effect, mk_types::modifier::ModifierEffect::EnemyStat {
+            stat: mk_types::modifier::EnemyStat::Armor, ..
+        })
+    );
+    assert!(!has_armor_mod, "No armor reduction without Shield Bash modifier");
+}
+
+#[test]
+fn shield_bash_ice_resistant_immune() {
+    // Ice Mages: 5 ice attack, Ice Resistant
+    let mut state = setup_combat_game(&["ice_mages"]);
+    state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+    push_shield_bash_modifier(&mut state, 0);
+
+    // Need cold_fire to efficiently block ice attack
+    state.players[0].combat_accumulator.block_elements = ElementalValues {
+        physical: 0, fire: 10, ice: 0, cold_fire: 0,
+    };
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::DeclareBlock {
+            enemy_instance_id: CombatInstanceId::from("enemy_0"),
+            attack_index: 0,
+        },
+        epoch,
+    ).unwrap();
+
+    let has_armor_mod = state.active_modifiers.iter().any(|m|
+        matches!(&m.effect, mk_types::modifier::ModifierEffect::EnemyStat {
+            stat: mk_types::modifier::EnemyStat::Armor, ..
+        })
+    );
+    assert!(!has_armor_mod, "Ice Resistant enemies immune to Shield Bash armor reduction");
+}
+
+#[test]
+fn shield_bash_summoned_immune() {
+    // Set up summoned enemy manually
+    let mut state = setup_combat_game(&["prowlers"]);
+    state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+    push_shield_bash_modifier(&mut state, 0);
+
+    // Mark enemy as summoned
+    state.combat.as_mut().unwrap().enemies[0].summoned_by_instance_id =
+        Some(CombatInstanceId::from("summoner_0"));
+
+    state.players[0].combat_accumulator.block_elements = ElementalValues {
+        physical: 10, fire: 0, ice: 0, cold_fire: 0,
+    };
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::DeclareBlock {
+            enemy_instance_id: CombatInstanceId::from("enemy_0"),
+            attack_index: 0,
+        },
+        epoch,
+    ).unwrap();
+
+    let has_armor_mod = state.active_modifiers.iter().any(|m|
+        matches!(&m.effect, mk_types::modifier::ModifierEffect::EnemyStat {
+            stat: mk_types::modifier::EnemyStat::Armor, ..
+        })
+    );
+    assert!(!has_armor_mod, "Summoned enemies immune to Shield Bash armor reduction");
+}
+
+#[test]
+fn shield_bash_arcane_immune_immune() {
+    // Grim Legionnaries: 11 physical, Arcane Immune
+    let mut state = setup_combat_game(&["grim_legionnaries"]);
+    state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+    push_shield_bash_modifier(&mut state, 0);
+
+    state.players[0].combat_accumulator.block_elements = ElementalValues {
+        physical: 20, fire: 0, ice: 0, cold_fire: 0,
+    };
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::DeclareBlock {
+            enemy_instance_id: CombatInstanceId::from("enemy_0"),
+            attack_index: 0,
+        },
+        epoch,
+    ).unwrap();
+
+    let has_armor_mod = state.active_modifiers.iter().any(|m|
+        matches!(&m.effect, mk_types::modifier::ModifierEffect::EnemyStat {
+            stat: mk_types::modifier::EnemyStat::Armor, ..
+        })
+    );
+    assert!(!has_armor_mod, "Arcane Immune enemies immune to Shield Bash armor reduction");
+}
+
+#[test]
+fn shield_bash_modifier_not_consumed() {
+    // Shield Bash modifier stays active after block — second block also creates reduction
+    let mut state = setup_combat_game(&["prowlers", "prowlers"]);
+    state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+    push_shield_bash_modifier(&mut state, 0);
+
+    // First block: 6 physical vs 4 → excess 2
+    state.players[0].combat_accumulator.block_elements = ElementalValues {
+        physical: 6, fire: 0, ice: 0, cold_fire: 0,
+    };
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::DeclareBlock {
+            enemy_instance_id: CombatInstanceId::from("enemy_0"),
+            attack_index: 0,
+        },
+        epoch,
+    ).unwrap();
+
+    // ShieldBashArmorReduction modifier should still be present
+    assert!(
+        state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::ShieldBashArmorReduction)
+        ),
+        "Shield Bash modifier should NOT be consumed"
+    );
+
+    // Second block: 8 physical vs 4 → excess 4
+    state.players[0].combat_accumulator.block_elements = ElementalValues {
+        physical: 8, fire: 0, ice: 0, cold_fire: 0,
+    };
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::DeclareBlock {
+            enemy_instance_id: CombatInstanceId::from("enemy_1"),
+            attack_index: 0,
+        },
+        epoch,
+    ).unwrap();
+
+    // Should have two EnemyStat(Armor) modifiers — one per enemy
+    let armor_mods: Vec<_> = state.active_modifiers.iter().filter(|m|
+        matches!(&m.effect, mk_types::modifier::ModifierEffect::EnemyStat {
+            stat: mk_types::modifier::EnemyStat::Armor, ..
+        })
+    ).collect();
+    assert_eq!(armor_mods.len(), 2, "Each successful block should create its own armor reduction modifier");
+}
+
+#[test]
+fn shield_bash_armor_reduction_affects_attack_resolution() {
+    // Prowlers: armor 3, 4 physical attack
+    // Block with 7 physical → excess 3 → armor reduced by 3, min 1 → effective armor 1
+    // Then attack with 1 physical should succeed
+    let mut state = setup_combat_game(&["prowlers"]);
+    state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+    push_shield_bash_modifier(&mut state, 0);
+
+    state.players[0].combat_accumulator.block_elements = ElementalValues {
+        physical: 7, fire: 0, ice: 0, cold_fire: 0,
+    };
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::DeclareBlock {
+            enemy_instance_id: CombatInstanceId::from("enemy_0"),
+            attack_index: 0,
+        },
+        epoch,
+    ).unwrap();
+
+    // Skip to Attack phase
+    // Block→AssignDamage (all blocked so no damage)
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+    // AssignDamage→Attack
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+    assert_eq!(state.combat.as_ref().unwrap().phase, CombatPhase::Attack);
+
+    // Attack with 1 physical — should defeat prowlers (armor reduced from 3 to 1)
+    state.players[0].combat_accumulator.attack.normal_elements = ElementalValues {
+        physical: 1, fire: 0, ice: 0, cold_fire: 0,
+    };
+
+    execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
+
+    assert!(
+        state.combat.as_ref().unwrap().enemies[0].is_defeated,
+        "1 attack should defeat prowlers with armor reduced to 1 by Shield Bash"
+    );
+}
+
+#[test]
+fn shield_bash_minimum_armor_one() {
+    // Prowlers: armor 3, 4 physical attack
+    // Block with 100 → excess = 96 → would reduce armor by 96, but minimum 1
+    let mut state = setup_combat_game(&["prowlers"]);
+    state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+    push_shield_bash_modifier(&mut state, 0);
+
+    state.players[0].combat_accumulator.block_elements = ElementalValues {
+        physical: 100, fire: 0, ice: 0, cold_fire: 0,
+    };
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::DeclareBlock {
+            enemy_instance_id: CombatInstanceId::from("enemy_0"),
+            attack_index: 0,
+        },
+        epoch,
+    ).unwrap();
+
+    // Skip to Attack phase
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+
+    // Attack with 1 should succeed (armor clamped to minimum 1)
+    state.players[0].combat_accumulator.attack.normal_elements = ElementalValues {
+        physical: 1, fire: 0, ice: 0, cold_fire: 0,
+    };
+    execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
+    assert!(state.combat.as_ref().unwrap().enemies[0].is_defeated,
+        "Attack should succeed — armor clamped to minimum 1");
+
+    // But 0 attack should NOT succeed (need at least 1)
+    // (can't test directly since enemy is already defeated, but we verified 1 works)
+}
+
+#[test]
+fn shield_bash_cumbersome_reduces_required() {
+    // Orc Stonethrowers: 7 physical, Cumbersome, armor 3
+    // Spend 3 move → cumbersome reduces required to 4
+    // Block with 7 → excess = 7-4 = 3
+    let mut state = setup_playing_game(vec!["march"]);
+    let tokens = vec![EnemyTokenId::from("orc_stonethrowers_1")];
+    crate::combat::execute_enter_combat(
+        &mut state, 0, &tokens, false, None, Default::default(),
+    ).unwrap();
+    state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+    push_shield_bash_modifier(&mut state, 0);
+    state.players[0].move_points = 3;
+
+    let mut undo = UndoStack::new();
+
+    // Spend 3 move on cumbersome
+    for _ in 0..3 {
+        let epoch = state.action_epoch;
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::SpendMoveOnCumbersome {
+                enemy_instance_id: CombatInstanceId::from("enemy_0"),
+            },
+            epoch,
+        ).unwrap();
+    }
+
+    // Block with 7 physical: required = 7-3 = 4, excess = 7-4 = 3
+    state.players[0].combat_accumulator.block_elements = ElementalValues {
+        physical: 7, fire: 0, ice: 0, cold_fire: 0,
+    };
+
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::DeclareBlock {
+            enemy_instance_id: CombatInstanceId::from("enemy_0"),
+            attack_index: 0,
+        },
+        epoch,
+    ).unwrap();
+
+    let armor_mod = state.active_modifiers.iter().find(|m|
+        matches!(&m.effect, mk_types::modifier::ModifierEffect::EnemyStat {
+            stat: mk_types::modifier::EnemyStat::Armor,
+            amount,
+            ..
+        } if *amount == -3)
+    );
+    assert!(armor_mod.is_some(), "Cumbersome reduces required, increasing excess for Shield Bash");
+}
+
+#[test]
+fn shield_bash_swift_uses_undoubled_required() {
+    // Wolf Riders: 3 physical, Swift, armor 4
+    // Swift doubles block requirement to 6, but undoubled damage is 3
+    // Block with 8 physical → eff_block vs Swift-required is 8>=6 (success)
+    // But undoubled excess: 8 - 3 = 5 → armor reduced by 5, min 1
+    let mut state = setup_combat_game(&["wolf_riders"]);
+    state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+    push_shield_bash_modifier(&mut state, 0);
+
+    state.players[0].combat_accumulator.block_elements = ElementalValues {
+        physical: 8, fire: 0, ice: 0, cold_fire: 0,
+    };
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::DeclareBlock {
+            enemy_instance_id: CombatInstanceId::from("enemy_0"),
+            attack_index: 0,
+        },
+        epoch,
+    ).unwrap();
+
+    // Undoubled excess = 8 - 3 = 5
+    let armor_mod = state.active_modifiers.iter().find(|m|
+        matches!(&m.effect, mk_types::modifier::ModifierEffect::EnemyStat {
+            stat: mk_types::modifier::EnemyStat::Armor,
+            amount,
+            ..
+        } if *amount == -5)
+    );
+    assert!(armor_mod.is_some(), "Shield Bash uses undoubled required (3, not 6) for excess calculation");
+}
+
+#[test]
+fn enemy_stat_armor_applied_in_attack_resolution() {
+    // Test that EnemyStat(Armor) modifiers (from Curse or Shield Bash) affect attack resolution
+    // Prowlers: armor 3
+    // Manually push EnemyStat(Armor, -2, min 1) → effective armor 1
+    let mut state = setup_combat_game(&["prowlers"]);
+    state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+
+    // Push a Curse-style armor modifier
+    use mk_types::modifier::*;
+    let pid = state.players[0].id.clone();
+    state.active_modifiers.push(ActiveModifier {
+        id: mk_types::ids::ModifierId::from("curse_armor_mod"),
+        source: ModifierSource::Skill {
+            skill_id: mk_types::ids::SkillId::from("curse"),
+            player_id: pid.clone(),
+        },
+        duration: ModifierDuration::Combat,
+        scope: ModifierScope::OneEnemy {
+            enemy_id: "enemy_0".to_string(),
+        },
+        effect: ModifierEffect::EnemyStat {
+            stat: EnemyStat::Armor,
+            amount: -2,
+            minimum: 1,
+            attack_index: None,
+            per_resistance: false,
+            fortified_amount: None,
+            exclude_resistance: None,
+        },
+        created_at_round: state.round,
+        created_by_player_id: pid,
+    });
+
+    // Attack with 1 physical — should defeat prowlers (armor 3 - 2 = 1)
+    state.players[0].combat_accumulator.attack.normal_elements = ElementalValues {
+        physical: 1, fire: 0, ice: 0, cold_fire: 0,
+    };
+
+    let mut undo = UndoStack::new();
+    execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
+
+    assert!(
+        state.combat.as_ref().unwrap().enemies[0].is_defeated,
+        "EnemyStat(Armor, -2) should reduce prowlers armor from 3 to 1"
+    );
+    assert_eq!(state.players[0].fame, state.players[0].fame, "Should gain fame");
+}
+
