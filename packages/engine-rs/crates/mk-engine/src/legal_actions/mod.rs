@@ -24,7 +24,7 @@ mod explore;
 mod movement;
 mod pending;
 mod returnable_skills;
-mod sites;
+pub(crate) mod sites;
 mod skills;
 mod tactics;
 mod turn_options;

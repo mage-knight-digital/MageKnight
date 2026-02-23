@@ -289,7 +289,7 @@ define_vocab!(ENEMY_VOCAB, "enemy",
 );
 
 // =============================================================================
-// Action Type Vocabulary (74 entries)
+// Action Type Vocabulary (78 entries)
 // =============================================================================
 
 define_vocab!(ACTION_TYPE_VOCAB, "action_type",
@@ -303,8 +303,11 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
         "CONVERT_INFLUENCE_TO_BLOCK", "CONVERT_MOVE_TO_ATTACK",
         "DEBUG_ADD_FAME", "DEBUG_TRIGGER_LEVEL_UP",
         "DECLARE_ATTACK", "DECLARE_ATTACK_TARGETS", "DECLARE_BLOCK", "DECLARE_BLOCK_TARGET", "DECLARE_REST",
-        "DISBAND_UNIT", "END_COMBAT_PHASE", "END_TURN",
-        "ENTER_COMBAT", "ENTER_SITE", "EXPLORE", "FINALIZE_ATTACK", "FINALIZE_BLOCK", "INTERACT",
+        "DISBAND_UNIT", "DISBAND_UNIT_FOR_REWARD",
+        "END_COMBAT_PHASE", "END_TURN",
+        "ENTER_COMBAT", "ENTER_SITE", "EXPLORE",
+        "FINALIZE_ATTACK", "FINALIZE_BLOCK", "FORFEIT_UNIT_REWARD",
+        "INTERACT",
         "LEARN_ADVANCED", "LEARN_ADVANCED_ACTION", "MOVE",
         "PAY_HEROES_ASSAULT_INFLUENCE", "PAY_THUGS_DAMAGE_INFLUENCE",
         "DECLINE_PLUNDER",
@@ -313,7 +316,8 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
         "REROLL_SOURCE_DICE",
         "RESOLVE_BANNER_PROTECTION",
         "RESOLVE_BOOK_OF_WISDOM", "RESOLVE_CHOICE",
-        "RESOLVE_CRYSTAL_JOY_RECLAIM", "RESOLVE_DECOMPOSE",
+        "RESOLVE_CRYSTAL_JOY_RECLAIM", "RESOLVE_CRYSTAL_ROLL_COLOR",
+        "RESOLVE_DECOMPOSE",
         "RESOLVE_DEEP_MINE", "RESOLVE_DISCARD",
         "RESOLVE_DISCARD_FOR_BONUS",
         "RESOLVE_DISCARD_FOR_CRYSTAL", "RESOLVE_GLADE_WOUND",
@@ -324,7 +328,7 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
         "RESOLVE_UNIT_MAINTENANCE",
         "RESPOND_TO_COOPERATIVE_PROPOSAL",
         "REST", "RETURN_INTERACTIVE_SKILL",
-        "SELECT_REWARD", "SELECT_TACTIC",
+        "SELECT_ARTIFACT", "SELECT_REWARD", "SELECT_TACTIC",
         "SPEND_MOVE_ON_CUMBERSOME", "UNASSIGN_ATTACK", "UNASSIGN_BLOCK",
         "UNDO", "USE_BANNER_FEAR", "USE_SKILL",
     ],
@@ -339,10 +343,10 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
         "DEBUG_ADD_FAME", "DEBUG_TRIGGER_LEVEL_UP",
         "DECLARE_ATTACK", "DECLARE_ATTACK_TARGETS", "DECLARE_BLOCK",
         "DECLARE_BLOCK_TARGET", "DECLARE_REST",
-        "DECLINE_PLUNDER", "DISBAND_UNIT",
+        "DECLINE_PLUNDER", "DISBAND_UNIT", "DISBAND_UNIT_FOR_REWARD",
         "END_COMBAT_PHASE", "END_TURN",
         "ENTER_COMBAT", "ENTER_SITE", "EXPLORE",
-        "FINALIZE_ATTACK", "FINALIZE_BLOCK",
+        "FINALIZE_ATTACK", "FINALIZE_BLOCK", "FORFEIT_UNIT_REWARD",
         "INTERACT",
         "LEARN_ADVANCED", "LEARN_ADVANCED_ACTION",
         "MOVE",
@@ -353,7 +357,8 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
         "REROLL_SOURCE_DICE",
         "RESOLVE_BANNER_PROTECTION",
         "RESOLVE_BOOK_OF_WISDOM", "RESOLVE_CHOICE",
-        "RESOLVE_CRYSTAL_JOY_RECLAIM", "RESOLVE_DECOMPOSE",
+        "RESOLVE_CRYSTAL_JOY_RECLAIM", "RESOLVE_CRYSTAL_ROLL_COLOR",
+        "RESOLVE_DECOMPOSE",
         "RESOLVE_DEEP_MINE", "RESOLVE_DISCARD",
         "RESOLVE_DISCARD_FOR_BONUS",
         "RESOLVE_DISCARD_FOR_CRYSTAL", "RESOLVE_GLADE_WOUND",
@@ -364,7 +369,7 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
         "RESOLVE_UNIT_MAINTENANCE",
         "RESPOND_TO_COOPERATIVE_PROPOSAL",
         "REST", "RETURN_INTERACTIVE_SKILL",
-        "SELECT_REWARD", "SELECT_TACTIC",
+        "SELECT_ARTIFACT", "SELECT_REWARD", "SELECT_TACTIC",
         "SPEND_MOVE_ON_CUMBERSOME",
         "UNASSIGN_ATTACK", "UNASSIGN_BLOCK",
         "UNDO", "USE_BANNER_FEAR", "USE_SKILL",
@@ -372,15 +377,17 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
 );
 
 // =============================================================================
-// Mode Vocabulary (26 entries)
+// Mode Vocabulary (28 entries)
 // =============================================================================
 
 define_vocab!(MODE_VOCAB, "mode",
     ordered: [
         "cannot_act", "combat", "normal_turn",
+        "pending_artifact_selection",
         "pending_banner_protection",
         "pending_book_of_wisdom", "pending_choice",
-        "pending_crystal_joy_reclaim", "pending_decompose",
+        "pending_crystal_joy_reclaim", "pending_crystal_roll",
+        "pending_decompose",
         "pending_deep_mine", "pending_discard_cost",
         "pending_discard_for_bonus",
         "pending_discard_for_crystal", "pending_glade_wound",
@@ -395,9 +402,11 @@ define_vocab!(MODE_VOCAB, "mode",
     ],
     sorted: [
         "cannot_act", "combat", "normal_turn",
+        "pending_artifact_selection",
         "pending_banner_protection",
         "pending_book_of_wisdom", "pending_choice",
-        "pending_crystal_joy_reclaim", "pending_decompose",
+        "pending_crystal_joy_reclaim", "pending_crystal_roll",
+        "pending_decompose",
         "pending_deep_mine", "pending_discard_cost",
         "pending_discard_for_bonus",
         "pending_discard_for_crystal", "pending_glade_wound",
@@ -413,12 +422,12 @@ define_vocab!(MODE_VOCAB, "mode",
 );
 
 // =============================================================================
-// Source Vocabulary (96 entries)
+// Source Vocabulary (100 entries)
 // =============================================================================
 
 define_vocab!(SOURCE_VOCAB, "source",
     ordered: [
-        "artifact_crystal_color",
+        "artifact_crystal_color", "artifact_selection.card",
         "banner_protection.remove", "banner_protection.skip",
         "book_of_wisdom.card",
         "combat.assign_attack", "combat.assign_block",
@@ -435,6 +444,7 @@ define_vocab!(SOURCE_VOCAB, "source",
         "combat.skills.activate", "combat.units.activate",
         "combat.thugs_payment",
         "crystal_joy.card", "crystal_joy.skip",
+        "crystal_roll.color",
         "decompose.card", "deep_mine.color",
         "discard_cost.optional_skip", "discard_cost.required",
         "discard_for_attack.none", "discard_for_attack.one",
@@ -484,9 +494,10 @@ define_vocab!(SOURCE_VOCAB, "source",
         "training.card",
         "turn.end_turn", "turn.undo",
         "unit_maintenance.disband", "unit_maintenance.keep",
+        "unit_reward.disband", "unit_reward.forfeit",
     ],
     sorted: [
-        "artifact_crystal_color",
+        "artifact_crystal_color", "artifact_selection.card",
         "banner_protection.remove", "banner_protection.skip",
         "book_of_wisdom.card",
         "combat.assign_attack", "combat.assign_block",
@@ -504,6 +515,7 @@ define_vocab!(SOURCE_VOCAB, "source",
         "combat.thugs_payment",
         "combat.units.activate",
         "crystal_joy.card", "crystal_joy.skip",
+        "crystal_roll.color",
         "decompose.card", "deep_mine.color",
         "discard_cost.optional_skip", "discard_cost.required",
         "discard_for_attack.none", "discard_for_attack.one",
@@ -563,6 +575,7 @@ define_vocab!(SOURCE_VOCAB, "source",
         "training.card",
         "turn.end_turn", "turn.undo",
         "unit_maintenance.disband", "unit_maintenance.keep",
+        "unit_reward.disband", "unit_reward.forfeit",
     ],
 );
 
@@ -708,18 +721,18 @@ mod tests {
 
     #[test]
     fn action_type_vocab_size() {
-        assert_eq!(ACTION_TYPE_VOCAB.size(), 75); // 74 entries + UNK
+        assert_eq!(ACTION_TYPE_VOCAB.size(), 79); // 78 entries + UNK
     }
 
     #[test]
     fn mode_vocab_size() {
-        assert_eq!(MODE_VOCAB.size(), 27); // 26 entries + UNK
+        assert_eq!(MODE_VOCAB.size(), 29); // 28 entries + UNK
     }
 
     #[test]
     fn source_vocab_size() {
         // Count the ordered entries
-        assert_eq!(SOURCE_VOCAB.size(), 123); // 122 entries + UNK
+        assert_eq!(SOURCE_VOCAB.size(), 127); // 126 entries + UNK
     }
 
     #[test]

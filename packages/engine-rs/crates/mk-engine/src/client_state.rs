@@ -196,6 +196,8 @@ fn pending_label(active: &ActivePending) -> &'static str {
         ActivePending::SiteRewardChoice { .. } => "Select reward",
         ActivePending::TomeOfAllSpells(_) => "Tome of All Spells",
         ActivePending::CircletOfProficiency(_) => "Circlet of Proficiency",
+        ActivePending::ArtifactSelection(_) => "Select artifact to keep",
+        ActivePending::CrystalRollColorChoice { .. } => "Choose crystal color",
     }
 }
 

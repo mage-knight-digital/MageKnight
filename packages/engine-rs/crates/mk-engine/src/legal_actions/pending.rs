@@ -382,6 +382,39 @@ pub(super) fn enumerate_pending(
                 }
             }
         }
+        ActivePending::ArtifactSelection(ref selection) => {
+            // One SelectArtifact per choice card
+            for card_id in &selection.choices {
+                actions.push(LegalAction::SelectArtifact {
+                    card_id: card_id.clone(),
+                });
+            }
+        }
+        ActivePending::CrystalRollColorChoice { .. } => {
+            // Player picks a crystal color (filtered by cap)
+            let player = &state.players[player_idx];
+            let max = crate::mana::MAX_CRYSTALS_PER_COLOR;
+            if player.crystals.red < max {
+                actions.push(LegalAction::ResolveCrystalRollColor {
+                    color: mk_types::enums::BasicManaColor::Red,
+                });
+            }
+            if player.crystals.blue < max {
+                actions.push(LegalAction::ResolveCrystalRollColor {
+                    color: mk_types::enums::BasicManaColor::Blue,
+                });
+            }
+            if player.crystals.green < max {
+                actions.push(LegalAction::ResolveCrystalRollColor {
+                    color: mk_types::enums::BasicManaColor::Green,
+                });
+            }
+            if player.crystals.white < max {
+                actions.push(LegalAction::ResolveCrystalRollColor {
+                    color: mk_types::enums::BasicManaColor::White,
+                });
+            }
+        }
         ActivePending::Discard(_) | ActivePending::DiscardForCrystal(_) => {
             // These pending states have dedicated handling through
             // ResolveChoice/ResolveDiscardForCrystal actions, not via this function.
@@ -476,12 +509,14 @@ fn enumerate_site_reward_choice(
     state: &mk_types::state::GameState,
     actions: &mut Vec<LegalAction>,
 ) {
+    let player_idx = state.current_player_index as usize;
     match reward {
         SiteReward::Spell { .. } => {
             for (idx, card_id) in state.offers.spells.iter().enumerate() {
                 actions.push(LegalAction::SelectReward {
                     card_id: card_id.clone(),
                     reward_index: idx,
+                    unit_id: None,
                 });
             }
         }
@@ -490,11 +525,40 @@ fn enumerate_site_reward_choice(
                 actions.push(LegalAction::SelectReward {
                     card_id: card_id.clone(),
                     reward_index: idx,
+                    unit_id: None,
                 });
             }
         }
+        SiteReward::Unit => {
+            let player = &state.players[player_idx];
+            let available_slots = (player.command_tokens as usize).saturating_sub(player.units.len());
+
+            if available_slots > 0 {
+                // Has room: offer each unit from the offer
+                for (idx, unit_id) in state.offers.units.iter().enumerate() {
+                    actions.push(LegalAction::SelectReward {
+                        card_id: mk_types::ids::CardId::from(unit_id.as_str()),
+                        reward_index: idx,
+                        unit_id: Some(unit_id.clone()),
+                    });
+                }
+            } else {
+                // No room: must disband an existing unit to take reward, or forfeit
+                for existing_unit in &player.units {
+                    for offer_unit_id in &state.offers.units {
+                        actions.push(LegalAction::DisbandUnitForReward {
+                            unit_instance_id: existing_unit.instance_id.clone(),
+                            reward_unit_id: offer_unit_id.clone(),
+                        });
+                    }
+                }
+            }
+
+            // Always can forfeit
+            actions.push(LegalAction::ForfeitUnitReward);
+        }
         _ => {
-            // CrystalRoll, Artifact, Fame, Unit, Compound should be auto-resolved,
+            // CrystalRoll, Artifact, Fame, DungeonRoll, Compound should be auto-resolved,
             // not presented as choices. This arm should never be reached.
             panic!(
                 "enumerate_site_reward_choice: unexpected reward type at index {}: {:?}",

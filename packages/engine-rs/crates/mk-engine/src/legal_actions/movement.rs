@@ -1,7 +1,9 @@
 use mk_types::hex::HexDirection;
 use mk_types::legal_action::LegalAction;
+use mk_types::modifier::RuleOverride;
 use mk_types::state::{GameState, PlayerFlags};
 
+use crate::card_play::is_rule_active;
 use crate::movement::evaluate_move_entry;
 
 use super::utils::must_slow_recover;
@@ -70,17 +72,38 @@ pub(super) fn enumerate_moves(
     let pos = player.position.unwrap();
     let mut targets = Vec::new();
 
-    for dir in &HexDirection::ALL {
-        let neighbor = pos.neighbor(*dir);
-        let entry = evaluate_move_entry(state, player_idx, neighbor);
+    let space_bending = is_rule_active(state, player_idx, RuleOverride::SpaceBendingAdjacency);
 
-        if entry.block_reason.is_some() {
-            continue;
+    if space_bending {
+        // SpaceBendingAdjacency: can move to any passable hex on the map.
+        for hex_state in state.map.hexes.values() {
+            let coord = hex_state.coord;
+            if coord == pos {
+                continue; // Can't move to current position
+            }
+            let entry = evaluate_move_entry(state, player_idx, coord);
+            if entry.block_reason.is_some() {
+                continue;
+            }
+            if let Some(cost) = entry.cost {
+                if player.move_points >= cost {
+                    targets.push((coord, cost));
+                }
+            }
         }
+    } else {
+        for dir in &HexDirection::ALL {
+            let neighbor = pos.neighbor(*dir);
+            let entry = evaluate_move_entry(state, player_idx, neighbor);
 
-        if let Some(cost) = entry.cost {
-            if player.move_points >= cost {
-                targets.push((neighbor, cost));
+            if entry.block_reason.is_some() {
+                continue;
+            }
+
+            if let Some(cost) = entry.cost {
+                if player.move_points >= cost {
+                    targets.push((neighbor, cost));
+                }
             }
         }
     }

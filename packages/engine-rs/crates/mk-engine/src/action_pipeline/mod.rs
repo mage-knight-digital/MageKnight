@@ -550,10 +550,10 @@ pub fn apply_legal_action(
             sites::apply_burn_monastery(state, player_idx)?
         }
 
-        LegalAction::SelectReward { card_id, .. } => {
+        LegalAction::SelectReward { card_id, unit_id, .. } => {
             // Irreversible: modifies offers
             undo_stack.set_checkpoint();
-            sites::apply_select_reward(state, player_idx, card_id)?
+            sites::apply_select_reward(state, player_idx, card_id, unit_id.as_ref())?
         }
 
         LegalAction::AltarTribute { mana_sources } => {
@@ -639,6 +639,31 @@ pub fn apply_legal_action(
         LegalAction::ResolveTerrainCostReduction { terrain } => {
             undo_stack.save(state);
             conversions::apply_resolve_terrain_cost_reduction(state, player_idx, *terrain)?
+        }
+
+        LegalAction::ResolveCrystalRollColor { color } => {
+            // Irreversible: RNG consumed
+            undo_stack.set_checkpoint();
+            sites::apply_resolve_crystal_roll_color(state, player_idx, *color)?
+        }
+
+        LegalAction::SelectArtifact { card_id } => {
+            // Irreversible: modifies offers
+            undo_stack.set_checkpoint();
+            sites::apply_select_artifact(state, player_idx, card_id)?
+        }
+
+        LegalAction::ForfeitUnitReward => {
+            undo_stack.set_checkpoint();
+            sites::apply_forfeit_unit_reward(state, player_idx)?
+        }
+
+        LegalAction::DisbandUnitForReward {
+            unit_instance_id,
+            reward_unit_id,
+        } => {
+            undo_stack.set_checkpoint();
+            sites::apply_disband_unit_for_reward(state, player_idx, unit_instance_id, reward_unit_id)?
         }
     };
 

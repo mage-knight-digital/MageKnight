@@ -362,7 +362,18 @@ pub(crate) fn is_attack_subset_sufficient(
         ),
     };
 
-    let available = subtract_elements(total_elements, assigned_elements);
+    let mut available = subtract_elements(total_elements, assigned_elements);
+
+    // Hook: DoublePhysicalAttacks (Sword of Justice powered) — must match apply_declare_attack_inner
+    let player_id = &state.players[player_idx].id;
+    if state.active_modifiers.iter().any(|m| {
+        matches!(&m.effect, mk_types::modifier::ModifierEffect::DoublePhysicalAttacks)
+            && matches!(&m.source, mk_types::modifier::ModifierSource::Card { player_id: pid, .. }
+                | mk_types::modifier::ModifierSource::Skill { player_id: pid, .. }
+                if pid == player_id)
+    }) {
+        available.physical *= 2;
+    }
 
     // Resolve selected pool indices → actual instance IDs
     let mut target_ids: Vec<mk_types::ids::CombatInstanceId> = Vec::new();

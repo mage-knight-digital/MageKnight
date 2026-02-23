@@ -565,6 +565,19 @@ pub struct PendingCircletOfProficiency {
     pub available_skills: Vec<SkillId>,
 }
 
+/// Pending artifact selection — draw N+1 artifacts, keep N.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PendingArtifactSelection {
+    pub choices: ArrayVec<CardId, 4>,
+    /// How many artifacts to keep (default 1).
+    #[serde(default = "default_keep_count")]
+    pub keep_count: usize,
+}
+
+fn default_keep_count() -> usize {
+    1
+}
+
 /// Level-up reward for even levels.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PendingLevelUpReward {
@@ -699,6 +712,8 @@ pub enum SiteReward {
     Fame { amount: u32 },
     Unit,
     Compound { rewards: Vec<SiteReward> },
+    /// Dungeon conquest: roll a mana die — gold/black → Spell, basic color → Artifact.
+    DungeonRoll,
 }
 
 // =============================================================================
@@ -749,6 +764,8 @@ pub enum ActivePending {
     },
     TomeOfAllSpells(PendingTomeOfAllSpells),
     CircletOfProficiency(PendingCircletOfProficiency),
+    /// Draw N+1 artifacts, player picks N to keep.
+    ArtifactSelection(PendingArtifactSelection),
     /// Unit ability that targets a combat enemy (cancel attack, weaken, freeze, etc.).
     SelectCombatEnemy {
         /// None for card-sourced, Some for unit-sourced.
@@ -757,6 +774,10 @@ pub enum ActivePending {
         template: SelectEnemyTemplate,
         /// Remaining effect queue entries to replay after resolution.
         continuation: Vec<ContinuationEntry>,
+    },
+    /// Crystal roll came up gold — player chooses which color crystal to gain.
+    CrystalRollColorChoice {
+        remaining_rolls: u32,
     },
 }
 

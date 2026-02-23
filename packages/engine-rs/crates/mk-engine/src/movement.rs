@@ -24,6 +24,7 @@ use mk_types::hex::{HexCoord, HexDirection, TILE_HEX_OFFSETS, TILE_PLACEMENT_OFF
 use mk_types::ids::*;
 use mk_types::state::*;
 
+use crate::card_play::is_rule_active;
 use crate::combat;
 use crate::combat::CombatError;
 
@@ -227,7 +228,7 @@ pub fn get_effective_explore_cost(
 /// 3. No rampaging enemies blocking entry (both type slots AND drawn tokens present)
 pub fn evaluate_move_entry(
     state: &GameState,
-    _player_idx: usize,
+    player_idx: usize,
     coord: HexCoord,
 ) -> MoveEntryResult {
     // 1. Check hex exists
@@ -252,8 +253,11 @@ pub fn evaluate_move_entry(
 
     // 3. Check rampaging enemies
     // Both rampaging_enemies (type slots from tile) and enemies (drawn tokens) must be non-empty.
-    // TODO: check for RULE_IGNORE_RAMPAGING_PROVOKE modifier
-    if !hex.rampaging_enemies.is_empty() && !hex.enemies.is_empty() {
+    // IgnoreRampagingProvoke bypasses the rampaging block entirely.
+    if !hex.rampaging_enemies.is_empty()
+        && !hex.enemies.is_empty()
+        && !is_rule_active(state, player_idx, mk_types::modifier::RuleOverride::IgnoreRampagingProvoke)
+    {
         return MoveEntryResult::blocked(MoveBlockReason::Rampaging);
     }
 
@@ -288,11 +292,16 @@ pub fn evaluate_move_entry(
 ///
 /// When a player moves from hex A to hex B, any hex C that neighbors both A and B
 /// and contains active rampaging enemies will provoke those enemies ("skirting").
+/// Returns empty when IgnoreRampagingProvoke is active.
 pub fn find_provoked_rampaging_enemies(
     state: &GameState,
+    player_idx: usize,
     from: HexCoord,
     to: HexCoord,
 ) -> Vec<HexCoord> {
+    if is_rule_active(state, player_idx, mk_types::modifier::RuleOverride::IgnoreRampagingProvoke) {
+        return Vec::new();
+    }
     let from_neighbors = from.neighbors();
     let to_neighbors = to.neighbors();
 
@@ -462,21 +471,43 @@ fn enter_assault_combat(
 
 /// Reveal face-down garrison enemies at fortified sites newly adjacent to the player.
 ///
-/// During daytime only: checks hexes within distance 1 of `to` that were NOT
-/// within distance 1 of `from`. For any fortified site with unrevealed enemies,
-/// sets all enemies to revealed.
-fn reveal_garrison_at_adjacent_sites(state: &mut GameState, from: HexCoord, to: HexCoord) {
+/// During daytime only: checks hexes within reveal distance of `to` that were NOT
+/// within reveal distance of `from`. Default distance is 1; GarrisonRevealDistance2
+/// extends it to 2.
+fn reveal_garrison_at_adjacent_sites(
+    state: &mut GameState,
+    player_idx: usize,
+    from: HexCoord,
+    to: HexCoord,
+) {
     if state.time_of_day != TimeOfDay::Day {
         return;
     }
 
-    let to_neighbors = to.neighbors();
-    let from_neighbors_set: Vec<(i32, i32)> =
-        from.neighbors().iter().map(|c| (c.q, c.r)).collect();
+    let distance_2 = is_rule_active(
+        state,
+        player_idx,
+        mk_types::modifier::RuleOverride::GarrisonRevealDistance2,
+    );
 
-    for neighbor in &to_neighbors {
-        // Skip hexes that were already adjacent before the move
-        if from_neighbors_set.contains(&(neighbor.q, neighbor.r)) {
+    let to_hexes: Vec<HexCoord> = if distance_2 {
+        to.hexes_within_distance_2()
+    } else {
+        to.neighbors().to_vec()
+    };
+
+    let from_set: Vec<(i32, i32)> = if distance_2 {
+        from.hexes_within_distance_2()
+            .iter()
+            .map(|c| (c.q, c.r))
+            .collect()
+    } else {
+        from.neighbors().iter().map(|c| (c.q, c.r)).collect()
+    };
+
+    for neighbor in &to_hexes {
+        // Skip hexes that were already within reveal distance before the move
+        if from_set.contains(&(neighbor.q, neighbor.r)) {
             continue;
         }
 
@@ -523,8 +554,10 @@ pub fn execute_move(
         .position
         .ok_or(MoveError::NoPosition)?;
 
-    // Must be adjacent (distance 1)
-    if from.distance(target) != 1 {
+    // Must be adjacent (distance 1), unless SpaceBendingAdjacency is active.
+    if !is_rule_active(state, player_idx, mk_types::modifier::RuleOverride::SpaceBendingAdjacency)
+        && from.distance(target) != 1
+    {
         return Err(MoveError::NotAdjacent);
     }
 
@@ -541,7 +574,7 @@ pub fn execute_move(
     }
 
     // Detect provocation before mutating state
-    let provoked_hexes = find_provoked_rampaging_enemies(state, from, target);
+    let provoked_hexes = find_provoked_rampaging_enemies(state, player_idx, from, target);
     let provocation = if provoked_hexes.is_empty() {
         None
     } else {
@@ -614,6 +647,9 @@ pub fn execute_move(
                 target,
             )
             .map_err(MoveError::CombatFailed)?;
+
+            // Rule 4a: Entering an unconquered fortified site immediately ends movement.
+            state.players[player_idx].move_points = 0;
         }
     } else if let Some(provoked_hex) = provocation.as_ref().and_then(|p| p.provoked_hexes.first())
     {
@@ -630,10 +666,13 @@ pub fn execute_move(
             Default::default(),
         )
         .map_err(MoveError::CombatFailed)?;
+
+        // Rule 4c: Provocation immediately ends movement.
+        state.players[player_idx].move_points = 0;
     }
 
     // During daytime, reveal face-down enemies at newly adjacent fortified sites
-    reveal_garrison_at_adjacent_sites(state, from, target);
+    reveal_garrison_at_adjacent_sites(state, player_idx, from, target);
 
     // Ruins token reveal: entering a hex with face-down ruins token reveals it
     if let Some(hex) = state.map.hexes.get_mut(&target.key()) {
@@ -939,7 +978,14 @@ pub fn execute_explore(
     // Draw ruins tokens for ancient ruins hexes on the new tile
     draw_ruins_tokens_on_tile(state, new_center, tile_hexes);
 
-    // TODO: monastery AA reveals
+    // Draw 1 Advanced Action per monastery on the new tile.
+    for tile_hex in tile_hexes {
+        if tile_hex.site_type == Some(SiteType::Monastery) {
+            if let Some(card_id) = state.decks.advanced_action_deck.pop() {
+                state.offers.monastery_advanced_actions.push(card_id);
+            }
+        }
+    }
 
     // Fame award for exploring (scenarioConfig.famePerTileExplored)
     let fame = state.scenario_config.fame_per_tile_explored;
@@ -1872,6 +1918,534 @@ mod tests {
         assert_eq!(
             state.players[0].reputation, -7,
             "Reputation should not go below -7"
+        );
+    }
+
+    // ===========================================================================
+    // Helper: add a RuleOverride modifier for the current player
+    // ===========================================================================
+
+    fn add_rule_override(state: &mut GameState, rule: mk_types::modifier::RuleOverride) {
+        use mk_types::modifier::*;
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("test_rule"),
+            source: ModifierSource::Card {
+                card_id: CardId::from("test_card"),
+                player_id: state.players[0].id.clone(),
+            },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::RuleOverride { rule },
+            created_at_round: 0,
+            created_by_player_id: state.players[0].id.clone(),
+        });
+    }
+
+    // ===========================================================================
+    // Step 1: IgnoreRampagingProvoke tests
+    // ===========================================================================
+
+    #[test]
+    fn ignore_rampaging_allows_entry_into_rampaging_hex() {
+        let mut state = setup_game_with_move_points(10);
+        // Add rampaging enemy on E hex (1,0)
+        let hex = state.map.hexes.get_mut("1,0").unwrap();
+        hex.rampaging_enemies.push(RampagingEnemyType::OrcMarauder);
+        hex.enemies.push(HexEnemy {
+            token_id: EnemyTokenId::from("prowlers_1"),
+            color: EnemyColor::Green,
+            is_revealed: true,
+        });
+
+        add_rule_override(
+            &mut state,
+            mk_types::modifier::RuleOverride::IgnoreRampagingProvoke,
+        );
+
+        let entry = evaluate_move_entry(&state, 0, HexCoord::new(1, 0));
+        assert!(
+            entry.is_passable(),
+            "Should be passable with IgnoreRampagingProvoke"
+        );
+    }
+
+    #[test]
+    fn ignore_rampaging_no_provocation_when_skirting() {
+        let mut state = setup_game_with_move_points(10);
+        // Place rampaging enemy on NW hex (0,-1)
+        let hex = state.map.hexes.get_mut("0,-1").unwrap();
+        hex.rampaging_enemies.push(RampagingEnemyType::OrcMarauder);
+        hex.enemies.push(HexEnemy {
+            token_id: EnemyTokenId::from("prowlers_1"),
+            color: EnemyColor::Green,
+            is_revealed: true,
+        });
+
+        add_rule_override(
+            &mut state,
+            mk_types::modifier::RuleOverride::IgnoreRampagingProvoke,
+        );
+
+        // Move from (0,0) to NE (1,-1) — would normally provoke
+        let result = execute_move(&mut state, 0, HexCoord::new(1, -1)).unwrap();
+        assert!(
+            result.provocation.is_none(),
+            "No provocation with IgnoreRampagingProvoke"
+        );
+        assert!(state.combat.is_none(), "No combat should be triggered");
+    }
+
+    #[test]
+    fn ignore_rampaging_can_move_through_rampaging_hex() {
+        let mut state = setup_game_with_move_points(10);
+        // Add rampaging enemy on E hex (1,0)
+        let hex = state.map.hexes.get_mut("1,0").unwrap();
+        hex.rampaging_enemies.push(RampagingEnemyType::OrcMarauder);
+        hex.enemies.push(HexEnemy {
+            token_id: EnemyTokenId::from("prowlers_1"),
+            color: EnemyColor::Green,
+            is_revealed: true,
+        });
+
+        add_rule_override(
+            &mut state,
+            mk_types::modifier::RuleOverride::IgnoreRampagingProvoke,
+        );
+
+        // Should succeed — rampaging block is bypassed
+        let result = execute_move(&mut state, 0, HexCoord::new(1, 0)).unwrap();
+        assert_eq!(state.players[0].position, Some(HexCoord::new(1, 0)));
+        assert!(!result.assault);
+        assert!(state.combat.is_none());
+    }
+
+    #[test]
+    fn rampaging_still_blocks_without_modifier() {
+        let mut state = setup_game_with_move_points(10);
+        let hex = state.map.hexes.get_mut("1,0").unwrap();
+        hex.rampaging_enemies.push(RampagingEnemyType::OrcMarauder);
+        hex.enemies.push(HexEnemy {
+            token_id: EnemyTokenId::from("prowlers_1"),
+            color: EnemyColor::Green,
+            is_revealed: true,
+        });
+
+        // No modifier — rampaging should still block
+        let entry = evaluate_move_entry(&state, 0, HexCoord::new(1, 0));
+        assert!(!entry.is_passable());
+        assert_eq!(entry.block_reason, Some(MoveBlockReason::Rampaging));
+    }
+
+    #[test]
+    fn ignore_rampaging_assault_still_merges_provoked_but_empty() {
+        let mut state = setup_game_with_move_points(10);
+
+        // Place Keep on NE hex (1,-1)
+        let hex = state.map.hexes.get_mut("1,-1").unwrap();
+        hex.site = Some(Site {
+            site_type: SiteType::Keep,
+            owner: None,
+            is_conquered: false,
+            is_burned: false,
+            city_color: None,
+            mine_color: None,
+            deep_mine_colors: None,
+        });
+        hex.enemies.push(HexEnemy {
+            token_id: EnemyTokenId::from("guardsmen_1"),
+            color: EnemyColor::Gray,
+            is_revealed: false,
+        });
+
+        // Place rampaging on NW (0,-1) — would normally be provoked
+        let hex_nw = state.map.hexes.get_mut("0,-1").unwrap();
+        hex_nw
+            .rampaging_enemies
+            .push(RampagingEnemyType::OrcMarauder);
+        hex_nw.enemies.push(HexEnemy {
+            token_id: EnemyTokenId::from("prowlers_1"),
+            color: EnemyColor::Green,
+            is_revealed: true,
+        });
+
+        add_rule_override(
+            &mut state,
+            mk_types::modifier::RuleOverride::IgnoreRampagingProvoke,
+        );
+
+        // Assault + no provocation → only site defender in combat
+        let result = execute_move(&mut state, 0, HexCoord::new(1, -1)).unwrap();
+        assert!(result.assault);
+        assert!(
+            result.provocation.is_none(),
+            "No provocation with IgnoreRampagingProvoke"
+        );
+        let combat = state.combat.as_ref().unwrap();
+        assert_eq!(
+            combat.enemies.len(),
+            1,
+            "Only site defender, no provoked enemies"
+        );
+    }
+
+    // ===========================================================================
+    // Step 2: Assault/provocation ends remaining movement
+    // ===========================================================================
+
+    #[test]
+    fn assault_zeroes_move_points() {
+        let mut state = setup_game_with_move_points(10);
+        place_keep_at_e(&mut state);
+
+        execute_move(&mut state, 0, HexCoord::new(1, 0)).unwrap();
+
+        assert_eq!(
+            state.players[0].move_points, 0,
+            "Assault should zero remaining move points"
+        );
+    }
+
+    #[test]
+    fn provocation_zeroes_move_points() {
+        let mut state = setup_game_with_move_points(10);
+        let hex = state.map.hexes.get_mut("0,-1").unwrap();
+        hex.rampaging_enemies.push(RampagingEnemyType::OrcMarauder);
+        hex.enemies.push(HexEnemy {
+            token_id: EnemyTokenId::from("prowlers_1"),
+            color: EnemyColor::Green,
+            is_revealed: true,
+        });
+
+        // Move from (0,0) to NE (1,-1) — provokes combat
+        execute_move(&mut state, 0, HexCoord::new(1, -1)).unwrap();
+
+        assert_eq!(
+            state.players[0].move_points, 0,
+            "Provocation should zero remaining move points"
+        );
+    }
+
+    #[test]
+    fn normal_move_preserves_remaining_points() {
+        let mut state = setup_game_with_move_points(10);
+        // Plains (cost 2) — no assault, no provocation
+        execute_move(&mut state, 0, HexCoord::new(1, 0)).unwrap();
+
+        assert_eq!(
+            state.players[0].move_points, 8,
+            "Normal move should only deduct terrain cost"
+        );
+    }
+
+    // ===========================================================================
+    // Step 3: SpaceBendingAdjacency tests
+    // ===========================================================================
+
+    #[test]
+    fn space_bending_allows_distant_move() {
+        let mut state = setup_game_with_move_points(10);
+        // Explore a tile to have distant hexes
+        state.players[0].position = Some(HexCoord::new(1, -1));
+        state.map.tile_deck.countryside.push(TileId::Countryside1);
+        execute_explore(&mut state, 0, HexDirection::E).unwrap();
+        state.players[0].position = Some(HexCoord::new(0, 0));
+        state.players[0].move_points = 10;
+
+        add_rule_override(
+            &mut state,
+            mk_types::modifier::RuleOverride::SpaceBendingAdjacency,
+        );
+
+        // Move to a distant hex on the new tile (e.g., center at (3,-2))
+        let result = execute_move(&mut state, 0, HexCoord::new(3, -2));
+        assert!(result.is_ok(), "SpaceBending should allow distant moves");
+        assert_eq!(state.players[0].position, Some(HexCoord::new(3, -2)));
+    }
+
+    #[test]
+    fn no_space_bending_rejects_distant_move() {
+        let mut state = setup_game_with_move_points(10);
+        // Explore a tile
+        state.players[0].position = Some(HexCoord::new(1, -1));
+        state.map.tile_deck.countryside.push(TileId::Countryside1);
+        execute_explore(&mut state, 0, HexDirection::E).unwrap();
+        state.players[0].position = Some(HexCoord::new(0, 0));
+        state.players[0].move_points = 10;
+
+        // No modifier — distant moves should be rejected
+        let result = execute_move(&mut state, 0, HexCoord::new(3, -2));
+        assert_eq!(result.unwrap_err(), MoveError::NotAdjacent);
+    }
+
+    #[test]
+    fn space_bending_still_checks_passability() {
+        let mut state = setup_game_with_move_points(10);
+        // Lake at (-1,0) — impassable even with SpaceBending
+        add_rule_override(
+            &mut state,
+            mk_types::modifier::RuleOverride::SpaceBendingAdjacency,
+        );
+
+        let result = execute_move(&mut state, 0, HexCoord::new(-1, 0));
+        assert_eq!(
+            result.unwrap_err(),
+            MoveError::Blocked(MoveBlockReason::Impassable)
+        );
+    }
+
+    // ===========================================================================
+    // Step 5: GarrisonRevealDistance2 tests
+    // ===========================================================================
+
+    #[test]
+    fn garrison_revealed_at_distance_2_with_modifier() {
+        let mut state = setup_game_with_move_points(10);
+        state.time_of_day = TimeOfDay::Day;
+
+        // Place a Keep at (2,-1) — distance 2 from (0,0)
+        state.map.hexes.insert(
+            "2,-1".to_string(),
+            HexState {
+                coord: HexCoord::new(2, -1),
+                terrain: Terrain::Plains,
+                tile_id: TileId::Countryside3,
+                site: Some(Site {
+                    site_type: SiteType::Keep,
+                    owner: None,
+                    is_conquered: false,
+                    is_burned: false,
+                    city_color: None,
+                    mine_color: None,
+                    deep_mine_colors: None,
+                }),
+                rampaging_enemies: ArrayVec::new(),
+                enemies: {
+                    let mut e = ArrayVec::new();
+                    e.push(HexEnemy {
+                        token_id: EnemyTokenId::from("guardsmen_2"),
+                        color: EnemyColor::Gray,
+                        is_revealed: false,
+                    });
+                    e
+                },
+                ruins_token: None,
+                shield_tokens: Vec::new(),
+            },
+        );
+
+        // Also place a Keep at (2,0) — distance 2 from (1,0), but NOT adjacent-1 to (1,0)
+        // Actually, (2,0) IS distance 1 from (1,0). Let's use (3,-1) which is distance 2 from (1,0).
+        state.map.hexes.insert(
+            "3,-1".to_string(),
+            HexState {
+                coord: HexCoord::new(3, -1),
+                terrain: Terrain::Plains,
+                tile_id: TileId::Countryside3,
+                site: Some(Site {
+                    site_type: SiteType::Keep,
+                    owner: None,
+                    is_conquered: false,
+                    is_burned: false,
+                    city_color: None,
+                    mine_color: None,
+                    deep_mine_colors: None,
+                }),
+                rampaging_enemies: ArrayVec::new(),
+                enemies: {
+                    let mut e = ArrayVec::new();
+                    e.push(HexEnemy {
+                        token_id: EnemyTokenId::from("guardsmen_3"),
+                        color: EnemyColor::Gray,
+                        is_revealed: false,
+                    });
+                    e
+                },
+                ruins_token: None,
+                shield_tokens: Vec::new(),
+            },
+        );
+
+        add_rule_override(
+            &mut state,
+            mk_types::modifier::RuleOverride::GarrisonRevealDistance2,
+        );
+
+        // Move from (0,0) to E (1,0). Keep at (3,-1) is distance 2 from (1,0).
+        execute_move(&mut state, 0, HexCoord::new(1, 0)).unwrap();
+
+        let keep_hex = state.map.hexes.get("3,-1").unwrap();
+        assert!(
+            keep_hex.enemies[0].is_revealed,
+            "Garrison at distance 2 should be revealed with GarrisonRevealDistance2"
+        );
+    }
+
+    #[test]
+    fn garrison_not_revealed_at_distance_2_without_modifier() {
+        let mut state = setup_game_with_move_points(10);
+        state.time_of_day = TimeOfDay::Day;
+
+        // Place a Keep at (3,-1) — distance 2 from (1,0)
+        state.map.hexes.insert(
+            "3,-1".to_string(),
+            HexState {
+                coord: HexCoord::new(3, -1),
+                terrain: Terrain::Plains,
+                tile_id: TileId::Countryside3,
+                site: Some(Site {
+                    site_type: SiteType::Keep,
+                    owner: None,
+                    is_conquered: false,
+                    is_burned: false,
+                    city_color: None,
+                    mine_color: None,
+                    deep_mine_colors: None,
+                }),
+                rampaging_enemies: ArrayVec::new(),
+                enemies: {
+                    let mut e = ArrayVec::new();
+                    e.push(HexEnemy {
+                        token_id: EnemyTokenId::from("guardsmen_3"),
+                        color: EnemyColor::Gray,
+                        is_revealed: false,
+                    });
+                    e
+                },
+                ruins_token: None,
+                shield_tokens: Vec::new(),
+            },
+        );
+
+        // No modifier — garrison at distance 2 should stay hidden
+        execute_move(&mut state, 0, HexCoord::new(1, 0)).unwrap();
+
+        let keep_hex = state.map.hexes.get("3,-1").unwrap();
+        assert!(
+            !keep_hex.enemies[0].is_revealed,
+            "Garrison at distance 2 should NOT be revealed without modifier"
+        );
+    }
+
+    #[test]
+    fn garrison_not_revealed_at_night_with_distance2_modifier() {
+        let mut state = setup_game_with_move_points(10);
+        state.time_of_day = TimeOfDay::Night;
+
+        state.map.hexes.insert(
+            "2,-1".to_string(),
+            HexState {
+                coord: HexCoord::new(2, -1),
+                terrain: Terrain::Plains,
+                tile_id: TileId::Countryside3,
+                site: Some(Site {
+                    site_type: SiteType::Keep,
+                    owner: None,
+                    is_conquered: false,
+                    is_burned: false,
+                    city_color: None,
+                    mine_color: None,
+                    deep_mine_colors: None,
+                }),
+                rampaging_enemies: ArrayVec::new(),
+                enemies: {
+                    let mut e = ArrayVec::new();
+                    e.push(HexEnemy {
+                        token_id: EnemyTokenId::from("guardsmen_2"),
+                        color: EnemyColor::Gray,
+                        is_revealed: false,
+                    });
+                    e
+                },
+                ruins_token: None,
+                shield_tokens: Vec::new(),
+            },
+        );
+
+        add_rule_override(
+            &mut state,
+            mk_types::modifier::RuleOverride::GarrisonRevealDistance2,
+        );
+
+        execute_move(&mut state, 0, HexCoord::new(1, 0)).unwrap();
+
+        let keep_hex = state.map.hexes.get("2,-1").unwrap();
+        assert!(
+            !keep_hex.enemies[0].is_revealed,
+            "Garrison should NOT be revealed at night regardless of modifier"
+        );
+    }
+
+    // ===========================================================================
+    // Step 6: Monastery AA on tile explore
+    // ===========================================================================
+
+    #[test]
+    fn explore_monastery_draws_aa_to_offer() {
+        let mut state = setup_game_with_move_points(5);
+        move_to_east_edge(&mut state);
+        // Countryside 5 has a Monastery on NE
+        state.map.tile_deck.countryside.push(TileId::Countryside5);
+        // Seed the AA deck
+        state
+            .decks
+            .advanced_action_deck
+            .push(CardId::from("crystal_mastery"));
+        state
+            .decks
+            .advanced_action_deck
+            .push(CardId::from("power_of_crystals"));
+
+        let initial_monastery_count = state.offers.monastery_advanced_actions.len();
+
+        execute_explore(&mut state, 0, HexDirection::E).unwrap();
+
+        assert_eq!(
+            state.offers.monastery_advanced_actions.len(),
+            initial_monastery_count + 1,
+            "Exploring tile with monastery should draw 1 AA"
+        );
+    }
+
+    #[test]
+    fn explore_no_monastery_no_aa_drawn() {
+        let mut state = setup_game_with_move_points(5);
+        move_to_east_edge(&mut state);
+        // Countryside 1 has no monastery
+        state.map.tile_deck.countryside.push(TileId::Countryside1);
+        state
+            .decks
+            .advanced_action_deck
+            .push(CardId::from("crystal_mastery"));
+
+        let initial_count = state.offers.monastery_advanced_actions.len();
+
+        execute_explore(&mut state, 0, HexDirection::E).unwrap();
+
+        assert_eq!(
+            state.offers.monastery_advanced_actions.len(),
+            initial_count,
+            "Exploring tile without monastery should not draw AA"
+        );
+    }
+
+    #[test]
+    fn explore_monastery_empty_deck_no_panic() {
+        let mut state = setup_game_with_move_points(5);
+        move_to_east_edge(&mut state);
+        // Countryside 5 has a Monastery
+        state.map.tile_deck.countryside.push(TileId::Countryside5);
+        // AA deck is empty
+        state.decks.advanced_action_deck.clear();
+
+        let initial_count = state.offers.monastery_advanced_actions.len();
+
+        // Should not panic
+        execute_explore(&mut state, 0, HexDirection::E).unwrap();
+
+        assert_eq!(
+            state.offers.monastery_advanced_actions.len(),
+            initial_count,
+            "No AA drawn when deck is empty"
         );
     }
 }

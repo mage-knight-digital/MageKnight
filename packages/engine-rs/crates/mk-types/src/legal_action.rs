@@ -222,10 +222,11 @@ pub enum LegalAction {
     },
     /// Burn a monastery — enter combat with a violet enemy.
     BurnMonastery,
-    /// Select a reward card from the offer after site conquest.
+    /// Select a reward card/unit from the offer after site conquest.
     SelectReward {
         card_id: CardId,
         reward_index: usize,
+        unit_id: Option<UnitId>,
     },
     /// Pay mana tribute at an Ancient Ruins altar for fame.
     AltarTribute {
@@ -277,6 +278,21 @@ pub enum LegalAction {
     /// Select a terrain type for cost reduction (Druidic Paths powered).
     ResolveTerrainCostReduction {
         terrain: Terrain,
+    },
+    /// Crystal roll came up gold — player chooses which color crystal to gain.
+    ResolveCrystalRollColor {
+        color: BasicManaColor,
+    },
+    /// Select one artifact to keep from a draw-N+1 selection.
+    SelectArtifact {
+        card_id: CardId,
+    },
+    /// Forfeit a unit reward (no command slots and player declines to disband).
+    ForfeitUnitReward,
+    /// Disband an existing unit to make room for a reward unit.
+    DisbandUnitForReward {
+        unit_instance_id: UnitInstanceId,
+        reward_unit_id: UnitId,
     },
     Undo,
 }

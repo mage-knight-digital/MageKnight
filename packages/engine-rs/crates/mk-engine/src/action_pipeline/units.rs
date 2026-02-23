@@ -21,6 +21,9 @@ pub(super) fn apply_recruit_unit(
     unit_id: &mk_types::ids::UnitId,
     influence_cost: u32,
 ) -> Result<ApplyResult, ApplyError> {
+    // Apply blanket reputation + shield bonus (once per turn)
+    crate::action_pipeline::sites::apply_interaction_bonus_if_needed(state, player_idx);
+
     let player = &mut state.players[player_idx];
 
     if player.influence_points < influence_cost {

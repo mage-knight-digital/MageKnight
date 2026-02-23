@@ -1,6 +1,9 @@
 use mk_types::hex::{HexCoord, HexDirection, TILE_HEX_OFFSETS};
 use mk_types::legal_action::LegalAction;
+use mk_types::modifier::RuleOverride;
 use mk_types::state::{GameState, PlayerFlags};
+
+use crate::card_play::is_rule_active;
 
 use super::utils::must_slow_recover;
 
@@ -12,6 +15,11 @@ pub(super) fn enumerate_explores(
     let player = &state.players[player_idx];
 
     let explore_cost = crate::movement::get_effective_explore_cost(&state.active_modifiers);
+
+    // NoExploration modifier blocks all exploration.
+    if is_rule_active(state, player_idx, RuleOverride::NoExploration) {
+        return;
+    }
 
     // Early exit conditions.
     if player.position.is_none()

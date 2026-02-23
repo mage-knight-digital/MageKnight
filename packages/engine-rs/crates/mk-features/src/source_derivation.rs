@@ -170,6 +170,10 @@ pub fn derive_source_str(action: &LegalAction, state: &GameState, player_idx: us
         }
         LegalAction::ResolveHexCostReduction { .. } => "hex_cost_reduction.coordinate",
         LegalAction::ResolveTerrainCostReduction { .. } => "terrain_cost_reduction.terrain",
+        LegalAction::ResolveCrystalRollColor { .. } => "crystal_roll.color",
+        LegalAction::SelectArtifact { .. } => "artifact_selection.card",
+        LegalAction::ForfeitUnitReward => "unit_reward.forfeit",
+        LegalAction::DisbandUnitForReward { .. } => "unit_reward.disband",
     }
 }
 

@@ -41,6 +41,26 @@ impl HexCoord {
         HexDirection::ALL.map(|dir| self.neighbor(dir))
     }
 
+    /// Get all hexes within distance 2 (neighbors + neighbors-of-neighbors), deduplicated.
+    /// Returns up to 18 hexes (excludes self).
+    pub fn hexes_within_distance_2(self) -> Vec<Self> {
+        let mut result = Vec::with_capacity(18);
+        let mut seen = std::collections::HashSet::with_capacity(19);
+        seen.insert((self.q, self.r));
+
+        for n1 in &self.neighbors() {
+            if seen.insert((n1.q, n1.r)) {
+                result.push(*n1);
+            }
+            for n2 in &n1.neighbors() {
+                if seen.insert((n2.q, n2.r)) {
+                    result.push(*n2);
+                }
+            }
+        }
+        result
+    }
+
     /// String key for use in hash maps (matches TS `hexKey`).
     pub fn key(self) -> String {
         format!("{},{}", self.q, self.r)
@@ -135,5 +155,20 @@ mod tests {
         for n in &neighbors {
             assert_eq!(origin.distance(*n), 1);
         }
+    }
+
+    #[test]
+    fn hexes_within_distance_2_count_and_range() {
+        let origin = HexCoord::new(0, 0);
+        let hexes = origin.hexes_within_distance_2();
+        // Distance 1: 6 hexes, Distance 2: 12 hexes = 18 total (excluding self)
+        assert_eq!(hexes.len(), 18);
+        // All should be within distance 2
+        for h in &hexes {
+            let d = origin.distance(*h);
+            assert!(d >= 1 && d <= 2, "Hex {:?} has distance {}", h, d);
+        }
+        // Self should not be included
+        assert!(!hexes.contains(&origin));
     }
 }

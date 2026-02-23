@@ -116,6 +116,11 @@ pub(super) fn enumerate_unit_actions(
         return;
     }
 
+    // Guard: X-space (rep -7) blocks all inhabited site interaction including recruitment
+    if player.reputation == -7 {
+        return;
+    }
+
     // Guard: must not have taken an action UNLESS already recruited this turn
     if player.flags.contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN)
         && !player.flags.contains(PlayerFlags::HAS_RECRUITED_UNIT_THIS_TURN)
@@ -179,6 +184,9 @@ pub(super) fn enumerate_unit_actions(
 
     let is_glade = site.site_type == SiteType::MagicalGlade;
 
+    // Effective influence accounts for blanket reputation bonus + shield tokens
+    let effective_influence = super::sites::compute_effective_influence(state, player_idx);
+
     // Enumerate per unit in offer
     for (offer_idx, unit_id) in state.offers.units.iter().enumerate() {
         let unit = match get_unit(unit_id.as_str()) {
@@ -202,20 +210,28 @@ pub(super) fn enumerate_unit_actions(
         // Compute influence cost
         let base_cost = unit.influence_cost as i32;
 
-        // Reputation modifier (ignored at Magical Glade)
-        let rep_mod = if is_glade {
+        // Per-unit reputation delta: blanket reputation bonus is already included
+        // in effective_influence, so we only need the Heroes/Thugs _delta_ here.
+        //
+        // Normal units: delta = 0 (blanket bonus handles everything)
+        // Thugs (reversed_reputation): blanket applied +bonus, thugs need -bonus,
+        //   net delta = -2 * base_modifier
+        // Heroes (doubled): blanket applied 1x, heroes need 2x total,
+        //   so delta = +1x the base_modifier (once per interaction)
+        let rep_delta = if is_glade {
             0
         } else {
-            let mut m = reputation_cost_modifier(player.reputation);
-            // Thugs: reversed
-            if unit.reversed_reputation && m != 0 {
-                m = -m;
+            let base_mod = reputation_cost_modifier(player.reputation);
+            if unit.reversed_reputation && base_mod != 0 {
+                // Thugs: reverse the blanket bonus AND apply the reversed amount
+                -2 * base_mod
+            } else if is_hero_unit(unit_id.as_str()) && !has_recruited_hero {
+                // Heroes: add 1x more on top of the blanket bonus
+                base_mod
+            } else {
+                // Normal units: blanket bonus is sufficient
+                0
             }
-            // Heroes: doubled (once per interaction)
-            if is_hero_unit(unit_id.as_str()) && !has_recruited_hero {
-                m *= 2;
-            }
-            m
         };
 
         // Refugee camp tiered cost
@@ -225,7 +241,7 @@ pub(super) fn enumerate_unit_actions(
             0
         };
 
-        let mut total_cost = (base_cost + rep_mod + camp_mod).max(0) as u32;
+        let mut total_cost = (base_cost + rep_delta + camp_mod).max(0) as u32;
 
         // Bonds of Loyalty: -5 influence when the bonds slot is empty
         if player.skills.iter().any(|s| s.as_str() == "norowas_bonds_of_loyalty")
@@ -234,8 +250,8 @@ pub(super) fn enumerate_unit_actions(
             total_cost = total_cost.saturating_sub(5);
         }
 
-        // Check player can afford
-        if player.influence_points < total_cost {
+        // Check player can afford (using effective influence which includes blanket bonus)
+        if effective_influence < total_cost {
             continue;
         }
 

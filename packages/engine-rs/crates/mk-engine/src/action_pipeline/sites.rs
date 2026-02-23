@@ -20,6 +20,76 @@ use super::{ApplyError, ApplyResult};
 // apply_undo delegated to turn_flow module
 
 // =============================================================================
+// Reputation/shield influence bonus — applied once per turn at interaction start
+// =============================================================================
+
+/// Apply the blanket reputation + shield-token influence bonus if it hasn't
+/// been applied yet this turn. Called at the top of every commerce/recruitment
+/// handler so the bonus is applied exactly once (further handlers see the
+/// already-mutated `influence_points`).
+pub(crate) fn apply_interaction_bonus_if_needed(
+    state: &mut GameState,
+    player_idx: usize,
+) {
+    let player = &state.players[player_idx];
+
+    // Already applied this turn — nothing to do
+    if player
+        .flags
+        .contains(PlayerFlags::REPUTATION_BONUS_APPLIED_THIS_TURN)
+    {
+        return;
+    }
+
+    // Must be at an inhabited site
+    let pos = match player.position {
+        Some(p) => p,
+        None => return,
+    };
+    let hex_state = match state.map.hexes.get(&pos.key()) {
+        Some(h) => h,
+        None => return,
+    };
+    let site = match hex_state.site.as_ref() {
+        Some(s) => s,
+        None => return,
+    };
+    if !mk_data::sites::is_inhabited(site.site_type) {
+        return;
+    }
+
+    // Compute bonus
+    let rep_bonus =
+        crate::legal_actions::sites::reputation_influence_bonus(player.reputation);
+
+    let shield_bonus = if site.site_type == SiteType::City && site.is_conquered {
+        hex_state
+            .shield_tokens
+            .iter()
+            .filter(|id| **id == player.id)
+            .count() as i32
+    } else {
+        0
+    };
+
+    let total_bonus = rep_bonus + shield_bonus;
+
+    // Apply bonus (saturating to avoid u32 underflow)
+    let player = &mut state.players[player_idx];
+    if total_bonus >= 0 {
+        player.influence_points += total_bonus as u32;
+    } else {
+        player.influence_points = player
+            .influence_points
+            .saturating_sub((-total_bonus) as u32);
+    }
+
+    player
+        .flags
+        .insert(PlayerFlags::REPUTATION_BONUS_APPLIED_THIS_TURN);
+}
+
+// =============================================================================
 // Site interactions
 // =============================================================================
 
@@ -238,6 +308,9 @@ pub(super) fn apply_interact_site(
     player_idx: usize,
     healing: u32,
 ) -> Result<ApplyResult, ApplyError> {
+    // Apply blanket reputation + shield bonus (once per turn)
+    apply_interaction_bonus_if_needed(state, player_idx);
+
     let player_pos = state.players[player_idx]
         .position
         .ok_or_else(|| ApplyError::InternalError("InteractSite: no position".into()))?;
@@ -359,6 +432,9 @@ pub(super) fn apply_buy_spell(
     player_idx: usize,
     card_id: &CardId,
 ) -> Result<ApplyResult, ApplyError> {
+    // Apply blanket reputation + shield bonus (once per turn)
+    apply_interaction_bonus_if_needed(state, player_idx);
+
     let player = &mut state.players[player_idx];
 
     if player.influence_points < SPELL_PURCHASE_COST {
@@ -395,6 +471,9 @@ pub(super) fn apply_learn_advanced_action(
     player_idx: usize,
     card_id: &CardId,
 ) -> Result<ApplyResult, ApplyError> {
+    // Apply blanket reputation + shield bonus (once per turn)
+    apply_interaction_bonus_if_needed(state, player_idx);
+
     let player = &mut state.players[player_idx];
 
     if player.influence_points < MONASTERY_AA_PURCHASE_COST {
@@ -763,6 +842,7 @@ pub(super) fn apply_select_reward(
     state: &mut GameState,
     player_idx: usize,
     card_id: &CardId,
+    unit_id: Option<&mk_types::ids::UnitId>,
 ) -> Result<ApplyResult, ApplyError> {
     let player = &mut state.players[player_idx];
 
@@ -811,6 +891,38 @@ pub(super) fn apply_select_reward(
                 );
             }
         }
+        SiteReward::Unit => {
+            // Take the unit from the offer
+            let uid = unit_id.ok_or_else(|| {
+                ApplyError::InternalError("SelectReward: Unit reward but no unit_id".into())
+            })?;
+            let offer_idx = state.offers.units.iter().position(|u| u == uid)
+                .ok_or_else(|| ApplyError::InternalError(
+                    format!("SelectReward: unit {:?} not in offer", uid),
+                ))?;
+            state.offers.units.remove(offer_idx);
+
+            // Create PlayerUnit and add to player
+            let new_unit = mk_types::state::PlayerUnit {
+                instance_id: mk_types::ids::UnitInstanceId::from(
+                    format!("unit_{}", state.players[player_idx].units.len())
+                ),
+                unit_id: uid.clone(),
+                level: mk_data::units::get_unit(uid.as_str()).map(|u| u.level).unwrap_or(1),
+                state: UnitState::Ready,
+                wounded: false,
+                used_resistance_this_combat: false,
+                used_ability_indices: Vec::new(),
+                mana_token: None,
+            };
+            state.players[player_idx].units.push(new_unit);
+
+            // Replenish unit offer from deck
+            if !state.decks.unit_deck.is_empty() {
+                let new_offer_unit = state.decks.unit_deck.remove(0);
+                state.offers.units.push(new_offer_unit);
+            }
+        }
         _ => {
             return Err(ApplyError::InternalError(format!(
                 "SelectReward: unexpected reward type: {:?}",
@@ -848,41 +960,50 @@ pub(super) fn queue_site_reward(state: &mut GameState, player_idx: usize, reward
             state.players[player_idx].fame += amount;
         }
         SiteReward::CrystalRoll { count } => {
-            // Simplified: Gold die → Red crystal, Black → +1 fame.
             // Roll 0-5 mapping to R/B/G/W/Gold/Black.
-            for _ in 0..count {
-                let roll = state.rng.next_int(0, 5) as usize;
-                let colors = [
-                    BasicManaColor::Red,
-                    BasicManaColor::Blue,
-                    BasicManaColor::Green,
-                    BasicManaColor::White,
-                ];
-                if roll < 4 {
-                    // Basic color → gain crystal of that color
-                    crate::mana::gain_crystal(&mut state.players[player_idx], colors[roll]);
-                } else if roll == 4 {
-                    // Gold → Red crystal
-                    crate::mana::gain_crystal(
-                        &mut state.players[player_idx],
-                        BasicManaColor::Red,
-                    );
-                } else {
-                    // Black → +1 fame
-                    state.players[player_idx].fame += 1;
-                }
+            resolve_crystal_rolls(state, player_idx, count);
+        }
+        SiteReward::DungeonRoll => {
+            // Roll a mana die: gold/black → Spell, basic color → Artifact.
+            let roll = state.rng.next_int(0, 5) as usize;
+            if roll >= 4 {
+                // Gold or Black → Spell reward
+                queue_site_reward(state, player_idx, SiteReward::Spell { count: 1 });
+            } else {
+                // Basic color → Artifact reward
+                queue_site_reward(state, player_idx, SiteReward::Artifact { count: 1 });
             }
         }
         SiteReward::Artifact { count } => {
-            // Draw from artifact deck to top of deed deck
-            for _ in 0..count {
-                if !state.decks.artifact_deck.is_empty() {
-                    let artifact = state.decks.artifact_deck.remove(0);
-                    state.players[player_idx].deck.insert(0, artifact);
+            // Draw count+1 from artifact deck, keep count, return rest to deck bottom.
+            let deck_len = state.decks.artifact_deck.len() as u32;
+            let draw_count = (count + 1).min(deck_len);
+            if draw_count == 0 {
+                // Empty deck — no reward
+            } else if draw_count == 1 {
+                // Only 1 card in deck — auto-grant (no choice)
+                let artifact = state.decks.artifact_deck.remove(0);
+                state.players[player_idx].deck.insert(0, artifact);
+            } else {
+                // Draw draw_count, keep count, return rest to bottom
+                let mut choices = ArrayVec::<CardId, 4>::new();
+                for _ in 0..draw_count {
+                    choices.push(state.decks.artifact_deck.remove(0));
                 }
+                state.players[player_idx].pending.active = Some(
+                    ActivePending::ArtifactSelection(mk_types::pending::PendingArtifactSelection {
+                        choices,
+                        keep_count: count as usize,
+                    })
+                );
             }
         }
-        SiteReward::Spell { .. } | SiteReward::AdvancedAction { .. } => {
+        SiteReward::Spell { .. } | SiteReward::AdvancedAction { .. } | SiteReward::Unit => {
+            // Auto-skip Unit if no units available in offer
+            if matches!(reward, SiteReward::Unit) && state.offers.units.is_empty() {
+                return;
+            }
+
             // Queue as deferred reward
             let player = &mut state.players[player_idx];
             // Find existing Rewards deferred entry or create new one
@@ -908,10 +1029,6 @@ pub(super) fn queue_site_reward(state: &mut GameState, player_idx: usize, reward
             if player.pending.active.is_none() {
                 promote_site_reward(state, player_idx);
             }
-        }
-        SiteReward::Unit => {
-            // Unit rewards: not yet implemented (would need unit offer selection)
-            // For now, auto-skip
         }
     }
 }
@@ -956,6 +1073,210 @@ pub(super) fn promote_site_reward(state: &mut GameState, player_idx: usize) {
     }
 }
 
+
+/// Roll crystal dice one at a time. Basic color → auto-grant crystal.
+/// Gold → create CrystalRollColorChoice pending (player picks).
+/// Black → +1 fame.
+fn resolve_crystal_rolls(state: &mut GameState, player_idx: usize, count: u32) {
+    let colors = [
+        BasicManaColor::Red,
+        BasicManaColor::Blue,
+        BasicManaColor::Green,
+        BasicManaColor::White,
+    ];
+    for i in 0..count {
+        let roll = state.rng.next_int(0, 5) as usize;
+        if roll < 4 {
+            // Basic color → gain crystal of that color
+            crate::mana::gain_crystal(&mut state.players[player_idx], colors[roll]);
+        } else if roll == 4 {
+            // Gold → player chooses color
+            state.players[player_idx].pending.active = Some(
+                ActivePending::CrystalRollColorChoice {
+                    remaining_rolls: count - i - 1,
+                }
+            );
+            return; // Remaining rolls resume after choice
+        } else {
+            // Black → +1 fame
+            state.players[player_idx].fame += 1;
+        }
+    }
+}
+
+/// Handle player choosing a crystal color after a gold die roll.
+pub(super) fn apply_resolve_crystal_roll_color(
+    state: &mut GameState,
+    player_idx: usize,
+    color: BasicManaColor,
+) -> Result<ApplyResult, ApplyError> {
+    let pending = state.players[player_idx].pending.active.take().ok_or_else(|| {
+        ApplyError::InternalError("ResolveCrystalRollColor: no active pending".into())
+    })?;
+
+    let remaining_rolls = match pending {
+        ActivePending::CrystalRollColorChoice { remaining_rolls } => remaining_rolls,
+        _ => {
+            return Err(ApplyError::InternalError(
+                "ResolveCrystalRollColor: active pending is not CrystalRollColorChoice".into(),
+            ));
+        }
+    };
+
+    crate::mana::gain_crystal(&mut state.players[player_idx], color);
+
+    if remaining_rolls > 0 {
+        resolve_crystal_rolls(state, player_idx, remaining_rolls);
+    } else {
+        promote_site_reward(state, player_idx);
+    }
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+/// Handle selecting an artifact from an ArtifactSelection pending.
+pub(super) fn apply_select_artifact(
+    state: &mut GameState,
+    player_idx: usize,
+    card_id: &CardId,
+) -> Result<ApplyResult, ApplyError> {
+    let pending = state.players[player_idx].pending.active.take().ok_or_else(|| {
+        ApplyError::InternalError("SelectArtifact: no active pending".into())
+    })?;
+
+    let selection = match pending {
+        ActivePending::ArtifactSelection(s) => s,
+        _ => {
+            return Err(ApplyError::InternalError(
+                "SelectArtifact: active pending is not ArtifactSelection".into(),
+            ));
+        }
+    };
+
+    // Verify the chosen card is in the choices
+    if !selection.choices.iter().any(|c| c == card_id) {
+        return Err(ApplyError::InternalError(
+            format!("SelectArtifact: card {:?} not in choices", card_id),
+        ));
+    }
+
+    // Keep the selected card — add to top of deed deck
+    state.players[player_idx].deck.insert(0, card_id.clone());
+
+    // Return unchosen cards to artifact deck bottom
+    for c in &selection.choices {
+        if c != card_id {
+            state.decks.artifact_deck.push(c.clone());
+        }
+    }
+
+    // Promote next reward if any
+    promote_site_reward(state, player_idx);
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+/// Forfeit a unit reward — skip it entirely.
+pub(super) fn apply_forfeit_unit_reward(
+    state: &mut GameState,
+    player_idx: usize,
+) -> Result<ApplyResult, ApplyError> {
+    let pending = state.players[player_idx].pending.active.take().ok_or_else(|| {
+        ApplyError::InternalError("ForfeitUnitReward: no active pending".into())
+    })?;
+
+    match pending {
+        ActivePending::SiteRewardChoice { reward: SiteReward::Unit, .. } => {}
+        _ => {
+            return Err(ApplyError::InternalError(
+                "ForfeitUnitReward: active pending is not SiteRewardChoice(Unit)".into(),
+            ));
+        }
+    }
+
+    promote_site_reward(state, player_idx);
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+/// Disband an existing unit and take the reward unit.
+pub(super) fn apply_disband_unit_for_reward(
+    state: &mut GameState,
+    player_idx: usize,
+    unit_instance_id: &mk_types::ids::UnitInstanceId,
+    reward_unit_id: &mk_types::ids::UnitId,
+) -> Result<ApplyResult, ApplyError> {
+    let pending = state.players[player_idx].pending.active.take().ok_or_else(|| {
+        ApplyError::InternalError("DisbandUnitForReward: no active pending".into())
+    })?;
+
+    match pending {
+        ActivePending::SiteRewardChoice { reward: SiteReward::Unit, .. } => {}
+        _ => {
+            return Err(ApplyError::InternalError(
+                "DisbandUnitForReward: active pending is not SiteRewardChoice(Unit)".into(),
+            ));
+        }
+    }
+
+    // Remove the unit being disbanded
+    let player = &mut state.players[player_idx];
+    let unit_idx = player.units.iter().position(|u| u.instance_id == *unit_instance_id)
+        .ok_or_else(|| ApplyError::InternalError(
+            format!("DisbandUnitForReward: unit {:?} not found", unit_instance_id),
+        ))?;
+    player.units.remove(unit_idx);
+
+    // Take reward unit from offer
+    let offer_idx = state.offers.units.iter().position(|u| u == reward_unit_id)
+        .ok_or_else(|| ApplyError::InternalError(
+            format!("DisbandUnitForReward: unit {:?} not in offer", reward_unit_id),
+        ))?;
+    state.offers.units.remove(offer_idx);
+
+    // Create a PlayerUnit and add to player
+    let level = mk_data::units::get_unit(reward_unit_id.as_str()).map(|u| u.level).unwrap_or(1);
+    let new_unit = mk_types::state::PlayerUnit {
+        instance_id: mk_types::ids::UnitInstanceId::from(
+            format!("unit_{}", state.players[player_idx].units.len())
+        ),
+        unit_id: reward_unit_id.clone(),
+        level,
+        state: UnitState::Ready,
+        wounded: false,
+        used_resistance_this_combat: false,
+        used_ability_indices: Vec::new(),
+        mana_token: None,
+    };
+    state.players[player_idx].units.push(new_unit);
+
+    // Replenish unit offer from deck
+    if !state.decks.unit_deck.is_empty() {
+        let new_offer_unit = state.decks.unit_deck.remove(0);
+        state.offers.units.push(new_offer_unit);
+    }
+
+    // Promote next reward
+    promote_site_reward(state, player_idx);
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
 
 pub(super) fn apply_resolve_glade_wound(
     state: &mut GameState,

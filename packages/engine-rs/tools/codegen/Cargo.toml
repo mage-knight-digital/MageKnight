@@ -1,9 +1,0 @@
-[package]
-name = "mk-codegen"
-description = "Schema generators — vocab tables, action enums, event enums"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]
-serde = { workspace = true }
-serde_json = { workspace = true }

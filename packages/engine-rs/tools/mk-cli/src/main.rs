@@ -587,6 +587,16 @@ fn format_action(action: &LegalAction, state: &GameState, player_idx: usize) -> 
         LegalAction::ResolveTerrainCostReduction { terrain } => {
             format!("Reduce cost for {:?} terrain", terrain)
         }
+        LegalAction::ResolveCrystalRollColor { color } => {
+            format!("Choose {:?} crystal", color)
+        }
+        LegalAction::SelectArtifact { card_id } => {
+            format!("Keep artifact: {}", card_id.as_str())
+        }
+        LegalAction::ForfeitUnitReward => "Forfeit unit reward".into(),
+        LegalAction::DisbandUnitForReward { unit_instance_id, reward_unit_id } => {
+            format!("Disband {} to take {}", unit_instance_id.as_str(), reward_unit_id.as_str())
+        }
     }
 }
 
@@ -790,6 +800,8 @@ fn pending_label(active: &ActivePending) -> &'static str {
         ActivePending::SiteRewardChoice { .. } => "Select reward",
         ActivePending::TomeOfAllSpells(_) => "Tome of All Spells",
         ActivePending::CircletOfProficiency(_) => "Circlet of Proficiency",
+        ActivePending::ArtifactSelection(_) => "Select artifact to keep",
+        ActivePending::CrystalRollColorChoice { .. } => "Choose crystal color",
     }
 }
 

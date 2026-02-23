@@ -82,6 +82,7 @@ bitflags! {
         const CRYSTAL_MASTERY_POWERED_ACTIVE    = 1 << 14;
         const TACTIC_FLIPPED                    = 1 << 15;
         const BEFORE_TURN_TACTIC_PENDING        = 1 << 16;
+        const REPUTATION_BONUS_APPLIED_THIS_TURN = 1 << 17;
     }
 }
 

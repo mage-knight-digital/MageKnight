@@ -1121,15 +1121,42 @@ fn conquest_reward_fame_auto_granted() {
 }
 
 #[test]
-fn conquest_reward_artifact_draws_from_deck() {
+fn conquest_reward_artifact_draw_n_plus_1_creates_selection() {
     let mut state = setup_playing_game(vec!["march"]);
-    state.decks.artifact_deck = vec![CardId::from("banner_of_command"), CardId::from("ring_of_flame")];
+    state.decks.artifact_deck = vec![
+        CardId::from("banner_of_command"),
+        CardId::from("ring_of_flame"),
+        CardId::from("amulet_of_sun"),
+    ];
+
+    // Artifact{count:1} should draw 2 (N+1), create ArtifactSelection pending
+    queue_site_reward(&mut state, 0, SiteReward::Artifact { count: 1 });
+
+    match &state.players[0].pending.active {
+        Some(ActivePending::ArtifactSelection(sel)) => {
+            assert_eq!(sel.choices.len(), 2, "Should draw N+1=2 cards");
+            assert_eq!(sel.keep_count, 1);
+            assert_eq!(sel.choices[0].as_str(), "banner_of_command");
+            assert_eq!(sel.choices[1].as_str(), "ring_of_flame");
+        }
+        other => panic!("Expected ArtifactSelection, got {:?}", other),
+    }
+    // 1 card remains in deck (3 - 2 drawn)
+    assert_eq!(state.decks.artifact_deck.len(), 1);
+}
+
+#[test]
+fn conquest_reward_artifact_auto_grants_when_deck_has_one() {
+    let mut state = setup_playing_game(vec!["march"]);
+    state.decks.artifact_deck = vec![CardId::from("banner_of_command")];
     let deck_before = state.players[0].deck.len();
 
+    // Only 1 card in deck → auto-grant (no choice needed)
     queue_site_reward(&mut state, 0, SiteReward::Artifact { count: 1 });
     assert_eq!(state.players[0].deck.len(), deck_before + 1);
     assert_eq!(state.players[0].deck[0].as_str(), "banner_of_command");
-    assert_eq!(state.decks.artifact_deck.len(), 1); // one drawn
+    assert!(state.players[0].pending.active.is_none());
+    assert_eq!(state.decks.artifact_deck.len(), 0);
 }
 
 #[test]
@@ -1209,7 +1236,7 @@ fn select_reward_spell_moves_to_deck() {
     let mut undo = UndoStack::new();
     apply_legal_action(
         &mut state, &mut undo, 0,
-        &LegalAction::SelectReward { card_id: CardId::from("fireball"), reward_index: 0 },
+        &LegalAction::SelectReward { card_id: CardId::from("fireball"), reward_index: 0, unit_id: None },
         epoch,
     ).unwrap();
 
@@ -1233,7 +1260,7 @@ fn select_reward_aa_moves_to_deck() {
     let mut undo = UndoStack::new();
     apply_legal_action(
         &mut state, &mut undo, 0,
-        &LegalAction::SelectReward { card_id: CardId::from("crystal_mastery"), reward_index: 0 },
+        &LegalAction::SelectReward { card_id: CardId::from("crystal_mastery"), reward_index: 0, unit_id: None },
         epoch,
     ).unwrap();
 
@@ -1256,7 +1283,7 @@ fn select_reward_multiple_spells_promotes_next() {
     let mut undo = UndoStack::new();
     apply_legal_action(
         &mut state, &mut undo, 0,
-        &LegalAction::SelectReward { card_id: CardId::from("fireball"), reward_index: 0 },
+        &LegalAction::SelectReward { card_id: CardId::from("fireball"), reward_index: 0, unit_id: None },
         epoch,
     ).unwrap();
 
@@ -2494,3 +2521,929 @@ fn no_actions_for_hex_with_no_ruins_token() {
     );
 }
 
+// =========================================================================
+// Post-Combat Reward System — 5 Rulebook Gaps tests
+// =========================================================================
+
+// --- Step 1: Keep Hand Limit Bonus ---
+
+#[test]
+fn keep_hand_bonus_on_owned_keep() {
+    let mut state = setup_playing_game(vec!["march"]);
+
+    // Place player at (0,0)
+    let player_pos = HexCoord { q: 0, r: 0 };
+    state.players[0].position = Some(player_pos);
+    state.map.hexes.insert(player_pos.key(), HexState {
+        coord: player_pos,
+        terrain: Terrain::Plains,
+        tile_id: TileId::StartingA,
+        site: None,
+        rampaging_enemies: ArrayVec::new(),
+        enemies: ArrayVec::new(),
+        ruins_token: None,
+        shield_tokens: Vec::new(),
+    });
+
+    // Place a conquered Keep adjacent with player's shield
+    let keep_coord = HexCoord { q: 1, r: 0 };
+    state.map.hexes.insert(keep_coord.key(), HexState {
+        coord: keep_coord,
+        terrain: Terrain::Plains,
+        tile_id: TileId::StartingA,
+        site: Some(Site {
+            site_type: SiteType::Keep,
+            owner: None,
+            is_conquered: true,
+            is_burned: false,
+            city_color: None,
+            mine_color: None,
+            deep_mine_colors: None,
+        }),
+        rampaging_enemies: ArrayVec::new(),
+        enemies: ArrayVec::new(),
+        ruins_token: None,
+        shield_tokens: vec![state.players[0].id.clone()],
+    });
+
+    // Give player an empty deck so we can check draw_limit behavior
+    state.players[0].deck = (0..10).map(|i| CardId::from(format!("card_{}", i))).collect();
+    state.players[0].hand.clear();
+    state.players[0].play_area.clear();
+    state.players[0].discard.clear();
+    state.players[0].flags.insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
+
+    // Base hand limit is 5, plus 1 for adjacent Keep = 6
+    crate::end_turn::end_turn(&mut state, 0).ok();
+
+    // Should have drawn up to 6 (5 base + 1 keep bonus)
+    assert_eq!(state.players[0].hand.len(), 6,
+        "Should draw to 6 with Keep bonus (5 base + 1 keep)");
+}
+
+#[test]
+fn keep_bonus_not_counted_without_shield_token() {
+    let mut state = setup_playing_game(vec!["march"]);
+
+    let player_pos = HexCoord { q: 0, r: 0 };
+    state.players[0].position = Some(player_pos);
+    state.map.hexes.insert(player_pos.key(), HexState {
+        coord: player_pos,
+        terrain: Terrain::Plains,
+        tile_id: TileId::StartingA,
+        site: None,
+        rampaging_enemies: ArrayVec::new(),
+        enemies: ArrayVec::new(),
+        ruins_token: None,
+        shield_tokens: Vec::new(),
+    });
+
+    // Conquered Keep but WITHOUT player's shield token
+    let keep_coord = HexCoord { q: 1, r: 0 };
+    state.map.hexes.insert(keep_coord.key(), HexState {
+        coord: keep_coord,
+        terrain: Terrain::Plains,
+        tile_id: TileId::StartingA,
+        site: Some(Site {
+            site_type: SiteType::Keep,
+            owner: None,
+            is_conquered: true,
+            is_burned: false,
+            city_color: None,
+            mine_color: None,
+            deep_mine_colors: None,
+        }),
+        rampaging_enemies: ArrayVec::new(),
+        enemies: ArrayVec::new(),
+        ruins_token: None,
+        shield_tokens: Vec::new(), // No shield token!
+    });
+
+    state.players[0].deck = (0..10).map(|i| CardId::from(format!("card_{}", i))).collect();
+    state.players[0].hand.clear();
+    state.players[0].play_area.clear();
+    state.players[0].discard.clear();
+    state.players[0].flags.insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
+
+    crate::end_turn::end_turn(&mut state, 0).ok();
+
+    // Should have drawn up to base 5 (no keep bonus)
+    assert_eq!(state.players[0].hand.len(), 5,
+        "Should draw to 5 without shield token on keep");
+}
+
+#[test]
+fn keep_bonus_not_counted_for_distant_keep() {
+    let mut state = setup_playing_game(vec!["march"]);
+
+    let player_pos = HexCoord { q: 0, r: 0 };
+    state.players[0].position = Some(player_pos);
+    state.map.hexes.insert(player_pos.key(), HexState {
+        coord: player_pos,
+        terrain: Terrain::Plains,
+        tile_id: TileId::StartingA,
+        site: None,
+        rampaging_enemies: ArrayVec::new(),
+        enemies: ArrayVec::new(),
+        ruins_token: None,
+        shield_tokens: Vec::new(),
+    });
+
+    // Place conquered Keep far away (not adjacent)
+    let keep_coord = HexCoord { q: 5, r: 5 };
+    state.map.hexes.insert(keep_coord.key(), HexState {
+        coord: keep_coord,
+        terrain: Terrain::Plains,
+        tile_id: TileId::StartingA,
+        site: Some(Site {
+            site_type: SiteType::Keep,
+            owner: None,
+            is_conquered: true,
+            is_burned: false,
+            city_color: None,
+            mine_color: None,
+            deep_mine_colors: None,
+        }),
+        rampaging_enemies: ArrayVec::new(),
+        enemies: ArrayVec::new(),
+        ruins_token: None,
+        shield_tokens: vec![state.players[0].id.clone()],
+    });
+
+    state.players[0].deck = (0..10).map(|i| CardId::from(format!("card_{}", i))).collect();
+    state.players[0].hand.clear();
+    state.players[0].play_area.clear();
+    state.players[0].discard.clear();
+    state.players[0].flags.insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
+
+    crate::end_turn::end_turn(&mut state, 0).ok();
+
+    assert_eq!(state.players[0].hand.len(), 5,
+        "Should draw to 5 when keep is too far away");
+}
+
+// --- Step 2: CrystalRoll Gold Die → Player Choice ---
+
+#[test]
+fn crystal_roll_gold_creates_pending_choice() {
+    let mut state = setup_playing_game(vec!["march"]);
+    // Force the RNG to produce gold (roll=4)
+    // next_int(0, 5) returns 0-5, gold is 4
+    // We need to find a seed where the first roll is 4
+    // Brute force: try different states of RNG
+    state.rng = mk_types::rng::RngState::new(0);
+
+    // Try rolling until we get gold, resetting each time
+    let mut found_seed = None;
+    for seed in 0..1000u32 {
+        let mut test_rng = mk_types::rng::RngState::new(seed);
+        let roll = test_rng.next_int(0, 5);
+        if roll == 4 {
+            found_seed = Some(seed);
+            break;
+        }
+    }
+    let seed = found_seed.expect("Should find a seed that produces gold roll");
+    state.rng = mk_types::rng::RngState::new(seed);
+
+    queue_site_reward(&mut state, 0, SiteReward::CrystalRoll { count: 1 });
+
+    assert!(
+        matches!(
+            state.players[0].pending.active,
+            Some(ActivePending::CrystalRollColorChoice { remaining_rolls: 0 })
+        ),
+        "Gold roll should create CrystalRollColorChoice pending"
+    );
+}
+
+#[test]
+fn crystal_roll_color_choice_enumerates_four_colors() {
+    let mut state = setup_playing_game(vec!["march"]);
+    state.players[0].pending.active = Some(ActivePending::CrystalRollColorChoice {
+        remaining_rolls: 0,
+    });
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let color_actions: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::ResolveCrystalRollColor { .. }))
+        .collect();
+
+    assert_eq!(color_actions.len(), 4, "Should have 4 color choices (R/B/G/W)");
+}
+
+#[test]
+fn crystal_roll_color_choice_filtered_by_crystal_cap() {
+    let mut state = setup_playing_game(vec!["march"]);
+    state.players[0].pending.active = Some(ActivePending::CrystalRollColorChoice {
+        remaining_rolls: 0,
+    });
+
+    // Max out red crystals
+    state.players[0].crystals.red = crate::mana::MAX_CRYSTALS_PER_COLOR;
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let color_actions: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::ResolveCrystalRollColor { .. }))
+        .collect();
+
+    assert_eq!(color_actions.len(), 3, "Red at cap → only 3 color choices");
+
+    // Verify red is not among them
+    let has_red = color_actions.iter().any(|a| matches!(a, LegalAction::ResolveCrystalRollColor { color: BasicManaColor::Red }));
+    assert!(!has_red, "Red should not be available when at cap");
+}
+
+#[test]
+fn resolve_crystal_roll_color_grants_crystal() {
+    let mut state = setup_playing_game(vec!["march"]);
+    state.players[0].pending.active = Some(ActivePending::CrystalRollColorChoice {
+        remaining_rolls: 0,
+    });
+    let blue_before = state.players[0].crystals.blue;
+
+    let epoch = state.action_epoch;
+    let mut undo = UndoStack::new();
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::ResolveCrystalRollColor { color: BasicManaColor::Blue },
+        epoch,
+    ).unwrap();
+
+    assert_eq!(state.players[0].crystals.blue, blue_before + 1);
+    assert!(state.players[0].pending.active.is_none(),
+        "No remaining rolls → pending should be cleared");
+}
+
+#[test]
+fn crystal_roll_remaining_rolls_resume_after_choice() {
+    let mut state = setup_playing_game(vec!["march"]);
+    state.players[0].pending.active = Some(ActivePending::CrystalRollColorChoice {
+        remaining_rolls: 2,
+    });
+
+    let epoch = state.action_epoch;
+    let mut undo = UndoStack::new();
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::ResolveCrystalRollColor { color: BasicManaColor::Green },
+        epoch,
+    ).unwrap();
+
+    assert_eq!(state.players[0].crystals.green, 1, "Should have gained green crystal");
+    // Remaining 2 rolls get resolved (might create another pending or auto-resolve)
+    // We just check the crystal was granted and state isn't stuck
+}
+
+#[test]
+fn crystal_roll_black_grants_fame() {
+    let mut state = setup_playing_game(vec!["march"]);
+    let fame_before = state.players[0].fame;
+
+    // Find a seed where the first roll is 5 (black)
+    let mut found_seed = None;
+    for seed in 0..1000u32 {
+        let mut test_rng = mk_types::rng::RngState::new(seed);
+        let roll = test_rng.next_int(0, 5);
+        if roll == 5 {
+            found_seed = Some(seed);
+            break;
+        }
+    }
+    let seed = found_seed.expect("Should find a seed that produces black roll");
+    state.rng = mk_types::rng::RngState::new(seed);
+
+    queue_site_reward(&mut state, 0, SiteReward::CrystalRoll { count: 1 });
+
+    assert_eq!(state.players[0].fame, fame_before + 1, "Black roll should grant +1 fame");
+    assert!(state.players[0].pending.active.is_none(), "Black auto-resolves, no pending");
+}
+
+// --- Step 3: Artifact Reward Draw N+1, Keep N ---
+
+#[test]
+fn artifact_selection_select_keeps_chosen_returns_other() {
+    let mut state = setup_playing_game(vec!["march"]);
+
+    // Set up ArtifactSelection with 2 choices
+    state.players[0].pending.active = Some(ActivePending::ArtifactSelection(
+        mk_types::pending::PendingArtifactSelection {
+            choices: {
+                let mut c = arrayvec::ArrayVec::new();
+                c.push(CardId::from("banner_of_command"));
+                c.push(CardId::from("ring_of_flame"));
+                c
+            },
+            keep_count: 1,
+        },
+    ));
+
+    let deck_before = state.players[0].deck.len();
+    let artifact_deck_before = state.decks.artifact_deck.len();
+
+    let epoch = state.action_epoch;
+    let mut undo = UndoStack::new();
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::SelectArtifact { card_id: CardId::from("banner_of_command") },
+        epoch,
+    ).unwrap();
+
+    // Chosen card goes to deed deck top
+    assert_eq!(state.players[0].deck.len(), deck_before + 1);
+    assert_eq!(state.players[0].deck[0].as_str(), "banner_of_command");
+
+    // Unchosen card goes to artifact deck bottom
+    assert_eq!(state.decks.artifact_deck.len(), artifact_deck_before + 1);
+    assert_eq!(state.decks.artifact_deck.last().unwrap().as_str(), "ring_of_flame");
+
+    assert!(state.players[0].pending.active.is_none());
+}
+
+#[test]
+fn artifact_selection_enumeration() {
+    let mut state = setup_playing_game(vec!["march"]);
+    state.players[0].pending.active = Some(ActivePending::ArtifactSelection(
+        mk_types::pending::PendingArtifactSelection {
+            choices: {
+                let mut c = arrayvec::ArrayVec::new();
+                c.push(CardId::from("banner_of_command"));
+                c.push(CardId::from("ring_of_flame"));
+                c
+            },
+            keep_count: 1,
+        },
+    ));
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let selects: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::SelectArtifact { .. }))
+        .collect();
+
+    assert_eq!(selects.len(), 2, "Should have 2 artifact choices");
+}
+
+#[test]
+fn artifact_reward_empty_deck_no_pending() {
+    let mut state = setup_playing_game(vec!["march"]);
+    state.decks.artifact_deck.clear();
+
+    queue_site_reward(&mut state, 0, SiteReward::Artifact { count: 1 });
+
+    // Empty deck → no reward, no pending
+    assert!(state.players[0].pending.active.is_none());
+}
+
+// --- Step 4: Dungeon Conquest Reward (Die Roll) ---
+
+#[test]
+fn dungeon_roll_spell_on_gold_or_black() {
+    let mut state = setup_playing_game(vec!["march"]);
+    state.offers.spells = vec![CardId::from("fireball")];
+
+    // Find a seed where the roll is >= 4 (gold or black)
+    let mut found_seed = None;
+    for seed in 0..1000u32 {
+        let mut test_rng = mk_types::rng::RngState::new(seed);
+        let roll = test_rng.next_int(0, 5);
+        if roll >= 4 {
+            found_seed = Some(seed);
+            break;
+        }
+    }
+    let seed = found_seed.expect("Should find seed for gold/black roll");
+    state.rng = mk_types::rng::RngState::new(seed);
+
+    queue_site_reward(&mut state, 0, SiteReward::DungeonRoll);
+
+    // Gold/Black → Spell reward. Should be deferred/active as SiteRewardChoice(Spell)
+    match &state.players[0].pending.active {
+        Some(ActivePending::SiteRewardChoice { reward: SiteReward::Spell { count: 1 }, .. }) => {}
+        Some(ActivePending::CrystalRollColorChoice { .. }) => {
+            // If the spell was already resolved and triggered something else, that's also ok
+        }
+        other => panic!("Expected Spell reward pending, got {:?}", other),
+    }
+}
+
+#[test]
+fn dungeon_roll_artifact_on_basic_color() {
+    let mut state = setup_playing_game(vec!["march"]);
+    state.decks.artifact_deck = vec![
+        CardId::from("banner_of_command"),
+        CardId::from("ring_of_flame"),
+    ];
+
+    // Find a seed where the roll is < 4 (basic color)
+    let mut found_seed = None;
+    for seed in 0..1000u32 {
+        let mut test_rng = mk_types::rng::RngState::new(seed);
+        let roll = test_rng.next_int(0, 5);
+        if roll < 4 {
+            found_seed = Some(seed);
+            break;
+        }
+    }
+    let seed = found_seed.expect("Should find seed for basic color roll");
+    state.rng = mk_types::rng::RngState::new(seed);
+
+    queue_site_reward(&mut state, 0, SiteReward::DungeonRoll);
+
+    // Basic color → Artifact reward. Should draw N+1 and create ArtifactSelection.
+    match &state.players[0].pending.active {
+        Some(ActivePending::ArtifactSelection(sel)) => {
+            assert_eq!(sel.choices.len(), 2, "Artifact reward: draw 2 for count=1");
+            assert_eq!(sel.keep_count, 1);
+        }
+        other => panic!("Expected ArtifactSelection pending, got {:?}", other),
+    }
+}
+
+// --- Step 5: Unit Reward — Command Slot Validation ---
+
+#[test]
+fn unit_reward_with_slots_offers_select_and_forfeit() {
+    let mut state = setup_playing_game(vec!["march"]);
+    state.players[0].command_tokens = 3;
+    state.players[0].units.clear(); // 3 slots, 0 used → available
+    state.offers.units = vec![
+        mk_types::ids::UnitId::from("peasants"),
+        mk_types::ids::UnitId::from("herbalists"),
+    ];
+
+    state.players[0].pending.active = Some(ActivePending::SiteRewardChoice {
+        reward: SiteReward::Unit,
+        reward_index: 0,
+    });
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+
+    let selects: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::SelectReward { unit_id: Some(_), .. }))
+        .collect();
+    assert_eq!(selects.len(), 2, "Should offer 2 unit choices");
+
+    let forfeits: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::ForfeitUnitReward))
+        .collect();
+    assert_eq!(forfeits.len(), 1, "Should always offer forfeit");
+
+    let disbands: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::DisbandUnitForReward { .. }))
+        .collect();
+    assert_eq!(disbands.len(), 0, "No disband options when slots available");
+}
+
+#[test]
+fn unit_reward_no_slots_offers_disband_and_forfeit() {
+    let mut state = setup_playing_game(vec!["march"]);
+    state.players[0].command_tokens = 1; // Only 1 slot
+
+    // Fill the slot with an existing unit
+    state.players[0].units.push(mk_types::state::PlayerUnit {
+        instance_id: mk_types::ids::UnitInstanceId::from("unit_0"),
+        unit_id: mk_types::ids::UnitId::from("peasants"),
+        level: 1,
+        state: UnitState::Ready,
+        wounded: false,
+        used_resistance_this_combat: false,
+        used_ability_indices: Vec::new(),
+        mana_token: None,
+    });
+
+    state.offers.units = vec![
+        mk_types::ids::UnitId::from("herbalists"),
+        mk_types::ids::UnitId::from("foresters"),
+    ];
+
+    state.players[0].pending.active = Some(ActivePending::SiteRewardChoice {
+        reward: SiteReward::Unit,
+        reward_index: 0,
+    });
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+
+    let selects: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::SelectReward { unit_id: Some(_), .. }))
+        .collect();
+    assert_eq!(selects.len(), 0, "No direct select when no slots");
+
+    let disbands: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::DisbandUnitForReward { .. }))
+        .collect();
+    // 1 existing unit × 2 offer units = 2 disband options
+    assert_eq!(disbands.len(), 2, "Should offer disband options for each existing×offer pair");
+
+    let forfeits: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::ForfeitUnitReward))
+        .collect();
+    assert_eq!(forfeits.len(), 1, "Should always offer forfeit");
+}
+
+#[test]
+fn forfeit_unit_reward_clears_pending() {
+    let mut state = setup_playing_game(vec!["march"]);
+    state.players[0].pending.active = Some(ActivePending::SiteRewardChoice {
+        reward: SiteReward::Unit,
+        reward_index: 0,
+    });
+
+    let epoch = state.action_epoch;
+    let mut undo = UndoStack::new();
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::ForfeitUnitReward,
+        epoch,
+    ).unwrap();
+
+    assert!(state.players[0].pending.active.is_none(),
+        "Forfeit should clear pending");
+}
+
+#[test]
+fn disband_unit_for_reward_replaces_unit() {
+    let mut state = setup_playing_game(vec!["march"]);
+    state.players[0].command_tokens = 1;
+
+    state.players[0].units.push(mk_types::state::PlayerUnit {
+        instance_id: mk_types::ids::UnitInstanceId::from("unit_0"),
+        unit_id: mk_types::ids::UnitId::from("peasants"),
+        level: 1,
+        state: UnitState::Ready,
+        wounded: false,
+        used_resistance_this_combat: false,
+        used_ability_indices: Vec::new(),
+        mana_token: None,
+    });
+
+    state.offers.units = vec![mk_types::ids::UnitId::from("herbalists")];
+    state.decks.unit_deck = vec![mk_types::ids::UnitId::from("foresters")];
+
+    state.players[0].pending.active = Some(ActivePending::SiteRewardChoice {
+        reward: SiteReward::Unit,
+        reward_index: 0,
+    });
+
+    let epoch = state.action_epoch;
+    let mut undo = UndoStack::new();
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::DisbandUnitForReward {
+            unit_instance_id: mk_types::ids::UnitInstanceId::from("unit_0"),
+            reward_unit_id: mk_types::ids::UnitId::from("herbalists"),
+        },
+        epoch,
+    ).unwrap();
+
+    // Old unit gone
+    assert!(!state.players[0].units.iter().any(|u| u.unit_id.as_str() == "peasants"),
+        "Peasants should be disbanded");
+
+    // New unit added
+    assert!(state.players[0].units.iter().any(|u| u.unit_id.as_str() == "herbalists"),
+        "Herbalists should be recruited");
+
+    // Offer replenished from deck
+    assert!(state.offers.units.iter().any(|u| u.as_str() == "foresters"),
+        "Offer should be replenished from deck");
+
+    assert!(state.players[0].pending.active.is_none());
+}
+
+
+// =========================================================================
+// Interaction influence rules (reputation bonus, X-space, shield tokens)
+// =========================================================================
+
+// --- Reputation influence bonus ---
+
+#[test]
+fn positive_rep_increases_effective_influence() {
+    let mut state = setup_playing_game(vec!["wound"]);
+    place_player_on_site(&mut state, SiteType::Village);
+    state.players[0].reputation = 3; // bonus = +2
+    state.players[0].influence_points = 1; // 1 + 2 = 3 effective
+
+    // Village healing costs 3 per wound.
+    // Without rep bonus: 1 influence < 3, no healing available.
+    // With rep bonus: effective 3 >= 3, healing 1 should appear.
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    assert!(
+        actions.actions.iter().any(|a| matches!(a, LegalAction::InteractSite { healing: 1 })),
+        "Positive rep (+3) should grant +2 influence, enabling healing at village"
+    );
+}
+
+#[test]
+fn negative_rep_decreases_effective_influence() {
+    let mut state = setup_playing_game(vec!["wound"]);
+    place_player_on_site(&mut state, SiteType::Village);
+    state.players[0].reputation = -3; // bonus = -2
+    state.players[0].influence_points = 4; // 4 - 2 = 2 effective
+
+    // Village healing costs 3. Effective influence = 2 < 3, so no healing.
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    assert!(
+        !actions.actions.iter().any(|a| matches!(a, LegalAction::InteractSite { .. })),
+        "Negative rep (-3) should reduce influence by 2, blocking healing at village"
+    );
+}
+
+#[test]
+fn negative_rep_saturates_at_zero() {
+    let mut state = setup_playing_game(vec!["wound"]);
+    place_player_on_site(&mut state, SiteType::Village);
+    state.players[0].reputation = -5; // bonus = -3
+    state.players[0].influence_points = 1; // 1 - 3 would be negative → clamp to 0
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    assert!(
+        !actions.actions.iter().any(|a| matches!(a, LegalAction::InteractSite { .. })),
+        "Effective influence should saturate at 0 (not underflow)"
+    );
+}
+
+#[test]
+fn reputation_bonus_applied_once_per_turn() {
+    let mut state = setup_playing_game(vec!["wound", "wound"]);
+    place_player_on_site(&mut state, SiteType::Village);
+    state.players[0].reputation = 5; // bonus = +3
+    state.players[0].influence_points = 3; // effective = 6
+
+    // First healing (cost 3): should succeed and apply the bonus
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::InteractSite { healing: 1 },
+        epoch,
+    ).unwrap();
+
+    // After first healing: influence_points was boosted to 6, then 6 - 3 = 3 remaining
+    assert_eq!(state.players[0].influence_points, 3);
+    assert!(state.players[0].flags.contains(PlayerFlags::REPUTATION_BONUS_APPLIED_THIS_TURN));
+
+    // Second healing should work (3 remaining >= 3 cost)
+    // The bonus should NOT be applied again (flag is set)
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::InteractSite { healing: 1 },
+        epoch,
+    ).unwrap();
+
+    assert_eq!(state.players[0].influence_points, 0);
+}
+
+#[test]
+fn reputation_bonus_flag_cleared_at_turn_start() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_site(&mut state, SiteType::Village);
+    state.players[0].flags.insert(PlayerFlags::REPUTATION_BONUS_APPLIED_THIS_TURN);
+    state.players[0].flags.insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
+
+    // End turn should clear the flag
+    crate::end_turn::end_turn(&mut state, 0).unwrap();
+
+    assert!(!state.players[0].flags.contains(PlayerFlags::REPUTATION_BONUS_APPLIED_THIS_TURN));
+}
+
+#[test]
+fn max_rep_bonus_at_plus_seven() {
+    let mut state = setup_playing_game(vec!["wound"]);
+    place_player_on_site(&mut state, SiteType::Village);
+    state.players[0].reputation = 7; // bonus = +5
+    state.players[0].influence_points = 0; // effective = 5
+
+    // Village cost = 3 per wound. Effective = 5 → can heal 1 wound.
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    assert!(
+        actions.actions.iter().any(|a| matches!(a, LegalAction::InteractSite { healing: 1 })),
+        "Max rep (+7) should grant +5 influence bonus"
+    );
+}
+
+#[test]
+fn reputation_bonus_only_at_inhabited_sites() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_site(&mut state, SiteType::Dungeon);
+    state.players[0].reputation = 5;
+    state.players[0].influence_points = 0;
+
+    // Effective influence at non-inhabited site should still be 0 (no bonus applied)
+    let effective = crate::legal_actions::sites::compute_effective_influence(&state, 0);
+    assert_eq!(effective, 0, "No reputation bonus should be applied at adventure sites");
+}
+
+// --- X-space blocking (rep -7) ---
+
+#[test]
+fn x_space_blocks_healing_at_village() {
+    let mut state = setup_playing_game(vec!["wound"]);
+    place_player_on_site(&mut state, SiteType::Village);
+    state.players[0].reputation = -7;
+    state.players[0].influence_points = 100; // plenty of influence
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    assert!(
+        !actions.actions.iter().any(|a| matches!(a, LegalAction::InteractSite { .. })),
+        "Rep -7 (X-space) should block ALL interactions at inhabited sites"
+    );
+}
+
+#[test]
+fn x_space_blocks_buy_spell_at_mage_tower() {
+    let mut state = setup_playing_game(vec!["march"]);
+    let coord = place_player_on_site(&mut state, SiteType::MageTower);
+    state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_conquered = true;
+    state.players[0].reputation = -7;
+    state.players[0].influence_points = 100;
+    state.offers.spells = vec![CardId::from("fireball")];
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    assert!(
+        !actions.actions.iter().any(|a| matches!(a, LegalAction::BuySpell { .. })),
+        "Rep -7 should block BuySpell"
+    );
+}
+
+#[test]
+fn x_space_blocks_recruitment_at_village() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_site(&mut state, SiteType::Village);
+    state.players[0].reputation = -7;
+    state.players[0].influence_points = 100;
+    state.offers.units = vec![mk_types::ids::UnitId::from("peasants")];
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    assert!(
+        !actions.actions.iter().any(|a| matches!(a, LegalAction::RecruitUnit { .. })),
+        "Rep -7 should block unit recruitment"
+    );
+}
+
+#[test]
+fn x_space_does_not_block_enter_site_at_dungeon() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_site(&mut state, SiteType::Dungeon);
+    state.players[0].reputation = -7;
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    assert!(
+        actions.actions.iter().any(|a| matches!(a, LegalAction::EnterSite)),
+        "Rep -7 should NOT block EnterSite at adventure sites (Dungeon)"
+    );
+}
+
+// --- Shield token city bonus ---
+
+#[test]
+fn shield_tokens_at_conquered_city_add_influence() {
+    let mut state = setup_playing_game(vec!["march"]);
+    let coord = place_player_on_site(&mut state, SiteType::City);
+    let hex = state.map.hexes.get_mut(&coord.key()).unwrap();
+    hex.site.as_mut().unwrap().is_conquered = true;
+    hex.site.as_mut().unwrap().owner = Some(state.players[0].id.clone());
+    // Add 2 shield tokens
+    hex.shield_tokens.push(state.players[0].id.clone());
+    hex.shield_tokens.push(state.players[0].id.clone());
+
+    state.players[0].reputation = 0; // no rep bonus
+    state.players[0].influence_points = 1; // 1 + 2 shields = 3 effective
+
+    let effective = crate::legal_actions::sites::compute_effective_influence(&state, 0);
+    assert_eq!(effective, 3, "2 shield tokens should add +2 influence at conquered city");
+}
+
+#[test]
+fn no_shield_bonus_at_unconquered_city() {
+    let mut state = setup_playing_game(vec!["wound"]);
+    let coord = place_player_on_site(&mut state, SiteType::City);
+    let hex = state.map.hexes.get_mut(&coord.key()).unwrap();
+    // City NOT conquered
+    hex.shield_tokens.push(state.players[0].id.clone());
+    hex.shield_tokens.push(state.players[0].id.clone());
+
+    state.players[0].reputation = 0;
+    state.players[0].influence_points = 1; // 1 + 0 (unconquered) = 1
+
+    let effective = crate::legal_actions::sites::compute_effective_influence(&state, 0);
+    assert_eq!(effective, 1, "No shield bonus at unconquered city");
+}
+
+#[test]
+fn no_shield_bonus_at_non_city_sites() {
+    let mut state = setup_playing_game(vec!["wound"]);
+    let coord = place_player_on_site(&mut state, SiteType::Village);
+    let hex = state.map.hexes.get_mut(&coord.key()).unwrap();
+    hex.shield_tokens.push(state.players[0].id.clone());
+
+    state.players[0].reputation = 0;
+    state.players[0].influence_points = 1;
+
+    let effective = crate::legal_actions::sites::compute_effective_influence(&state, 0);
+    assert_eq!(effective, 1, "No shield bonus at non-city sites");
+}
+
+#[test]
+fn shield_bonus_combined_with_reputation_bonus() {
+    let mut state = setup_playing_game(vec!["march"]);
+    let coord = place_player_on_site(&mut state, SiteType::City);
+    let hex = state.map.hexes.get_mut(&coord.key()).unwrap();
+    hex.site.as_mut().unwrap().is_conquered = true;
+    hex.site.as_mut().unwrap().owner = Some(state.players[0].id.clone());
+    hex.shield_tokens.push(state.players[0].id.clone()); // +1 shield
+
+    state.players[0].reputation = 3; // +2 rep bonus
+    state.players[0].influence_points = 0; // 0 + 2 + 1 = 3 effective
+
+    let effective = crate::legal_actions::sites::compute_effective_influence(&state, 0);
+    assert_eq!(effective, 3, "Shield bonus (+1) combined with rep bonus (+2) = 3 effective influence");
+}
+
+#[test]
+fn shield_bonus_enables_recruitment_at_city() {
+    let mut state = setup_playing_game(vec!["march"]);
+    let coord = place_player_on_site(&mut state, SiteType::City);
+    let hex = state.map.hexes.get_mut(&coord.key()).unwrap();
+    hex.site.as_mut().unwrap().is_conquered = true;
+    hex.site.as_mut().unwrap().owner = Some(state.players[0].id.clone());
+    hex.shield_tokens.push(state.players[0].id.clone()); // +1 shield
+
+    state.players[0].reputation = 0;
+    state.players[0].influence_points = 3; // 3 + 1 shield = 4 effective
+
+    // Peasants cost 4, available at Village but scouts available at City
+    state.offers.units = vec![mk_types::ids::UnitId::from("scouts")]; // cost 4, City recruitable
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let recruit = actions.actions.iter().find(|a| matches!(a, LegalAction::RecruitUnit { .. }));
+    assert!(recruit.is_some(), "Shield bonus should enable recruitment at conquered city");
+}
+
+// --- Recruitment with Heroes/Thugs delta ---
+
+#[test]
+fn normal_unit_cost_uses_base_cost_only() {
+    // With the two-layer system, normal units have no per-unit rep delta.
+    // The blanket reputation bonus handles it.
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_site(&mut state, SiteType::Village);
+    state.players[0].reputation = 3; // +2 blanket bonus
+    state.players[0].influence_points = 2; // effective = 4
+
+    state.offers.units = vec![mk_types::ids::UnitId::from("peasants")]; // cost 4
+
+    // Peasants cost 4, effective influence = 4, should be affordable
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let recruit = actions.actions.iter().find(|a| matches!(a, LegalAction::RecruitUnit { .. }));
+    assert!(recruit.is_some(), "Normal unit should be recruitable with blanket rep bonus");
+    if let Some(LegalAction::RecruitUnit { influence_cost, .. }) = recruit {
+        // Cost should be base_cost (4) with 0 per-unit delta
+        assert_eq!(*influence_cost, 4, "Normal unit should have base cost only (rep handled by blanket bonus)");
+    }
+}
+
+#[test]
+fn thugs_cost_has_reversed_reputation_delta() {
+    // Thugs have reversed_reputation. With blanket bonus already applying positive benefit,
+    // thugs need a -2x delta to reverse it.
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_site(&mut state, SiteType::Village);
+    state.players[0].reputation = 3; // base_mod = -2 (cost reduction)
+    // Thugs delta = -2 * (-2) = +4 (reversed: they pay MORE with positive rep)
+    // base_cost = 5, delta = +4, total_cost = 9
+    state.players[0].influence_points = 7; // effective = 7 + 2 = 9
+
+    state.offers.units = vec![mk_types::ids::UnitId::from("thugs")]; // cost 5
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let recruit = actions.actions.iter().find(|a| matches!(a, LegalAction::RecruitUnit { .. }));
+    assert!(recruit.is_some(), "Thugs should be recruitable");
+    if let Some(LegalAction::RecruitUnit { influence_cost, .. }) = recruit {
+        // With rep +3: base_mod = -2, thugs delta = -2 * (-2) = +4
+        // Total cost = 5 + 4 = 9
+        assert_eq!(*influence_cost, 9, "Thugs cost should include reversed rep delta (5 + 4 = 9)");
+    }
+}
+
+#[test]
+fn heroes_cost_has_doubled_reputation_delta() {
+    // Heroes have doubled reputation. Blanket applies 1x, hero delta adds 1x more.
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_site(&mut state, SiteType::Village);
+    state.players[0].reputation = 3; // base_mod = -2
+    // Hero delta = base_mod = -2 (extra 1x reduction)
+    // base_cost = 9, delta = -2, total_cost = 7
+    state.players[0].influence_points = 5; // effective = 5 + 2 = 7
+
+    state.offers.units = vec![mk_types::ids::UnitId::from("hero_blue")]; // cost 9, is_hero
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let recruit = actions.actions.iter().find(|a| matches!(a, LegalAction::RecruitUnit { .. }));
+    assert!(recruit.is_some(), "Hero should be recruitable with doubled rep discount");
+    if let Some(LegalAction::RecruitUnit { influence_cost, .. }) = recruit {
+        // With rep +3: base_mod = -2, hero delta = -2, total_cost = 9 - 2 = 7
+        assert_eq!(*influence_cost, 7, "Hero cost should have extra rep delta (9 - 2 = 7)");
+    }
+}

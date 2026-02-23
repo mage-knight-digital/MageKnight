@@ -116,6 +116,10 @@ fn derive_action_type(action: &LegalAction) -> u16 {
         LegalAction::ResolveUnitMaintenance { .. } => "RESOLVE_UNIT_MAINTENANCE",
         LegalAction::ResolveHexCostReduction { .. } => "RESOLVE_HEX_COST_REDUCTION",
         LegalAction::ResolveTerrainCostReduction { .. } => "RESOLVE_TERRAIN_COST_REDUCTION",
+        LegalAction::ResolveCrystalRollColor { .. } => "RESOLVE_CRYSTAL_ROLL_COLOR",
+        LegalAction::SelectArtifact { .. } => "SELECT_ARTIFACT",
+        LegalAction::ForfeitUnitReward => "FORFEIT_UNIT_REWARD",
+        LegalAction::DisbandUnitForReward { .. } => "DISBAND_UNIT_FOR_REWARD",
         LegalAction::Undo => "UNDO",
     };
     ACTION_TYPE_VOCAB.encode(type_str)

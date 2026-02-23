@@ -40,6 +40,7 @@ pub fn conquest_reward(site_type: SiteType) -> Option<SiteReward> {
                 SiteReward::CrystalRoll { count: 3 },
             ],
         }),
+        SiteType::Dungeon => Some(SiteReward::DungeonRoll),
         _ => None,
     }
 }
@@ -291,11 +292,16 @@ mod tests {
             other => panic!("Expected Compound for SpawningGrounds, got {:?}", other),
         }
 
+        // Dungeon → DungeonRoll (die roll: gold/black→Spell, basic→Artifact)
+        assert_eq!(
+            conquest_reward(SiteType::Dungeon),
+            Some(SiteReward::DungeonRoll)
+        );
+
         // Sites that don't give conquest rewards
         assert!(conquest_reward(SiteType::Village).is_none());
         assert!(conquest_reward(SiteType::Keep).is_none());
         assert!(conquest_reward(SiteType::City).is_none());
-        assert!(conquest_reward(SiteType::Dungeon).is_none());
         assert!(conquest_reward(SiteType::Monastery).is_none());
     }
 
@@ -309,6 +315,7 @@ mod tests {
             SiteReward::CrystalRoll { count: 3 },
             SiteReward::Fame { amount: 5 },
             SiteReward::Unit,
+            SiteReward::DungeonRoll,
             SiteReward::Compound {
                 rewards: vec![
                     SiteReward::Spell { count: 1 },

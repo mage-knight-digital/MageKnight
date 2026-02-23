@@ -7,7 +7,6 @@ members = [
     "crates/mk-features",
     "crates/mk-env",
     "crates/mk-python",
-    "tools/codegen",
     "tools/mk-cli",
     "tools/mk-server",
 ]

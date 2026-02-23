@@ -555,11 +555,46 @@ fn cleanup_end_turn_mana(state: &mut GameState, player_idx: usize) {
 // Card flow
 // =============================================================================
 
+/// Count hand limit bonus from adjacent owned Cities and Keeps.
+///
+/// +1 per City you own, if you end turn on or adjacent to any owned City.
+/// +1 per Keep you own, if you end turn on or adjacent to any owned Keep.
+fn count_adjacent_site_hand_bonus(state: &GameState, player_idx: usize) -> usize {
+    let player_pos = match state.players[player_idx].position {
+        Some(pos) => pos,
+        None => return 0,
+    };
+    let player_id = &state.players[player_idx].id;
+
+    // Collect the player's hex + 6 neighbors
+    let mut hexes_to_check = vec![player_pos];
+    hexes_to_check.extend_from_slice(&player_pos.neighbors());
+
+    let mut bonus = 0usize;
+    for coord in &hexes_to_check {
+        let key = coord.key();
+        if let Some(hex_state) = state.map.hexes.get(&key) {
+            if let Some(ref site) = hex_state.site {
+                if (site.site_type == SiteType::City || site.site_type == SiteType::Keep)
+                    && site.is_conquered
+                    && hex_state.shield_tokens.contains(player_id)
+                {
+                    bonus += 1;
+                }
+            }
+        }
+    }
+    bonus
+}
+
 /// Move play area to discard, draw up to hand limit.
 ///
 /// Matches TS `processCardFlow()` in `cardFlow.ts`.
 /// No mid-round reshuffle — stops drawing if deck empties.
 fn process_card_flow(state: &mut GameState, player_idx: usize) {
+    // Compute site bonus before mutable borrow (needs shared access to map)
+    let site_bonus = count_adjacent_site_hand_bonus(state, player_idx);
+
     let player = &mut state.players[player_idx];
 
     // Move play area → discard
@@ -574,9 +609,8 @@ fn process_card_flow(state: &mut GameState, player_idx: usize) {
     } else {
         0
     };
-    // TODO: Keep bonus (adjacent to owned keep)
     let draw_limit =
-        (player.hand_limit as usize) + planning_bonus + (player.meditation_hand_limit_bonus as usize);
+        (player.hand_limit as usize) + planning_bonus + (player.meditation_hand_limit_bonus as usize) + site_bonus;
 
     while player.hand.len() < draw_limit {
         if player.deck.is_empty() {
@@ -653,6 +687,9 @@ fn reset_player_turn_inner(player: &mut PlayerState) {
     player
         .flags
         .remove(PlayerFlags::CRYSTAL_MASTERY_POWERED_ACTIVE);
+    player
+        .flags
+        .remove(PlayerFlags::REPUTATION_BONUS_APPLIED_THIS_TURN);
 
     // Clear mana state (crystals persist, tokens don't)
     player.pure_mana.clear();

@@ -58,6 +58,8 @@ pub fn derive_mode_str(state: &GameState, player_idx: usize) -> &'static str {
             ActivePending::SiteRewardChoice { .. } => "pending_reward",
             ActivePending::TomeOfAllSpells(_) => "pending_choice",
             ActivePending::CircletOfProficiency(_) => "pending_choice",
+            ActivePending::ArtifactSelection(_) => "pending_artifact_selection",
+            ActivePending::CrystalRollColorChoice { .. } => "pending_crystal_roll",
         };
     }
 
@@ -98,7 +100,8 @@ mod tests {
     fn all_mode_strings_in_vocab() {
         let modes = [
             "cannot_act", "combat", "normal_turn",
-            "pending_choice", "pending_discard_cost",
+            "pending_artifact_selection", "pending_choice", "pending_crystal_roll",
+            "pending_discard_cost",
             "pending_discard_for_bonus", "pending_discard_for_crystal",
             "pending_decompose", "pending_maximal_effect", "pending_book_of_wisdom",
             "pending_training", "pending_tactic_decision", "pending_level_up",
