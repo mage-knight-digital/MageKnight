@@ -269,7 +269,7 @@ function createBarePlayer() {
     manaUsedThisTurn: [], spellColorsCastThisTurn: [], spellsCastByColorThisTurn: {},
     pendingGladeWoundChoice: false, pendingDiscard: null,
     pendingDeepMineChoice: null, pendingUnitMaintenance: null,
-    pendingDiscardForAttack: null, pendingDiscardForBonus: null, pendingDiscardForCrystal: null,
+    pendingDiscardForBonus: null, pendingDiscardForCrystal: null,
     pendingDecompose: null, pendingMaximalEffect: null,
     pendingBookOfWisdom: null, pendingTraining: null,
     mysteriousBoxState: null, pendingTerrainCostReduction: null,

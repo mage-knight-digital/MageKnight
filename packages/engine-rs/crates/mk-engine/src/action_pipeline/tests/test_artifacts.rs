@@ -401,3 +401,220 @@ fn bow_phase_fame_multiple_defeats() {
     assert_eq!(state.players[0].fame, fame_before + 2);
 }
 
+// =========================================================================
+// Cross-system: Combat modifier stacking
+// =========================================================================
+
+fn add_soul_harvester_modifier(state: &mut GameState, player_idx: usize, limit: u32) {
+    use mk_types::modifier::*;
+    use mk_types::ids::ModifierId;
+    let pid = state.players[player_idx].id.clone();
+    state.active_modifiers.push(ActiveModifier {
+        id: ModifierId::from("sh_stack"),
+        source: ModifierSource::Card {
+            card_id: CardId::from("soul_harvester"),
+            player_id: pid.clone(),
+        },
+        duration: ModifierDuration::Combat,
+        scope: ModifierScope::SelfScope,
+        effect: ModifierEffect::SoulHarvesterCrystalTracking {
+            limit,
+            track_by_attack: false,
+        },
+        created_at_round: 1,
+        created_by_player_id: pid,
+    });
+}
+
+/// DoublePhysicalAttacks + FamePerEnemyDefeated both fire on the same attack.
+#[test]
+fn double_physical_and_fame_per_enemy_stack() {
+    use mk_types::modifier::*;
+    use mk_types::ids::ModifierId;
+
+    let mut state = setup_combat_game(&["prowlers"]); // armor 3, fame 2
+    state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+
+    // Both modifiers active
+    add_double_physical_modifier(&mut state, 0);
+    let pid = state.players[0].id.clone();
+    state.active_modifiers.push(ActiveModifier {
+        id: ModifierId::from("fame_bonus"),
+        source: ModifierSource::Card {
+            card_id: CardId::from("banner_of_glory"),
+            player_id: pid.clone(),
+        },
+        duration: ModifierDuration::Combat,
+        scope: ModifierScope::AllUnits,
+        effect: ModifierEffect::FamePerEnemyDefeated {
+            fame_per_enemy: 1,
+            exclude_summoned: false,
+        },
+        created_at_round: 1,
+        created_by_player_id: pid,
+    });
+
+    // 3 physical → doubled to 6, defeats prowlers (armor 3)
+    state.players[0].combat_accumulator.attack.normal = 3;
+    state.players[0].combat_accumulator.attack.normal_elements.physical = 3;
+    state.players[0].fame = 0;
+
+    let mut undo = UndoStack::new();
+    execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
+
+    assert!(state.combat.as_ref().unwrap().enemies[0].is_defeated);
+    // Base fame (prowlers=2) + bonus (1 per enemy) = 3
+    assert_eq!(state.players[0].fame, 3);
+}
+
+/// SoulHarvesterCrystalTracking + FamePerEnemyDefeated both fire on defeat.
+#[test]
+fn soul_harvester_and_fame_per_enemy_both_fire() {
+    use mk_types::modifier::*;
+    use mk_types::ids::ModifierId;
+
+    let mut state = setup_combat_game(&["prowlers"]); // armor 3
+    state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+
+    // Both hooks active
+    add_soul_harvester_modifier(&mut state, 0, 1);
+    let pid = state.players[0].id.clone();
+    state.active_modifiers.push(ActiveModifier {
+        id: ModifierId::from("fame_bonus_2"),
+        source: ModifierSource::Card {
+            card_id: CardId::from("banner_of_glory"),
+            player_id: pid.clone(),
+        },
+        duration: ModifierDuration::Combat,
+        scope: ModifierScope::AllUnits,
+        effect: ModifierEffect::FamePerEnemyDefeated {
+            fame_per_enemy: 1,
+            exclude_summoned: false,
+        },
+        created_at_round: 1,
+        created_by_player_id: pid,
+    });
+
+    state.players[0].combat_accumulator.attack.normal = 10;
+    state.players[0].combat_accumulator.attack.normal_elements.physical = 10;
+    state.players[0].fame = 0;
+
+    let mut undo = UndoStack::new();
+    execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
+
+    // Fame: base(2) + bonus(1) = 3
+    assert_eq!(state.players[0].fame, 3);
+    // Crystal: 1 crystal from soul harvester
+    let total_crystals = state.players[0].crystals.red
+        + state.players[0].crystals.blue
+        + state.players[0].crystals.green
+        + state.players[0].crystals.white;
+    assert_eq!(total_crystals, 1, "Soul harvester should grant 1 crystal");
+}
+
+/// Combat-duration modifiers are removed after end_combat.
+#[test]
+fn combat_modifiers_expire_after_end_combat() {
+    use mk_types::modifier::*;
+    use mk_types::ids::ModifierId;
+
+    let mut state = setup_combat_game(&["prowlers"]);
+    let pid = state.players[0].id.clone();
+
+    // Push two Combat-duration modifiers
+    add_double_physical_modifier(&mut state, 0);
+    state.active_modifiers.push(ActiveModifier {
+        id: ModifierId::from("fame_combat"),
+        source: ModifierSource::Card {
+            card_id: CardId::from("banner_of_glory"),
+            player_id: pid.clone(),
+        },
+        duration: ModifierDuration::Combat,
+        scope: ModifierScope::AllUnits,
+        effect: ModifierEffect::FamePerEnemyDefeated {
+            fame_per_enemy: 1,
+            exclude_summoned: false,
+        },
+        created_at_round: 1,
+        created_by_player_id: pid,
+    });
+
+    assert_eq!(
+        state.active_modifiers.iter()
+            .filter(|m| m.duration == ModifierDuration::Combat)
+            .count(),
+        2,
+        "Should have 2 combat modifiers before end_combat"
+    );
+
+    // End combat by cycling through all phases:
+    // RangedSiege → Block → AssignDamage → Attack → end
+    let mut undo = UndoStack::new();
+    // Phase 1: RangedSiege → Block
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+    // Phase 2: Block → AssignDamage
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+    // Phase 3: AssignDamage → Attack (takes damage as wounds)
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+    // Phase 4: Attack → end combat
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+
+    // Both combat-duration modifiers should be expired
+    assert_eq!(
+        state.active_modifiers.iter()
+            .filter(|m| m.duration == ModifierDuration::Combat)
+            .count(),
+        0,
+        "Combat modifiers should be expired after end_combat"
+    );
+}
+
+/// BowPhaseFameTracking fires at RangedSiege→Block transition,
+/// before combat end would expire it.
+#[test]
+fn bow_phase_fame_fires_before_combat_modifier_expiry() {
+    let mut state = setup_combat_game(&["prowlers"]); // armor 3
+    add_bow_phase_fame_modifier(&mut state, 0, 2);
+
+    // Defeat in RangedSiege
+    state.players[0].combat_accumulator.attack.ranged = 10;
+    state.players[0].combat_accumulator.attack.ranged_elements.physical = 10;
+    state.players[0].fame = 0;
+
+    let mut undo = UndoStack::new();
+    execute_attack(&mut state, &mut undo, CombatType::Ranged, 1);
+
+    // Confirm modifier exists before transition
+    assert!(
+        state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::BowPhaseFameTracking { .. })
+        ),
+        "BowPhaseFameTracking should exist before phase transition"
+    );
+
+    let fame_before = state.players[0].fame;
+
+    // Transition RangedSiege→Block (triggers bow phase fame)
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::EndCombatPhase,
+        epoch,
+    ).unwrap();
+
+    // Bow phase fame awarded at transition: 2 * 1 defeat = 2
+    assert_eq!(state.players[0].fame, fame_before + 2);
+
+    // Modifier still exists (it's Combat duration, persists until combat ends)
+    assert!(
+        state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::BowPhaseFameTracking { .. })
+        ),
+        "BowPhaseFameTracking should persist through phase transitions (Combat duration)"
+    );
+}
+

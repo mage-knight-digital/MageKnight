@@ -761,7 +761,6 @@ fn pending_label(active: &ActivePending) -> &'static str {
     match active {
         ActivePending::Choice(_) => "Choose an option",
         ActivePending::Discard(_) => "Discard cards",
-        ActivePending::DiscardForAttack(_) => "Discard for attack",
         ActivePending::DiscardForBonus(_) => "Discard for bonus",
         ActivePending::DiscardForCrystal(_) => "Discard for crystal",
         ActivePending::Decompose(_) => "Decompose a card",

@@ -29,7 +29,6 @@ pub fn derive_mode_str(state: &GameState, player_idx: usize) -> &'static str {
         return match pending {
             ActivePending::Choice(_) => "pending_choice",
             ActivePending::Discard(_) => "pending_discard_cost",
-            ActivePending::DiscardForAttack(_) => "pending_discard_for_attack",
             ActivePending::DiscardForBonus(_) => "pending_discard_for_bonus",
             ActivePending::DiscardForCrystal(_) => "pending_discard_for_crystal",
             ActivePending::Decompose(_) => "pending_decompose",
@@ -99,7 +98,7 @@ mod tests {
     fn all_mode_strings_in_vocab() {
         let modes = [
             "cannot_act", "combat", "normal_turn",
-            "pending_choice", "pending_discard_cost", "pending_discard_for_attack",
+            "pending_choice", "pending_discard_cost",
             "pending_discard_for_bonus", "pending_discard_for_crystal",
             "pending_decompose", "pending_maximal_effect", "pending_book_of_wisdom",
             "pending_training", "pending_tactic_decision", "pending_level_up",

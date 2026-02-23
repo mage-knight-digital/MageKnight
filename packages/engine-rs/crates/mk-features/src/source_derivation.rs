@@ -262,7 +262,7 @@ fn effect_to_source_str(effect: &CardEffect) -> &'static str {
         CardEffect::DrawCards { .. } => "pending_choice.draw_cards",
         CardEffect::GainFame { .. } => "pending_choice.gain_fame",
         CardEffect::GainCrystal { .. }
-        | CardEffect::ConvertManaToCrystal { .. } => "pending_choice.gain_crystal",
+        | CardEffect::ConvertManaToCrystal => "pending_choice.gain_crystal",
         CardEffect::ApplyModifier { .. } => "pending_choice.apply_modifier",
         CardEffect::ChangeReputation { .. } => "pending_choice.change_reputation",
         CardEffect::Noop => "pending_choice.noop",

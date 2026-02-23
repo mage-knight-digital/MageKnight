@@ -2334,4 +2334,186 @@ mod tests {
         };
         assert!(!is_die_available_with_overrides(&die, &state, 0));
     }
+
+    // =========================================================================
+    // Cross-system: destroy_on_powered timing
+    // =========================================================================
+
+    #[test]
+    fn destroy_on_powered_removes_from_play_area() {
+        let mut state = setup_game(vec!["ruby_ring"]);
+        // ruby_ring is powered by any basic mana
+        give_mana(&mut state, ManaColor::Red);
+
+        let result = play_card(&mut state, 0, 0, true, Some(BasicManaColor::Red)).unwrap();
+        assert!(matches!(result, CardPlayResult::Complete));
+
+        // Card should NOT be in play area (destroyed)
+        assert!(
+            !state.players[0].play_area.iter().any(|c| c.as_str() == "ruby_ring"),
+            "Destroyed artifact should not be in play_area"
+        );
+        // Card should be in removed_cards
+        assert!(
+            state.players[0].removed_cards.iter().any(|c| c.as_str() == "ruby_ring"),
+            "Destroyed artifact should be in removed_cards"
+        );
+    }
+
+    #[test]
+    fn destroy_on_powered_modifier_persists_after_destruction() {
+        use mk_types::modifier::ModifierEffect;
+
+        let mut state = setup_game(vec!["ruby_ring"]);
+        give_mana(&mut state, ManaColor::Red);
+
+        play_card(&mut state, 0, 0, true, Some(BasicManaColor::Red)).unwrap();
+
+        // ruby_ring powered creates EndlessMana modifier (Turn duration)
+        // Even though the card is destroyed, the modifier should persist
+        assert!(
+            state.active_modifiers.iter().any(|m|
+                matches!(&m.effect, ModifierEffect::EndlessMana { .. })
+            ),
+            "EndlessMana modifier should persist after card destruction"
+        );
+        // Card is in removed_cards
+        assert!(
+            state.players[0].removed_cards.iter().any(|c| c.as_str() == "ruby_ring"),
+            "Card should be destroyed"
+        );
+    }
+
+    #[test]
+    fn mysterious_box_powered_destroy_then_end_turn_cleanup() {
+        use mk_types::state::MysteriousBoxState;
+        use mk_types::state::MysteriousBoxUsage;
+
+        let mut state = setup_game(vec!["mysterious_box"]);
+        // Set up mysterious box state as Powered (simulates the usage tracking)
+        state.players[0].mysterious_box_state = Some(MysteriousBoxState {
+            revealed_artifact_id: CardId::from("ruby_ring"),
+            used_as: MysteriousBoxUsage::Powered,
+            played_card_from_hand_before_play: true,
+        });
+        // Card is in play_area (as it would be after being played)
+        state.players[0].play_area.push(CardId::from("mysterious_box"));
+
+        // Mark card played to satisfy end_turn minimum requirement
+        state.players[0].flags.insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
+        // Add deck for draw
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+
+        // End turn — apply_mysterious_box_cleanup should handle Powered:
+        // move mysterious_box from play_area to removed_cards
+        let result = crate::end_turn::end_turn(&mut state, 0);
+        assert!(result.is_ok(), "End turn should not panic");
+
+        // mysterious_box_state should be cleared
+        assert!(state.players[0].mysterious_box_state.is_none());
+        // Card should be in removed_cards
+        assert!(
+            state.players[0].removed_cards.iter().any(|c| c.as_str() == "mysterious_box"),
+            "Mysterious box should be in removed_cards after powered end-turn cleanup"
+        );
+        // Not in play_area
+        assert!(
+            !state.players[0].play_area.iter().any(|c| c.as_str() == "mysterious_box"),
+            "Mysterious box should not be in play_area"
+        );
+    }
+
+    // =========================================================================
+    // Cross-system: Amulet mana override (night/day rules)
+    // =========================================================================
+
+    #[test]
+    fn allow_gold_at_night_makes_gold_die_available() {
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+
+        let mut state = setup_game(vec!["march"]);
+        state.time_of_day = TimeOfDay::Night;
+        let pid = state.players[0].id.clone();
+
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("sun_amulet"),
+            source: ModifierSource::Card {
+                card_id: CardId::from("amulet_of_the_sun"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::RuleOverride {
+                rule: RuleOverride::AllowGoldAtNight,
+            },
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+
+        let die = SourceDie {
+            id: mk_types::ids::SourceDieId::from("gold_die"),
+            color: ManaColor::Gold,
+            is_depleted: true, // depleted at night
+            taken_by_player_id: None,
+        };
+        assert!(
+            is_die_available_with_overrides(&die, &state, 0),
+            "Gold die should be available at night with AllowGoldAtNight"
+        );
+    }
+
+    #[test]
+    fn allow_black_at_day_makes_black_die_available() {
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+
+        let mut state = setup_game(vec!["march"]);
+        state.time_of_day = TimeOfDay::Day;
+        let pid = state.players[0].id.clone();
+
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("dark_amulet"),
+            source: ModifierSource::Card {
+                card_id: CardId::from("amulet_of_darkness"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::RuleOverride {
+                rule: RuleOverride::AllowBlackAtDay,
+            },
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+
+        let die = SourceDie {
+            id: mk_types::ids::SourceDieId::from("black_die"),
+            color: ManaColor::Black,
+            is_depleted: true, // depleted at day
+            taken_by_player_id: None,
+        };
+        assert!(
+            is_die_available_with_overrides(&die, &state, 0),
+            "Black die should be available at day with AllowBlackAtDay"
+        );
+    }
+
+    #[test]
+    fn no_override_gold_die_stays_depleted_at_night() {
+        let mut state = setup_game(vec!["march"]);
+        state.time_of_day = TimeOfDay::Night;
+        // No override active
+
+        let die = SourceDie {
+            id: mk_types::ids::SourceDieId::from("gold_die"),
+            color: ManaColor::Gold,
+            is_depleted: true,
+            taken_by_player_id: None,
+        };
+        assert!(
+            !is_die_available_with_overrides(&die, &state, 0),
+            "Gold die should stay depleted at night without override"
+        );
+    }
 }

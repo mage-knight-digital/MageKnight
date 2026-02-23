@@ -4,6 +4,10 @@
 //! This eliminates the need for a WebSocket server — Python drives
 //! the engine directly in-process.
 
+// PyO3 #[pymethods] macro generates unnecessary `.into()` on PyErr in PyResult return types.
+// See: https://github.com/PyO3/pyo3/issues/4828
+#![allow(clippy::useless_conversion)]
+
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use pyo3::exceptions::{PyRuntimeError, PyValueError};

@@ -466,14 +466,6 @@ pub struct PendingDiscard {
     pub end_turn_after_resolve: bool,
 }
 
-/// Pending discard-for-attack resolution (Sword of Justice basic).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PendingDiscardForAttack {
-    pub source_card_id: CardId,
-    pub attack_per_card: u32,
-    pub combat_type: CombatType,
-}
-
 /// Pending discard-for-bonus resolution (Stout Resolve).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PendingDiscardForBonus {
@@ -719,7 +711,6 @@ pub enum SiteReward {
 pub enum ActivePending {
     Choice(PendingChoice),
     Discard(PendingDiscard),
-    DiscardForAttack(PendingDiscardForAttack),
     DiscardForBonus(PendingDiscardForBonus),
     DiscardForCrystal(PendingDiscardForCrystal),
     Decompose(PendingDecompose),

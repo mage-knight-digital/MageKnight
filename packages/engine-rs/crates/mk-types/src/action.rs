@@ -289,9 +289,6 @@ pub enum PlayerAction {
         from_learning: Option<bool>,
     },
 
-    #[serde(rename = "BUY_HEALING")]
-    BuyHealing { amount: u32 },
-
     // =========================================================================
     // Tactics
     // =========================================================================
@@ -436,12 +433,6 @@ pub enum PlayerAction {
         card_ids: Vec<CardId>,
     },
 
-    #[serde(rename = "RESOLVE_DISCARD_FOR_ATTACK")]
-    ResolveDiscardForAttack {
-        #[serde(rename = "cardIds")]
-        card_ids: Vec<CardId>,
-    },
-
     #[serde(rename = "RESOLVE_DISCARD_FOR_BONUS")]
     ResolveDiscardForBonus {
         #[serde(rename = "cardIds")]
@@ -502,12 +493,6 @@ pub enum PlayerAction {
         #[serde(rename = "cardId")]
         card_id: CardId,
     },
-
-    // =========================================================================
-    // Artifact crystal color (Savage Harvesting)
-    // =========================================================================
-    #[serde(rename = "RESOLVE_ARTIFACT_CRYSTAL_COLOR")]
-    ResolveArtifactCrystalColor { color: BasicManaColor },
 
     // =========================================================================
     // Combat
@@ -699,7 +684,6 @@ impl PlayerAction {
             Self::PayThugsDamageInfluence { .. } => "PAY_THUGS_DAMAGE_INFLUENCE",
             Self::BuySpell { .. } => "BUY_SPELL",
             Self::LearnAdvancedAction { .. } => "LEARN_ADVANCED_ACTION",
-            Self::BuyHealing { .. } => "BUY_HEALING",
             Self::SelectTactic { .. } => "SELECT_TACTIC",
             Self::ActivateTactic { .. } => "ACTIVATE_TACTIC",
             Self::ResolveTacticDecision { .. } => "RESOLVE_TACTIC_DECISION",
@@ -718,7 +702,6 @@ impl PlayerAction {
             Self::ResolveBannerProtection { .. } => "RESOLVE_BANNER_PROTECTION",
             Self::ResolveSourceOpeningReroll { .. } => "RESOLVE_SOURCE_OPENING_REROLL",
             Self::ResolveDiscard { .. } => "RESOLVE_DISCARD",
-            Self::ResolveDiscardForAttack { .. } => "RESOLVE_DISCARD_FOR_ATTACK",
             Self::ResolveDiscardForBonus { .. } => "RESOLVE_DISCARD_FOR_BONUS",
             Self::ResolveDiscardForCrystal { .. } => "RESOLVE_DISCARD_FOR_CRYSTAL",
             Self::ResolveMeditation { .. } => "RESOLVE_MEDITATION",
@@ -726,7 +709,6 @@ impl PlayerAction {
             Self::ResolveMaximalEffect { .. } => "RESOLVE_MAXIMAL_EFFECT",
             Self::ResolveBookOfWisdom { .. } => "RESOLVE_BOOK_OF_WISDOM",
             Self::ResolveTraining { .. } => "RESOLVE_TRAINING",
-            Self::ResolveArtifactCrystalColor { .. } => "RESOLVE_ARTIFACT_CRYSTAL_COLOR",
             Self::EnterCombat { .. } => "ENTER_COMBAT",
             Self::ChallengeRampaging { .. } => "CHALLENGE_RAMPAGING",
             Self::EndCombatPhase => "END_COMBAT_PHASE",

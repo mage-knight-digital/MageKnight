@@ -5601,3 +5601,66 @@ fn banner_fear_multiple_units_multiple_enemies() {
     // 2 units × 2 enemies × 1 attack each = 4
     assert_eq!(fear_count, 4, "2 units × 2 enemies = 4 UseBannerFear actions");
 }
+
+// =========================================================================
+// Cross-system: Amulet mana override flows through to legal actions
+// =========================================================================
+
+/// AllowGoldAtNight override makes gold-die-powered cards appear in legal actions at night.
+#[test]
+fn amulet_override_flows_through_to_can_afford_powered() {
+    use mk_types::ids::{ModifierId, SourceDieId};
+    use mk_types::modifier::*;
+    use mk_types::state::SourceDie;
+    use mk_types::legal_action::LegalAction;
+
+    // march: powered by green (4 move)
+    let mut state = setup_game(vec!["march"]);
+    state.time_of_day = TimeOfDay::Night;
+    state.round_phase = RoundPhase::PlayerTurns;
+
+    // Clear all dice, then add only a depleted gold die
+    state.source.dice.clear();
+    state.source.dice.push(SourceDie {
+        id: SourceDieId::from("gold_die_1"),
+        color: ManaColor::Gold,
+        is_depleted: true,
+        taken_by_player_id: None,
+    });
+    // Clear any mana tokens/crystals so only the die matters
+    state.players[0].pure_mana.clear();
+    state.players[0].crystals = Default::default();
+
+    // Without override: gold die depleted → no powered play available
+    let legal_no_override = enumerate_legal_actions(&state, 0);
+    let has_powered_without = legal_no_override.actions.iter().any(|a| matches!(
+        a,
+        LegalAction::PlayCardPowered { .. }
+    ));
+    assert!(!has_powered_without, "Without override, gold die depleted → no powered play");
+
+    // Add AllowGoldAtNight override
+    let pid = state.players[0].id.clone();
+    state.active_modifiers.push(ActiveModifier {
+        id: ModifierId::from("sun_amulet"),
+        source: ModifierSource::Card {
+            card_id: CardId::from("amulet_of_the_sun"),
+            player_id: pid.clone(),
+        },
+        duration: ModifierDuration::Turn,
+        scope: ModifierScope::SelfScope,
+        effect: ModifierEffect::RuleOverride {
+            rule: RuleOverride::AllowGoldAtNight,
+        },
+        created_at_round: 1,
+        created_by_player_id: pid,
+    });
+
+    // With override: gold die available → powered play should appear
+    let legal_with_override = enumerate_legal_actions(&state, 0);
+    let has_powered_with = legal_with_override.actions.iter().any(|a| matches!(
+        a,
+        LegalAction::PlayCardPowered { .. }
+    ));
+    assert!(has_powered_with, "With AllowGoldAtNight, gold die should be available for powered plays");
+}

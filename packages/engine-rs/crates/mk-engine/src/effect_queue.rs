@@ -574,6 +574,25 @@ pub fn resolve_pending_choice(
                     if let Some(def) = mk_data::cards::get_card(cid.as_str()) {
                         if let Some(basic) = def.color.to_basic_mana_color() {
                             crate::mana::gain_crystal(&mut state.players[player_idx], basic);
+                        } else {
+                            // Colorless artifact — present 4-color crystal choice
+                            let options = vec![
+                                CardEffect::GainCrystal { color: Some(BasicManaColor::Red) },
+                                CardEffect::GainCrystal { color: Some(BasicManaColor::Blue) },
+                                CardEffect::GainCrystal { color: Some(BasicManaColor::Green) },
+                                CardEffect::GainCrystal { color: Some(BasicManaColor::White) },
+                            ];
+                            state.players[player_idx].pending.active =
+                                Some(ActivePending::Choice(PendingChoice {
+                                    card_id: source_card_id,
+                                    skill_id: None,
+                                    unit_instance_id: None,
+                                    options,
+                                    continuation: choice.continuation.into_iter().collect(),
+                                    movement_bonus_applied: false,
+                                    resolution: ChoiceResolution::Standard,
+                                }));
+                            return Ok(());
                         }
                     }
                 }
@@ -3923,6 +3942,15 @@ fn apply_discard_for_crystal(
         if let Some(def) = mk_data::cards::get_card(cid.as_str()) {
             if let Some(basic) = def.color.to_basic_mana_color() {
                 crate::mana::gain_crystal(&mut state.players[player_idx], basic);
+            } else {
+                // Colorless artifact — need color choice
+                let crystal_options = vec![
+                    CardEffect::GainCrystal { color: Some(BasicManaColor::Red) },
+                    CardEffect::GainCrystal { color: Some(BasicManaColor::Blue) },
+                    CardEffect::GainCrystal { color: Some(BasicManaColor::Green) },
+                    CardEffect::GainCrystal { color: Some(BasicManaColor::White) },
+                ];
+                return ResolveResult::NeedsChoice(crystal_options);
             }
         }
         return ResolveResult::Applied;
@@ -9095,6 +9123,122 @@ mod tests {
     }
 
     // =========================================================================
+    // DiscardForCrystal — colorless artifact tests
+    // =========================================================================
+
+    #[test]
+    fn discard_for_crystal_colorless_single_auto() {
+        // Single colorless artifact in hand, non-optional → auto-discards → color choice
+        let mut state = test_state();
+        state.players[0].hand = vec![CardId::from("endless_bag_of_gold")];
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::DiscardForCrystal { optional: false }, None);
+        let result = queue.drain(&mut state, 0);
+        // Auto-discard fires, but colorless → NeedsChoice with 4 crystal colors
+        match result {
+            DrainResult::NeedsChoice {
+                options,
+                continuation,
+                resolution,
+                ..
+            } => {
+                assert_eq!(options.len(), 4); // Red, Blue, Green, White
+                state.players[0].pending.active =
+                    Some(ActivePending::Choice(PendingChoice {
+                        card_id: None,
+                        skill_id: None,
+                        unit_instance_id: None,
+                        options,
+                        continuation: continuation
+                            .into_iter()
+                            .map(|q| ContinuationEntry {
+                                effect: q.effect,
+                                source_card_id: q.source_card_id,
+                            })
+                            .collect(),
+                        movement_bonus_applied: false,
+                        resolution,
+                    }));
+            }
+            _ => panic!("Expected NeedsChoice for crystal color, got {:?}", result),
+        }
+        // Card already discarded during auto-select
+        assert!(state.players[0].hand.is_empty());
+        assert_eq!(state.players[0].discard.len(), 1);
+        // Pick Red (index 0)
+        resolve_pending_choice(&mut state, 0, 0).unwrap();
+        assert_eq!(state.players[0].crystals.red, 1);
+    }
+
+    #[test]
+    fn discard_for_crystal_colorless_multi() {
+        // Multiple cards including a colorless artifact → pick artifact → color choice
+        let mut state = test_state();
+        state.players[0].hand = vec![
+            CardId::from("march"),                // Green
+            CardId::from("endless_bag_of_gold"),  // Colorless
+        ];
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::DiscardForCrystal { optional: false }, None);
+        let result = queue.drain(&mut state, 0);
+        // 2 eligible → NeedsChoice for card selection
+        match result {
+            DrainResult::NeedsChoice {
+                options,
+                continuation,
+                resolution,
+                ..
+            } => {
+                assert_eq!(options.len(), 2);
+                state.players[0].pending.active =
+                    Some(ActivePending::Choice(PendingChoice {
+                        card_id: None,
+                        skill_id: None,
+                        unit_instance_id: None,
+                        options,
+                        continuation: continuation
+                            .into_iter()
+                            .map(|q| ContinuationEntry {
+                                effect: q.effect,
+                                source_card_id: q.source_card_id,
+                            })
+                            .collect(),
+                        movement_bonus_applied: false,
+                        resolution,
+                    }));
+            }
+            _ => panic!("Expected NeedsChoice for card selection"),
+        }
+        // Choose index 1 = endless_bag_of_gold (colorless)
+        resolve_pending_choice(&mut state, 0, 1).unwrap();
+        // Now we should have a new pending choice for crystal color
+        assert!(state.players[0].pending.active.is_some());
+        match &state.players[0].pending.active {
+            Some(ActivePending::Choice(choice)) => {
+                assert_eq!(choice.options.len(), 4); // 4 crystal colors
+            }
+            other => panic!("Expected Choice pending for crystal color, got {:?}", other),
+        }
+        // Pick Blue (index 1)
+        resolve_pending_choice(&mut state, 0, 1).unwrap();
+        assert_eq!(state.players[0].crystals.blue, 1);
+        assert_eq!(state.players[0].hand.len(), 1); // march still in hand
+    }
+
+    #[test]
+    fn discard_for_crystal_colored_unchanged() {
+        // Regression: normal colored card still auto-grants matching crystal
+        let mut state = test_state();
+        state.players[0].hand = vec![CardId::from("rage")]; // Red card
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::DiscardForCrystal { optional: false }, None);
+        let result = queue.drain(&mut state, 0);
+        assert!(matches!(result, DrainResult::Complete));
+        assert!(state.players[0].hand.is_empty());
+        assert_eq!(state.players[0].crystals.red, 1);
+    }
+
+    // =========================================================================
     // Sacrifice tests
     // =========================================================================
 
@@ -12129,6 +12273,175 @@ mod tests {
         assert_eq!(state.players[0].fame, initial_fame + 2);
         // test_player starts with 3 deck cards + 2 we added = 5; draw 2 = 3 remaining
         assert_eq!(state.players[0].deck.len(), 3);
+    }
+
+    // =========================================================================
+    // Cross-system: Golden Grail compound healing interactions
+    // =========================================================================
+
+    #[test]
+    fn golden_grail_compound_two_heals_shares_tracking() {
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+
+        let mut state = test_state();
+        let pid = state.players[0].id.clone();
+
+        // Add 4 wounds to hand
+        for _ in 0..4 {
+            state.players[0].hand.push(CardId::from("wound"));
+        }
+
+        // Fame tracking: remaining=3
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("gg_compound"),
+            source: ModifierSource::Card {
+                card_id: CardId::from("golden_grail"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::GoldenGrailFameTracking {
+                remaining_healing_points: 3,
+            },
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+
+        let initial_fame = state.players[0].fame;
+
+        // Compound with two GainHealing sub-effects
+        let mut queue = EffectQueue::new();
+        queue.push(
+            CardEffect::Compound {
+                effects: vec![
+                    CardEffect::GainHealing { amount: 2 },
+                    CardEffect::GainHealing { amount: 2 },
+                ],
+            },
+            None,
+        );
+        queue.drain(&mut state, 0);
+
+        // First heal: 2 wounds healed → 2 fame (remaining: 3→1)
+        // Second heal: 2 wounds healed → 1 fame (remaining: 1→0, modifier removed)
+        // Total: 3 fame, 4 wounds healed
+        assert_eq!(state.players[0].fame, initial_fame + 3);
+        // Tracker should be fully consumed
+        assert!(
+            !state.active_modifiers.iter().any(|m|
+                matches!(&m.effect, ModifierEffect::GoldenGrailFameTracking { .. })
+            ),
+            "Fame tracker should be removed after exhaustion"
+        );
+    }
+
+    #[test]
+    fn golden_grail_draw_decomposes_correctly_inside_compound() {
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+
+        let mut state = test_state();
+        let pid = state.players[0].id.clone();
+
+        // 1 wound in hand, cards in deck for draw
+        state.players[0].hand.push(CardId::from("wound"));
+        state.players[0].deck.push(CardId::from("extra_card"));
+
+        // GoldenGrailDrawOnHeal active
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("gg_draw_compound"),
+            source: ModifierSource::Card {
+                card_id: CardId::from("golden_grail"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::GoldenGrailDrawOnHeal,
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+
+        // Enter combat so GainAttack resolves
+        let tokens = vec![mk_types::ids::EnemyTokenId::from("prowlers_1")];
+        crate::combat::execute_enter_combat(
+            &mut state, 0, &tokens, false, None, Default::default(),
+        ).unwrap();
+
+        let initial_deck = state.players[0].deck.len();
+
+        // Compound: heal 1, then gain attack 3
+        let mut queue = EffectQueue::new();
+        queue.push(
+            CardEffect::Compound {
+                effects: vec![
+                    CardEffect::GainHealing { amount: 1 },
+                    CardEffect::GainAttack {
+                        amount: 3,
+                        combat_type: CombatType::Melee,
+                        element: Element::Physical,
+                    },
+                ],
+            },
+            None,
+        );
+        queue.drain(&mut state, 0);
+
+        // Draw decomposed from healing: deck decreased by 1
+        assert_eq!(state.players[0].deck.len(), initial_deck - 1);
+        // GainAttack still resolved: 3 melee attack in accumulator
+        assert_eq!(state.players[0].combat_accumulator.attack.normal, 3);
+    }
+
+    #[test]
+    fn golden_grail_fame_tracker_exhausted_and_removed() {
+        use mk_types::modifier::*;
+        use mk_types::ids::ModifierId;
+
+        let mut state = test_state();
+        let pid = state.players[0].id.clone();
+
+        // 3 wounds in hand
+        for _ in 0..3 {
+            state.players[0].hand.push(CardId::from("wound"));
+        }
+
+        // Fame tracking: remaining=1 (will exhaust after 1 heal point)
+        state.active_modifiers.push(ActiveModifier {
+            id: ModifierId::from("gg_exhaust"),
+            source: ModifierSource::Card {
+                card_id: CardId::from("golden_grail"),
+                player_id: pid.clone(),
+            },
+            duration: ModifierDuration::Turn,
+            scope: ModifierScope::SelfScope,
+            effect: ModifierEffect::GoldenGrailFameTracking {
+                remaining_healing_points: 1,
+            },
+            created_at_round: 1,
+            created_by_player_id: pid,
+        });
+
+        let initial_fame = state.players[0].fame;
+
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::GainHealing { amount: 3 }, None);
+        queue.drain(&mut state, 0);
+
+        // 3 wounds healed, but only 1 fame (tracker had remaining=1)
+        assert_eq!(state.players[0].fame, initial_fame + 1);
+        // Modifier should be removed
+        assert!(
+            !state.active_modifiers.iter().any(|m|
+                matches!(&m.effect, ModifierEffect::GoldenGrailFameTracking { .. })
+            ),
+            "Exhausted fame tracker should be removed"
+        );
+        // All 3 wounds still healed despite tracker exhaustion
+        let wounds_in_hand = state.players[0].hand.iter()
+            .filter(|c| c.as_str() == "wound")
+            .count();
+        assert_eq!(wounds_in_hand, 0, "All 3 wounds should be healed");
     }
 
     // =========================================================================

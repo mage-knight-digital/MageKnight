@@ -289,7 +289,7 @@ define_vocab!(ENEMY_VOCAB, "enemy",
 );
 
 // =============================================================================
-// Action Type Vocabulary (68 entries)
+// Action Type Vocabulary (74 entries)
 // =============================================================================
 
 define_vocab!(ACTION_TYPE_VOCAB, "action_type",
@@ -297,7 +297,7 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
         "ACTIVATE_TACTIC", "ACTIVATE_UNIT", "ALTAR_TRIBUTE",
         "ANNOUNCE_END_OF_ROUND", "ASSIGN_ATTACK", "ASSIGN_BANNER",
         "ASSIGN_BLOCK", "ASSIGN_DAMAGE", "BURN_MONASTERY",
-        "BUY_HEALING", "BUY_SPELL",
+        "BUY_SPELL",
         "CANCEL_COOPERATIVE_PROPOSAL", "CHALLENGE_RAMPAGING",
         "CHOOSE_LEVEL_UP_REWARDS", "COMPLETE_REST",
         "CONVERT_INFLUENCE_TO_BLOCK", "CONVERT_MOVE_TO_ATTACK",
@@ -311,11 +311,11 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
         "PLAY_CARD", "PLAY_CARD_SIDEWAYS", "PLUNDER_VILLAGE",
         "PROPOSE_COOPERATIVE_ASSAULT", "RECRUIT_UNIT",
         "REROLL_SOURCE_DICE",
-        "RESOLVE_ARTIFACT_CRYSTAL_COLOR", "RESOLVE_BANNER_PROTECTION",
+        "RESOLVE_BANNER_PROTECTION",
         "RESOLVE_BOOK_OF_WISDOM", "RESOLVE_CHOICE",
         "RESOLVE_CRYSTAL_JOY_RECLAIM", "RESOLVE_DECOMPOSE",
         "RESOLVE_DEEP_MINE", "RESOLVE_DISCARD",
-        "RESOLVE_DISCARD_FOR_ATTACK", "RESOLVE_DISCARD_FOR_BONUS",
+        "RESOLVE_DISCARD_FOR_BONUS",
         "RESOLVE_DISCARD_FOR_CRYSTAL", "RESOLVE_GLADE_WOUND",
         "RESOLVE_HEX_COST_REDUCTION", "RESOLVE_MAXIMAL_EFFECT",
         "RESOLVE_MEDITATION", "RESOLVE_SOURCE_OPENING_REROLL",
@@ -332,7 +332,7 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
         "ACTIVATE_TACTIC", "ACTIVATE_UNIT", "ALTAR_TRIBUTE",
         "ANNOUNCE_END_OF_ROUND", "ASSIGN_ATTACK", "ASSIGN_BANNER",
         "ASSIGN_BLOCK", "ASSIGN_DAMAGE", "BURN_MONASTERY",
-        "BUY_HEALING", "BUY_SPELL",
+        "BUY_SPELL",
         "CANCEL_COOPERATIVE_PROPOSAL", "CHALLENGE_RAMPAGING",
         "CHOOSE_LEVEL_UP_REWARDS", "COMPLETE_REST",
         "CONVERT_INFLUENCE_TO_BLOCK", "CONVERT_MOVE_TO_ATTACK",
@@ -351,11 +351,11 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
         "PROPOSE_COOPERATIVE_ASSAULT",
         "RECRUIT_UNIT",
         "REROLL_SOURCE_DICE",
-        "RESOLVE_ARTIFACT_CRYSTAL_COLOR", "RESOLVE_BANNER_PROTECTION",
+        "RESOLVE_BANNER_PROTECTION",
         "RESOLVE_BOOK_OF_WISDOM", "RESOLVE_CHOICE",
         "RESOLVE_CRYSTAL_JOY_RECLAIM", "RESOLVE_DECOMPOSE",
         "RESOLVE_DEEP_MINE", "RESOLVE_DISCARD",
-        "RESOLVE_DISCARD_FOR_ATTACK", "RESOLVE_DISCARD_FOR_BONUS",
+        "RESOLVE_DISCARD_FOR_BONUS",
         "RESOLVE_DISCARD_FOR_CRYSTAL", "RESOLVE_GLADE_WOUND",
         "RESOLVE_HEX_COST_REDUCTION", "RESOLVE_MAXIMAL_EFFECT",
         "RESOLVE_MEDITATION", "RESOLVE_SOURCE_OPENING_REROLL",
@@ -372,17 +372,17 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
 );
 
 // =============================================================================
-// Mode Vocabulary (28 entries)
+// Mode Vocabulary (26 entries)
 // =============================================================================
 
 define_vocab!(MODE_VOCAB, "mode",
     ordered: [
         "cannot_act", "combat", "normal_turn",
-        "pending_artifact_crystal_color", "pending_banner_protection",
+        "pending_banner_protection",
         "pending_book_of_wisdom", "pending_choice",
         "pending_crystal_joy_reclaim", "pending_decompose",
         "pending_deep_mine", "pending_discard_cost",
-        "pending_discard_for_attack", "pending_discard_for_bonus",
+        "pending_discard_for_bonus",
         "pending_discard_for_crystal", "pending_glade_wound",
         "pending_hex_cost_reduction", "pending_level_up",
         "pending_maximal_effect", "pending_meditation",
@@ -395,11 +395,11 @@ define_vocab!(MODE_VOCAB, "mode",
     ],
     sorted: [
         "cannot_act", "combat", "normal_turn",
-        "pending_artifact_crystal_color", "pending_banner_protection",
+        "pending_banner_protection",
         "pending_book_of_wisdom", "pending_choice",
         "pending_crystal_joy_reclaim", "pending_decompose",
         "pending_deep_mine", "pending_discard_cost",
-        "pending_discard_for_attack", "pending_discard_for_bonus",
+        "pending_discard_for_bonus",
         "pending_discard_for_crystal", "pending_glade_wound",
         "pending_hex_cost_reduction", "pending_level_up",
         "pending_maximal_effect", "pending_meditation",
@@ -708,12 +708,12 @@ mod tests {
 
     #[test]
     fn action_type_vocab_size() {
-        assert_eq!(ACTION_TYPE_VOCAB.size(), 78); // 77 entries + UNK
+        assert_eq!(ACTION_TYPE_VOCAB.size(), 75); // 74 entries + UNK
     }
 
     #[test]
     fn mode_vocab_size() {
-        assert_eq!(MODE_VOCAB.size(), 29); // 28 entries + UNK
+        assert_eq!(MODE_VOCAB.size(), 27); // 26 entries + UNK
     }
 
     #[test]

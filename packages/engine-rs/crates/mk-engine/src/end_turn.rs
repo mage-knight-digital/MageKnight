@@ -3599,4 +3599,155 @@ mod tests {
             other => panic!("Unexpected result: {:?}", other),
         }
     }
+
+    // =========================================================================
+    // Cross-system: Multi-artifact end-turn step ordering
+    // =========================================================================
+
+    /// Crystal Joy (step 2) then Steady Tempo (step 3) fire sequentially.
+    #[test]
+    fn end_turn_crystal_joy_then_steady_tempo_sequential() {
+        use crate::action_pipeline::apply_legal_action;
+        use crate::legal_actions::enumerate_legal_actions;
+        use crate::undo::UndoStack;
+        use mk_types::legal_action::LegalAction;
+
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+
+        // Both active
+        state.players[0].crystal_joy_reclaim_version =
+            Some(mk_types::pending::EffectMode::Basic);
+        state.players[0].steady_tempo_version =
+            Some(mk_types::pending::EffectMode::Basic);
+        state.players[0].play_area.push(CardId::from("steady_tempo"));
+        state.players[0].discard = vec![CardId::from("rage")];
+
+        play_card(&mut state, 0, 0, false, None).unwrap();
+
+        // Step 1: end_turn stops at Crystal Joy (step 2)
+        let result1 = end_turn(&mut state, 0).unwrap();
+        assert!(matches!(result1, EndTurnResult::AwaitingEndTurnChoice));
+        assert_eq!(state.players[0].end_turn_step, 2);
+        assert!(matches!(
+            state.players[0].pending.active,
+            Some(ActivePending::CrystalJoyReclaim(_))
+        ));
+
+        // Resolve Crystal Joy (skip)
+        let legal = enumerate_legal_actions(&state, 0);
+        let mut undo = UndoStack::new();
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveCrystalJoyReclaim { discard_index: None },
+            legal.epoch,
+        ).unwrap();
+
+        // Step 2: Steady Tempo pending (step 3)
+        assert_eq!(state.players[0].end_turn_step, 3);
+        assert!(matches!(
+            state.players[0].pending.active,
+            Some(ActivePending::SteadyTempoDeckPlacement(_))
+        ));
+
+        // Resolve Steady Tempo (skip)
+        let legal2 = enumerate_legal_actions(&state, 0);
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveSteadyTempoDeckPlacement { place: false },
+            legal2.epoch,
+        ).unwrap();
+
+        // Turn should complete — step resets to 0
+        assert_eq!(state.players[0].end_turn_step, 0);
+        assert!(!state.players[0].pending.has_active());
+    }
+
+    /// Step counter prevents double-trigger on re-entry.
+    #[test]
+    fn end_turn_step_counter_prevents_double_trigger() {
+        use crate::action_pipeline::apply_legal_action;
+        use crate::legal_actions::enumerate_legal_actions;
+        use crate::undo::UndoStack;
+        use mk_types::legal_action::LegalAction;
+
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+
+        state.players[0].crystal_joy_reclaim_version =
+            Some(mk_types::pending::EffectMode::Basic);
+        state.players[0].discard = vec![CardId::from("rage")];
+
+        play_card(&mut state, 0, 0, false, None).unwrap();
+
+        // First call: stops at Crystal Joy
+        let result = end_turn(&mut state, 0).unwrap();
+        assert!(matches!(result, EndTurnResult::AwaitingEndTurnChoice));
+        assert_eq!(state.players[0].end_turn_step, 2);
+
+        // Resolve Crystal Joy
+        let legal = enumerate_legal_actions(&state, 0);
+        let mut undo = UndoStack::new();
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveCrystalJoyReclaim { discard_index: None },
+            legal.epoch,
+        ).unwrap();
+
+        // Turn completes — Crystal Joy NOT re-triggered (step >= 2 skips it)
+        assert_eq!(state.players[0].end_turn_step, 0, "Step should reset after turn ends");
+        // Verify crystal_joy_reclaim_version was consumed (taken)
+        assert!(state.players[0].crystal_joy_reclaim_version.is_none());
+    }
+
+    /// Banner protection step skipped when flag set but zero wounds.
+    /// Other artifacts (like steady tempo) should still fire.
+    #[test]
+    fn end_turn_banner_protection_skips_with_zero_wounds_and_proceeds() {
+        use crate::action_pipeline::apply_legal_action;
+        use crate::legal_actions::enumerate_legal_actions;
+        use crate::undo::UndoStack;
+        use mk_types::legal_action::LegalAction;
+
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+
+        // Banner protection flag set but NO wounds
+        state.players[0].flags.insert(PlayerFlags::BANNER_OF_PROTECTION_ACTIVE);
+        state.players[0].wounds_received_this_turn.hand = 0;
+        state.players[0].wounds_received_this_turn.discard = 0;
+
+        // Also set steady tempo so we can verify it fires after banner prot is skipped
+        state.players[0].steady_tempo_version =
+            Some(mk_types::pending::EffectMode::Basic);
+        state.players[0].play_area.push(CardId::from("steady_tempo"));
+
+        play_card(&mut state, 0, 0, false, None).unwrap();
+
+        // End turn: banner protection (step 4) should be skipped, steady tempo (step 3) fires first
+        let result = end_turn(&mut state, 0).unwrap();
+        assert!(matches!(result, EndTurnResult::AwaitingEndTurnChoice));
+
+        // Should be Steady Tempo, NOT BannerProtectionChoice
+        assert!(
+            matches!(
+                state.players[0].pending.active,
+                Some(ActivePending::SteadyTempoDeckPlacement(_))
+            ),
+            "Step 3 (Steady Tempo) should fire; step 4 (Banner Protection) is after this"
+        );
+
+        // Resolve Steady Tempo
+        let legal = enumerate_legal_actions(&state, 0);
+        let mut undo = UndoStack::new();
+        apply_legal_action(
+            &mut state, &mut undo, 0,
+            &LegalAction::ResolveSteadyTempoDeckPlacement { place: false },
+            legal.epoch,
+        ).unwrap();
+
+        // Turn should complete — banner protection step was skipped (no wounds)
+        assert_eq!(state.players[0].end_turn_step, 0);
+        assert!(!state.players[0].pending.has_active());
+    }
 }

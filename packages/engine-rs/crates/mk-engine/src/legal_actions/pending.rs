@@ -382,7 +382,7 @@ pub(super) fn enumerate_pending(
                 }
             }
         }
-        ActivePending::Discard(_) | ActivePending::DiscardForAttack(_) | ActivePending::DiscardForCrystal(_) => {
+        ActivePending::Discard(_) | ActivePending::DiscardForCrystal(_) => {
             // These pending states have dedicated handling through
             // ResolveChoice/ResolveDiscardForCrystal actions, not via this function.
         }

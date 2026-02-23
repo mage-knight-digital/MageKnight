@@ -1184,3 +1184,175 @@ fn fame_per_enemy_includes_summoned_when_not_flagged() {
     assert_eq!(state.players[0].fame, 6);
 }
 
+// =========================================================================
+// Cross-system edge case: Unit death + Banner attachment orphaning
+// =========================================================================
+
+/// Unit destroyed in combat does NOT clean up attached_banners.
+/// Documents existing behavior (gap): orphaned banner entries persist.
+#[test]
+fn unit_destroyed_in_combat_orphans_banner_attachment() {
+    use mk_types::ids::UnitInstanceId;
+
+    let unit_iid = UnitInstanceId::from("unit_0");
+    // Use diggers: armor 3, attack 2 Melee Physical
+    let mut state = setup_combat_game(&["diggers"]);
+    state.combat.as_mut().unwrap().phase = CombatPhase::AssignDamage;
+
+    // Add a level-1 already-wounded unit (next wound = destruction)
+    state.players[0].units.push(PlayerUnit {
+        instance_id: unit_iid.clone(),
+        unit_id: mk_types::ids::UnitId::from("peasants"),
+        level: 1,
+        state: UnitState::Ready,
+        wounded: true, // already wounded
+        used_resistance_this_combat: false,
+        used_ability_indices: vec![],
+        mana_token: None,
+    });
+
+    // Attach banner of courage to this unit
+    state.players[0].attached_banners.push(BannerAttachment {
+        banner_id: CardId::from("banner_of_courage"),
+        unit_instance_id: unit_iid.clone(),
+        is_used_this_round: false,
+    });
+
+    // Assign lethal damage to the unit (diggers attack 2 vs level 1 wounded → destroyed)
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::AssignDamageToUnit {
+            enemy_index: 0,
+            attack_index: 0,
+            unit_instance_id: unit_iid.clone(),
+        },
+        epoch,
+    ).unwrap();
+
+    // Unit should be destroyed (removed)
+    assert!(
+        state.players[0].units.iter().all(|u| u.instance_id != unit_iid),
+        "Unit should be destroyed"
+    );
+    // BUT: attached_banners still contains the orphaned entry (documents the gap)
+    assert!(
+        state.players[0].attached_banners.iter().any(|b| b.unit_instance_id == unit_iid),
+        "Banner attachment is orphaned after unit death in combat (known gap)"
+    );
+}
+
+/// Unit disbanded via ResolveUnitMaintenance correctly cleans up attached_banners.
+#[test]
+fn unit_disbanded_cleans_up_banner_attachment() {
+    use mk_types::ids::UnitInstanceId;
+    use mk_types::pending::{ActivePending, UnitMaintenanceEntry};
+
+    let unit_iid = UnitInstanceId::from("unit_0");
+    let mut state = setup_playing_game(vec!["march"]);
+
+    // Add a unit
+    state.players[0].units.push(PlayerUnit {
+        instance_id: unit_iid.clone(),
+        unit_id: mk_types::ids::UnitId::from("peasants"),
+        level: 1,
+        state: UnitState::Ready,
+        wounded: false,
+        used_resistance_this_combat: false,
+        used_ability_indices: vec![],
+        mana_token: None,
+    });
+
+    // Attach banner
+    state.players[0].attached_banners.push(BannerAttachment {
+        banner_id: CardId::from("banner_of_courage"),
+        unit_instance_id: unit_iid.clone(),
+        is_used_this_round: false,
+    });
+
+    // Set up unit maintenance pending (disband scenario)
+    let mut entries = arrayvec::ArrayVec::new();
+    entries.push(UnitMaintenanceEntry {
+        unit_instance_id: unit_iid.clone(),
+        unit_id: mk_types::ids::UnitId::from("peasants"),
+    });
+    state.players[0].pending.active = Some(ActivePending::UnitMaintenance(entries));
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    // Disband: keep_unit = false
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::ResolveUnitMaintenance {
+            unit_instance_id: unit_iid.clone(),
+            keep_unit: false,
+            crystal_color: None,
+            new_mana_token_color: None,
+        },
+        epoch,
+    ).unwrap();
+
+    // Unit removed
+    assert!(state.players[0].units.is_empty());
+    // Banner attachment also cleaned up
+    assert!(
+        state.players[0].attached_banners.is_empty(),
+        "Disband should clean up attached_banners"
+    );
+}
+
+/// Fortitude cannot prevent destruction of already-wounded unit.
+/// Double-wound = destruction; fortitude only fires on wound, not destroy.
+#[test]
+fn fortitude_cannot_prevent_destruction_of_already_wounded_unit() {
+    use mk_types::ids::UnitInstanceId;
+
+    let unit_iid = UnitInstanceId::from("unit_0");
+    let mut state = setup_combat_game(&["diggers"]); // attack 2 Melee Physical
+    state.combat.as_mut().unwrap().phase = CombatPhase::AssignDamage;
+
+    // Level-1 already-wounded unit with banner of fortitude attached
+    state.players[0].units.push(PlayerUnit {
+        instance_id: unit_iid.clone(),
+        unit_id: mk_types::ids::UnitId::from("peasants"),
+        level: 1,
+        state: UnitState::Ready,
+        wounded: true, // already wounded → next wound = destruction
+        used_resistance_this_combat: false,
+        used_ability_indices: vec![],
+        mana_token: None,
+    });
+
+    state.players[0].attached_banners.push(BannerAttachment {
+        banner_id: CardId::from("banner_of_fortitude"),
+        unit_instance_id: unit_iid.clone(),
+        is_used_this_round: false, // unused, available
+    });
+
+    // Assign damage → unit destroyed (not just wounded)
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::AssignDamageToUnit {
+            enemy_index: 0,
+            attack_index: 0,
+            unit_instance_id: unit_iid.clone(),
+        },
+        epoch,
+    ).unwrap();
+
+    // Unit should be destroyed — fortitude does NOT prevent destruction
+    assert!(
+        state.players[0].units.iter().all(|u| u.instance_id != unit_iid),
+        "Already-wounded unit should be destroyed, fortitude can't prevent it"
+    );
+    // Fortitude should NOT be consumed (destruction bypasses the wound intercept path)
+    assert!(
+        !state.players[0].attached_banners.iter()
+            .any(|b| b.banner_id.as_str() == "banner_of_fortitude" && b.is_used_this_round),
+        "Fortitude should not be consumed on destruction"
+    );
+}
+
