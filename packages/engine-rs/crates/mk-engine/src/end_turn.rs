@@ -1463,7 +1463,8 @@ fn expire_interactive_skills_for_player(state: &mut GameState, player_id: &Playe
     }
 }
 
-/// Plunder decision: if player starts turn at an unconquered inhabited site.
+/// Plunder decision: if player starts turn at an unconquered, unburned Village.
+/// Only villages can be plundered (rulebook: "You can plunder a village").
 fn apply_plunder_decision(state: &mut GameState, player_idx: usize) {
     // Don't set plunder if player already has a pending active
     if state.players[player_idx].pending.has_active() {
@@ -1473,7 +1474,7 @@ fn apply_plunder_decision(state: &mut GameState, player_idx: usize) {
     let should_plunder = player_hex(state, player_idx)
         .and_then(|h| h.site.as_ref())
         .is_some_and(|s| {
-            mk_data::sites::is_inhabited(s.site_type)
+            s.site_type == SiteType::Village
                 && !s.is_conquered
                 && !s.is_burned
         });
