@@ -614,6 +614,7 @@ pub struct GameDecks {
     pub advanced_action_deck: Vec<CardId>,
     pub artifact_deck: Vec<CardId>,
     pub unit_deck: Vec<UnitId>,
+    pub elite_unit_deck: Vec<UnitId>,
 }
 
 /// City state (for revealed cities).

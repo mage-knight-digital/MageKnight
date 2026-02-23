@@ -70,6 +70,7 @@ pub fn derive_source_str(action: &LegalAction, state: &GameState, player_idx: us
         LegalAction::DeclareRest => "normal.turn.declare_rest",
         LegalAction::CompleteRest { .. } => "normal.turn.complete_rest",
         LegalAction::AnnounceEndOfRound => "normal.turn.announce_end_of_round",
+        LegalAction::ForfeitTurn => "normal.turn.forfeit",
         LegalAction::Undo => "turn.undo",
 
         // === Tactics ===

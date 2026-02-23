@@ -673,6 +673,11 @@ pub fn all_elite_unit_ids() -> &'static [&'static str] {
     IDS
 }
 
+/// Check if a unit ID is an elite unit (level 3-4).
+pub fn is_elite_unit(id: &str) -> bool {
+    all_elite_unit_ids().contains(&id)
+}
+
 /// Check if a unit ID is a hero unit.
 pub fn is_hero_unit(id: &str) -> bool {
     get_unit(id).is_some_and(|u| u.is_hero)

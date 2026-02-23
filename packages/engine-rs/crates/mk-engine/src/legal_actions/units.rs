@@ -267,8 +267,8 @@ pub(super) fn enumerate_unit_actions(
 // Unit activation enumeration
 // =============================================================================
 
-/// Check if the player can afford a mana cost for a unit ability.
-fn can_afford_mana(player: &PlayerState, color: BasicManaColor) -> bool {
+/// Check if the player can afford a mana cost (matching token > gold token > crystal).
+pub(crate) fn can_afford_mana(player: &PlayerState, color: BasicManaColor) -> bool {
     let target = ManaColor::from(color);
 
     // 1. Matching-color mana token.

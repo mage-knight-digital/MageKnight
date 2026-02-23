@@ -19,12 +19,25 @@ const RETURNABLE_SKILLS: &[(&str, bool)] = &[
 ];
 
 /// Enumerate `ReturnInteractiveSkill` actions for skills another player placed in center.
-pub(super) fn enumerate_returnable_skills(
+pub(crate) fn enumerate_returnable_skills(
     state: &GameState,
     player_idx: usize,
     actions: &mut Vec<LegalAction>,
 ) {
     let player_id = &state.players[player_idx].id;
+
+    // After end-of-round is announced, a player whose last turn is over cannot return skills.
+    // A player's last turn is over if: they're not the active player AND not in the final turn list.
+    if state.end_of_round_announced_by.is_some() {
+        let is_active = {
+            let current_idx = state.current_player_index as usize;
+            current_idx < state.turn_order.len()
+                && state.turn_order[current_idx] == *player_id
+        };
+        if !is_active && !state.players_with_final_turn.contains(player_id) {
+            return;
+        }
+    }
 
     for &(skill_str, requires_combat) in RETURNABLE_SKILLS {
         if requires_combat && state.combat.is_none() {

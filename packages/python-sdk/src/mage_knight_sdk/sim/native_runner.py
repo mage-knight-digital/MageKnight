@@ -227,6 +227,124 @@ def _finalize(
     return run_result
 
 
+def _native_game_worker(
+    seed: int,
+    run_index: int,
+    hero: str,
+    max_steps: int,
+    allow_undo: bool,
+) -> RunResult:
+    """Picklable worker for ProcessPoolExecutor.
+
+    Creates its own RNG from the seed (random.Random isn't picklable).
+    No artifacts_dir — workers are stateless; summaries written by main process.
+    """
+    result = run_native_game(
+        seed,
+        hero=hero,
+        max_steps=max_steps,
+        allow_undo=allow_undo,
+        run_index=run_index,
+    )
+    if isinstance(result, NativeRunResult):
+        return result.run_result
+    return result
+
+
+def _run_native_sweep_parallel(
+    seeds: list[int],
+    *,
+    workers: int,
+    hero: str = "arythea",
+    max_steps: int = 10000,
+    allow_undo: bool = True,
+    stop_on_failure: bool = False,
+    verbose: bool = True,
+    artifacts_dir: str | None = None,
+    git_sha: str | None = None,
+) -> tuple[list[RunResult], RunSummary]:
+    """Parallel sweep using ProcessPoolExecutor with bounded submission."""
+    from concurrent.futures import ProcessPoolExecutor, as_completed
+
+    results: list[RunResult] = []
+    completed = 0
+    stop_early = False
+
+    max_in_flight = workers * 2
+    seed_iter = iter(enumerate(seeds))
+
+    with ProcessPoolExecutor(max_workers=workers) as executor:
+        # Seed the pool with initial batch
+        in_flight: dict[object, tuple[int, int]] = {}  # future -> (seed, run_index)
+        for _ in range(min(max_in_flight, len(seeds))):
+            idx, seed = next(seed_iter)
+            fut = executor.submit(
+                _native_game_worker, seed, idx, hero, max_steps, allow_undo,
+            )
+            in_flight[fut] = (seed, idx)
+
+        while in_flight and not stop_early:
+            done_set = as_completed(in_flight, timeout=None)
+            for future in done_set:
+                seed, run_index = in_flight.pop(future)
+                completed += 1
+
+                try:
+                    result = future.result()
+                except Exception as err:
+                    result = RunResult(
+                        run_index=run_index,
+                        seed=seed,
+                        outcome=OUTCOME_INVARIANT_FAILURE,
+                        steps=0,
+                        game_id=f"native-{seed}",
+                        reason=f"Worker exception: {err}",
+                    )
+
+                # Write run summary from main process
+                if artifacts_dir is not None:
+                    write_run_summary(
+                        output_dir=artifacts_dir,
+                        run_result=result,
+                        message_log=[],
+                        git_sha=git_sha,
+                    )
+
+                results.append(result)
+
+                if verbose:
+                    status = "OK" if result.outcome == OUTCOME_ENDED else "FAIL"
+                    reason = f" reason={result.reason}" if result.reason else ""
+                    print(
+                        f"[{completed}/{len(seeds)}] seed={seed} "
+                        f"outcome={result.outcome} steps={result.steps} "
+                        f"[{status}]{reason}"
+                    )
+
+                if result.outcome != OUTCOME_ENDED and stop_on_failure:
+                    stop_early = True
+                    for remaining in in_flight:
+                        remaining.cancel()
+                    break
+
+                # Submit next seed if available
+                try:
+                    idx, next_seed = next(seed_iter)
+                    fut = executor.submit(
+                        _native_game_worker, next_seed, idx, hero,
+                        max_steps, allow_undo,
+                    )
+                    in_flight[fut] = (next_seed, idx)
+                except StopIteration:
+                    pass
+
+                # Process one completion at a time to submit replacements promptly
+                break
+
+    summary = summarize(results)
+    return results, summary
+
+
 def run_native_sweep(
     seeds: list[int],
     *,
@@ -238,8 +356,9 @@ def run_native_sweep(
     record_artifact: bool = False,
     artifacts_dir: str | None = None,
     git_sha: str | None = None,
+    workers: int = 1,
 ) -> tuple[list[RunResult], RunSummary]:
-    """Run multiple games sequentially using the Rust engine.
+    """Run multiple games using the Rust engine.
 
     Args:
         seeds: List of seeds to run.
@@ -251,10 +370,24 @@ def run_native_sweep(
         record_artifact: Record artifacts for each run (adds overhead).
         artifacts_dir: Directory to write artifacts and run summaries.
         git_sha: Optional git SHA for run summary tagging.
+        workers: Number of parallel workers (1 = sequential).
 
     Returns:
         (results, summary) tuple.
     """
+    if workers > 1:
+        return _run_native_sweep_parallel(
+            seeds,
+            workers=workers,
+            hero=hero,
+            max_steps=max_steps,
+            allow_undo=allow_undo,
+            stop_on_failure=stop_on_failure,
+            verbose=verbose,
+            artifacts_dir=artifacts_dir,
+            git_sha=git_sha,
+        )
+
     results: list[RunResult] = []
     t_start = time.perf_counter()
 

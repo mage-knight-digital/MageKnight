@@ -88,6 +88,8 @@ pub enum MoveError {
     Blocked(MoveBlockReason),
     /// Combat entry failed during provocation.
     CombatFailed(CombatError),
+    /// PvP combat not yet supported (owner present at keep).
+    PvPNotSupported,
 }
 
 /// Errors from explore execution.
@@ -330,17 +332,38 @@ struct AssaultInfo {
     city_color: Option<BasicManaColor>,
     /// City level for garrison lookup.
     city_level: u32,
+    /// Whether this is an assault on a Keep owned by another player.
+    is_other_player_keep: bool,
 }
 
 /// Detect whether moving to `target` triggers a fortified site assault.
 ///
-/// Returns `Some(AssaultInfo)` if the target hex has an unconquered fortified site.
-fn detect_assault(state: &GameState, target: HexCoord) -> Option<AssaultInfo> {
+/// Returns `Some(AssaultInfo)` if the target hex has an unconquered fortified site,
+/// or if it's a conquered Keep owned by another player.
+fn detect_assault(state: &GameState, player_idx: usize, target: HexCoord) -> Option<AssaultInfo> {
     let hex = state.map.hexes.get(&target.key())?;
     let site = hex.site.as_ref()?;
 
     let props = get_site_properties(site.site_type);
-    if !props.fortified || site.is_conquered {
+    if !props.fortified {
+        return None;
+    }
+
+    if site.is_conquered {
+        // Other-player keep assault: conquered Keep owned by someone else
+        if site.site_type == SiteType::Keep {
+            if let Some(ref owner) = site.owner {
+                let current_player_id = &state.players[player_idx].id;
+                if owner != current_player_id {
+                    return Some(AssaultInfo {
+                        needs_city_draw: false,
+                        city_color: None,
+                        city_level: 0,
+                        is_other_player_keep: true,
+                    });
+                }
+            }
+        }
         return None;
     }
 
@@ -348,6 +371,7 @@ fn detect_assault(state: &GameState, target: HexCoord) -> Option<AssaultInfo> {
         needs_city_draw: site.site_type == SiteType::City,
         city_color: site.city_color,
         city_level: state.scenario_config.default_city_level,
+        is_other_player_keep: false,
     })
 }
 
@@ -589,11 +613,35 @@ pub fn execute_move(
     player.units_recruited_this_interaction.clear();
 
     // ---- Assault detection ----
-    let assault_info = detect_assault(state, target);
+    let assault_info = detect_assault(state, player_idx, target);
     let mut assault = false;
 
     if let Some(info) = assault_info {
         assault = true;
+
+        // Other-player keep assault: draw a grey enemy as garrison
+        if info.is_other_player_keep {
+            // Check if the owner is present on the hex — PvP not yet supported
+            let owner_id = state.map.hexes.get(&target.key())
+                .and_then(|h| h.site.as_ref())
+                .and_then(|s| s.owner.clone());
+            if let Some(ref owner) = owner_id {
+                let owner_present = state.players.iter().any(|p| p.id == *owner && p.position == Some(target));
+                if owner_present {
+                    return Err(MoveError::PvPNotSupported);
+                }
+            }
+
+            // Draw a random grey enemy token as garrison
+            if let Some(token_id) = draw_enemy_token(&mut state.enemy_tokens, EnemyColor::Gray, &mut state.rng) {
+                let hex = state.map.hexes.get_mut(&target.key()).unwrap();
+                hex.enemies.push(HexEnemy {
+                    token_id,
+                    color: EnemyColor::Gray,
+                    is_revealed: true,
+                });
+            }
+        }
 
         // Draw city defenders if needed (cities don't have pre-drawn enemies)
         if info.needs_city_draw {
@@ -647,6 +695,13 @@ pub fn execute_move(
                 target,
             )
             .map_err(MoveError::CombatFailed)?;
+
+            // Set OtherPlayerKeep combat context + discard enemy on retreat
+            if info.is_other_player_keep {
+                let combat = state.combat.as_mut().unwrap();
+                combat.combat_context = CombatContext::OtherPlayerKeep;
+                combat.discard_enemies_on_failure = true;
+            }
 
             // Rule 4a: Entering an unconquered fortified site immediately ends movement.
             state.players[player_idx].move_points = 0;
@@ -981,7 +1036,8 @@ pub fn execute_explore(
     // Draw 1 Advanced Action per monastery on the new tile.
     for tile_hex in tile_hexes {
         if tile_hex.site_type == Some(SiteType::Monastery) {
-            if let Some(card_id) = state.decks.advanced_action_deck.pop() {
+            if !state.decks.advanced_action_deck.is_empty() {
+                let card_id = state.decks.advanced_action_deck.remove(0);
                 state.offers.monastery_advanced_actions.push(card_id);
             }
         }

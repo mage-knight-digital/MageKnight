@@ -309,7 +309,8 @@ pub fn create_solo_game(seed: u32, hero: Hero) -> GameState {
     // Create offers and decks
     let (aa_deck, aa_offer) = create_aa_deck_and_offer(&mut rng);
     let (spell_deck, spell_offer) = create_spell_deck_and_offer(&mut rng);
-    let (unit_deck, unit_offer) = create_unit_deck_and_offer(&mut rng, 1);
+    let (unit_deck, elite_unit_deck, unit_offer) =
+        create_unit_deck_and_offer(&mut rng, 1, scenario_config.elite_units_enabled);
 
     // Create dummy player for solo mode
     let dummy_hero = dummy_player::select_dummy_hero(&[hero], &mut rng);
@@ -354,6 +355,7 @@ pub fn create_solo_game(seed: u32, hero: Hero) -> GameState {
             advanced_action_deck: aa_deck,
             spell_deck,
             unit_deck,
+            elite_unit_deck,
             ..GameDecks::default()
         },
 
@@ -447,7 +449,8 @@ pub fn create_multiplayer_game(
     // Create offers and decks
     let (aa_deck, aa_offer) = create_aa_deck_and_offer(&mut rng);
     let (spell_deck, spell_offer) = create_spell_deck_and_offer(&mut rng);
-    let (unit_deck, unit_offer) = create_unit_deck_and_offer(&mut rng, player_count);
+    let (unit_deck, elite_unit_deck, unit_offer) =
+        create_unit_deck_and_offer(&mut rng, player_count, scenario_config.elite_units_enabled);
 
     // Day tactics
     let available_tactics: Vec<TacticId> =
@@ -492,6 +495,7 @@ pub fn create_multiplayer_game(
             advanced_action_deck: aa_deck,
             spell_deck,
             unit_deck,
+            elite_unit_deck,
             ..GameDecks::default()
         },
 

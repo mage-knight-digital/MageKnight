@@ -55,12 +55,13 @@ pub(super) fn enumerate_turn_options(
         actions.push(LegalAction::EndTurn);
     }
 
-    // AnnounceEndOfRound — multiplayer only, once per round, during normal turn.
+    // AnnounceEndOfRound — multiplayer only, once per round, during normal turn, deck must be empty.
     if !is_resting
         && !player.pending.has_active()
         && state.players.len() > 1
         && state.end_of_round_announced_by.is_none()
         && state.combat.is_none()
+        && player.deck.is_empty()
     {
         actions.push(LegalAction::AnnounceEndOfRound);
     }

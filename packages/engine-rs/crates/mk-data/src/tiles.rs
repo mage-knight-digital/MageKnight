@@ -409,6 +409,24 @@ pub fn is_city_tile(tile_id: TileId) -> bool {
     )
 }
 
+/// Returns true if this tile is a Core tile (brown-backed, non-countryside).
+pub fn is_core_tile(tile_id: TileId) -> bool {
+    matches!(
+        tile_id,
+        TileId::Core1
+            | TileId::Core2
+            | TileId::Core3
+            | TileId::Core4
+            | TileId::Core5GreenCity
+            | TileId::Core6BlueCity
+            | TileId::Core7WhiteCity
+            | TileId::Core8RedCity
+            | TileId::Core9
+            | TileId::Core10
+            | TileId::CoreVolkare
+    )
+}
+
 /// Create a tile deck from scenario config.
 ///
 /// Shuffles the countryside and core pools, takes the specified counts.

@@ -283,6 +283,14 @@ pub(super) fn finish_rest(state: &mut GameState, player_idx: usize) {
         .insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
 }
 
+/// Forfeit turn: minimal reset without site benefits, then advance turn.
+pub(super) fn apply_forfeit_turn(
+    state: &mut GameState,
+    player_idx: usize,
+) -> Result<ApplyResult, ApplyError> {
+    end_turn_result_to_apply(end_turn::forfeit_turn(state, player_idx), state)
+}
+
 pub(super) fn apply_undo(
     state: &mut GameState,
     undo_stack: &mut UndoStack,

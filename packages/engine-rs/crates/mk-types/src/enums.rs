@@ -223,6 +223,7 @@ pub enum CombatContext {
     BurnMonastery,
     CooperativeAssault,
     AncientRuins,
+    OtherPlayerKeep,
 }
 
 // =============================================================================

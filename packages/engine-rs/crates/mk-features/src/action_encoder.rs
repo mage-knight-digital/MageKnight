@@ -120,6 +120,7 @@ fn derive_action_type(action: &LegalAction) -> u16 {
         LegalAction::SelectArtifact { .. } => "SELECT_ARTIFACT",
         LegalAction::ForfeitUnitReward => "FORFEIT_UNIT_REWARD",
         LegalAction::DisbandUnitForReward { .. } => "DISBAND_UNIT_FOR_REWARD",
+        LegalAction::ForfeitTurn => "FORFEIT_TURN",
         LegalAction::Undo => "UNDO",
     };
     ACTION_TYPE_VOCAB.encode(type_str)

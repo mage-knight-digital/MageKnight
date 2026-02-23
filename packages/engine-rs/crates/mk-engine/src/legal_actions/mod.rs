@@ -102,8 +102,18 @@ pub fn enumerate_legal_actions_with_undo(
         };
     }
 
-    // Guard: active player check.
+    // Out-of-turn interactive skill returns: non-active players can return skills.
     if !is_active_player(state, player_idx) {
+        if state.round_phase == RoundPhase::PlayerTurns {
+            returnable_skills::enumerate_returnable_skills(state, player_idx, &mut actions);
+            if !actions.is_empty() {
+                return LegalActionSet {
+                    epoch,
+                    player_idx,
+                    actions,
+                };
+            }
+        }
         return LegalActionSet {
             epoch,
             player_idx,
@@ -139,7 +149,7 @@ pub fn enumerate_legal_actions_with_undo(
             // AssignDamage phase: enumerate per-attack assignment options
             enumerate_damage_assignments(state, player_idx, &mut actions);
             enumerate_thugs_damage_payment(state, player_idx, &mut actions);
-            if all_damage_assigned(combat, state.players[player_idx].id.as_str()) {
+            if all_damage_assigned(combat, state.players[player_idx].id.as_str(), &state.active_modifiers) {
                 actions.push(LegalAction::EndCombatPhase);
             }
             if undo.can_undo() {
@@ -167,6 +177,36 @@ pub fn enumerate_legal_actions_with_undo(
             if undo.can_undo() {
                 actions.push(LegalAction::Undo);
             }
+        }
+        return LegalActionSet {
+            epoch,
+            player_idx,
+            actions,
+        };
+    }
+
+    // Must-forfeit / must-announce: hand AND deck both empty, not resting, not in combat.
+    // Rulebook rules 3b/3d:
+    //   - Solo: forfeit immediately (advance_turn → check_round_end auto-announces → round ends)
+    //   - Multiplayer, no announcement yet: must announce end of round
+    //   - Multiplayer, announced by someone else: must forfeit turn
+    if player.hand.is_empty()
+        && player.deck.is_empty()
+        && !player.flags.contains(PlayerFlags::IS_RESTING)
+        && state.combat.is_none()
+    {
+        if state.players.len() == 1 {
+            // Solo: forfeit turn (which triggers round end via check_round_end)
+            actions.push(LegalAction::ForfeitTurn);
+        } else if state.end_of_round_announced_by.is_none() {
+            // Multiplayer: must announce end of round
+            actions.push(LegalAction::AnnounceEndOfRound);
+        } else if state.end_of_round_announced_by.as_ref().is_some_and(|id| *id != player.id) {
+            // Multiplayer: end already announced by someone else, must forfeit
+            actions.push(LegalAction::ForfeitTurn);
+        }
+        if undo.can_undo() {
+            actions.push(LegalAction::Undo);
         }
         return LegalActionSet {
             epoch,

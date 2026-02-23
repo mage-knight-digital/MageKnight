@@ -111,6 +111,13 @@ pub(super) fn enumerate_pending(
                     choice: GladeWoundChoice::Discard,
                 });
             }
+            // If no wounds found (removed by later end-turn steps), offer Skip
+            // to clear the pending without deadlocking.
+            if !has_hand_wound && !has_discard_wound {
+                actions.push(LegalAction::ResolveGladeWound {
+                    choice: GladeWoundChoice::Skip,
+                });
+            }
         }
         ActivePending::UnitAbilityChoice { options, .. } => {
             // One ResolveChoice per option (move/influence or attack/block).

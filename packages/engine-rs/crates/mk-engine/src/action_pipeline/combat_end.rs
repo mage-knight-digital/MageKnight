@@ -1,6 +1,6 @@
 //! End-of-combat processing and modifier expiration.
 
-use mk_data::enemy_piles::{discard_enemy_token, enemy_id_from_token};
+use mk_data::enemy_piles::{discard_enemy_token, enemy_id_from_token, rampaging_enemy_color, rampaging_reputation_bonus};
 use mk_types::enums::*;
 use mk_data::sites::conquest_reward;
 use mk_types::ids::EnemyTokenId;
@@ -48,6 +48,27 @@ pub(super) fn end_combat(state: &mut GameState, player_idx: usize) {
                 // Discard tokens to color piles
                 for (token_id, color) in &to_remove {
                     discard_enemy_token(&mut state.enemy_tokens, token_id, *color);
+                }
+
+                // Clear rampaging enemy type slots whose tokens have all been defeated,
+                // and accumulate reputation bonus for each cleared rampaging encounter.
+                // Draconum: +2 rep, Marauding Orcs: +1 rep per token defeated.
+                let mut rampaging_rep_delta: i32 = 0;
+                let remaining_colors: Vec<EnemyColor> =
+                    hex.enemies.iter().map(|e| e.color).collect();
+                hex.rampaging_enemies.retain(|rampaging_type| {
+                    let color = rampaging_enemy_color(*rampaging_type);
+                    if remaining_colors.contains(&color) {
+                        true // matching-color enemies still on hex, keep slot
+                    } else {
+                        rampaging_rep_delta += rampaging_reputation_bonus(*rampaging_type);
+                        false // all enemies of this color defeated, clear slot
+                    }
+                });
+                if rampaging_rep_delta > 0 {
+                    state.players[player_idx].reputation =
+                        (state.players[player_idx].reputation as i32 + rampaging_rep_delta)
+                            .clamp(-7, 7) as i8;
                 }
             }
         }
@@ -153,6 +174,31 @@ pub(super) fn end_combat(state: &mut GameState, player_idx: usize) {
                     // Place shield token
                     hex.shield_tokens.push(state.players[player_idx].id.clone());
                 }
+            }
+        }
+
+        // OtherPlayerKeep victory: replace shield token, transfer ownership, halve fame
+        if combat.combat_context == CombatContext::OtherPlayerKeep && all_defeated {
+            if let Some(hex_coord) = combat.combat_hex_coord {
+                if let Some(hex) = state.map.hexes.get_mut(&hex_coord.key()) {
+                    let attacker_id = state.players[player_idx].id.clone();
+                    // Transfer ownership
+                    if let Some(ref mut site) = hex.site {
+                        site.owner = Some(attacker_id.clone());
+                    }
+                    // Replace shield tokens: remove all previous, add attacker's
+                    hex.shield_tokens.clear();
+                    hex.shield_tokens.push(attacker_id);
+                }
+            }
+            // Half fame (rounded up): fame was added incrementally during attacks,
+            // subtract the excess so the player keeps only ceil(fame/2).
+            let full_fame = combat.fame_gained;
+            let half_fame = (full_fame + 1) / 2;
+            let reduction = full_fame - half_fame;
+            if reduction > 0 {
+                state.players[player_idx].fame =
+                    state.players[player_idx].fame.saturating_sub(reduction);
             }
         }
 

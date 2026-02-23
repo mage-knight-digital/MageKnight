@@ -342,3 +342,148 @@ fn returnable_skill_not_shown_for_owner() {
     ));
 }
 
+// =========================================================================
+// Step 2: Block returns after last turn
+// =========================================================================
+
+#[test]
+fn cannot_return_skill_after_last_turn_complete() {
+    let (mut state, mut undo) = setup_two_player_with_skill(Hero::Norowas, "norowas_prayer_of_weather");
+    activate_skill(&mut state, &mut undo, "norowas_prayer_of_weather");
+
+    // Simulate: player_0 announced end of round, player_1 took their final turn.
+    // Now player_1's last turn is over (not in players_with_final_turn).
+    state.end_of_round_announced_by = Some(mk_types::ids::PlayerId::from("player_0"));
+    state.players_with_final_turn.clear(); // Both final turns done
+
+    // Player 1 should NOT be able to return the skill
+    let actions = enumerate_legal_actions_with_undo(&state, 1, &UndoStack::new());
+    assert!(!actions.actions.iter().any(|a|
+        matches!(a, LegalAction::ReturnInteractiveSkill { .. })
+    ), "Should not be able to return skill after last turn is over");
+}
+
+#[test]
+fn can_return_skill_during_final_turn() {
+    let (mut state, mut undo) = setup_two_player_with_skill(Hero::Norowas, "norowas_prayer_of_weather");
+    activate_skill(&mut state, &mut undo, "norowas_prayer_of_weather");
+
+    // Player_0 announced end of round, player_1 still has final turn.
+    state.end_of_round_announced_by = Some(mk_types::ids::PlayerId::from("player_0"));
+    state.players_with_final_turn = vec![mk_types::ids::PlayerId::from("player_1")];
+
+    // Switch to player 1's turn
+    switch_to_player_1(&mut state);
+    let actions = enumerate_legal_actions_with_undo(&state, 1, &UndoStack::new());
+    assert!(actions.actions.iter().any(|a|
+        matches!(a, LegalAction::ReturnInteractiveSkill { skill_id }
+            if skill_id.as_str() == "norowas_prayer_of_weather")
+    ), "Should be able to return skill during final turn");
+}
+
+#[test]
+fn announcer_cannot_return_after_their_turn_ends() {
+    let (mut state, mut undo) = setup_two_player_with_skill(Hero::Norowas, "norowas_prayer_of_weather");
+
+    // Player 0 activates prayer, then switch to player_1 who also has a skill
+    activate_skill(&mut state, &mut undo, "norowas_prayer_of_weather");
+
+    // Player 1 announced end of round (so they still need to end their turn,
+    // but after they do, they can't return).
+    state.end_of_round_announced_by = Some(mk_types::ids::PlayerId::from("player_1"));
+    state.players_with_final_turn = vec![mk_types::ids::PlayerId::from("player_0")];
+
+    // Switch to player_0's final turn — player_1 is done (they announced, not in final_turn list)
+    state.current_player_index = 0;
+    let actions = enumerate_legal_actions_with_undo(&state, 1, &UndoStack::new());
+    assert!(!actions.actions.iter().any(|a|
+        matches!(a, LegalAction::ReturnInteractiveSkill { .. })
+    ), "Announcer should not be able to return skills after announcing");
+}
+
+// =========================================================================
+// Step 3: Interactive skills returnable out-of-turn
+// =========================================================================
+
+#[test]
+fn non_active_player_can_return_prayer_of_weather() {
+    let (mut state, mut undo) = setup_two_player_with_skill(Hero::Norowas, "norowas_prayer_of_weather");
+    activate_skill(&mut state, &mut undo, "norowas_prayer_of_weather");
+
+    // Player 0 is current player. Player 1 should be able to return out-of-turn.
+    assert_eq!(state.current_player_index, 0);
+    let actions = enumerate_legal_actions_with_undo(&state, 1, &UndoStack::new());
+    assert!(actions.actions.iter().any(|a|
+        matches!(a, LegalAction::ReturnInteractiveSkill { skill_id }
+            if skill_id.as_str() == "norowas_prayer_of_weather")
+    ), "Non-active player should be able to return interactive skill out-of-turn");
+}
+
+#[test]
+fn non_active_player_can_return_ritual_of_pain() {
+    let (mut state, _undo) = setup_two_player_with_skill(Hero::Arythea, "arythea_ritual_of_pain");
+
+    // Manually place ritual of pain center modifiers (simulating activation)
+    use mk_types::modifier::*;
+    use mk_types::ids::ModifierId;
+    state.active_modifiers.push(ActiveModifier {
+        id: ModifierId::from("test_mod"),
+        effect: ModifierEffect::RuleOverride { rule: RuleOverride::WoundsPlayableSideways },
+        source: ModifierSource::Skill {
+            skill_id: SkillId::from("arythea_ritual_of_pain"),
+            player_id: mk_types::ids::PlayerId::from("player_0"),
+        },
+        duration: ModifierDuration::Round,
+        scope: ModifierScope::OtherPlayers,
+        created_at_round: 1,
+        created_by_player_id: mk_types::ids::PlayerId::from("player_0"),
+    });
+
+    // Player 1 should see return option out-of-turn
+    assert_eq!(state.current_player_index, 0);
+    let actions = enumerate_legal_actions_with_undo(&state, 1, &UndoStack::new());
+    assert!(actions.actions.iter().any(|a|
+        matches!(a, LegalAction::ReturnInteractiveSkill { skill_id }
+            if skill_id.as_str() == "arythea_ritual_of_pain")
+    ), "Non-active player should be able to return Ritual of Pain out-of-turn");
+}
+
+#[test]
+fn natures_vengeance_gated_on_combat_even_out_of_turn() {
+    let (mut state, _undo) = setup_two_player_with_skill(Hero::Braevalar, "braevalar_natures_vengeance");
+
+    // Manually place natures_vengeance center modifiers (simulating activation)
+    use mk_types::modifier::*;
+    use mk_types::ids::ModifierId;
+    state.active_modifiers.push(ActiveModifier {
+        id: ModifierId::from("test_mod"),
+        effect: ModifierEffect::RuleOverride { rule: RuleOverride::WoundsPlayableSideways },
+        source: ModifierSource::Skill {
+            skill_id: SkillId::from("braevalar_natures_vengeance"),
+            player_id: mk_types::ids::PlayerId::from("player_0"),
+        },
+        duration: ModifierDuration::Round,
+        scope: ModifierScope::OtherPlayers,
+        created_at_round: 1,
+        created_by_player_id: mk_types::ids::PlayerId::from("player_0"),
+    });
+
+    // Outside combat: return should NOT be available (requires combat)
+    assert!(state.combat.is_none());
+    let actions = enumerate_legal_actions_with_undo(&state, 1, &UndoStack::new());
+    assert!(!actions.actions.iter().any(|a|
+        matches!(a, LegalAction::ReturnInteractiveSkill { skill_id }
+            if skill_id.as_str() == "braevalar_natures_vengeance")
+    ), "Should NOT see return outside combat for natures_vengeance");
+
+    // Enter combat: now should be available
+    let tokens: Vec<mk_types::ids::EnemyTokenId> = vec![mk_types::ids::EnemyTokenId::from("prowlers_1")];
+    crate::combat::execute_enter_combat(&mut state, 0, &tokens, false, None, Default::default()).unwrap();
+    assert!(state.combat.is_some());
+    let actions = enumerate_legal_actions_with_undo(&state, 1, &UndoStack::new());
+    assert!(actions.actions.iter().any(|a|
+        matches!(a, LegalAction::ReturnInteractiveSkill { skill_id }
+            if skill_id.as_str() == "braevalar_natures_vengeance")
+    ), "Should see return in combat for natures_vengeance");
+}
+

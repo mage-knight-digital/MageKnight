@@ -67,6 +67,7 @@ def main() -> int:
     parser.add_argument("--no-undo", action="store_true", help="Disable UNDO actions")
     parser.add_argument("--stop-on-failure", action="store_true", help="Stop at first non-ended outcome")
     parser.add_argument("--quiet", action="store_true", help="Only print summary, not per-seed progress")
+    parser.add_argument("--workers", type=int, default=1, help="Number of parallel workers (default=1 for sequential mode)")
     args = parser.parse_args()
 
     seeds = _build_seed_list(args.runs, args.start_seed, args.end_seed, args.count, args.seed)
@@ -101,7 +102,8 @@ def main() -> int:
     else:
         # Sweep mode
         mode_desc = f"random seeds" if args.runs else f"seeds {seeds[0]}..{seeds[-1]}"
-        print(f"Running {len(seeds)} games ({mode_desc}) with Rust engine")
+        workers_desc = f", workers={args.workers}" if args.workers > 1 else ""
+        print(f"Running {len(seeds)} games ({mode_desc}) with Rust engine{workers_desc}")
         print(f"Hero: {args.hero}, max_steps={args.max_steps}, allow_undo={not args.no_undo}")
         print("-" * 72)
 
@@ -112,6 +114,7 @@ def main() -> int:
             allow_undo=not args.no_undo,
             stop_on_failure=args.stop_on_failure,
             verbose=not args.quiet,
+            workers=args.workers,
         )
 
         elapsed = time.perf_counter() - t_start

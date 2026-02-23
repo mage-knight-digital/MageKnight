@@ -503,7 +503,12 @@ fn buy_spell_deducts_influence_and_adds_to_deck() {
     let coord = place_player_on_site(&mut state, SiteType::MageTower);
     state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_conquered = true;
     state.players[0].influence_points = 10;
-    state.offers.spells = vec![CardId::from("fireball"), CardId::from("ice_bolt")];
+    state.players[0].pure_mana.push(ManaToken {
+        color: ManaColor::Red,
+        source: mk_types::state::ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+    state.offers.spells = vec![CardId::from("fireball"), CardId::from("snowstorm")];
     state.decks.spell_deck = vec![CardId::from("spare_spell")];
 
     let epoch = state.action_epoch;
@@ -515,12 +520,15 @@ fn buy_spell_deducts_influence_and_adds_to_deck() {
         &LegalAction::BuySpell {
             card_id: CardId::from("fireball"),
             offer_index: 0,
+            mana_color: BasicManaColor::Red,
         },
         epoch,
     );
     assert!(result.is_ok());
     assert_eq!(state.players[0].influence_points, 3); // 10 - 7
     assert_eq!(state.players[0].deck[0].as_str(), "fireball"); // top of deck
+    // Mana token consumed
+    assert!(state.players[0].pure_mana.is_empty());
     // Spell removed from offer, replenished from deck
     assert!(!state.offers.spells.iter().any(|s| s.as_str() == "fireball"));
 }
@@ -531,6 +539,11 @@ fn buy_spell_enumerated_at_conquered_mage_tower() {
     let coord = place_player_on_site(&mut state, SiteType::MageTower);
     state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_conquered = true;
     state.players[0].influence_points = 7;
+    state.players[0].pure_mana.push(ManaToken {
+        color: ManaColor::Red,
+        source: mk_types::state::ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
     state.offers.spells = vec![CardId::from("fireball")];
 
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
@@ -595,12 +608,52 @@ fn buy_spell_multiple_offers_enumerated() {
     let mut state = setup_playing_game(vec!["march"]);
     let coord = place_player_on_site(&mut state, SiteType::MageTower);
     state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_conquered = true;
-    state.players[0].influence_points = 14; // enough for 2 spells
-    state.offers.spells = vec![CardId::from("fireball"), CardId::from("ice_bolt"), CardId::from("lightning")];
+    state.players[0].influence_points = 14;
+    // Gold mana token covers any spell color
+    state.players[0].pure_mana.push(ManaToken {
+        color: ManaColor::Gold,
+        source: mk_types::state::ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+    state.offers.spells = vec![CardId::from("fireball"), CardId::from("snowstorm"), CardId::from("restoration")];
 
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     let buy_spells: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::BuySpell { .. })).collect();
     assert_eq!(buy_spells.len(), 3);
+}
+
+#[test]
+fn buy_spell_not_enumerated_without_matching_mana() {
+    let mut state = setup_playing_game(vec!["march"]);
+    let coord = place_player_on_site(&mut state, SiteType::MageTower);
+    state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_conquered = true;
+    state.players[0].influence_points = 10;
+    // Blue mana token — can't buy red spell
+    state.players[0].pure_mana.push(ManaToken {
+        color: ManaColor::Blue,
+        source: mk_types::state::ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+    state.offers.spells = vec![CardId::from("fireball")]; // Red spell
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let buy_spells: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::BuySpell { .. })).collect();
+    assert_eq!(buy_spells.len(), 0, "Should not enumerate BuySpell without matching mana");
+}
+
+#[test]
+fn buy_spell_crystal_satisfies_mana_cost() {
+    let mut state = setup_playing_game(vec!["march"]);
+    let coord = place_player_on_site(&mut state, SiteType::MageTower);
+    state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_conquered = true;
+    state.players[0].influence_points = 10;
+    state.players[0].pure_mana.clear();
+    state.players[0].crystals.red = 1; // Red crystal can pay for red spell
+    state.offers.spells = vec![CardId::from("fireball")]; // Red spell
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let buy_spells: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::BuySpell { .. })).collect();
+    assert_eq!(buy_spells.len(), 1, "Red crystal should satisfy red spell mana cost");
 }
 
 #[test]
@@ -609,13 +662,18 @@ fn buy_spell_sets_has_taken_action() {
     let coord = place_player_on_site(&mut state, SiteType::MageTower);
     state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_conquered = true;
     state.players[0].influence_points = 10;
+    state.players[0].pure_mana.push(ManaToken {
+        color: ManaColor::Red,
+        source: mk_types::state::ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
     state.offers.spells = vec![CardId::from("fireball")];
 
     let epoch = state.action_epoch;
     let mut undo = UndoStack::new();
     apply_legal_action(
         &mut state, &mut undo, 0,
-        &LegalAction::BuySpell { card_id: CardId::from("fireball"), offer_index: 0 },
+        &LegalAction::BuySpell { card_id: CardId::from("fireball"), offer_index: 0, mana_color: BasicManaColor::Red },
         epoch,
     ).unwrap();
     assert!(state.players[0].flags.contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN));
@@ -1225,7 +1283,7 @@ fn conquest_reward_compound_flattened() {
 #[test]
 fn select_reward_spell_moves_to_deck() {
     let mut state = setup_playing_game(vec!["march"]);
-    state.offers.spells = vec![CardId::from("fireball"), CardId::from("ice_bolt")];
+    state.offers.spells = vec![CardId::from("fireball"), CardId::from("snowstorm")];
     state.decks.spell_deck = vec![CardId::from("spare_spell")];
     state.players[0].pending.active = Some(ActivePending::SiteRewardChoice {
         reward: SiteReward::Spell { count: 1 },
@@ -1272,7 +1330,7 @@ fn select_reward_aa_moves_to_deck() {
 #[test]
 fn select_reward_multiple_spells_promotes_next() {
     let mut state = setup_playing_game(vec!["march"]);
-    state.offers.spells = vec![CardId::from("fireball"), CardId::from("ice_bolt")];
+    state.offers.spells = vec![CardId::from("fireball"), CardId::from("snowstorm")];
     state.decks.spell_deck = vec![CardId::from("spare_spell")];
     state.players[0].pending.active = Some(ActivePending::SiteRewardChoice {
         reward: SiteReward::Spell { count: 2 },
@@ -1301,7 +1359,7 @@ fn select_reward_multiple_spells_promotes_next() {
 #[test]
 fn select_reward_enumerated_for_spell_offer() {
     let mut state = setup_playing_game(vec!["march"]);
-    state.offers.spells = vec![CardId::from("fireball"), CardId::from("ice_bolt")];
+    state.offers.spells = vec![CardId::from("fireball"), CardId::from("snowstorm")];
     state.players[0].pending.active = Some(ActivePending::SiteRewardChoice {
         reward: SiteReward::Spell { count: 1 },
         reward_index: 0,
@@ -2817,6 +2875,35 @@ fn crystal_roll_black_grants_fame() {
 
     assert_eq!(state.players[0].fame, fame_before + 1, "Black roll should grant +1 fame");
     assert!(state.players[0].pending.active.is_none(), "Black auto-resolves, no pending");
+}
+
+#[test]
+fn crystal_roll_gold_all_colors_maxed_grants_fame() {
+    let mut state = setup_playing_game(vec!["march"]);
+    let max = crate::mana::MAX_CRYSTALS_PER_COLOR;
+    state.players[0].crystals.red = max;
+    state.players[0].crystals.blue = max;
+    state.players[0].crystals.green = max;
+    state.players[0].crystals.white = max;
+    let fame_before = state.players[0].fame;
+
+    // Find a seed where the first roll is gold (4)
+    let mut found_seed = None;
+    for seed in 0..1000u32 {
+        let mut test_rng = mk_types::rng::RngState::new(seed);
+        let roll = test_rng.next_int(0, 5);
+        if roll == 4 {
+            found_seed = Some(seed);
+            break;
+        }
+    }
+    let seed = found_seed.expect("Should find a seed that produces gold roll");
+    state.rng = mk_types::rng::RngState::new(seed);
+
+    queue_site_reward(&mut state, 0, SiteReward::CrystalRoll { count: 1 });
+
+    assert!(state.players[0].pending.active.is_none(), "Should not create pending when all colors maxed");
+    assert_eq!(state.players[0].fame, fame_before + 1, "Gold with all maxed should grant +1 fame");
 }
 
 // --- Step 3: Artifact Reward Draw N+1, Keep N ---

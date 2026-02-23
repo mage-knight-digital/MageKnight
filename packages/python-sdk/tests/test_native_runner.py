@@ -107,6 +107,15 @@ class TestNativeRunner(unittest.TestCase):
         self.assertEqual(r1.steps, r2.steps)
         self.assertEqual(r1.outcome, r2.outcome)
 
+    def test_parallel_sweep(self) -> None:
+        seeds = list(range(1, 6))
+        results, summary = run_native_sweep(
+            seeds, max_steps=10000, verbose=False, workers=2,
+        )
+        self.assertEqual(len(results), 5)
+        self.assertEqual(summary.total_runs, 5)
+        self.assertEqual(summary.ended, 5)
+
 
 if __name__ == "__main__":
     unittest.main()

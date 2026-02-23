@@ -1520,3 +1520,233 @@ fn burning_shield_destroy_blocked_by_arcane_immunity() {
     ));
 }
 
+// =========================================================================
+// Rampaging enemy defeat: reputation bonus + type slot cleanup
+// =========================================================================
+
+/// Helper: place a rampaging enemy on a hex and enter combat via ChallengeRampaging.
+fn setup_rampaging_challenge(
+    rampaging_type: RampagingEnemyType,
+    enemy_id: &str,
+    enemy_color: EnemyColor,
+    hex_coord: mk_types::hex::HexCoord,
+) -> (GameState, UndoStack) {
+    let mut state = setup_playing_game(vec!["march"]);
+    let hex_key = hex_coord.key();
+
+    // Place rampaging enemy on the hex
+    let hex = state.map.hexes.get_mut(&hex_key).unwrap();
+    hex.rampaging_enemies.push(rampaging_type);
+    hex.enemies.push(mk_types::state::HexEnemy {
+        token_id: mk_types::ids::EnemyTokenId::from(format!("{}_1", enemy_id)),
+        color: enemy_color,
+        is_revealed: true,
+    });
+
+    // Position player adjacent to the rampaging hex
+    state.players[0].position = Some(mk_types::hex::HexCoord { q: 0, r: 0 });
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+
+    // Challenge the rampaging enemy
+    apply_legal_action(
+        &mut state,
+        &mut undo,
+        0,
+        &LegalAction::ChallengeRampaging { hex: hex_coord },
+        epoch,
+    )
+    .unwrap();
+
+    assert!(state.combat.is_some(), "should be in combat after challenge");
+    (state, undo)
+}
+
+#[test]
+fn challenge_orc_marauder_defeat_grants_rep_plus_1() {
+    let hex_coord = mk_types::hex::HexCoord { q: 1, r: 0 };
+    let (mut state, mut undo) = setup_rampaging_challenge(
+        RampagingEnemyType::OrcMarauder,
+        "prowlers",
+        EnemyColor::Green,
+        hex_coord,
+    );
+    let initial_rep = state.players[0].reputation;
+
+    // Give enough attack to defeat prowlers (armor 3)
+    state.players[0].combat_accumulator.attack.normal_elements.physical = 10;
+
+    // Skip to Attack phase
+    for _ in 0..3 {
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+    }
+
+    // Declare attack on the enemy
+    execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
+
+    // End Attack phase to finish combat
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+
+    assert!(state.combat.is_none(), "combat should be over");
+    assert_eq!(
+        state.players[0].reputation,
+        (initial_rep as i32 + 1) as i8,
+        "defeating Orc Marauder should grant +1 reputation"
+    );
+}
+
+#[test]
+fn challenge_draconum_defeat_grants_rep_plus_2() {
+    let hex_coord = mk_types::hex::HexCoord { q: 1, r: 0 };
+    let (mut state, mut undo) = setup_rampaging_challenge(
+        RampagingEnemyType::Draconum,
+        "swamp_dragon",
+        EnemyColor::Red,
+        hex_coord,
+    );
+    let initial_rep = state.players[0].reputation;
+
+    // Give enough attack to defeat swamp_dragon (armor 9)
+    state.players[0].combat_accumulator.attack.normal_elements.physical = 20;
+
+    // Skip to Attack phase
+    for _ in 0..3 {
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+    }
+
+    execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
+
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+
+    assert!(state.combat.is_none(), "combat should be over");
+    assert_eq!(
+        state.players[0].reputation,
+        (initial_rep as i32 + 2) as i8,
+        "defeating Draconum should grant +2 reputation"
+    );
+}
+
+#[test]
+fn rampaging_type_slot_cleared_after_defeat() {
+    let hex_coord = mk_types::hex::HexCoord { q: 1, r: 0 };
+    let (mut state, mut undo) = setup_rampaging_challenge(
+        RampagingEnemyType::OrcMarauder,
+        "prowlers",
+        EnemyColor::Green,
+        hex_coord,
+    );
+
+    state.players[0].combat_accumulator.attack.normal_elements.physical = 10;
+
+    for _ in 0..3 {
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+    }
+    execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+
+    let hex = state.map.hexes.get(&hex_coord.key()).unwrap();
+    assert!(
+        hex.rampaging_enemies.is_empty(),
+        "rampaging type slot should be cleared after all enemies defeated"
+    );
+    assert!(
+        hex.enemies.is_empty(),
+        "hex enemies should be empty after defeat"
+    );
+}
+
+#[test]
+fn hex_unblocked_after_rampaging_defeat() {
+    let hex_coord = mk_types::hex::HexCoord { q: 1, r: 0 };
+    let (mut state, mut undo) = setup_rampaging_challenge(
+        RampagingEnemyType::OrcMarauder,
+        "prowlers",
+        EnemyColor::Green,
+        hex_coord,
+    );
+
+    state.players[0].combat_accumulator.attack.normal_elements.physical = 10;
+
+    for _ in 0..3 {
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+    }
+    execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+
+    // Hex should now be passable
+    let entry = crate::movement::evaluate_move_entry(&state, 0, hex_coord);
+    assert!(
+        entry.cost.is_some(),
+        "hex should be passable after rampaging enemies defeated"
+    );
+}
+
+#[test]
+fn rampaging_rep_not_granted_on_retreat() {
+    let hex_coord = mk_types::hex::HexCoord { q: 1, r: 0 };
+    let (mut state, mut undo) = setup_rampaging_challenge(
+        RampagingEnemyType::OrcMarauder,
+        "prowlers",
+        EnemyColor::Green,
+        hex_coord,
+    );
+    let initial_rep = state.players[0].reputation;
+
+    // Don't accumulate any attack — just skip through phases without defeating
+    // RangedSiege → Block → AssignDamage → Attack
+    for _ in 0..3 {
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+    }
+
+    // End Attack phase without attacking (retreat)
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+
+    assert!(state.combat.is_none(), "combat should be over");
+    assert_eq!(
+        state.players[0].reputation, initial_rep,
+        "no reputation bonus on retreat (enemies not defeated)"
+    );
+
+    // Rampaging slot and enemies should still be on the hex
+    let hex = state.map.hexes.get(&hex_coord.key()).unwrap();
+    assert_eq!(hex.rampaging_enemies.len(), 1, "rampaging type still present");
+    assert_eq!(hex.enemies.len(), 1, "hex enemy still present");
+}
+
+#[test]
+fn rampaging_rep_clamped_at_max_7() {
+    let hex_coord = mk_types::hex::HexCoord { q: 1, r: 0 };
+    let (mut state, mut undo) = setup_rampaging_challenge(
+        RampagingEnemyType::Draconum,
+        "swamp_dragon",
+        EnemyColor::Red,
+        hex_coord,
+    );
+
+    // Set rep to 6, defeating Draconum should give +2 but clamp at 7
+    state.players[0].reputation = 6;
+
+    state.players[0].combat_accumulator.attack.normal_elements.physical = 20;
+
+    for _ in 0..3 {
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+    }
+    execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+
+    assert_eq!(state.players[0].reputation, 7, "reputation should clamp at 7");
+}
+

@@ -291,6 +291,13 @@ pub(super) fn apply_enter_site(
     )
     .map_err(|e| ApplyError::InternalError(format!("EnterSite: enter_combat failed: {:?}", e)))?;
 
+    // Dungeon/Tomb: "Whether you defeat the enemy or not, discard it afterwards"
+    if matches!(site_type, SiteType::Dungeon | SiteType::Tomb) {
+        if let Some(ref mut combat) = state.combat {
+            combat.discard_enemies_on_failure = true;
+        }
+    }
+
     state.players[player_idx]
         .flags
         .insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
@@ -431,6 +438,7 @@ pub(super) fn apply_buy_spell(
     state: &mut GameState,
     player_idx: usize,
     card_id: &CardId,
+    mana_color: BasicManaColor,
 ) -> Result<ApplyResult, ApplyError> {
     // Apply blanket reputation + shield bonus (once per turn)
     apply_interaction_bonus_if_needed(state, player_idx);
@@ -444,8 +452,12 @@ pub(super) fn apply_buy_spell(
     // Deduct influence
     player.influence_points -= SPELL_PURCHASE_COST;
 
+    // Consume matching-color mana (token > gold > crystal)
+    super::units::consume_mana_for_unit(state, player_idx, mana_color)
+        .map_err(|_| ApplyError::InternalError("BuySpell: cannot afford mana cost".into()))?;
+
     // Insert card at top of deed deck
-    player.deck.insert(0, card_id.clone());
+    state.players[player_idx].deck.insert(0, card_id.clone());
 
     // Take from spell offer (replenishes from deck)
     take_from_offer(
@@ -1090,13 +1102,20 @@ fn resolve_crystal_rolls(state: &mut GameState, player_idx: usize, count: u32) {
             // Basic color → gain crystal of that color
             crate::mana::gain_crystal(&mut state.players[player_idx], colors[roll]);
         } else if roll == 4 {
-            // Gold → player chooses color
-            state.players[player_idx].pending.active = Some(
-                ActivePending::CrystalRollColorChoice {
-                    remaining_rolls: count - i - 1,
-                }
-            );
-            return; // Remaining rolls resume after choice
+            // Gold → player chooses color (if any color has room)
+            let c = &state.players[player_idx].crystals;
+            let max = crate::mana::MAX_CRYSTALS_PER_COLOR;
+            if c.red < max || c.blue < max || c.green < max || c.white < max {
+                state.players[player_idx].pending.active = Some(
+                    ActivePending::CrystalRollColorChoice {
+                        remaining_rolls: count - i - 1,
+                    }
+                );
+                return; // Remaining rolls resume after choice
+            } else {
+                // All colors at max → fame +1 instead
+                state.players[player_idx].fame += 1;
+            }
         } else {
             // Black → +1 fame
             state.players[player_idx].fame += 1;

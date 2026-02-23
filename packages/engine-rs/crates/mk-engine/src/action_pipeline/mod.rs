@@ -435,6 +435,15 @@ pub fn apply_legal_action(
             turn_flow::apply_announce_end_of_round(state, player_idx)?
         }
 
+        LegalAction::ForfeitTurn => {
+            // Irreversible: skips turn without site benefits
+            undo_stack.set_checkpoint();
+            events.push(GameEvent::TurnEnded {
+                player_id: player_id.clone(),
+            });
+            turn_flow::apply_forfeit_turn(state, player_idx)?
+        }
+
         LegalAction::Undo => {
             let r = turn_flow::apply_undo(state, undo_stack)?;
             events.push(GameEvent::Undone {
@@ -532,10 +541,10 @@ pub fn apply_legal_action(
             }
         }
 
-        LegalAction::BuySpell { card_id, .. } => {
+        LegalAction::BuySpell { card_id, mana_color, .. } => {
             // Reversible: save snapshot
             undo_stack.save(state);
-            sites::apply_buy_spell(state, player_idx, card_id)?
+            sites::apply_buy_spell(state, player_idx, card_id, *mana_color)?
         }
 
         LegalAction::LearnAdvancedAction { card_id, .. } => {

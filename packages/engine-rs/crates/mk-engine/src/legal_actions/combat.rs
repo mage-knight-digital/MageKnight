@@ -562,7 +562,7 @@ pub(super) fn enumerate_damage_assignments(
 /// Check if all damage has been assigned (no remaining unblocked, uncancelled, unassigned attacks).
 ///
 /// In cooperative assault, only considers enemies assigned to the given player.
-pub(super) fn all_damage_assigned(combat: &CombatState, player_id: &str) -> bool {
+pub(super) fn all_damage_assigned(combat: &CombatState, player_id: &str, modifiers: &[mk_types::modifier::ActiveModifier]) -> bool {
     for enemy in &combat.enemies {
         if enemy.is_defeated || enemy.is_summoner_hidden {
             continue;
@@ -572,6 +572,14 @@ pub(super) fn all_damage_assigned(combat: &CombatState, player_id: &str) -> bool
         if !crate::cooperative_assault::is_enemy_assigned_to_player(
             &combat.enemy_assignments,
             player_id,
+            enemy.instance_id.as_str(),
+        ) {
+            continue;
+        }
+
+        // Skip enemies whose attacks are cancelled/skipped (must match enumerate_damage_assignments)
+        if crate::combat_resolution::is_enemy_attacks_skipped(
+            modifiers,
             enemy.instance_id.as_str(),
         ) {
             continue;

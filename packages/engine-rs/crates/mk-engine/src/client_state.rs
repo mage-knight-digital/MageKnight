@@ -352,7 +352,7 @@ fn to_client_deck_counts(decks: &GameDecks) -> ClientDeckCounts {
         spells: decks.spell_deck.len(),
         advanced_actions: decks.advanced_action_deck.len(),
         artifacts: decks.artifact_deck.len(),
-        units: decks.unit_deck.len(),
+        units: decks.unit_deck.len() + decks.elite_unit_deck.len(),
     }
 }
 

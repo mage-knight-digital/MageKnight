@@ -456,6 +456,41 @@ impl GameEngine {
             self.state.game_ended,
         )
     }
+
+    /// Dump internal state for debugging zero-action situations.
+    fn debug_state(&self) -> String {
+        let s = &self.state;
+        let p = &s.players[self.player_idx];
+        format!(
+            "round={} phase={:?} round_phase={:?} game_ended={}\n\
+             current_player_index={} turn_order={:?}\n\
+             tactics_selection_order={:?} current_tactic_selector={:?}\n\
+             end_of_round_announced_by={:?} scenario_end_triggered={}\n\
+             final_turns_remaining={:?} players_with_final_turn={:?}\n\
+             player.id={} player.selected_tactic={:?}\n\
+             player.flags={:?} player.pending.active={:?}\n\
+             player.pending.deferred={}\n\
+             combat={} dummy_player={:?}\n\
+             available_tactics={:?}\n\
+             player.hand={:?}\n\
+             player.position={:?}\n\
+             player.units={}\n\
+             player.move_points={} player.influence_points={}",
+            s.round, s.phase, s.round_phase, s.game_ended,
+            s.current_player_index, s.turn_order,
+            s.tactics_selection_order, s.current_tactic_selector,
+            s.end_of_round_announced_by, s.scenario_end_triggered,
+            s.final_turns_remaining, s.players_with_final_turn,
+            p.id, p.selected_tactic,
+            p.flags, p.pending.active,
+            p.pending.deferred.len(),
+            s.combat.is_some(), s.dummy_player.is_some(),
+            s.available_tactics,
+            p.hand, p.position,
+            p.units.len(),
+            p.move_points, p.influence_points,
+        )
+    }
 }
 
 // =============================================================================

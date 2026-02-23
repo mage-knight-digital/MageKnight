@@ -497,6 +497,7 @@ fn format_action(action: &LegalAction, state: &GameState, player_idx: usize) -> 
             format!("Return interactive skill: {}", skill_id.as_str())
         }
         LegalAction::AnnounceEndOfRound => "Announce end of round".into(),
+        LegalAction::ForfeitTurn => "Forfeit turn (no cards)".into(),
         LegalAction::Undo => "Undo".into(),
         LegalAction::ResolveSourceOpeningReroll { reroll } => {
             if *reroll { "Reroll extra die (Source Opening)".into() } else { "Skip reroll (Source Opening)".into() }
@@ -533,8 +534,8 @@ fn format_action(action: &LegalAction, state: &GameState, player_idx: usize) -> 
             if *accept { "Accept cooperative assault".into() } else { "Decline cooperative assault".into() }
         }
         LegalAction::CancelCooperativeProposal => "Cancel cooperative assault".into(),
-        LegalAction::BuySpell { card_id, .. } => {
-            format!("Buy spell: {}", card_name(card_id.as_str()))
+        LegalAction::BuySpell { card_id, mana_color, .. } => {
+            format!("Buy spell: {} (pay {:?} mana)", card_name(card_id.as_str()), mana_color)
         }
         LegalAction::LearnAdvancedAction { card_id, .. } => {
             format!("Learn AA: {}", card_name(card_id.as_str()))

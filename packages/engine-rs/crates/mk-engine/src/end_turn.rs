@@ -434,6 +434,26 @@ pub fn advance_turn_pub(state: &mut GameState, player_idx: usize) -> EndTurnResu
     advance_turn(state, player_idx, false)
 }
 
+/// Forfeit turn: minimal reset (return dice, clear turn state) WITHOUT site benefits
+/// (no mine crystal, no magical glade mana, no artifact end-turn steps).
+///
+/// Used when a player has no cards (hand + deck empty) and end of round was already
+/// announced by another player. Forfeiting blocks site benefits for that turn.
+pub fn forfeit_turn(state: &mut GameState, player_idx: usize) -> Result<EndTurnResult, EndTurnError> {
+    if player_idx >= state.players.len() {
+        return Err(EndTurnError::InvalidPlayerIndex);
+    }
+
+    // Return dice to source
+    return_player_dice(state, player_idx);
+
+    // Minimal turn reset (clear flags, mana, etc.) — no site benefits
+    reset_player_turn_inner(&mut state.players[player_idx]);
+
+    // Advance to next player
+    Ok(advance_turn(state, player_idx, false))
+}
+
 /// Process any level-ups earned by the player based on current fame.
 ///
 /// Updates level, armor, hand_limit, and command_tokens from the level stats table.
@@ -802,6 +822,60 @@ fn advance_turn(state: &mut GameState, current_player_idx: usize, is_time_bendin
         next_turn_idx = (next_turn_idx + 1) % turn_order_len;
     }
 
+    // Auto-skip players with flipped round-order tokens (from cooperative assaults)
+    {
+        let mut safety = 0;
+        while safety < turn_order_len {
+            let candidate_id = &state.turn_order[next_turn_idx];
+            let candidate_idx = state
+                .players
+                .iter()
+                .position(|p| &p.id == candidate_id);
+
+            if let Some(pidx) = candidate_idx {
+                if state.players[pidx]
+                    .flags
+                    .contains(PlayerFlags::ROUND_ORDER_TOKEN_FLIPPED)
+                {
+                    // 1. Clear the flipped flag (flip back)
+                    state.players[pidx]
+                        .flags
+                        .remove(PlayerFlags::ROUND_ORDER_TOKEN_FLIPPED);
+
+                    // 2. Expire interactive skill center modifiers owned by this player
+                    expire_interactive_skills_for_player(state, &state.players[pidx].id.clone());
+
+                    // 3. Reset turn state for the skipped turn
+                    reset_player_turn_inner(&mut state.players[pidx]);
+
+                    // 4. Remove from players_with_final_turn if present
+                    let pid = state.players[pidx].id.clone();
+                    state.players_with_final_turn.retain(|id| *id != pid);
+
+                    // 5. Advance past this player, skip any dummies
+                    next_turn_idx = (next_turn_idx + 1) % turn_order_len;
+                    while crate::dummy_player::is_dummy_player(
+                        state.turn_order[next_turn_idx].as_str(),
+                    ) {
+                        if let Some(ref mut dummy) = state.dummy_player {
+                            if crate::dummy_player::execute_dummy_turn(dummy).is_none() {
+                                state.end_of_round_announced_by =
+                                    Some(PlayerId::from(crate::dummy_player::DUMMY_PLAYER_ID));
+                                state.players_with_final_turn =
+                                    state.players.iter().map(|p| p.id.clone()).collect();
+                            }
+                        }
+                        next_turn_idx = (next_turn_idx + 1) % turn_order_len;
+                    }
+
+                    safety += 1;
+                    continue;
+                }
+            }
+            break;
+        }
+    }
+
     state.current_player_index = next_turn_idx as u32;
 
     // Find the player index in state.players for this turn_order entry
@@ -934,6 +1008,33 @@ fn finalize_game_end(state: &mut GameState) {
 }
 
 // =============================================================================
+// End round helpers
+// =============================================================================
+
+/// Check if any Core tile has been revealed on the map.
+fn has_core_tile_revealed(state: &GameState) -> bool {
+    state
+        .map
+        .tiles
+        .iter()
+        .any(|tp| tp.revealed && mk_data::tiles::is_core_tile(tp.tile_id))
+}
+
+/// Count unburned monasteries on the map.
+fn count_unburned_monasteries(
+    hexes: &std::collections::BTreeMap<String, HexState>,
+) -> usize {
+    hexes
+        .values()
+        .filter(|hex| {
+            hex.site
+                .as_ref()
+                .is_some_and(|s| s.site_type == SiteType::Monastery && !s.is_burned)
+        })
+        .count()
+}
+
+// =============================================================================
 // End round
 // =============================================================================
 
@@ -953,14 +1054,18 @@ pub(crate) fn end_round(state: &mut GameState) {
         return;
     }
 
-    // 0. Capture used tactics before player reset clears them
+    // 0. Capture used tactics + per-player tactic turn order (for Gap 4: selection ordering)
     let mut used_tactics_this_round = Vec::new();
     if let Some(ref t) = state.dummy_player_tactic {
         used_tactics_this_round.push(t.clone());
     }
+    let mut previous_tactic_orders: Vec<(PlayerId, u8)> = Vec::new();
     for p in &state.players {
         if let Some(ref t) = p.selected_tactic {
             used_tactics_this_round.push(t.clone());
+            if let Some(order) = mk_data::tactics::tactic_turn_order(t.as_str()) {
+                previous_tactic_orders.push((p.id.clone(), order));
+            }
         }
     }
 
@@ -1005,11 +1110,29 @@ pub(crate) fn end_round(state: &mut GameState) {
     );
     // Unit offer: clear and redraw (player_count + 2)
     let unit_offer_size = state.players.len() + 2;
+    let core_revealed = has_core_tile_revealed(state);
+    let elite_enabled = state.scenario_config.elite_units_enabled;
     mk_data::unit_offers::refresh_unit_offer(
         &mut state.offers.units,
         &mut state.decks.unit_deck,
+        &mut state.decks.elite_unit_deck,
         unit_offer_size,
+        core_revealed,
+        elite_enabled,
     );
+
+    // Monastery AA offer refresh: return old → draw new per unburned monastery
+    let unburned_monastery_count = count_unburned_monasteries(&state.map.hexes);
+    let old_monastery_aas: Vec<CardId> = state.offers.monastery_advanced_actions.drain(..).collect();
+    for card in old_monastery_aas {
+        state.decks.advanced_action_deck.push(card);
+    }
+    for _ in 0..unburned_monastery_count {
+        if let Some(card) = state.decks.advanced_action_deck.first().cloned() {
+            state.decks.advanced_action_deck.remove(0);
+            state.offers.monastery_advanced_actions.push(card);
+        }
+    }
 
     // 5. Player round reset (reshuffle + draw)
     for player_idx in 0..state.players.len() {
@@ -1050,15 +1173,24 @@ pub(crate) fn end_round(state: &mut GameState) {
     state.dummy_player_tactic = None;
 
     state.round_phase = RoundPhase::TacticsSelection;
-    // Tactic selection order: humans only, reversed (last in turn order picks first)
-    let mut human_ids: Vec<PlayerId> = state
+    // Tactic selection order: sort by previous tactic's turn order number (ascending).
+    // Players who had no tactic (or round 1) sort last. Tie-break: lower turn_order index.
+    let mut human_entries: Vec<(PlayerId, u8, usize)> = state
         .turn_order
         .iter()
-        .filter(|pid| !crate::dummy_player::is_dummy_player(pid.as_str()))
-        .cloned()
+        .enumerate()
+        .filter(|(_, pid)| !crate::dummy_player::is_dummy_player(pid.as_str()))
+        .map(|(idx, pid)| {
+            let prev_order = previous_tactic_orders
+                .iter()
+                .find(|(id, _)| id == pid)
+                .map(|(_, order)| *order)
+                .unwrap_or(u8::MAX);
+            (pid.clone(), prev_order, idx)
+        })
         .collect();
-    human_ids.reverse();
-    state.tactics_selection_order = human_ids;
+    human_entries.sort_by(|a, b| a.1.cmp(&b.1).then(a.2.cmp(&b.2)));
+    state.tactics_selection_order = human_entries.into_iter().map(|(pid, _, _)| pid).collect();
     state.current_tactic_selector = state.tactics_selection_order.first().cloned();
 
     // Expire round-duration modifiers
@@ -1069,6 +1201,9 @@ pub(crate) fn end_round(state: &mut GameState) {
 ///
 /// Matches TS `processPlayerRoundReset()` in `playerRoundReset.ts`.
 fn reset_player_round(state: &mut GameState, player_idx: usize) {
+    // Compute site bonus before mutable borrow (needs shared access to map)
+    let site_bonus = count_adjacent_site_hand_bonus(state, player_idx);
+
     let player = &mut state.players[player_idx];
 
     // Collect all cards: hand + discard + play_area + deck (minus removedCards)
@@ -1082,8 +1217,8 @@ fn reset_player_round(state: &mut GameState, player_idx: usize) {
     // Shuffle all cards
     state.rng.shuffle(&mut all_cards);
 
-    // Draw up to effective hand limit
-    let hand_limit = player.hand_limit as usize;
+    // Draw up to effective hand limit (base + site bonus)
+    let hand_limit = (player.hand_limit as usize) + site_bonus;
     let hand_size = hand_limit.min(all_cards.len());
 
     player.hand = all_cards.drain(..hand_size).collect();
@@ -1291,6 +1426,41 @@ fn apply_magical_glade_mana(state: &mut GameState, player_idx: usize) {
         source: ManaTokenSource::Effect,
         cannot_power_spells: false,
     });
+}
+
+/// Expire interactive skill center modifiers owned by a specific player.
+///
+/// Used when a player's turn is skipped (flipped round-order token) —
+/// any cooperative/interactive skill tokens still in effect expire.
+fn expire_interactive_skills_for_player(state: &mut GameState, player_id: &PlayerId) {
+    state.active_modifiers.retain(|m| {
+        !matches!(
+            &m.source,
+            mk_types::modifier::ModifierSource::Skill {
+                player_id: owner, ..
+            } if *owner == *player_id
+                && matches!(m.duration, mk_types::modifier::ModifierDuration::Round)
+                && matches!(m.scope, mk_types::modifier::ModifierScope::OtherPlayers)
+        )
+    });
+
+    // Clear mana_enhancement_center if owned by this player
+    if let Some(ref center) = state.mana_enhancement_center {
+        if center.owner_id == *player_id {
+            let skill_str = center.skill_id.as_str().to_string();
+            let owner_id = center.owner_id.clone();
+            state.active_modifiers.retain(|m| {
+                !matches!(
+                    &m.source,
+                    mk_types::modifier::ModifierSource::Skill {
+                        skill_id: sid,
+                        player_id: oid
+                    } if sid.as_str() == skill_str && *oid == owner_id
+                )
+            });
+            state.mana_enhancement_center = None;
+        }
+    }
 }
 
 /// Plunder decision: if player starts turn at an unconquered inhabited site.
@@ -3786,5 +3956,472 @@ mod tests {
         // Turn should complete — banner protection step was skipped (no wounds)
         assert_eq!(state.players[0].end_turn_step, 0);
         assert!(!state.players[0].pending.has_active());
+    }
+
+    // =========================================================================
+    // Gap 1: Unit offer — dual deck alternation
+    // =========================================================================
+
+    #[test]
+    fn end_round_unit_offer_regular_only_without_core_tile() {
+        let mut state = create_solo_game(42, Hero::Arythea);
+        state.round_phase = RoundPhase::PlayerTurns;
+        // No core tiles revealed (default starting game)
+        assert!(!has_core_tile_revealed(&state));
+
+        // Put some elite units in elite deck to verify they don't appear
+        state.decks.elite_unit_deck = vec![
+            UnitId::from("fire_mages"),
+            UnitId::from("ice_mages"),
+        ];
+
+        end_round(&mut state);
+
+        // With no core tile, offer should be regular only
+        for unit in &state.offers.units {
+            assert!(
+                !mk_data::units::is_elite_unit(unit.as_str()),
+                "Offer should be regular-only without core tile, found: {}",
+                unit.as_str()
+            );
+        }
+    }
+
+    #[test]
+    fn end_round_unit_offer_alternates_with_core_tile() {
+        let mut state = create_solo_game(42, Hero::Arythea);
+        state.round_phase = RoundPhase::PlayerTurns;
+        state.scenario_config.elite_units_enabled = true;
+
+        // Simulate a core tile being revealed
+        state.map.tiles.push(TilePlacement {
+            tile_id: TileId::Core1,
+            center_coord: mk_types::hex::HexCoord::new(5, 0),
+            revealed: true,
+        });
+
+        // Set up deterministic decks
+        state.decks.unit_deck = vec![
+            UnitId::from("peasants"),
+            UnitId::from("foresters"),
+        ];
+        state.decks.elite_unit_deck = vec![
+            UnitId::from("fire_mages"),
+            UnitId::from("ice_mages"),
+        ];
+        state.offers.units.clear();
+
+        end_round(&mut state);
+
+        // Should alternate: E, R, E, R... (offer size = player_count+2 = 3)
+        // fire_mages, peasants, ice_mages
+        assert!(state.offers.units.len() >= 3);
+        assert_eq!(state.offers.units[0].as_str(), "fire_mages");
+        assert_eq!(state.offers.units[1].as_str(), "peasants");
+        assert_eq!(state.offers.units[2].as_str(), "ice_mages");
+    }
+
+    #[test]
+    fn end_round_returns_elite_to_elite_deck() {
+        let mut state = create_solo_game(42, Hero::Arythea);
+        state.round_phase = RoundPhase::PlayerTurns;
+
+        // Put an elite unit in the offer
+        state.offers.units = vec![
+            UnitId::from("peasants"),
+            UnitId::from("fire_mages"),
+        ];
+        state.decks.unit_deck = vec![
+            UnitId::from("thugs"),
+            UnitId::from("scouts"),
+            UnitId::from("herbalist"),
+        ];
+        state.decks.elite_unit_deck = Vec::new();
+
+        end_round(&mut state);
+
+        // fire_mages should have been returned to elite deck
+        assert!(
+            state.decks.elite_unit_deck.iter().any(|u| u.as_str() == "fire_mages"),
+            "Elite unit should be returned to elite deck"
+        );
+        // peasants should be in regular deck
+        assert!(
+            state.decks.unit_deck.iter().any(|u| u.as_str() == "peasants"),
+            "Regular unit should be returned to regular deck"
+        );
+    }
+
+    #[test]
+    fn end_round_alternation_fallback_when_elite_empty() {
+        let mut state = create_solo_game(42, Hero::Arythea);
+        state.round_phase = RoundPhase::PlayerTurns;
+        state.scenario_config.elite_units_enabled = true;
+
+        // Reveal a core tile
+        state.map.tiles.push(TilePlacement {
+            tile_id: TileId::Core2,
+            center_coord: mk_types::hex::HexCoord::new(5, 0),
+            revealed: true,
+        });
+
+        state.decks.unit_deck = vec![
+            UnitId::from("peasants"),
+            UnitId::from("foresters"),
+            UnitId::from("thugs"),
+        ];
+        state.decks.elite_unit_deck = Vec::new(); // Empty elite deck
+        state.offers.units.clear();
+
+        end_round(&mut state);
+
+        // Should fall back to regular when elite empty
+        assert_eq!(state.offers.units.len(), 3);
+        for unit in &state.offers.units {
+            assert!(
+                !mk_data::units::is_elite_unit(unit.as_str()),
+                "Should fall back to regular when elite empty"
+            );
+        }
+    }
+
+    // =========================================================================
+    // Gap 2: Monastery AA offer refresh
+    // =========================================================================
+
+    #[test]
+    fn end_round_refreshes_monastery_aa_offer() {
+        let mut state = create_solo_game(42, Hero::Arythea);
+        state.round_phase = RoundPhase::PlayerTurns;
+
+        // Set up a monastery on the map
+        let monastery_hex_key = "3,0";
+        state.map.hexes.insert(
+            monastery_hex_key.to_string(),
+            HexState {
+                coord: mk_types::hex::HexCoord::new(3, 0),
+                terrain: Terrain::Plains,
+                tile_id: TileId::Countryside5,
+                site: Some(Site {
+                    site_type: SiteType::Monastery,
+                    owner: None,
+                    is_conquered: false,
+                    is_burned: false,
+                    city_color: None,
+                    mine_color: None,
+                    deep_mine_colors: None,
+                }),
+                rampaging_enemies: ArrayVec::new(),
+                enemies: ArrayVec::new(),
+                ruins_token: None,
+                shield_tokens: Vec::new(),
+            },
+        );
+
+        // Set old monastery AA offer
+        state.offers.monastery_advanced_actions = vec![CardId::from("mana_storm")];
+        let aa_deck_size_before = state.decks.advanced_action_deck.len();
+
+        end_round(&mut state);
+
+        // Old monastery AA should have been returned + 1 new drawn (1 unburned monastery)
+        assert_eq!(state.offers.monastery_advanced_actions.len(), 1);
+        // The card should be different from mana_storm (returned to deck, new one drawn)
+        // (Deck size stays same: 1 returned + 1 drawn = net 0)
+        assert_eq!(state.decks.advanced_action_deck.len(), aa_deck_size_before);
+    }
+
+    #[test]
+    fn end_round_burned_monastery_excluded_from_refresh() {
+        let mut state = create_solo_game(42, Hero::Arythea);
+        state.round_phase = RoundPhase::PlayerTurns;
+
+        // Add a burned monastery
+        let monastery_hex_key = "3,0";
+        state.map.hexes.insert(
+            monastery_hex_key.to_string(),
+            HexState {
+                coord: mk_types::hex::HexCoord::new(3, 0),
+                terrain: Terrain::Plains,
+                tile_id: TileId::Countryside5,
+                site: Some(Site {
+                    site_type: SiteType::Monastery,
+                    owner: None,
+                    is_conquered: false,
+                    is_burned: true,  // Burned!
+                    city_color: None,
+                    mine_color: None,
+                    deep_mine_colors: None,
+                }),
+                rampaging_enemies: ArrayVec::new(),
+                enemies: ArrayVec::new(),
+                ruins_token: None,
+                shield_tokens: Vec::new(),
+            },
+        );
+
+        state.offers.monastery_advanced_actions = vec![CardId::from("old_card")];
+
+        end_round(&mut state);
+
+        // Burned monastery → 0 unburned → no new draws
+        assert!(state.offers.monastery_advanced_actions.is_empty());
+    }
+
+    #[test]
+    fn end_round_empty_deck_monastery_refresh_safe() {
+        let mut state = create_solo_game(42, Hero::Arythea);
+        state.round_phase = RoundPhase::PlayerTurns;
+
+        // Add an unburned monastery
+        let monastery_hex_key = "3,0";
+        state.map.hexes.insert(
+            monastery_hex_key.to_string(),
+            HexState {
+                coord: mk_types::hex::HexCoord::new(3, 0),
+                terrain: Terrain::Plains,
+                tile_id: TileId::Countryside5,
+                site: Some(Site {
+                    site_type: SiteType::Monastery,
+                    owner: None,
+                    is_conquered: false,
+                    is_burned: false,
+                    city_color: None,
+                    mine_color: None,
+                    deep_mine_colors: None,
+                }),
+                rampaging_enemies: ArrayVec::new(),
+                enemies: ArrayVec::new(),
+                ruins_token: None,
+                shield_tokens: Vec::new(),
+            },
+        );
+
+        state.offers.monastery_advanced_actions.clear();
+        state.decks.advanced_action_deck.clear(); // Empty AA deck
+
+        // Should not panic with empty deck
+        end_round(&mut state);
+
+        assert!(state.offers.monastery_advanced_actions.is_empty());
+    }
+
+    // =========================================================================
+    // Gap 3: Round-start draw includes site hand limit bonus
+    // =========================================================================
+
+    #[test]
+    fn round_start_draw_includes_keep_bonus() {
+        let mut state = create_solo_game(42, Hero::Arythea);
+        state.round_phase = RoundPhase::PlayerTurns;
+
+        // Place player on a conquered keep
+        let keep_hex_key = "0,0";
+        if let Some(hex) = state.map.hexes.get_mut(keep_hex_key) {
+            hex.site = Some(Site {
+                site_type: SiteType::Keep,
+                owner: Some(PlayerId::from("player_0")),
+                is_conquered: true,
+                is_burned: false,
+                city_color: None,
+                mine_color: None,
+                deep_mine_colors: None,
+            });
+            hex.shield_tokens = vec![PlayerId::from("player_0")];
+        }
+        state.players[0].position = Some(mk_types::hex::HexCoord::new(0, 0));
+        state.players[0].hand_limit = 5;
+
+        // Collect all available cards
+        let total_cards = state.players[0].hand.len()
+            + state.players[0].deck.len()
+            + state.players[0].discard.len()
+            + state.players[0].play_area.len();
+
+        end_round(&mut state);
+
+        // Should draw hand_limit + 1 (keep bonus) = 6, or fewer if not enough cards
+        let expected_hand = 6usize.min(total_cards);
+        assert_eq!(
+            state.players[0].hand.len(),
+            expected_hand,
+            "Should draw up to hand_limit + keep bonus"
+        );
+    }
+
+    #[test]
+    fn round_start_draw_no_bonus_without_site() {
+        let mut state = create_solo_game(42, Hero::Arythea);
+        state.round_phase = RoundPhase::PlayerTurns;
+        state.players[0].hand_limit = 5;
+
+        // Player on plains (no site bonus)
+        let total_cards = state.players[0].hand.len()
+            + state.players[0].deck.len()
+            + state.players[0].discard.len()
+            + state.players[0].play_area.len();
+
+        end_round(&mut state);
+
+        // Should draw exactly hand_limit = 5 (or fewer)
+        let expected_hand = 5usize.min(total_cards);
+        assert_eq!(
+            state.players[0].hand.len(),
+            expected_hand,
+            "Should draw exactly hand_limit without site bonus"
+        );
+    }
+
+    // =========================================================================
+    // Gap 4: Tactic selection order by previous tactic number
+    // =========================================================================
+
+    #[test]
+    fn tactic_selection_sorted_by_previous_tactic() {
+        let mut state = crate::setup::create_two_player_game(42, Hero::Arythea, Hero::Tovak);
+        state.round_phase = RoundPhase::PlayerTurns;
+
+        // Player 0 had tactic #6 (the_right_moment), Player 1 had tactic #1 (early_bird)
+        state.players[0].selected_tactic = Some(TacticId::from("the_right_moment"));
+        state.players[1].selected_tactic = Some(TacticId::from("early_bird"));
+
+        end_round(&mut state);
+
+        // Player 1 (tactic #1) should select first, Player 0 (tactic #6) second
+        assert_eq!(state.tactics_selection_order.len(), 2);
+        assert_eq!(
+            state.tactics_selection_order[0].as_str(),
+            "player_1",
+            "Player with lower tactic number should pick first"
+        );
+        assert_eq!(
+            state.tactics_selection_order[1].as_str(),
+            "player_0",
+            "Player with higher tactic number should pick second"
+        );
+    }
+
+    #[test]
+    fn tactic_selection_no_previous_tactic_sorts_last() {
+        let mut state = crate::setup::create_two_player_game(42, Hero::Arythea, Hero::Tovak);
+        state.round_phase = RoundPhase::PlayerTurns;
+
+        // Player 0 had tactic #3 (mana_steal), Player 1 had no tactic
+        state.players[0].selected_tactic = Some(TacticId::from("mana_steal"));
+        state.players[1].selected_tactic = None;
+
+        end_round(&mut state);
+
+        // Player 0 (has tactic) first, Player 1 (no tactic) last
+        assert_eq!(state.tactics_selection_order[0].as_str(), "player_0");
+        assert_eq!(state.tactics_selection_order[1].as_str(), "player_1");
+    }
+
+    #[test]
+    fn tactic_selection_tie_break_by_turn_order() {
+        let config = mk_data::scenarios::first_reconnaissance_3p();
+        let mut state = crate::setup::create_multiplayer_game(
+            42,
+            &[Hero::Arythea, Hero::Tovak, Hero::Goldyx],
+            config,
+            "first_reconnaissance_3p",
+        );
+        state.round_phase = RoundPhase::PlayerTurns;
+
+        // All three have the same tactic number (#3 = mana_steal)
+        state.players[0].selected_tactic = Some(TacticId::from("mana_steal"));
+        state.players[1].selected_tactic = Some(TacticId::from("mana_steal"));
+        state.players[2].selected_tactic = Some(TacticId::from("mana_steal"));
+
+        end_round(&mut state);
+
+        // Tie-break by turn_order index: 0, 1, 2
+        assert_eq!(state.tactics_selection_order.len(), 3);
+        assert_eq!(state.tactics_selection_order[0].as_str(), "player_0");
+        assert_eq!(state.tactics_selection_order[1].as_str(), "player_1");
+        assert_eq!(state.tactics_selection_order[2].as_str(), "player_2");
+    }
+
+    // =========================================================================
+    // Helper tests
+    // =========================================================================
+
+    #[test]
+    fn has_core_tile_revealed_false_for_starting_game() {
+        let state = create_solo_game(42, Hero::Arythea);
+        assert!(!has_core_tile_revealed(&state));
+    }
+
+    #[test]
+    fn has_core_tile_revealed_true_when_core_placed() {
+        let mut state = create_solo_game(42, Hero::Arythea);
+        state.map.tiles.push(TilePlacement {
+            tile_id: TileId::Core3,
+            center_coord: mk_types::hex::HexCoord::new(5, 0),
+            revealed: true,
+        });
+        assert!(has_core_tile_revealed(&state));
+    }
+
+    #[test]
+    fn has_core_tile_revealed_false_for_unrevealed_core() {
+        let mut state = create_solo_game(42, Hero::Arythea);
+        state.map.tiles.push(TilePlacement {
+            tile_id: TileId::Core3,
+            center_coord: mk_types::hex::HexCoord::new(5, 0),
+            revealed: false,
+        });
+        assert!(!has_core_tile_revealed(&state));
+    }
+
+    #[test]
+    fn count_unburned_monasteries_counts_correctly() {
+        let mut state = create_solo_game(42, Hero::Arythea);
+
+        // Add two monasteries — one burned, one not
+        state.map.hexes.insert(
+            "3,0".to_string(),
+            HexState {
+                coord: mk_types::hex::HexCoord::new(3, 0),
+                terrain: Terrain::Plains,
+                tile_id: TileId::Countryside5,
+                site: Some(Site {
+                    site_type: SiteType::Monastery,
+                    owner: None,
+                    is_conquered: false,
+                    is_burned: false,
+                    city_color: None,
+                    mine_color: None,
+                    deep_mine_colors: None,
+                }),
+                rampaging_enemies: ArrayVec::new(),
+                enemies: ArrayVec::new(),
+                ruins_token: None,
+                shield_tokens: Vec::new(),
+            },
+        );
+        state.map.hexes.insert(
+            "4,0".to_string(),
+            HexState {
+                coord: mk_types::hex::HexCoord::new(4, 0),
+                terrain: Terrain::Plains,
+                tile_id: TileId::Countryside7,
+                site: Some(Site {
+                    site_type: SiteType::Monastery,
+                    owner: None,
+                    is_conquered: false,
+                    is_burned: true,
+                    city_color: None,
+                    mine_color: None,
+                    deep_mine_colors: None,
+                }),
+                rampaging_enemies: ArrayVec::new(),
+                enemies: ArrayVec::new(),
+                ruins_token: None,
+                shield_tokens: Vec::new(),
+            },
+        );
+
+        assert_eq!(count_unburned_monasteries(&state.map.hexes), 1);
     }
 }

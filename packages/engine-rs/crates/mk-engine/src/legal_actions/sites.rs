@@ -164,7 +164,7 @@ pub(super) fn enumerate_site_actions(
         }
     }
 
-    // BuySpell — at conquered Mage Tower
+    // BuySpell — at conquered Mage Tower (7 influence + matching-color mana)
     if site.site_type == SiteType::MageTower
         && site.is_conquered
         && !player
@@ -173,10 +173,15 @@ pub(super) fn enumerate_site_actions(
         && effective_influence >= SPELL_PURCHASE_COST
     {
         for (idx, card_id) in state.offers.spells.iter().enumerate() {
-            actions.push(LegalAction::BuySpell {
-                card_id: card_id.clone(),
-                offer_index: idx,
-            });
+            if let Some(color) = mk_data::cards::get_spell_color(card_id.as_str()) {
+                if super::units::can_afford_mana(player, color) {
+                    actions.push(LegalAction::BuySpell {
+                        card_id: card_id.clone(),
+                        offer_index: idx,
+                        mana_color: color,
+                    });
+                }
+            }
         }
     }
 

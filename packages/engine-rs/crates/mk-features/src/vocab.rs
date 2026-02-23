@@ -306,7 +306,7 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
         "DISBAND_UNIT", "DISBAND_UNIT_FOR_REWARD",
         "END_COMBAT_PHASE", "END_TURN",
         "ENTER_COMBAT", "ENTER_SITE", "EXPLORE",
-        "FINALIZE_ATTACK", "FINALIZE_BLOCK", "FORFEIT_UNIT_REWARD",
+        "FINALIZE_ATTACK", "FINALIZE_BLOCK", "FORFEIT_TURN", "FORFEIT_UNIT_REWARD",
         "INTERACT",
         "LEARN_ADVANCED", "LEARN_ADVANCED_ACTION", "MOVE",
         "PAY_HEROES_ASSAULT_INFLUENCE", "PAY_THUGS_DAMAGE_INFLUENCE",
@@ -346,7 +346,7 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
         "DECLINE_PLUNDER", "DISBAND_UNIT", "DISBAND_UNIT_FOR_REWARD",
         "END_COMBAT_PHASE", "END_TURN",
         "ENTER_COMBAT", "ENTER_SITE", "EXPLORE",
-        "FINALIZE_ATTACK", "FINALIZE_BLOCK", "FORFEIT_UNIT_REWARD",
+        "FINALIZE_ATTACK", "FINALIZE_BLOCK", "FORFEIT_TURN", "FORFEIT_UNIT_REWARD",
         "INTERACT",
         "LEARN_ADVANCED", "LEARN_ADVANCED_ACTION",
         "MOVE",
@@ -467,7 +467,7 @@ define_vocab!(SOURCE_VOCAB, "source",
         "normal.tactic.activate", "normal.tactic.pending",
         "normal.tactic.reroll",
         "normal.turn.announce_end_round", "normal.turn.complete_rest",
-        "normal.turn.declare_rest", "normal.turn.end_turn",
+        "normal.turn.declare_rest", "normal.turn.end_turn", "normal.turn.forfeit",
         "normal.units.activate", "normal.units.recruit", "normal.units.recruit.disband",
         "plunder_decision.decline", "plunder_decision.plunder",
         "pending_choice.index",
@@ -538,7 +538,7 @@ define_vocab!(SOURCE_VOCAB, "source",
         "normal.tactic.activate", "normal.tactic.pending",
         "normal.tactic.reroll",
         "normal.turn.announce_end_round", "normal.turn.complete_rest",
-        "normal.turn.declare_rest", "normal.turn.end_turn",
+        "normal.turn.declare_rest", "normal.turn.end_turn", "normal.turn.forfeit",
         "normal.units.activate", "normal.units.recruit", "normal.units.recruit.disband",
         "pending_choice.apply_modifier",
         "pending_choice.card_boost",
@@ -721,7 +721,7 @@ mod tests {
 
     #[test]
     fn action_type_vocab_size() {
-        assert_eq!(ACTION_TYPE_VOCAB.size(), 79); // 78 entries + UNK
+        assert_eq!(ACTION_TYPE_VOCAB.size(), 80); // 79 entries + UNK
     }
 
     #[test]
@@ -732,7 +732,7 @@ mod tests {
     #[test]
     fn source_vocab_size() {
         // Count the ordered entries
-        assert_eq!(SOURCE_VOCAB.size(), 127); // 126 entries + UNK
+        assert_eq!(SOURCE_VOCAB.size(), 128); // 127 entries + UNK
     }
 
     #[test]

@@ -111,6 +111,17 @@ pub fn rampaging_enemy_color(rampaging_type: RampagingEnemyType) -> EnemyColor {
     }
 }
 
+/// Reputation bonus for defeating a rampaging enemy encounter.
+///
+/// Marauding Orcs: +1 reputation per token defeated.
+/// Draconum: +2 reputation per token defeated.
+pub fn rampaging_reputation_bonus(rampaging_type: RampagingEnemyType) -> i32 {
+    match rampaging_type {
+        RampagingEnemyType::OrcMarauder => 1,
+        RampagingEnemyType::Draconum => 2,
+    }
+}
+
 /// Site type → defender config at tile reveal time, or None for safe/deferred sites.
 ///
 /// NOTE: Dungeon/Tomb/MonsterDen/SpawningGrounds enemies are drawn when the player
@@ -264,6 +275,12 @@ mod tests {
     fn rampaging_enemy_color_mapping() {
         assert_eq!(rampaging_enemy_color(RampagingEnemyType::OrcMarauder), EnemyColor::Green);
         assert_eq!(rampaging_enemy_color(RampagingEnemyType::Draconum), EnemyColor::Red);
+    }
+
+    #[test]
+    fn rampaging_reputation_bonus_values() {
+        assert_eq!(rampaging_reputation_bonus(RampagingEnemyType::OrcMarauder), 1);
+        assert_eq!(rampaging_reputation_bonus(RampagingEnemyType::Draconum), 2);
     }
 
     #[test]

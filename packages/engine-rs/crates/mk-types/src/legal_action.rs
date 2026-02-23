@@ -210,10 +210,11 @@ pub enum LegalAction {
     },
     /// Cancel a cooperative assault proposal (initiator only).
     CancelCooperativeProposal,
-    /// Buy a spell from the offer at a conquered Mage Tower (7 influence).
+    /// Buy a spell from the offer at a conquered Mage Tower (7 influence + matching mana).
     BuySpell {
         card_id: CardId,
         offer_index: usize,
+        mana_color: BasicManaColor,
     },
     /// Learn an AA from the monastery offer (6 influence).
     LearnAdvancedAction {
@@ -294,6 +295,8 @@ pub enum LegalAction {
         unit_instance_id: UnitInstanceId,
         reward_unit_id: UnitId,
     },
+    /// Forfeit turn when hand+deck empty and end of round already announced by another player.
+    ForfeitTurn,
     Undo,
 }
 
