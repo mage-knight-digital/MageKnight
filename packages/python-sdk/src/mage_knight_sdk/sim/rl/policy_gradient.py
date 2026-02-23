@@ -8,19 +8,14 @@ from typing import Any
 import numpy as np
 import torch
 from torch import nn
-from ..generated_action_enumerator import CandidateAction
-from ..policy import Policy
 from .features import (
     ACTION_SCALAR_DIM,
     COMBAT_ENEMY_SCALAR_DIM,
     MAP_ENEMY_SCALAR_DIM,
-    FEATURE_DIM,
     SITE_SCALAR_DIM,
     STATE_SCALAR_DIM,
     EncodedStep,
     StateFeatures,
-    encode_state_action,
-    encode_step,
 )
 from .vocabularies import (
     ACTION_TYPE_VOCAB,
@@ -45,7 +40,6 @@ class PolicyGradientConfig:
     normalize_returns: bool = True
     device: str = "auto"
     embedding_dim: int = 16
-    use_embeddings: bool = True
     num_hidden_layers: int = 1
 
 
@@ -211,21 +205,6 @@ def detensorize_episodes(
         [detensorize_transition(tt) for tt in episode]
         for episode in episodes
     ]
-
-
-class _ActionScoringNetwork(nn.Module):
-    def __init__(self, hidden_size: int) -> None:
-        super().__init__()
-        self._layers = nn.Sequential(
-            nn.Linear(FEATURE_DIM, hidden_size),
-            nn.Tanh(),
-            nn.Linear(hidden_size, hidden_size),
-            nn.Tanh(),
-            nn.Linear(hidden_size, 1),
-        )
-
-    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
-        return self._layers(inputs).squeeze(-1)
 
 
 def _build_encoder(input_dim: int, hidden_size: int, num_layers: int) -> nn.Sequential:
@@ -430,20 +409,17 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         return logits, value
 
 
-class ReinforcePolicy(Policy):
-    """Candidate-ranking policy optimized with episodic REINFORCE."""
+class ReinforcePolicy:
+    """Candidate-ranking policy optimized with episodic REINFORCE or PPO."""
 
     def __init__(self, config: PolicyGradientConfig | None = None) -> None:
         self.config = config or PolicyGradientConfig()
         self._device = _resolve_device(self.config.device)
 
-        if self.config.use_embeddings:
-            self._network = _EmbeddingActionScoringNetwork(
-                self.config.hidden_size, self.config.embedding_dim,
-                self.config.num_hidden_layers,
-            ).to(self._device)
-        else:
-            self._network = _ActionScoringNetwork(self.config.hidden_size).to(self._device)
+        self._network = _EmbeddingActionScoringNetwork(
+            self.config.hidden_size, self.config.embedding_dim,
+            self.config.num_hidden_layers,
+        ).to(self._device)
         self._optimizer = torch.optim.Adam(self._network.parameters(), lr=self.config.learning_rate)
 
         self._episode_log_probs: list[torch.Tensor] = []
@@ -452,51 +428,6 @@ class ReinforcePolicy(Policy):
         self._episode_values: list[torch.Tensor] = []
         self._next_reward_index = 0
         self.last_step_info: StepInfo | None = None
-
-    def choose_action(
-        self,
-        state: dict[str, Any],
-        player_id: str,
-        valid_actions: list[CandidateAction],
-        rng: random.Random,
-    ) -> CandidateAction | None:
-        del rng
-        if not valid_actions:
-            return None
-
-        self._network.train()
-
-        value: torch.Tensor | None = None
-        encoded_step: EncodedStep | None = None
-        if self.config.use_embeddings:
-            encoded_step = encode_step(state, player_id, valid_actions)
-            logits, value = self._network(encoded_step, self._device)
-        else:
-            logits = self._choose_action_legacy(state, player_id, valid_actions)
-
-        log_probs = torch.log_softmax(logits, dim=0)
-        selected_index = int(torch.multinomial(log_probs.exp(), 1).item())
-
-        self._episode_log_probs.append(log_probs[selected_index])
-        # Entropy: -sum(p * log(p))
-        probs = log_probs.exp()
-        self._episode_entropies.append(-(probs * log_probs).sum())
-        self._episode_rewards.append(0.0)
-        if value is not None:
-            self._episode_values.append(value)
-
-        # Store for PPO collection
-        if encoded_step is not None:
-            self.last_step_info = StepInfo(
-                encoded_step=encoded_step,
-                action_index=selected_index,
-                log_prob=float(log_probs[selected_index].detach().cpu().item()),
-                value=float(value.detach().cpu().item()) if value is not None else 0.0,
-            )
-        else:
-            self.last_step_info = None
-
-        return valid_actions[selected_index]
 
     def choose_action_from_encoded(
         self,
@@ -533,20 +464,6 @@ class ReinforcePolicy(Policy):
         )
 
         return selected_index
-
-    def _choose_action_legacy(
-        self,
-        state: dict[str, Any],
-        player_id: str,
-        valid_actions: list[CandidateAction],
-    ) -> torch.Tensor:
-        """Legacy path: flat feature vector per candidate."""
-        feature_rows = [
-            encode_state_action(state, player_id, candidate.action, candidate.source)
-            for candidate in valid_actions
-        ]
-        inputs = torch.tensor(feature_rows, dtype=torch.float32, device=self._device)
-        return self._network(inputs)
 
     def record_step_reward(self, reward: float) -> None:
         if self._next_reward_index >= len(self._episode_rewards):
@@ -660,47 +577,44 @@ class ReinforcePolicy(Policy):
         num_batches = 0
 
         indices = list(range(n))
-        use_batch = isinstance(self._network, _EmbeddingActionScoringNetwork)
+        net = self._network
 
-        if use_batch:
-            net: _EmbeddingActionScoringNetwork = self._network
+        # ---- Precompute: Python list → tensor conversions (once) ----
+        precomp_action_ids: list[torch.Tensor] = []    # (A_i, 6) long
+        precomp_action_scalars: list[torch.Tensor] = []  # (A_i, ACTION_SCALAR_DIM)
+        precomp_target_ids: list[list[torch.Tensor | None]] = []
+        action_counts: list[int] = []
+        action_indices_all = torch.tensor(
+            [t.action_index for t in transitions],
+            dtype=torch.long, device=self._device,
+        )
 
-            # ---- Precompute: Python list → tensor conversions (once) ----
-            precomp_action_ids: list[torch.Tensor] = []    # (A_i, 6) long
-            precomp_action_scalars: list[torch.Tensor] = []  # (A_i, ACTION_SCALAR_DIM)
-            precomp_target_ids: list[list[torch.Tensor | None]] = []
-            action_counts: list[int] = []
-            action_indices_all = torch.tensor(
-                [t.action_index for t in transitions],
+        for t in transitions:
+            actions = t.encoded_step.actions
+            n_a = len(actions)
+            action_counts.append(n_a)
+            precomp_action_ids.append(torch.tensor(
+                [[a.action_type_id, a.source_id, a.card_id,
+                  a.unit_id, a.enemy_id, a.skill_id] for a in actions],
                 dtype=torch.long, device=self._device,
-            )
+            ))
+            precomp_action_scalars.append(torch.tensor(
+                [a.scalars for a in actions],
+                dtype=torch.float32, device=self._device,
+            ))
+            precomp_target_ids.append([
+                torch.tensor(a.target_enemy_ids, dtype=torch.long, device=self._device)
+                if a.target_enemy_ids else None
+                for a in actions
+            ])
 
-            for t in transitions:
-                actions = t.encoded_step.actions
-                n_a = len(actions)
-                action_counts.append(n_a)
-                precomp_action_ids.append(torch.tensor(
-                    [[a.action_type_id, a.source_id, a.card_id,
-                      a.unit_id, a.enemy_id, a.skill_id] for a in actions],
-                    dtype=torch.long, device=self._device,
-                ))
-                precomp_action_scalars.append(torch.tensor(
-                    [a.scalars for a in actions],
-                    dtype=torch.float32, device=self._device,
-                ))
-                precomp_target_ids.append([
-                    torch.tensor(a.target_enemy_ids, dtype=torch.long, device=self._device)
-                    if a.target_enemy_ids else None
-                    for a in actions
-                ])
-
-            # ---- Precompute all state inputs ONCE (before epoch loop) ----
-            # Standard PPO practice: clipping handles slight embedding staleness.
-            with torch.no_grad():
-                precomp_state_inputs = torch.stack([
-                    net._encode_state_input(t.encoded_step.state, self._device)
-                    for t in transitions
-                ])  # (N, state_input_dim)
+        # ---- Precompute all state inputs ONCE (before epoch loop) ----
+        # Standard PPO practice: clipping handles slight embedding staleness.
+        with torch.no_grad():
+            precomp_state_inputs = torch.stack([
+                net._encode_state_input(t.encoded_step.state, self._device)
+                for t in transitions
+            ])  # (N, state_input_dim)
 
         for _epoch in range(ppo_epochs):
             random.shuffle(indices)
@@ -712,118 +626,97 @@ class ReinforcePolicy(Policy):
 
                 self._optimizer.zero_grad(set_to_none=True)
 
-                if use_batch:
-                    # Index precomputed state inputs and run state encoder
-                    state_reprs = net.state_encoder(
-                        precomp_state_inputs[batch_t],
-                    )  # (bs, hidden)
-                    values = net.value_head(state_reprs).squeeze(-1)  # (bs,)
+                # Index precomputed state inputs and run state encoder
+                state_reprs = net.state_encoder(
+                    precomp_state_inputs[batch_t],
+                )  # (bs, hidden)
+                values = net.value_head(state_reprs).squeeze(-1)  # (bs,)
 
-                    # ---- Batched action encoding ----
-                    max_A = max(action_counts[idx] for idx in batch)
-                    flat_size = bs * max_A
-                    emb_dim = net.emb_dim
+                # ---- Batched action encoding ----
+                max_A = max(action_counts[idx] for idx in batch)
+                flat_size = bs * max_A
+                emb_dim = net.emb_dim
 
-                    # Pad precomputed action tensors into flat (bs*max_A, ...) arrays
-                    padded_ids = torch.zeros(
-                        flat_size, 6, dtype=torch.long, device=self._device,
-                    )
-                    padded_scalars = torch.zeros(
-                        flat_size, ACTION_SCALAR_DIM,
-                        dtype=torch.float32, device=self._device,
-                    )
-                    padded_targets = torch.zeros(
-                        flat_size, emb_dim, device=self._device,
-                    )
-                    mask = torch.zeros(
-                        bs, max_A, dtype=torch.bool, device=self._device,
-                    )
+                # Pad precomputed action tensors into flat (bs*max_A, ...) arrays
+                padded_ids = torch.zeros(
+                    flat_size, 6, dtype=torch.long, device=self._device,
+                )
+                padded_scalars = torch.zeros(
+                    flat_size, ACTION_SCALAR_DIM,
+                    dtype=torch.float32, device=self._device,
+                )
+                padded_targets = torch.zeros(
+                    flat_size, emb_dim, device=self._device,
+                )
+                mask = torch.zeros(
+                    bs, max_A, dtype=torch.bool, device=self._device,
+                )
 
-                    for i, idx in enumerate(batch):
-                        n_a = action_counts[idx]
-                        offset = i * max_A
-                        padded_ids[offset : offset + n_a] = precomp_action_ids[idx]
-                        padded_scalars[offset : offset + n_a] = precomp_action_scalars[idx]
-                        for j, tid in enumerate(precomp_target_ids[idx]):
-                            if tid is not None:
-                                padded_targets[offset + j] = net.enemy_emb(tid).mean(dim=0)
-                        mask[i, :n_a] = True
+                for i, idx in enumerate(batch):
+                    n_a = action_counts[idx]
+                    offset = i * max_A
+                    padded_ids[offset : offset + n_a] = precomp_action_ids[idx]
+                    padded_scalars[offset : offset + n_a] = precomp_action_scalars[idx]
+                    for j, tid in enumerate(precomp_target_ids[idx]):
+                        if tid is not None:
+                            padded_targets[offset + j] = net.enemy_emb(tid).mean(dim=0)
+                    mask[i, :n_a] = True
 
-                    # Single batched embedding lookup + action encoder MLP
-                    flat_action_input = torch.cat([
-                        net.action_type_emb(padded_ids[:, 0]),
-                        net.source_emb(padded_ids[:, 1]),
-                        net.card_emb(padded_ids[:, 2]),
-                        net.unit_emb(padded_ids[:, 3]),
-                        net.enemy_emb(padded_ids[:, 4]),
-                        net.skill_emb(padded_ids[:, 5]),
-                        padded_targets,
-                        padded_scalars,
-                    ], dim=-1)  # (flat_size, 7*emb_dim + ACTION_SCALAR_DIM)
+                # Single batched embedding lookup + action encoder MLP
+                flat_action_input = torch.cat([
+                    net.action_type_emb(padded_ids[:, 0]),
+                    net.source_emb(padded_ids[:, 1]),
+                    net.card_emb(padded_ids[:, 2]),
+                    net.unit_emb(padded_ids[:, 3]),
+                    net.enemy_emb(padded_ids[:, 4]),
+                    net.skill_emb(padded_ids[:, 5]),
+                    padded_targets,
+                    padded_scalars,
+                ], dim=-1)  # (flat_size, 7*emb_dim + ACTION_SCALAR_DIM)
 
-                    flat_action_reprs = net.action_encoder(
-                        flat_action_input,
-                    )  # (flat_size, hidden)
-                    action_reprs = flat_action_reprs.view(
-                        bs, max_A, -1,
-                    )  # (bs, max_A, hidden)
+                flat_action_reprs = net.action_encoder(
+                    flat_action_input,
+                )  # (flat_size, hidden)
+                action_reprs = flat_action_reprs.view(
+                    bs, max_A, -1,
+                )  # (bs, max_A, hidden)
 
-                    # Single batched scoring head
-                    state_expanded = state_reprs.unsqueeze(1).expand(
-                        -1, max_A, -1,
-                    )  # (bs, max_A, hidden)
-                    combined = torch.cat(
-                        [state_expanded, action_reprs], dim=-1,
-                    )  # (bs, max_A, 2*hidden)
-                    logits = net.scoring_head(
-                        combined.view(-1, combined.size(-1)),
-                    ).squeeze(-1).view(bs, max_A)  # (bs, max_A)
+                # Single batched scoring head
+                state_expanded = state_reprs.unsqueeze(1).expand(
+                    -1, max_A, -1,
+                )  # (bs, max_A, hidden)
+                combined = torch.cat(
+                    [state_expanded, action_reprs], dim=-1,
+                )  # (bs, max_A, 2*hidden)
+                logits = net.scoring_head(
+                    combined.view(-1, combined.size(-1)),
+                ).squeeze(-1).view(bs, max_A)  # (bs, max_A)
 
-                    # Masked log_softmax
-                    logits = logits.masked_fill(~mask, float("-inf"))
-                    log_probs = torch.log_softmax(logits, dim=-1)  # (bs, max_A)
+                # Masked log_softmax
+                logits = logits.masked_fill(~mask, float("-inf"))
+                log_probs = torch.log_softmax(logits, dim=-1)  # (bs, max_A)
 
-                    # Gather selected action log probs
-                    batch_action_idx = action_indices_all[batch_t]  # (bs,)
-                    arange_bs = torch.arange(bs, device=self._device)
-                    new_lps = log_probs[arange_bs, batch_action_idx]  # (bs,)
+                # Gather selected action log probs
+                batch_action_idx = action_indices_all[batch_t]  # (bs,)
+                arange_bs = torch.arange(bs, device=self._device)
+                new_lps = log_probs[arange_bs, batch_action_idx]  # (bs,)
 
-                    # Vectorized PPO loss
-                    ratios = torch.exp(new_lps - old_lp[batch_t])
-                    surr1 = ratios * adv_t[batch_t]
-                    surr2 = torch.clamp(
-                        ratios, 1.0 - clip_epsilon, 1.0 + clip_epsilon,
-                    ) * adv_t[batch_t]
-                    b_policy = -torch.min(surr1, surr2).sum()
+                # Vectorized PPO loss
+                ratios = torch.exp(new_lps - old_lp[batch_t])
+                surr1 = ratios * adv_t[batch_t]
+                surr2 = torch.clamp(
+                    ratios, 1.0 - clip_epsilon, 1.0 + clip_epsilon,
+                ) * adv_t[batch_t]
+                b_policy = -torch.min(surr1, surr2).sum()
 
-                    # Entropy: select only valid positions to avoid 0*(-inf)=NaN
-                    valid_lp = log_probs[mask]  # (total_valid,)
-                    valid_p = valid_lp.exp()
-                    b_entropy = -(valid_p * valid_lp).sum()
+                # Entropy: select only valid positions to avoid 0*(-inf)=NaN
+                valid_lp = log_probs[mask]  # (total_valid,)
+                valid_p = valid_lp.exp()
+                b_entropy = -(valid_p * valid_lp).sum()
 
-                    b_critic = nn.functional.mse_loss(
-                        values, ret_t[batch_t], reduction="sum",
-                    )
-                else:
-                    # Legacy path: per-transition full forward pass
-                    b_policy = torch.tensor(0.0, device=self._device)
-                    b_critic = torch.tensor(0.0, device=self._device)
-                    b_entropy = torch.tensor(0.0, device=self._device)
-                    for idx in batch:
-                        t = transitions[idx]
-                        logits, value = self._network(t.encoded_step, self._device)
-                        log_probs = torch.log_softmax(logits, dim=0)
-                        new_lp = log_probs[t.action_index]
-
-                        ratio = torch.exp(new_lp - old_lp[idx])
-                        surr1 = ratio * adv_t[idx]
-                        surr2 = torch.clamp(
-                            ratio, 1.0 - clip_epsilon, 1.0 + clip_epsilon,
-                        ) * adv_t[idx]
-                        b_policy = b_policy - torch.min(surr1, surr2)
-                        b_critic = b_critic + nn.functional.mse_loss(value, ret_t[idx])
-                        probs = log_probs.exp()
-                        b_entropy = b_entropy - (probs * log_probs).sum()
+                b_critic = nn.functional.mse_loss(
+                    values, ret_t[batch_t], reduction="sum",
+                )
 
                 loss = (
                     b_policy / bs

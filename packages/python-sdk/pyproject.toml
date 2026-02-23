@@ -1,22 +1,17 @@
 [project]
-name = "mage-knight-ws-client"
-version = "0.1.0"
-description = "Python WebSocket client SDK for Mage Knight multiplayer"
+name = "mage-knight-sdk"
+version = "0.2.0"
+description = "Python SDK for Mage Knight RL training with native Rust engine"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Mage Knight Digital" }]
 license = { text = "MIT" }
-keywords = ["mage-knight", "websocket", "sdk", "multiplayer"]
-dependencies = [
-  "websockets>=12.0,<16.0",
-]
+keywords = ["mage-knight", "sdk", "reinforcement-learning"]
+dependencies = []
 
 [project.scripts]
 mage-knight-viewer = "mage_knight_sdk.viewer.__main__:main"
-mage-knight-run-game = "mage_knight_sdk.cli.run_game:main"
-mage-knight-run-sweep = "mage_knight_sdk.cli.run_sweep:main"
 mage-knight-run-native = "mage_knight_sdk.cli.run_native:main"
-mage-knight-scan-fame = "mage_knight_sdk.tools.scan_fame:main"
 mage-knight-train-rl = "mage_knight_sdk.cli.train_rl:main"
 mage-knight-import-tb = "mage_knight_sdk.tools.import_tensorboard:main"
 

@@ -424,6 +424,7 @@ fn enter_assault_combat(
     site_defender_count: usize,
     assault_origin: HexCoord,
     combat_hex: HexCoord,
+    city_color: Option<BasicManaColor>,
 ) -> Result<(), CombatError> {
     if all_token_ids.is_empty() {
         return Err(CombatError::NoEnemies);
@@ -484,6 +485,7 @@ fn enter_assault_combat(
         declared_block_attack_index: None,
         has_paralyze_damage_to_hero: false,
         ranged_siege_defeats: 0,
+        city_color,
     };
 
     // Clear healing points
@@ -693,6 +695,7 @@ pub fn execute_move(
                 site_tokens.len(),
                 from,
                 target,
+                info.city_color,
             )
             .map_err(MoveError::CombatFailed)?;
 
@@ -819,7 +822,11 @@ pub(crate) fn place_tile_on_map(
             owner: None,
             is_conquered: false,
             is_burned: false,
-            city_color: None,
+            city_color: if st == SiteType::City {
+                mk_data::tiles::city_color_for_tile(tile_id)
+            } else {
+                None
+            },
             mine_color: tile_hex.mine_color,
             deep_mine_colors: if tile_hex.deep_mine_colors.is_empty() {
                 None

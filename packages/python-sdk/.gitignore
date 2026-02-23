@@ -1,4 +1,7 @@
-# Fuzzer artifacts
+# Training artifacts
+training/
+
+# Legacy
 sim-artifacts/
 sim_artifacts/
 

@@ -100,6 +100,11 @@ fn derive_action_type(action: &LegalAction) -> u16 {
         LegalAction::CancelCooperativeProposal => "CANCEL_COOPERATIVE_PROPOSAL",
         LegalAction::BuySpell { .. } => "BUY_SPELL",
         LegalAction::LearnAdvancedAction { .. } => "LEARN_ADVANCED_ACTION",
+        LegalAction::BuyArtifact => "BUY_ARTIFACT",
+        LegalAction::BuyCityAdvancedAction { .. } => "BUY_CITY_ADVANCED_ACTION",
+        LegalAction::BuyCityAdvancedActionFromDeck => "BUY_CITY_ADVANCED_ACTION_FROM_DECK",
+        LegalAction::AddEliteToOffer => "ADD_ELITE_TO_OFFER",
+        LegalAction::SelectArtifact { .. } => "SELECT_ARTIFACT",
         LegalAction::BurnMonastery => "BURN_MONASTERY",
         LegalAction::AltarTribute { .. } => "ALTAR_TRIBUTE",
         LegalAction::SelectReward { .. } => "SELECT_REWARD",
@@ -117,7 +122,6 @@ fn derive_action_type(action: &LegalAction) -> u16 {
         LegalAction::ResolveHexCostReduction { .. } => "RESOLVE_HEX_COST_REDUCTION",
         LegalAction::ResolveTerrainCostReduction { .. } => "RESOLVE_TERRAIN_COST_REDUCTION",
         LegalAction::ResolveCrystalRollColor { .. } => "RESOLVE_CRYSTAL_ROLL_COLOR",
-        LegalAction::SelectArtifact { .. } => "SELECT_ARTIFACT",
         LegalAction::ForfeitUnitReward => "FORFEIT_UNIT_REWARD",
         LegalAction::DisbandUnitForReward { .. } => "DISBAND_UNIT_FOR_REWARD",
         LegalAction::ForfeitTurn => "FORFEIT_TURN",
@@ -228,8 +232,10 @@ fn extract_entity_ids(
 
         LegalAction::BuySpell { card_id: cid, .. }
         | LegalAction::LearnAdvancedAction { card_id: cid, .. }
+        | LegalAction::BuyCityAdvancedAction { card_id: cid, .. }
         | LegalAction::SelectReward { card_id: cid, .. }
-        | LegalAction::AssignBanner { card_id: cid, .. } => {
+        | LegalAction::AssignBanner { card_id: cid, .. }
+        | LegalAction::SelectArtifact { card_id: cid } => {
             card_id = CARD_VOCAB.encode(cid.as_str());
         }
 
@@ -369,6 +375,22 @@ fn extract_action_scalars(
         LegalAction::LearnAdvancedAction { .. } => {
             scalars[8] = 1.0; // has_card
             scalars[10] = scale(6.0, 10.0); // influence cost
+        }
+        LegalAction::BuyArtifact => {
+            scalars[10] = scale(12.0, 10.0); // influence cost
+        }
+        LegalAction::BuyCityAdvancedAction { .. } => {
+            scalars[8] = 1.0; // has_card
+            scalars[10] = scale(6.0, 10.0); // influence cost
+        }
+        LegalAction::BuyCityAdvancedActionFromDeck => {
+            scalars[10] = scale(6.0, 10.0); // influence cost
+        }
+        LegalAction::AddEliteToOffer => {
+            scalars[10] = scale(2.0, 10.0); // influence cost
+        }
+        LegalAction::SelectArtifact { .. } => {
+            scalars[8] = 1.0; // has_card
         }
         LegalAction::SelectReward { .. } => {
             scalars[8] = 1.0; // has_card

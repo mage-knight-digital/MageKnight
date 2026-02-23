@@ -153,6 +153,11 @@ pub fn derive_source_str(action: &LegalAction, state: &GameState, player_idx: us
         // === Site commerce ===
         LegalAction::BuySpell { .. } => "normal.site.buy_spell",
         LegalAction::LearnAdvancedAction { .. } => "normal.site.buy_aa",
+        LegalAction::BuyArtifact => "normal.site.buy_artifact",
+        LegalAction::BuyCityAdvancedAction { .. } => "normal.site.buy_city_aa",
+        LegalAction::BuyCityAdvancedActionFromDeck => "normal.site.buy_city_aa_deck",
+        LegalAction::AddEliteToOffer => "normal.site.add_elite_to_offer",
+        LegalAction::SelectArtifact { .. } => "pending.select_artifact",
         LegalAction::BurnMonastery => "normal.site.burn_monastery",
         LegalAction::AltarTribute { .. } => "normal.site.altar_tribute",
         LegalAction::AssignBanner { .. } => "normal.assign_banner",
@@ -172,7 +177,6 @@ pub fn derive_source_str(action: &LegalAction, state: &GameState, player_idx: us
         LegalAction::ResolveHexCostReduction { .. } => "hex_cost_reduction.coordinate",
         LegalAction::ResolveTerrainCostReduction { .. } => "terrain_cost_reduction.terrain",
         LegalAction::ResolveCrystalRollColor { .. } => "crystal_roll.color",
-        LegalAction::SelectArtifact { .. } => "artifact_selection.card",
         LegalAction::ForfeitUnitReward => "unit_reward.forfeit",
         LegalAction::DisbandUnitForReward { .. } => "unit_reward.disband",
     }

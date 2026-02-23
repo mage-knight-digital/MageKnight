@@ -301,9 +301,9 @@ For Units that can be recruited on multiple sites, choose the cheapest option.
 **Assault:** Can be assaulted and you get Reputation -1. **All defending enemies are fortified.**
 
 **City Bonuses (by color):**
-- **Blue City:** Defenders get +1 Armor
-- **Red City:** Defenders with physical attack gain Brutal
 - **White City:** All defenders get +1 Armor
+- **Blue City:** Defenders get +2 Attack if Ice or Fire attack, +1 Attack if ColdFire attack
+- **Red City:** Defenders with physical attack gain Brutal
 - **Green City:** Defenders with physical attack gain Poison
 
 **Conquest Reward:** Spells can be bought at the corresponding Mage Tower color bonus. The conquering player becomes the city leader.

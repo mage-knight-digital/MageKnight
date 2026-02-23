@@ -56,6 +56,18 @@ pub fn apply_propose(
         ));
     }
 
+    // Validate proposer's space is not occupied by another player (FAQ S9)
+    for (idx, other) in state.players.iter().enumerate() {
+        if idx == player_idx {
+            continue;
+        }
+        if other.position == Some(proposer_pos) {
+            return Err(ApplyError::InternalError(
+                "CoopAssault: cannot propose from a space occupied by another player".into(),
+            ));
+        }
+    }
+
     // Validate proposer hasn't taken action
     if state.players[player_idx]
         .flags
@@ -175,12 +187,11 @@ fn execute_agreement(
 ) -> Result<(), ApplyError> {
     let hex_key = proposal.hex_coord.key();
 
-    // 1. Flip Round Order tokens for all participants
-    let mut all_participant_idxs = vec![proposal.proposer_idx];
-    all_participant_idxs.extend_from_slice(&proposal.invited_player_idxs);
-
-    for &p_idx in &all_participant_idxs {
-        state.players[p_idx]
+    // 1. Flip Round Order tokens for invitees only (FAQ S17)
+    // The proposer is taking their turn NOW, so they don't lose a future turn.
+    // Only invitees lose their next turn.
+    for &inv_idx in &proposal.invited_player_idxs {
+        state.players[inv_idx]
             .flags
             .insert(PlayerFlags::ROUND_ORDER_TOKEN_FLIPPED);
     }
@@ -743,7 +754,7 @@ mod tests {
     }
 
     #[test]
-    fn tokens_flipped_on_agreement() {
+    fn only_invitee_tokens_flipped_on_agreement() {
         let city_pos = HexCoord::new(2, 0);
         let mut state = setup_coop_game(city_pos, 2);
         place_players_adjacent(&mut state, city_pos);
@@ -751,9 +762,11 @@ mod tests {
         apply_propose(&mut state, 0, city_pos, &[1], &[(0, 1), (1, 1)]).unwrap();
         apply_respond(&mut state, 1, true).unwrap();
 
-        assert!(state.players[0]
+        // Proposer (player 0) should NOT have their token flipped (FAQ S17)
+        assert!(!state.players[0]
             .flags
             .contains(PlayerFlags::ROUND_ORDER_TOKEN_FLIPPED));
+        // Invitee (player 1) should have their token flipped
         assert!(state.players[1]
             .flags
             .contains(PlayerFlags::ROUND_ORDER_TOKEN_FLIPPED));
@@ -1225,5 +1238,117 @@ mod tests {
                 enemy.instance_id
             );
         }
+    }
+
+    // ---- FAQ S9: Same-space proposal restriction ----
+
+    #[test]
+    fn propose_fails_when_proposer_space_occupied() {
+        let city_pos = HexCoord::new(2, 0);
+        let mut state = setup_coop_game(city_pos, 2);
+        let neighbors = city_pos.neighbors();
+        // Both players on the SAME hex (adjacent to city)
+        state.players[0].position = Some(neighbors[0]);
+        state.players[1].position = Some(neighbors[0]);
+
+        let result = apply_propose(&mut state, 0, city_pos, &[1], &[(0, 1), (1, 1)]);
+        assert!(result.is_err(), "Should reject proposal when space is occupied by another player");
+    }
+
+    #[test]
+    fn propose_not_enumerated_when_space_occupied() {
+        let city_pos = HexCoord::new(2, 0);
+        let mut state = setup_coop_game(city_pos, 2);
+        let neighbors = city_pos.neighbors();
+        // Both players on the same hex adjacent to city
+        state.players[0].position = Some(neighbors[0]);
+        state.players[1].position = Some(neighbors[0]);
+
+        let actions = crate::legal_actions::enumerate_legal_actions(&state, 0);
+        let propose_count = actions
+            .actions
+            .iter()
+            .filter(|a| matches!(a, LegalAction::ProposeCooperativeAssault { .. }))
+            .count();
+        assert_eq!(propose_count, 0, "Should not enumerate propose when space is occupied");
+    }
+
+    // ---- FAQ S17: Turn skip for flipped-token invitees ----
+
+    #[test]
+    fn invitee_turn_skipped_after_assault() {
+        let city_pos = HexCoord::new(2, 0);
+        let mut state = setup_coop_game(city_pos, 2);
+        place_players_adjacent(&mut state, city_pos);
+
+        // Player 0 is current active player
+        state.current_player_index = 0;
+        state.turn_order = vec![
+            state.players[0].id.clone(),
+            state.players[1].id.clone(),
+        ];
+
+        apply_propose(&mut state, 0, city_pos, &[1], &[(0, 1), (1, 1)]).unwrap();
+        apply_respond(&mut state, 1, true).unwrap();
+
+        // Clear combat so we can test turn advancement
+        state.combat = None;
+
+        // Player 1's token is flipped — advancing from player 0 should skip player 1
+        // and wrap back to player 0
+        let result = crate::end_turn::advance_turn_pub(&mut state, 0);
+        match result {
+            crate::end_turn::EndTurnResult::NextPlayer { next_player_idx } => {
+                assert_eq!(next_player_idx, 0, "Should skip flipped-token player 1 and return to player 0");
+            }
+            other => panic!("Expected NextPlayer, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn proposer_turn_not_skipped() {
+        let city_pos = HexCoord::new(2, 0);
+        let mut state = setup_coop_game(city_pos, 2);
+        place_players_adjacent(&mut state, city_pos);
+
+        apply_propose(&mut state, 0, city_pos, &[1], &[(0, 1), (1, 1)]).unwrap();
+        apply_respond(&mut state, 1, true).unwrap();
+
+        // Proposer (player 0) should NOT have flipped token
+        assert!(
+            !state.players[0].flags.contains(PlayerFlags::ROUND_ORDER_TOKEN_FLIPPED),
+            "Proposer should not have flipped token"
+        );
+    }
+
+    #[test]
+    fn invitee_token_cleared_after_skip() {
+        let city_pos = HexCoord::new(2, 0);
+        let mut state = setup_coop_game(city_pos, 2);
+        place_players_adjacent(&mut state, city_pos);
+
+        state.current_player_index = 0;
+        state.turn_order = vec![
+            state.players[0].id.clone(),
+            state.players[1].id.clone(),
+        ];
+
+        apply_propose(&mut state, 0, city_pos, &[1], &[(0, 1), (1, 1)]).unwrap();
+        apply_respond(&mut state, 1, true).unwrap();
+
+        // Clear combat so advance_turn works
+        state.combat = None;
+
+        // Token should be flipped before advance
+        assert!(state.players[1].flags.contains(PlayerFlags::ROUND_ORDER_TOKEN_FLIPPED));
+
+        // Advance turn — skips player 1
+        crate::end_turn::advance_turn_pub(&mut state, 0);
+
+        // After being skipped, player 1's token should be cleared
+        assert!(
+            !state.players[1].flags.contains(PlayerFlags::ROUND_ORDER_TOKEN_FLIPPED),
+            "Token should be cleared after being skipped"
+        );
     }
 }

@@ -3,8 +3,8 @@
 use mk_data::enemy_piles::{draw_enemy_token, enemy_id_from_token};
 use mk_data::offers::{take_from_monastery_offer, take_from_offer};
 use mk_data::sites::{
-    BURN_MONASTERY_REP_PENALTY, MONASTERY_AA_PURCHASE_COST,
-    SPELL_PURCHASE_COST,
+    BURN_MONASTERY_REP_PENALTY, CITY_AA_PURCHASE_COST, CITY_ARTIFACT_PURCHASE_COST,
+    CITY_ELITE_UNIT_COST, MONASTERY_AA_PURCHASE_COST, SPELL_PURCHASE_COST,
 };
 use mk_types::enums::*;
 use arrayvec::ArrayVec;
@@ -849,6 +849,222 @@ pub fn try_negate_wound_with_fortitude(
     false
 }
 
+
+// =============================================================================
+// City commerce handlers
+// =============================================================================
+
+pub(super) fn apply_buy_artifact(
+    state: &mut GameState,
+    player_idx: usize,
+) -> Result<ApplyResult, ApplyError> {
+    // Apply shield influence bonus if needed
+    apply_shield_influence_if_needed(state, player_idx, CITY_ARTIFACT_PURCHASE_COST)?;
+
+    let player = &mut state.players[player_idx];
+
+    if player.influence_points < CITY_ARTIFACT_PURCHASE_COST {
+        return Err(ApplyError::InternalError("BuyArtifact: insufficient influence".into()));
+    }
+
+    // Deduct influence
+    player.influence_points -= CITY_ARTIFACT_PURCHASE_COST;
+
+    // Draw up to 2 from artifact deck
+    let first = state.decks.artifact_deck.remove(0);
+    if state.decks.artifact_deck.is_empty() {
+        // Only 1 card in deck: auto-grant (no choice)
+        state.players[player_idx].deck.insert(0, first);
+    } else {
+        // Draw second card, create pending selection
+        let second = state.decks.artifact_deck.remove(0);
+        let mut choices = ArrayVec::new();
+        choices.push(first);
+        choices.push(second);
+        state.players[player_idx].pending.active =
+            Some(mk_types::pending::ActivePending::ArtifactSelection(
+                mk_types::pending::PendingArtifactSelection { choices, keep_count: 1 },
+            ));
+    }
+
+    state.players[player_idx]
+        .flags
+        .insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+
+pub(super) fn apply_buy_city_advanced_action(
+    state: &mut GameState,
+    player_idx: usize,
+    card_id: &CardId,
+) -> Result<ApplyResult, ApplyError> {
+    // Apply shield influence bonus if needed
+    apply_shield_influence_if_needed(state, player_idx, CITY_AA_PURCHASE_COST)?;
+
+    let player = &mut state.players[player_idx];
+
+    if player.influence_points < CITY_AA_PURCHASE_COST {
+        return Err(ApplyError::InternalError("BuyCityAA: insufficient influence".into()));
+    }
+
+    // Deduct influence
+    player.influence_points -= CITY_AA_PURCHASE_COST;
+
+    // Insert card at top of deed deck
+    player.deck.insert(0, card_id.clone());
+
+    // Take from main AA offer (replenishes from deck)
+    take_from_offer(
+        &mut state.offers.advanced_actions,
+        &mut state.decks.advanced_action_deck,
+        card_id.as_str(),
+    );
+
+    state.players[player_idx]
+        .flags
+        .insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+
+pub(super) fn apply_buy_city_aa_from_deck(
+    state: &mut GameState,
+    player_idx: usize,
+) -> Result<ApplyResult, ApplyError> {
+    // Apply shield influence bonus if needed
+    apply_shield_influence_if_needed(state, player_idx, CITY_AA_PURCHASE_COST)?;
+
+    let player = &mut state.players[player_idx];
+
+    if player.influence_points < CITY_AA_PURCHASE_COST {
+        return Err(ApplyError::InternalError("BuyCityAAFromDeck: insufficient influence".into()));
+    }
+
+    // Deduct influence
+    player.influence_points -= CITY_AA_PURCHASE_COST;
+
+    // Pop top card from AA deck (blind draw)
+    if state.decks.advanced_action_deck.is_empty() {
+        return Err(ApplyError::InternalError("BuyCityAAFromDeck: AA deck empty".into()));
+    }
+    let card = state.decks.advanced_action_deck.remove(0);
+
+    // Insert at top of deed deck
+    state.players[player_idx].deck.insert(0, card);
+
+    state.players[player_idx]
+        .flags
+        .insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+
+pub(super) fn apply_add_elite_to_offer(
+    state: &mut GameState,
+    player_idx: usize,
+) -> Result<ApplyResult, ApplyError> {
+    // Apply shield influence bonus if needed
+    apply_shield_influence_if_needed(state, player_idx, CITY_ELITE_UNIT_COST)?;
+
+    let player = &mut state.players[player_idx];
+
+    if player.influence_points < CITY_ELITE_UNIT_COST {
+        return Err(ApplyError::InternalError("AddEliteToOffer: insufficient influence".into()));
+    }
+
+    // Deduct influence
+    player.influence_points -= CITY_ELITE_UNIT_COST;
+
+    // Pop from unit deck and add to unit offer
+    if let Some(unit_id) = state.decks.unit_deck.pop() {
+        state.offers.units.push(unit_id);
+    }
+
+    // Free action — does NOT set HAS_TAKEN_ACTION_THIS_TURN
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
+
+// =============================================================================
+// Shield influence + mana consumption helpers
+// =============================================================================
+
+/// Apply shield token influence bonus if the player is at a conquered city
+/// and hasn't claimed it this turn. Only grants enough to cover the shortfall.
+fn apply_shield_influence_if_needed(
+    state: &mut GameState,
+    player_idx: usize,
+    cost: u32,
+) -> Result<(), ApplyError> {
+    let player = &mut state.players[player_idx];
+    if player
+        .flags
+        .contains(PlayerFlags::REPUTATION_BONUS_APPLIED_THIS_TURN)
+    {
+        return Ok(());
+    }
+    if player.influence_points >= cost {
+        return Ok(());
+    }
+
+    // Find current hex and city shield bonus
+    let pos = match player.position {
+        Some(p) => p,
+        None => return Ok(()),
+    };
+    let hex = match state.map.hexes.get(&pos.key()) {
+        Some(h) => h,
+        None => return Ok(()),
+    };
+    let is_conquered_city = hex
+        .site
+        .as_ref()
+        .is_some_and(|s| s.site_type == SiteType::City && s.is_conquered);
+    if !is_conquered_city {
+        return Ok(());
+    }
+
+    let player_id = state.players[player_idx].id.clone();
+    let shield_count = hex
+        .shield_tokens
+        .iter()
+        .filter(|id| **id == player_id)
+        .count() as u32;
+    if shield_count == 0 {
+        return Ok(());
+    }
+
+    // Grant just enough to cover shortfall (up to shield_count)
+    let shortfall = cost - state.players[player_idx].influence_points;
+    let bonus = shortfall.min(shield_count);
+    state.players[player_idx].influence_points += bonus;
+    state.players[player_idx]
+        .flags
+        .insert(PlayerFlags::REPUTATION_BONUS_APPLIED_THIS_TURN);
+
+    Ok(())
+}
 
 pub(super) fn apply_select_reward(
     state: &mut GameState,

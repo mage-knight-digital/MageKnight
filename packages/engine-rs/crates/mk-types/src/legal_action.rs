@@ -210,7 +210,7 @@ pub enum LegalAction {
     },
     /// Cancel a cooperative assault proposal (initiator only).
     CancelCooperativeProposal,
-    /// Buy a spell from the offer at a conquered Mage Tower (7 influence + matching mana).
+    /// Buy a spell from the offer at a conquered Mage Tower or Blue City (7 influence + matching mana).
     BuySpell {
         card_id: CardId,
         offer_index: usize,
@@ -249,6 +249,17 @@ pub enum LegalAction {
         enemy_instance_id: CombatInstanceId,
         attack_index: usize,
     },
+    /// Buy an artifact at a conquered red city (drawn blind from deck top).
+    BuyArtifact,
+    /// Buy an Advanced Action at a conquered green city (from main AA offer, replenished).
+    BuyCityAdvancedAction {
+        card_id: CardId,
+        offer_index: usize,
+    },
+    /// Blind draw from AA deck at a conquered green city (6 influence).
+    BuyCityAdvancedActionFromDeck,
+    /// Pay 2 Influence to add an elite unit from the unit deck to the offer (white city).
+    AddEliteToOffer,
     /// Convert accumulated move points to attack during combat (Agility card).
     ConvertMoveToAttack {
         move_points: u32,

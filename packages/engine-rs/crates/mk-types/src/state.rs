@@ -430,6 +430,9 @@ pub struct CombatState {
 
     // Phase tracking for BowPhaseFameTracking
     pub ranged_siege_defeats: u32,
+
+    // City defender bonuses (based on city color)
+    pub city_color: Option<BasicManaColor>,
 }
 
 impl Default for CombatState {
@@ -465,6 +468,7 @@ impl Default for CombatState {
             declared_block_attack_index: None,
             has_paralyze_damage_to_hero: false,
             ranged_siege_defeats: 0,
+            city_color: None,
         }
     }
 }

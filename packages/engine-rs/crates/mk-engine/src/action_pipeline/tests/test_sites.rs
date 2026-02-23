@@ -3534,3 +3534,969 @@ fn heroes_cost_has_doubled_reputation_delta() {
         assert_eq!(*influence_cost, 7, "Hero cost should have extra rep delta (9 - 2 = 7)");
     }
 }
+
+
+// =========================================================================
+// City commerce tests
+// =========================================================================
+
+use mk_types::state::ManaTokenSource;
+
+/// Helper: place player on a conquered city of a given color.
+fn place_player_on_conquered_city(
+    state: &mut GameState,
+    city_color: BasicManaColor,
+) -> HexCoord {
+    let coord = HexCoord { q: 88, r: 88 };
+    let hex = HexState {
+        coord,
+        terrain: Terrain::Plains,
+        tile_id: TileId::StartingA,
+        site: Some(Site {
+            site_type: SiteType::City,
+            owner: Some(state.players[0].id.clone()),
+            is_conquered: true,
+            is_burned: false,
+            city_color: Some(city_color),
+            mine_color: None,
+            deep_mine_colors: None,
+        }),
+        rampaging_enemies: ArrayVec::new(),
+        enemies: ArrayVec::new(),
+        ruins_token: None,
+        shield_tokens: Vec::new(),
+    };
+    state.map.hexes.insert(coord.key(), hex);
+    state.players[0].position = Some(coord);
+    coord
+}
+
+#[test]
+fn city_color_populated_on_tile_placement() {
+    use crate::movement::place_tile_on_map;
+    use mk_types::enums::TileId;
+
+    let mut map = MapState {
+        hexes: std::collections::BTreeMap::new(),
+        tiles: Vec::new(),
+        tile_deck: Default::default(),
+        tile_slots: std::collections::BTreeMap::new(),
+    };
+
+    let center = HexCoord::new(0, 0);
+    let hexes = mk_data::tiles::get_tile_hexes(TileId::Core5GreenCity).unwrap();
+    place_tile_on_map(&mut map, TileId::Core5GreenCity, center, hexes);
+
+    // Find the city hex (center of Core5GreenCity)
+    let city_hex = map.hexes.values().find(|h| {
+        h.site.as_ref().is_some_and(|s| s.site_type == SiteType::City)
+    }).expect("Should find a city hex");
+
+    assert_eq!(
+        city_hex.site.as_ref().unwrap().city_color,
+        Some(BasicManaColor::Green),
+        "Core5 green city should have city_color = Green"
+    );
+
+    // Also test a non-city site on the same tile
+    let non_city = map.hexes.values().find(|h| {
+        h.site.as_ref().is_some_and(|s| s.site_type != SiteType::City)
+    });
+    if let Some(nc) = non_city {
+        assert_eq!(
+            nc.site.as_ref().unwrap().city_color,
+            None,
+            "Non-city sites should have city_color = None"
+        );
+    }
+}
+
+#[test]
+fn city_color_for_all_city_tiles() {
+    assert_eq!(mk_data::tiles::city_color_for_tile(TileId::Core5GreenCity), Some(BasicManaColor::Green));
+    assert_eq!(mk_data::tiles::city_color_for_tile(TileId::Core6BlueCity), Some(BasicManaColor::Blue));
+    assert_eq!(mk_data::tiles::city_color_for_tile(TileId::Core7WhiteCity), Some(BasicManaColor::White));
+    assert_eq!(mk_data::tiles::city_color_for_tile(TileId::Core8RedCity), Some(BasicManaColor::Red));
+    assert_eq!(mk_data::tiles::city_color_for_tile(TileId::Core1), None);
+    assert_eq!(mk_data::tiles::city_color_for_tile(TileId::Countryside1), None);
+}
+
+#[test]
+fn blue_city_buy_spell_enumerated() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_conquered_city(&mut state, BasicManaColor::Blue);
+    state.players[0].influence_points = 7;
+    // Give player red + blue mana to cover both spell colors
+    state.players[0].pure_mana.push(ManaToken { color: ManaColor::Red, source: ManaTokenSource::Effect, cannot_power_spells: false });
+    state.players[0].pure_mana.push(ManaToken { color: ManaColor::Blue, source: ManaTokenSource::Effect, cannot_power_spells: false });
+    state.offers.spells = vec![CardId::from("fireball"), CardId::from("snowstorm")];
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let buy_spells: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::BuySpell { .. }))
+        .collect();
+    assert_eq!(buy_spells.len(), 2, "Should show BuySpell for each spell in offer");
+}
+
+#[test]
+fn blue_city_buy_spell_not_enough_influence() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_conquered_city(&mut state, BasicManaColor::Blue);
+    state.players[0].influence_points = 6; // Not enough (need 7)
+    state.players[0].pure_mana.push(ManaToken { color: ManaColor::Red, source: ManaTokenSource::Effect, cannot_power_spells: false });
+    state.offers.spells = vec![CardId::from("fireball")];
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let buy_spells: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::BuySpell { .. }))
+        .collect();
+    assert!(buy_spells.is_empty(), "Should not show BuySpell with insufficient influence");
+}
+
+#[test]
+fn blue_city_buy_spell_executes() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_conquered_city(&mut state, BasicManaColor::Blue);
+    state.players[0].influence_points = 10;
+    state.players[0].pure_mana.push(ManaToken { color: ManaColor::Red, source: ManaTokenSource::Effect, cannot_power_spells: false });
+    state.offers.spells = vec![CardId::from("fireball"), CardId::from("snowstorm")];
+    state.decks.spell_deck = vec![CardId::from("restoration")];
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::BuySpell { card_id: CardId::from("fireball"), offer_index: 0, mana_color: BasicManaColor::Red },
+        epoch,
+    ).unwrap();
+
+    assert_eq!(state.players[0].influence_points, 3, "Should deduct 7 influence");
+    assert_eq!(state.players[0].deck[0].as_str(), "fireball", "Spell goes to top of deck");
+    // Red mana token consumed
+    assert!(state.players[0].pure_mana.is_empty());
+    // Offer should be replenished
+    assert_eq!(state.offers.spells.len(), 2, "Offer should replenish from deck");
+    assert!(state.offers.spells.iter().any(|c| c.as_str() == "snowstorm"));
+    assert!(state.offers.spells.iter().any(|c| c.as_str() == "restoration"));
+}
+
+#[test]
+fn green_city_buy_aa_enumerated() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_conquered_city(&mut state, BasicManaColor::Green);
+    state.players[0].influence_points = 6;
+    state.offers.advanced_actions = vec![CardId::from("aa_1"), CardId::from("aa_2"), CardId::from("aa_3")];
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let buy_aas: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::BuyCityAdvancedAction { .. }))
+        .collect();
+    assert_eq!(buy_aas.len(), 3, "Should show BuyCityAdvancedAction for each AA in main offer");
+}
+
+#[test]
+fn green_city_buy_aa_not_enough_influence() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_conquered_city(&mut state, BasicManaColor::Green);
+    state.players[0].influence_points = 5; // Need 6
+    state.offers.advanced_actions = vec![CardId::from("aa_1")];
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let buy_aas: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::BuyCityAdvancedAction { .. }))
+        .collect();
+    assert!(buy_aas.is_empty(), "Should not show BuyCityAdvancedAction with insufficient influence");
+}
+
+#[test]
+fn green_city_buy_aa_executes() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_conquered_city(&mut state, BasicManaColor::Green);
+    state.players[0].influence_points = 10;
+    state.offers.advanced_actions = vec![CardId::from("aa_1"), CardId::from("aa_2")];
+    state.decks.advanced_action_deck = vec![CardId::from("aa_3")];
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::BuyCityAdvancedAction { card_id: CardId::from("aa_1"), offer_index: 0 },
+        epoch,
+    ).unwrap();
+
+    assert_eq!(state.players[0].influence_points, 4, "Should deduct 6 influence");
+    assert_eq!(state.players[0].deck[0].as_str(), "aa_1", "AA goes to top of deck");
+    // Offer replenished from main AA deck
+    assert_eq!(state.offers.advanced_actions.len(), 2, "Offer should replenish");
+    assert!(state.offers.advanced_actions.iter().any(|c| c.as_str() == "aa_2"));
+    assert!(state.offers.advanced_actions.iter().any(|c| c.as_str() == "aa_3"));
+}
+
+#[test]
+fn red_city_buy_artifact_enumerated() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_conquered_city(&mut state, BasicManaColor::Red);
+    state.players[0].influence_points = 12;
+    state.decks.artifact_deck = vec![CardId::from("artifact_a")];
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let buy_artifacts: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::BuyArtifact))
+        .collect();
+    assert_eq!(buy_artifacts.len(), 1, "Should show BuyArtifact when artifact deck non-empty");
+}
+
+#[test]
+fn red_city_no_artifact_when_deck_empty() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_conquered_city(&mut state, BasicManaColor::Red);
+    state.players[0].influence_points = 12;
+    state.decks.artifact_deck.clear();
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let buy_artifacts: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::BuyArtifact))
+        .collect();
+    assert!(buy_artifacts.is_empty(), "No BuyArtifact when artifact deck is empty");
+}
+
+#[test]
+fn red_city_no_artifact_insufficient_influence() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_conquered_city(&mut state, BasicManaColor::Red);
+    state.players[0].influence_points = 11; // Need 12
+    state.decks.artifact_deck = vec![CardId::from("artifact_a")];
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let buy_artifacts: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::BuyArtifact))
+        .collect();
+    assert!(buy_artifacts.is_empty(), "No BuyArtifact with insufficient influence");
+}
+
+#[test]
+fn red_city_buy_artifact_executes_single_card() {
+    // With only 1 card in artifact deck, auto-grants (no choice)
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_conquered_city(&mut state, BasicManaColor::Red);
+    state.players[0].influence_points = 15;
+    state.decks.artifact_deck = vec![CardId::from("art_1")];
+    let pre_deck_len = state.players[0].deck.len();
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::BuyArtifact,
+        epoch,
+    ).unwrap();
+
+    assert_eq!(state.players[0].influence_points, 3, "Should deduct 12 influence");
+    assert_eq!(state.players[0].deck[0].as_str(), "art_1", "Artifact goes to top of deck");
+    assert_eq!(state.players[0].deck.len(), pre_deck_len + 1, "Deck size +1");
+    assert!(state.decks.artifact_deck.is_empty(), "Artifact deck empty after draw");
+    assert!(state.players[0].pending.active.is_none(), "No pending when only 1 card");
+}
+
+#[test]
+fn white_city_add_elite_enumerated() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_conquered_city(&mut state, BasicManaColor::White);
+    state.players[0].influence_points = 2;
+    state.decks.unit_deck = vec![mk_types::ids::UnitId::from("altem_mages")];
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let add_elites: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::AddEliteToOffer))
+        .collect();
+    assert_eq!(add_elites.len(), 1, "Should show AddEliteToOffer when unit deck non-empty");
+}
+
+#[test]
+fn white_city_add_elite_empty_deck() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_conquered_city(&mut state, BasicManaColor::White);
+    state.players[0].influence_points = 5;
+    state.decks.unit_deck.clear();
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let add_elites: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::AddEliteToOffer))
+        .collect();
+    assert!(add_elites.is_empty(), "No AddEliteToOffer when unit deck is empty");
+}
+
+#[test]
+fn white_city_add_elite_executes() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_conquered_city(&mut state, BasicManaColor::White);
+    state.players[0].influence_points = 5;
+    state.decks.unit_deck = vec![mk_types::ids::UnitId::from("altem_mages")];
+    let pre_offer_len = state.offers.units.len();
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::AddEliteToOffer,
+        epoch,
+    ).unwrap();
+
+    assert_eq!(state.players[0].influence_points, 3, "Should deduct 2 influence");
+    assert_eq!(state.offers.units.len(), pre_offer_len + 1, "Unit offer grows by 1");
+    assert!(state.offers.units.iter().any(|u| u.as_str() == "altem_mages"), "Elite should be in offer");
+    assert!(state.decks.unit_deck.is_empty(), "Unit deck should be reduced");
+    // Free action — HAS_TAKEN_ACTION not set
+    assert!(
+        !state.players[0].flags.contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN),
+        "AddEliteToOffer is a free action"
+    );
+}
+
+#[test]
+fn white_city_recruit_all_types() {
+    // White city should allow recruiting units that normally require Village-only
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_conquered_city(&mut state, BasicManaColor::White);
+    state.players[0].influence_points = 20;
+    // Peasants only have Village as recruit site
+    state.offers.units = vec![mk_types::ids::UnitId::from("peasants")];
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let recruits: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::RecruitUnit { .. }))
+        .collect();
+    assert!(!recruits.is_empty(), "White city should allow recruiting peasants (village-only unit)");
+}
+
+#[test]
+fn non_white_city_no_village_units() {
+    // Non-white cities should NOT allow recruiting village-only units
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_conquered_city(&mut state, BasicManaColor::Red);
+    state.players[0].influence_points = 20;
+    // Peasants only have Village as recruit site
+    state.offers.units = vec![mk_types::ids::UnitId::from("peasants")];
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let recruits: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::RecruitUnit { .. }))
+        .collect();
+    assert!(recruits.is_empty(), "Non-white city should not allow recruiting village-only units");
+}
+
+#[test]
+fn unconquered_city_no_commerce() {
+    let mut state = setup_playing_game(vec!["march"]);
+    let coord = HexCoord { q: 88, r: 88 };
+    let hex = HexState {
+        coord,
+        terrain: Terrain::Plains,
+        tile_id: TileId::StartingA,
+        site: Some(Site {
+            site_type: SiteType::City,
+            owner: None,
+            is_conquered: false, // NOT conquered
+            is_burned: false,
+            city_color: Some(BasicManaColor::Blue),
+            mine_color: None,
+            deep_mine_colors: None,
+        }),
+        rampaging_enemies: ArrayVec::new(),
+        enemies: ArrayVec::new(),
+        ruins_token: None,
+        shield_tokens: Vec::new(),
+    };
+    state.map.hexes.insert(coord.key(), hex);
+    state.players[0].position = Some(coord);
+    state.players[0].influence_points = 20;
+    state.offers.spells = vec![CardId::from("spell_a")];
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let city_commerce: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(
+            a,
+            LegalAction::BuySpell { .. }
+            | LegalAction::BuyCityAdvancedAction { .. }
+            | LegalAction::BuyArtifact
+            | LegalAction::AddEliteToOffer
+        ))
+        .collect();
+    assert!(city_commerce.is_empty(), "No city commerce before conquest");
+}
+
+#[test]
+fn wrong_color_no_cross_commerce() {
+    // Red city shouldn't show BuySpell (that's blue city)
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_conquered_city(&mut state, BasicManaColor::Red);
+    state.players[0].influence_points = 20;
+    state.players[0].pure_mana.push(ManaToken { color: ManaColor::Red, source: ManaTokenSource::Effect, cannot_power_spells: false });
+    state.offers.spells = vec![CardId::from("fireball")];
+    state.decks.artifact_deck = vec![CardId::from("art_1")];
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+
+    // Red city should have BuyArtifact but NOT BuySpell
+    let buy_spells: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::BuySpell { .. }))
+        .collect();
+    assert!(buy_spells.is_empty(), "Red city should not show BuySpell");
+
+    let buy_artifacts: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::BuyArtifact))
+        .collect();
+    assert!(!buy_artifacts.is_empty(), "Red city should show BuyArtifact");
+
+    // Blue city should have BuySpell but NOT BuyArtifact
+    place_player_on_conquered_city(&mut state, BasicManaColor::Blue);
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let buy_spells: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::BuySpell { .. }))
+        .collect();
+    assert!(!buy_spells.is_empty(), "Blue city should show BuySpell");
+
+    let buy_artifacts: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::BuyArtifact))
+        .collect();
+    assert!(buy_artifacts.is_empty(), "Blue city should not show BuyArtifact");
+}
+
+// =========================================================================
+// FAQ S21/S22 — Shield Token Influence Bonus
+// =========================================================================
+
+#[test]
+fn shield_bonus_grants_influence_for_commerce() {
+    let mut state = setup_playing_game(vec!["march"]);
+    let coord = place_player_on_conquered_city(&mut state, BasicManaColor::Red);
+    // Player has 10 influence + 2 shields on city = effective 12
+    state.players[0].influence_points = 10;
+    let pid = state.players[0].id.clone();
+    let hex = state.map.hexes.get_mut(&coord.key()).unwrap();
+    hex.shield_tokens.push(pid.clone());
+    hex.shield_tokens.push(pid.clone());
+    state.decks.artifact_deck = vec![CardId::from("art_1")];
+
+    // Should enumerate BuyArtifact (costs 12) because 10 + 2 shield = 12
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let buy_artifacts: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::BuyArtifact))
+        .collect();
+    assert_eq!(buy_artifacts.len(), 1, "Shield bonus should make BuyArtifact affordable");
+}
+
+#[test]
+fn shield_bonus_not_at_non_city_sites() {
+    // Shield tokens at a MageTower should NOT grant influence bonus
+    let mut state = setup_playing_game(vec!["march"]);
+    let coord = place_player_on_site(&mut state, SiteType::MageTower);
+    state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_conquered = true;
+    state.players[0].influence_points = 5;
+    state.players[0].pure_mana.push(ManaToken { color: ManaColor::Red, source: ManaTokenSource::Effect, cannot_power_spells: false });
+    let pid = state.players[0].id.clone();
+    state.map.hexes.get_mut(&coord.key()).unwrap().shield_tokens.push(pid);
+    state.offers.spells = vec![CardId::from("fireball")];
+
+    // Needs 7 influence, has 5. Shield bonus only applies at Cities, not MageTower.
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let buy_spells: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::BuySpell { .. }))
+        .collect();
+    assert!(buy_spells.is_empty(), "Shield bonus should not apply at MageTower");
+}
+
+#[test]
+fn shield_bonus_once_per_turn() {
+    let mut state = setup_playing_game(vec!["march"]);
+    let coord = place_player_on_conquered_city(&mut state, BasicManaColor::White);
+    state.players[0].influence_points = 1;
+    let pid = state.players[0].id.clone();
+    let hex = state.map.hexes.get_mut(&coord.key()).unwrap();
+    hex.shield_tokens.push(pid.clone());
+    state.decks.unit_deck = vec![mk_types::ids::UnitId::from("altem_mages"), mk_types::ids::UnitId::from("utem_crossbowmen")];
+
+    // First purchase: 1 influence + 1 shield = 2 (enough for elite add at cost 2)
+    let epoch = state.action_epoch;
+    let mut undo = UndoStack::new();
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::AddEliteToOffer,
+        epoch,
+    ).unwrap();
+
+    // Shield bonus claimed. Player now has 0 influence (1 + 1 shield - 2 = 0).
+    // Flag should be set
+    assert!(state.players[0].flags.contains(PlayerFlags::REPUTATION_BONUS_APPLIED_THIS_TURN));
+
+    // Even though there's still a shield token, second purchase should NOT get bonus
+    // Player has 0 influence, needs 2 for next elite add, shield bonus already claimed
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let add_elites: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::AddEliteToOffer))
+        .collect();
+    assert!(add_elites.is_empty(), "Shield bonus should not apply twice in one turn");
+}
+
+// =========================================================================
+// FAQ S21/S22 — Red City Draw-2-Keep-1 Artifact Selection
+// =========================================================================
+
+#[test]
+fn red_city_draw_2_creates_pending_selection() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_conquered_city(&mut state, BasicManaColor::Red);
+    state.players[0].influence_points = 15;
+    state.decks.artifact_deck = vec![CardId::from("art_a"), CardId::from("art_b"), CardId::from("art_c")];
+
+    let epoch = state.action_epoch;
+    let mut undo = UndoStack::new();
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::BuyArtifact,
+        epoch,
+    ).unwrap();
+
+    assert_eq!(state.players[0].influence_points, 3, "Should deduct 12 influence");
+    // Pending should be ArtifactSelection with 2 choices
+    match &state.players[0].pending.active {
+        Some(mk_types::pending::ActivePending::ArtifactSelection(sel)) => {
+            assert_eq!(sel.choices.len(), 2);
+            assert_eq!(sel.choices[0].as_str(), "art_a");
+            assert_eq!(sel.choices[1].as_str(), "art_b");
+        }
+        other => panic!("Expected ArtifactSelection, got {:?}", other),
+    }
+    // Third card stays in deck
+    assert_eq!(state.decks.artifact_deck.len(), 1);
+    assert_eq!(state.decks.artifact_deck[0].as_str(), "art_c");
+}
+
+#[test]
+fn select_artifact_keeps_chosen_returns_other_to_deck_bottom() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_conquered_city(&mut state, BasicManaColor::Red);
+    state.players[0].influence_points = 15;
+    state.decks.artifact_deck = vec![CardId::from("art_a"), CardId::from("art_b"), CardId::from("art_c")];
+
+    // BuyArtifact → creates pending
+    let epoch = state.action_epoch;
+    let mut undo = UndoStack::new();
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::BuyArtifact, epoch).unwrap();
+
+    let pre_deck_len = state.players[0].deck.len();
+    let epoch = state.action_epoch;
+    // Select art_a
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::SelectArtifact { card_id: CardId::from("art_a") },
+        epoch,
+    ).unwrap();
+
+    // art_a goes to top of deed deck
+    assert_eq!(state.players[0].deck[0].as_str(), "art_a");
+    assert_eq!(state.players[0].deck.len(), pre_deck_len + 1);
+    // art_b returned to artifact deck bottom
+    assert_eq!(state.decks.artifact_deck.len(), 2);
+    assert_eq!(state.decks.artifact_deck[1].as_str(), "art_b", "Unchosen card returned to deck bottom");
+    // Pending cleared
+    assert!(state.players[0].pending.active.is_none());
+}
+
+#[test]
+fn select_artifact_enumerated_during_pending() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_conquered_city(&mut state, BasicManaColor::Red);
+    state.players[0].influence_points = 15;
+    state.decks.artifact_deck = vec![CardId::from("art_a"), CardId::from("art_b")];
+
+    let epoch = state.action_epoch;
+    let mut undo = UndoStack::new();
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::BuyArtifact, epoch).unwrap();
+
+    // Should enumerate 2 SelectArtifact actions
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let select_artifacts: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::SelectArtifact { .. }))
+        .collect();
+    assert_eq!(select_artifacts.len(), 2, "Should show SelectArtifact for each choice");
+}
+
+// =========================================================================
+// FAQ S21/S22 — Green City Blind Draw from AA Deck
+// =========================================================================
+
+#[test]
+fn green_city_blind_draw_enumerated() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_conquered_city(&mut state, BasicManaColor::Green);
+    state.players[0].influence_points = 6;
+    state.decks.advanced_action_deck = vec![CardId::from("deck_aa_1")];
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let blind_draws: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::BuyCityAdvancedActionFromDeck))
+        .collect();
+    assert_eq!(blind_draws.len(), 1, "Should show BuyCityAdvancedActionFromDeck");
+}
+
+#[test]
+fn green_city_blind_draw_empty_deck_no_action() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_conquered_city(&mut state, BasicManaColor::Green);
+    state.players[0].influence_points = 10;
+    state.decks.advanced_action_deck.clear();
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let blind_draws: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::BuyCityAdvancedActionFromDeck))
+        .collect();
+    assert!(blind_draws.is_empty(), "No blind draw when AA deck is empty");
+}
+
+#[test]
+fn green_city_blind_draw_executes() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_conquered_city(&mut state, BasicManaColor::Green);
+    state.players[0].influence_points = 10;
+    state.decks.advanced_action_deck = vec![CardId::from("deck_aa_1"), CardId::from("deck_aa_2")];
+    let pre_deck_len = state.players[0].deck.len();
+
+    let epoch = state.action_epoch;
+    let mut undo = UndoStack::new();
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::BuyCityAdvancedActionFromDeck,
+        epoch,
+    ).unwrap();
+
+    assert_eq!(state.players[0].influence_points, 4, "Should deduct 6 influence");
+    assert_eq!(state.players[0].deck[0].as_str(), "deck_aa_1", "Top of AA deck goes to deed deck top");
+    assert_eq!(state.players[0].deck.len(), pre_deck_len + 1);
+    assert_eq!(state.decks.advanced_action_deck.len(), 1, "AA deck shrinks by 1");
+    assert!(state.players[0].flags.contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN));
+}
+
+// =========================================================================
+// FAQ S21/S22 — Spell Purchase Matching Mana Cost
+// =========================================================================
+
+#[test]
+fn spell_mana_no_mana_no_action() {
+    let mut state = setup_playing_game(vec!["march"]);
+    let coord = place_player_on_site(&mut state, SiteType::MageTower);
+    state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_conquered = true;
+    state.players[0].influence_points = 10;
+    // No mana tokens at all
+    state.players[0].pure_mana.clear();
+    state.players[0].crystals = Crystals::default();
+    state.offers.spells = vec![CardId::from("fireball")]; // Red spell
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let buy_spells: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::BuySpell { .. }))
+        .collect();
+    assert!(buy_spells.is_empty(), "Should not show BuySpell without matching mana");
+}
+
+#[test]
+fn spell_mana_gold_token_works() {
+    let mut state = setup_playing_game(vec!["march"]);
+    let coord = place_player_on_site(&mut state, SiteType::MageTower);
+    state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_conquered = true;
+    state.players[0].influence_points = 10;
+    // Gold mana token (wild) should satisfy any spell color
+    state.players[0].pure_mana.push(ManaToken { color: ManaColor::Gold, source: ManaTokenSource::Effect, cannot_power_spells: false });
+    state.offers.spells = vec![CardId::from("fireball")]; // Red spell
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let buy_spells: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::BuySpell { .. }))
+        .collect();
+    assert_eq!(buy_spells.len(), 1, "Gold token should satisfy mana requirement");
+
+    // Execute and verify gold token consumed
+    let epoch = state.action_epoch;
+    let mut undo = UndoStack::new();
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::BuySpell { card_id: CardId::from("fireball"), offer_index: 0, mana_color: BasicManaColor::Red },
+        epoch,
+    ).unwrap();
+    assert!(state.players[0].pure_mana.is_empty(), "Gold token should be consumed");
+}
+
+#[test]
+fn spell_mana_crystal_works() {
+    let mut state = setup_playing_game(vec!["march"]);
+    let coord = place_player_on_site(&mut state, SiteType::MageTower);
+    state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_conquered = true;
+    state.players[0].influence_points = 10;
+    // Red crystal instead of token
+    state.players[0].crystals.red = 1;
+    state.offers.spells = vec![CardId::from("fireball")]; // Red spell
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let buy_spells: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::BuySpell { .. }))
+        .collect();
+    assert_eq!(buy_spells.len(), 1, "Crystal should satisfy mana requirement");
+
+    // Execute and verify crystal consumed
+    let epoch = state.action_epoch;
+    let mut undo = UndoStack::new();
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::BuySpell { card_id: CardId::from("fireball"), offer_index: 0, mana_color: BasicManaColor::Red },
+        epoch,
+    ).unwrap();
+    assert_eq!(state.players[0].crystals.red, 0, "Crystal should be consumed");
+}
+
+#[test]
+fn spell_mana_wrong_color_no_action() {
+    let mut state = setup_playing_game(vec!["march"]);
+    let coord = place_player_on_site(&mut state, SiteType::MageTower);
+    state.map.hexes.get_mut(&coord.key()).unwrap().site.as_mut().unwrap().is_conquered = true;
+    state.players[0].influence_points = 10;
+    // Blue mana token, but spell is Red
+    state.players[0].pure_mana.push(ManaToken { color: ManaColor::Blue, source: ManaTokenSource::Effect, cannot_power_spells: false });
+    state.offers.spells = vec![CardId::from("fireball")]; // Red spell
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let buy_spells: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::BuySpell { .. }))
+        .collect();
+    assert!(buy_spells.is_empty(), "Wrong color mana should not satisfy requirement");
+}
+
+#[test]
+fn spell_mana_applies_at_blue_city_too() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_conquered_city(&mut state, BasicManaColor::Blue);
+    state.players[0].influence_points = 10;
+    // No mana at all
+    state.players[0].pure_mana.clear();
+    state.players[0].crystals = Crystals::default();
+    state.offers.spells = vec![CardId::from("fireball")]; // Red spell
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let buy_spells: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::BuySpell { .. }))
+        .collect();
+    assert!(buy_spells.is_empty(), "Blue city also requires matching mana for spell purchase");
+
+    // Add matching mana → should work
+    state.players[0].pure_mana.push(ManaToken { color: ManaColor::Red, source: ManaTokenSource::Effect, cannot_power_spells: false });
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    let buy_spells: Vec<_> = actions.actions.iter()
+        .filter(|a| matches!(a, LegalAction::BuySpell { .. }))
+        .collect();
+    assert_eq!(buy_spells.len(), 1, "With matching mana, blue city should show BuySpell");
+}
+
+// =========================================================================
+// FAQ S22 — Hand Limit +1 Near Conquered City
+// =========================================================================
+
+#[test]
+fn hand_limit_plus_one_near_conquered_city() {
+    use crate::end_turn::end_turn;
+
+    let mut state = setup_playing_game(vec!["march"]);
+    // Player at (5,5), conquered city at (5,5) with shield
+    let city_coord = HexCoord { q: 5, r: 5 };
+    let pid = state.players[0].id.clone();
+    let city_hex = HexState {
+        coord: city_coord,
+        terrain: Terrain::Plains,
+        tile_id: TileId::StartingA,
+        site: Some(Site {
+            site_type: SiteType::City,
+            owner: None,
+            is_conquered: true,
+            is_burned: false,
+            city_color: Some(BasicManaColor::Blue),
+            mine_color: None,
+            deep_mine_colors: None,
+        }),
+        rampaging_enemies: ArrayVec::new(),
+        enemies: ArrayVec::new(),
+        ruins_token: None,
+        shield_tokens: vec![pid.clone()],
+    };
+    state.map.hexes.insert(city_coord.key(), city_hex);
+    state.players[0].position = Some(city_coord);
+
+    // Set up deck with many cards to draw from
+    state.players[0].hand.clear();
+    state.players[0].deck = (0..20).map(|i| CardId::from(format!("card_{}", i).as_str())).collect();
+    // Must satisfy minimum turn requirement
+    state.players[0].flags.insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
+    let base_hand_limit = state.players[0].hand_limit as usize; // Usually 5
+
+    // End turn should draw base_hand_limit + 1 cards (city bonus)
+    let _ = end_turn(&mut state, 0);
+
+    assert_eq!(
+        state.players[0].hand.len(),
+        base_hand_limit + 1,
+        "Should draw base hand limit + 1 for city adjacency bonus"
+    );
+}
+
+#[test]
+fn hand_limit_no_bonus_without_shield() {
+    use crate::end_turn::end_turn;
+
+    let mut state = setup_playing_game(vec!["march"]);
+    let city_coord = HexCoord { q: 5, r: 5 };
+    // Conquered city but NO shield token for this player
+    let city_hex = HexState {
+        coord: city_coord,
+        terrain: Terrain::Plains,
+        tile_id: TileId::StartingA,
+        site: Some(Site {
+            site_type: SiteType::City,
+            owner: None,
+            is_conquered: true,
+            is_burned: false,
+            city_color: Some(BasicManaColor::Blue),
+            mine_color: None,
+            deep_mine_colors: None,
+        }),
+        rampaging_enemies: ArrayVec::new(),
+        enemies: ArrayVec::new(),
+        ruins_token: None,
+        shield_tokens: vec![], // No shield!
+    };
+    state.map.hexes.insert(city_coord.key(), city_hex);
+    state.players[0].position = Some(city_coord);
+    state.players[0].hand.clear();
+    state.players[0].deck = (0..20).map(|i| CardId::from(format!("card_{}", i).as_str())).collect();
+    state.players[0].flags.insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
+    let base_hand_limit = state.players[0].hand_limit as usize;
+
+    let _ = end_turn(&mut state, 0);
+
+    assert_eq!(
+        state.players[0].hand.len(),
+        base_hand_limit,
+        "No city bonus without shield token"
+    );
+}
+
+#[test]
+fn hand_limit_bonus_from_adjacent_hex() {
+    use crate::end_turn::end_turn;
+
+    let mut state = setup_playing_game(vec!["march"]);
+    let player_coord = HexCoord { q: 5, r: 5 };
+    // City is on a neighbor hex (q+1, r)
+    let city_coord = HexCoord { q: 6, r: 5 };
+    let pid = state.players[0].id.clone();
+
+    // Player hex (no site)
+    let player_hex = HexState {
+        coord: player_coord,
+        terrain: Terrain::Plains,
+        tile_id: TileId::StartingA,
+        site: None,
+        rampaging_enemies: ArrayVec::new(),
+        enemies: ArrayVec::new(),
+        ruins_token: None,
+        shield_tokens: vec![],
+    };
+    state.map.hexes.insert(player_coord.key(), player_hex);
+
+    // City hex (adjacent)
+    let city_hex = HexState {
+        coord: city_coord,
+        terrain: Terrain::Plains,
+        tile_id: TileId::StartingA,
+        site: Some(Site {
+            site_type: SiteType::City,
+            owner: None,
+            is_conquered: true,
+            is_burned: false,
+            city_color: Some(BasicManaColor::Red),
+            mine_color: None,
+            deep_mine_colors: None,
+        }),
+        rampaging_enemies: ArrayVec::new(),
+        enemies: ArrayVec::new(),
+        ruins_token: None,
+        shield_tokens: vec![pid.clone()],
+    };
+    state.map.hexes.insert(city_coord.key(), city_hex);
+    state.players[0].position = Some(player_coord);
+    state.players[0].hand.clear();
+    state.players[0].deck = (0..20).map(|i| CardId::from(format!("card_{}", i).as_str())).collect();
+    state.players[0].flags.insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
+    let base_hand_limit = state.players[0].hand_limit as usize;
+
+    let _ = end_turn(&mut state, 0);
+
+    assert_eq!(
+        state.players[0].hand.len(),
+        base_hand_limit + 1,
+        "Should get +1 hand limit from adjacent conquered city with shield"
+    );
+}
+
+#[test]
+fn hand_limit_no_bonus_two_hexes_away() {
+    use crate::end_turn::end_turn;
+
+    let mut state = setup_playing_game(vec!["march"]);
+    let player_coord = HexCoord { q: 5, r: 5 };
+    // City is 2 hexes away (q+2, r)
+    let city_coord = HexCoord { q: 7, r: 5 };
+    let pid = state.players[0].id.clone();
+
+    let player_hex = HexState {
+        coord: player_coord,
+        terrain: Terrain::Plains,
+        tile_id: TileId::StartingA,
+        site: None,
+        rampaging_enemies: ArrayVec::new(),
+        enemies: ArrayVec::new(),
+        ruins_token: None,
+        shield_tokens: vec![],
+    };
+    state.map.hexes.insert(player_coord.key(), player_hex);
+
+    let city_hex = HexState {
+        coord: city_coord,
+        terrain: Terrain::Plains,
+        tile_id: TileId::StartingA,
+        site: Some(Site {
+            site_type: SiteType::City,
+            owner: None,
+            is_conquered: true,
+            is_burned: false,
+            city_color: Some(BasicManaColor::Red),
+            mine_color: None,
+            deep_mine_colors: None,
+        }),
+        rampaging_enemies: ArrayVec::new(),
+        enemies: ArrayVec::new(),
+        ruins_token: None,
+        shield_tokens: vec![pid.clone()],
+    };
+    state.map.hexes.insert(city_coord.key(), city_hex);
+    state.players[0].position = Some(player_coord);
+    state.players[0].hand.clear();
+    state.players[0].deck = (0..20).map(|i| CardId::from(format!("card_{}", i).as_str())).collect();
+    state.players[0].flags.insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
+    let base_hand_limit = state.players[0].hand_limit as usize;
+
+    let _ = end_turn(&mut state, 0);
+
+    assert_eq!(
+        state.players[0].hand.len(),
+        base_hand_limit,
+        "No city bonus when city is 2 hexes away"
+    );
+}
+

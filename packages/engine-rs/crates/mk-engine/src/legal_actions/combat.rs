@@ -7,7 +7,7 @@ use mk_types::state::*;
 
 use crate::combat_resolution::{
     auto_assign_defend, calculate_effective_attack, calculate_effective_block,
-    get_effective_armor, get_enemy_attack_info, has_ability, subtract_elements,
+    effective_city_color_for_enemy, has_ability, subtract_elements,
 };
 
 // =============================================================================
@@ -72,7 +72,8 @@ pub(super) fn enumerate_block_declarations(
                 continue;
             }
 
-            let (damage, attack_element, is_swift) = get_enemy_attack_info(def, attack_index);
+            let enemy_city_color = effective_city_color_for_enemy(combat, enemy);
+            let (damage, attack_element, is_swift) = crate::combat_resolution::get_enemy_attack_info_with_city(def, attack_index, enemy_city_color);
 
             // Skip zero-damage attacks (e.g., summon attacks)
             if damage == 0 {
@@ -161,7 +162,8 @@ pub(super) fn enumerate_cumbersome_actions(
             if enemy.attacks_cancelled.get(attack_index).copied().unwrap_or(false) {
                 continue;
             }
-            let (damage, _, _) = get_enemy_attack_info(def, attack_index);
+            let enemy_city_color = effective_city_color_for_enemy(combat, enemy);
+            let (damage, _, _) = crate::combat_resolution::get_enemy_attack_info_with_city(def, attack_index, enemy_city_color);
             total_damage += damage;
         }
 
@@ -421,6 +423,7 @@ pub(crate) fn is_attack_subset_sufficient(
         &combat.enemies,
         &target_ids,
         &combat.used_defend,
+        &combat.defend_bonuses,
     );
 
     let total_armor: u32 = targets
@@ -431,11 +434,20 @@ pub(crate) fn is_attack_subset_sufficient(
                 .get(enemy.instance_id.as_str())
                 .copied()
                 .unwrap_or(0);
-            let defend = defend_assignments
+            // New defend from this attack's auto-assignment
+            let new_defend = defend_assignments
                 .get(enemy.instance_id.as_str())
                 .copied()
                 .unwrap_or(0);
-            let base = get_effective_armor(def, combat.phase, vampiric, defend);
+            // Persisted defend from a previous attack (FAQ S29)
+            let stored_defend = combat
+                .defend_bonuses
+                .get(enemy.instance_id.as_str())
+                .copied()
+                .unwrap_or(0);
+            let defend = new_defend + stored_defend;
+            let enemy_city_color = effective_city_color_for_enemy(combat, enemy);
+            let base = crate::combat_resolution::get_effective_armor_with_city(def, combat.phase, vampiric, defend, enemy_city_color);
             let (armor_change, armor_min) =
                 crate::combat_resolution::get_enemy_armor_modifier(
                     modifiers,
@@ -528,7 +540,8 @@ pub(super) fn enumerate_damage_assignments(
             }
 
             // Check damage > 0 (zero-damage attacks skip assignment)
-            let (base_damage, _, _) = crate::combat_resolution::get_enemy_attack_info(def, attack_idx);
+            let enemy_city_color = effective_city_color_for_enemy(combat, enemy);
+            let (base_damage, _, _) = crate::combat_resolution::get_enemy_attack_info_with_city(def, attack_idx, enemy_city_color);
             if base_damage == 0 {
                 continue;
             }
@@ -601,7 +614,8 @@ pub(super) fn all_damage_assigned(combat: &CombatState, player_id: &str, modifie
             if enemy.attacks_cancelled.get(attack_idx).copied().unwrap_or(false) {
                 continue;
             }
-            let (base_damage, _, _) = crate::combat_resolution::get_enemy_attack_info(def, attack_idx);
+            let enemy_city_color = effective_city_color_for_enemy(combat, enemy);
+            let (base_damage, _, _) = crate::combat_resolution::get_enemy_attack_info_with_city(def, attack_idx, enemy_city_color);
             if base_damage == 0 {
                 continue;
             }

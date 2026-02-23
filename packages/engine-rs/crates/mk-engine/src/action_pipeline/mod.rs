@@ -541,9 +541,39 @@ pub fn apply_legal_action(
             }
         }
 
+        LegalAction::BuyArtifact => {
+            // Irreversible: draws from artifact deck
+            undo_stack.set_checkpoint();
+            sites::apply_buy_artifact(state, player_idx)?
+        }
+
+        LegalAction::BuyCityAdvancedAction { card_id, .. } => {
+            // Irreversible: modifies offers
+            undo_stack.set_checkpoint();
+            sites::apply_buy_city_advanced_action(state, player_idx, card_id)?
+        }
+
+        LegalAction::BuyCityAdvancedActionFromDeck => {
+            // Irreversible: draws from AA deck
+            undo_stack.set_checkpoint();
+            sites::apply_buy_city_aa_from_deck(state, player_idx)?
+        }
+
+        LegalAction::AddEliteToOffer => {
+            // Irreversible: draws from unit deck
+            undo_stack.set_checkpoint();
+            sites::apply_add_elite_to_offer(state, player_idx)?
+        }
+
+        LegalAction::SelectArtifact { card_id } => {
+            // Irreversible: modifies artifact deck
+            undo_stack.set_checkpoint();
+            sites::apply_select_artifact(state, player_idx, card_id)?
+        }
+
         LegalAction::BuySpell { card_id, mana_color, .. } => {
-            // Reversible: save snapshot
-            undo_stack.save(state);
+            // Irreversible: consumes mana
+            undo_stack.set_checkpoint();
             sites::apply_buy_spell(state, player_idx, card_id, *mana_color)?
         }
 
@@ -654,12 +684,6 @@ pub fn apply_legal_action(
             // Irreversible: RNG consumed
             undo_stack.set_checkpoint();
             sites::apply_resolve_crystal_roll_color(state, player_idx, *color)?
-        }
-
-        LegalAction::SelectArtifact { card_id } => {
-            // Irreversible: modifies offers
-            undo_stack.set_checkpoint();
-            sites::apply_select_artifact(state, player_idx, card_id)?
         }
 
         LegalAction::ForfeitUnitReward => {

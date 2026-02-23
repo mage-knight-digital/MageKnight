@@ -540,10 +540,23 @@ fn format_action(action: &LegalAction, state: &GameState, player_idx: usize) -> 
         LegalAction::LearnAdvancedAction { card_id, .. } => {
             format!("Learn AA: {}", card_name(card_id.as_str()))
         }
+        LegalAction::BuyArtifact => "Buy artifact (red city, draw 2 pick 1)".into(),
+        LegalAction::BuyCityAdvancedAction { card_id, .. } => {
+            format!("Buy city AA: {}", card_name(card_id.as_str()))
+        }
+        LegalAction::BuyCityAdvancedActionFromDeck => "Buy AA blind from deck (green city)".into(),
+        LegalAction::AddEliteToOffer => "Add elite unit to offer (white city)".into(),
+        LegalAction::SelectArtifact { card_id } => {
+            format!("Select artifact: {}", card_name(card_id.as_str()))
+        }
         LegalAction::BurnMonastery => "Burn monastery".into(),
         LegalAction::AltarTribute { .. } => "Pay altar tribute".into(),
-        LegalAction::SelectReward { card_id, .. } => {
-            format!("Select reward: {}", card_name(card_id.as_str()))
+        LegalAction::SelectReward { card_id, unit_id, .. } => {
+            if let Some(uid) = unit_id {
+                format!("Select reward unit: {}", uid.as_str())
+            } else {
+                format!("Select reward: {}", card_name(card_id.as_str()))
+            }
         }
         LegalAction::ResolveBookOfWisdom { selection_index } => {
             format!("Book of Wisdom: select #{}", selection_index + 1)
@@ -590,9 +603,6 @@ fn format_action(action: &LegalAction, state: &GameState, player_idx: usize) -> 
         }
         LegalAction::ResolveCrystalRollColor { color } => {
             format!("Choose {:?} crystal", color)
-        }
-        LegalAction::SelectArtifact { card_id } => {
-            format!("Keep artifact: {}", card_id.as_str())
         }
         LegalAction::ForfeitUnitReward => "Forfeit unit reward".into(),
         LegalAction::DisbandUnitForReward { unit_instance_id, reward_unit_id } => {

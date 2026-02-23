@@ -22,51 +22,62 @@ pub(super) fn apply_declare_block(
     enemy_instance_id: &CombatInstanceId,
     attack_index: usize,
 ) -> Result<ApplyResult, ApplyError> {
-    let combat = state
-        .combat
-        .as_mut()
-        .ok_or_else(|| ApplyError::InternalError("DeclareBlock with no combat".into()))?;
+    // Phase 1: Read-only — compute city color for this enemy and resolve block
+    let (block_success, enemy_idx, city_color) = {
+        let combat = state
+            .combat
+            .as_ref()
+            .ok_or_else(|| ApplyError::InternalError("DeclareBlock with no combat".into()))?;
 
-    // Find the enemy
-    let enemy = combat
-        .enemies
-        .iter_mut()
-        .find(|e| e.instance_id == *enemy_instance_id)
-        .ok_or_else(|| ApplyError::InternalError("DeclareBlock: enemy not found".into()))?;
+        let (idx, enemy) = combat
+            .enemies
+            .iter()
+            .enumerate()
+            .find(|(_, e)| e.instance_id == *enemy_instance_id)
+            .ok_or_else(|| ApplyError::InternalError("DeclareBlock: enemy not found".into()))?;
 
-    let def = get_enemy(enemy.enemy_id.as_str())
-        .ok_or_else(|| ApplyError::InternalError("DeclareBlock: unknown enemy".into()))?;
+        let def = get_enemy(enemy.enemy_id.as_str())
+            .ok_or_else(|| ApplyError::InternalError("DeclareBlock: unknown enemy".into()))?;
 
-    let player = &state.players[player_idx];
-    let block_result = combat_resolution::resolve_block(
-        &player.combat_accumulator.block_elements,
-        def,
-        attack_index,
-    );
+        let city_color = combat_resolution::effective_city_color_for_enemy(combat, enemy);
+        let player = &state.players[player_idx];
+        let block_result = combat_resolution::resolve_block_with_city(
+            &player.combat_accumulator.block_elements,
+            def,
+            attack_index,
+            city_color,
+        );
 
-    if block_result.success {
+        (block_result.success, idx, city_color)
+    };
+
+    // Phase 2: Mutate
+    if block_success {
+        let combat = state.combat.as_mut().unwrap();
+        let def = get_enemy(combat.enemies[enemy_idx].enemy_id.as_str()).unwrap();
+
         // Mark attack as blocked
-        if attack_index < enemy.attacks_blocked.len() {
-            enemy.attacks_blocked[attack_index] = true;
-        }
+        combat.enemies[enemy_idx].attacks_blocked[attack_index] = true;
 
         // Check if all attacks are now blocked
         let num_attacks = attack_count(def);
         let all_blocked = (0..num_attacks).all(|i| {
-            enemy.attacks_blocked.get(i).copied().unwrap_or(false)
-                || enemy.attacks_cancelled.get(i).copied().unwrap_or(false)
+            combat.enemies[enemy_idx].attacks_blocked.get(i).copied().unwrap_or(false)
+                || combat.enemies[enemy_idx].attacks_cancelled.get(i).copied().unwrap_or(false)
                 || {
-                    // Zero-damage attacks don't need blocking
-                    let (dmg, _, _) = combat_resolution::get_enemy_attack_info(def, i);
+                    let (dmg, _, _) = combat_resolution::get_enemy_attack_info_with_city(def, i, city_color);
                     dmg == 0
                 }
         });
         if all_blocked {
-            enemy.is_blocked = true;
+            combat.enemies[enemy_idx].is_blocked = true;
         }
 
         // Burning Shield / Exploding Shield: consume modifier on successful block
         apply_burning_shield_on_block(state, player_idx, enemy_instance_id);
+
+        // Shield Bash: excess undoubled block reduces enemy armor (not consumed)
+        apply_shield_bash_on_block(state, player_idx, enemy_instance_id, attack_index, city_color);
     }
 
     // Block is consumed (all accumulated block used for this declaration)
@@ -154,6 +165,130 @@ pub(super) fn apply_burning_shield_on_block(
 }
 
 
+/// Apply Shield Bash armor reduction after a successful block.
+///
+/// When the ShieldBashArmorReduction modifier is active:
+/// 1. Calculate undoubled effective block vs undoubled required attack
+/// 2. Excess = effective_block - required. If 0 → skip.
+/// 3. Push EnemyStat(Armor) modifier: -(excess) with minimum 1, scoped to this enemy.
+///
+/// The modifier is NOT consumed — it stays active for all blocks in combat.
+///
+/// Immune enemies (no armor reduction applied):
+/// - Ice Resistant (FAQ S7: blue card = ice element)
+/// - Summoned (Q6)
+/// - Arcane Immune (FAQ S5)
+pub(super) fn apply_shield_bash_on_block(
+    state: &mut GameState,
+    player_idx: usize,
+    blocked_enemy_id: &CombatInstanceId,
+    attack_index: usize,
+    city_color: Option<BasicManaColor>,
+) {
+    use mk_types::modifier::{
+        ActiveModifier, EnemyStat as ModEnemyStat, ModifierDuration, ModifierEffect,
+        ModifierScope, ModifierSource,
+    };
+
+    let pid = state.players[player_idx].id.clone();
+
+    // 1. Find ShieldBashArmorReduction modifier for this player. If none → return.
+    let has_shield_bash = state.active_modifiers.iter().any(|m| {
+        matches!(&m.effect, ModifierEffect::ShieldBashArmorReduction)
+            && matches!(
+                &m.source,
+                ModifierSource::Card { player_id, .. } if *player_id == pid
+            )
+    });
+    if !has_shield_bash {
+        return;
+    }
+
+    // 2. Look up the blocked enemy and its definition
+    let combat = state.combat.as_ref().unwrap();
+    let enemy = match combat
+        .enemies
+        .iter()
+        .find(|e| e.instance_id == *blocked_enemy_id)
+    {
+        Some(e) => e,
+        None => return,
+    };
+
+    let def = match get_enemy(enemy.enemy_id.as_str()) {
+        Some(d) => d,
+        None => return,
+    };
+
+    // Ice Resistant enemies are immune (FAQ S7: blue card = ice element)
+    if def.resistances.contains(&ResistanceElement::Ice) {
+        return;
+    }
+
+    // Summoned enemies are immune (Q6)
+    if enemy.summoned_by_instance_id.is_some() {
+        return;
+    }
+
+    // Arcane Immune enemies are immune (FAQ S5)
+    if def.abilities.contains(&EnemyAbilityType::ArcaneImmunity) {
+        return;
+    }
+
+    // 3. Get undoubled base attack (raw damage, NOT Swift-doubled)
+    let (base_damage, attack_element, _is_swift) =
+        combat_resolution::get_enemy_attack_info_with_city(def, attack_index, city_color);
+
+    // 4. Apply cumbersome reduction
+    let cumbersome_reduction = combat
+        .cumbersome_reductions
+        .get(blocked_enemy_id.as_str())
+        .copied()
+        .unwrap_or(0);
+    let undoubled_required = base_damage.saturating_sub(cumbersome_reduction);
+
+    // 5. Get undoubled effective block from the accumulator (still has raw values at this point)
+    let effective_block = combat_resolution::calculate_effective_block(
+        &state.players[player_idx].combat_accumulator.block_elements,
+        attack_element,
+    );
+
+    // 6. Calculate excess
+    let excess = effective_block.saturating_sub(undoubled_required);
+    if excess == 0 {
+        return;
+    }
+
+    // 7. Push EnemyStat(Armor) modifier scoped to this enemy
+    let mod_id = mk_types::ids::ModifierId::from(format!(
+        "shield_bash_armor_{}",
+        blocked_enemy_id.as_str()
+    ));
+    state.active_modifiers.push(ActiveModifier {
+        id: mod_id,
+        source: ModifierSource::Card {
+            card_id: CardId::from("shield_bash"),
+            player_id: pid.clone(),
+        },
+        duration: ModifierDuration::Combat,
+        scope: ModifierScope::OneEnemy {
+            enemy_id: blocked_enemy_id.as_str().to_string(),
+        },
+        effect: ModifierEffect::EnemyStat {
+            stat: ModEnemyStat::Armor,
+            amount: -(excess as i32),
+            minimum: 1,
+            attack_index: None,
+            per_resistance: false,
+            fortified_amount: None,
+            exclude_resistance: None,
+        },
+        created_at_round: state.round,
+        created_by_player_id: pid,
+    });
+}
+
+
 pub(super) fn apply_declare_attack_inner(
     state: &mut GameState,
     player_idx: usize,
@@ -236,6 +371,7 @@ pub(super) fn apply_declare_attack_inner(
             &combat.enemies,
             target_instance_ids,
             &combat.used_defend,
+            &combat.defend_bonuses,
         );
 
         let mut bonus_armor = std::collections::BTreeMap::new();
@@ -245,79 +381,122 @@ pub(super) fn apply_declare_attack_inner(
                 .get(enemy.instance_id.as_str())
                 .copied()
                 .unwrap_or(0);
-            let defend = defend_assignments
+            // New defend from this attack's auto-assignment
+            let new_defend = defend_assignments
                 .get(enemy.instance_id.as_str())
                 .copied()
                 .unwrap_or(0);
-            let _ = def; // def already used by resolve_attack via ref_pairs
-            bonus_armor.insert(enemy.instance_id.as_str().to_string(), vampiric + defend);
+            // Persisted defend from a previous attack (FAQ S29)
+            let stored_defend = combat
+                .defend_bonuses
+                .get(enemy.instance_id.as_str())
+                .copied()
+                .unwrap_or(0);
+            // Per-enemy city armor bonus (FAQ S4: only city defenders, not rampaging)
+            let enemy_city = combat_resolution::effective_city_color_for_enemy(combat, enemy);
+            let city_armor = combat_resolution::city_armor_bonus(enemy_city);
+
+            let base_bonus = (vampiric + new_defend + stored_defend + city_armor) as i32;
+
+            // Apply EnemyStat(Armor) modifiers (Shield Bash, Curse armor mode)
+            // Skip for Arcane Immune enemies (consistent with existing guards)
+            let has_arcane_immune = def.abilities.contains(&EnemyAbilityType::ArcaneImmunity);
+            if !has_arcane_immune {
+                let (armor_change, armor_min) = combat_resolution::get_enemy_armor_modifier(
+                    &state.active_modifiers,
+                    enemy.instance_id.as_str(),
+                );
+                if armor_change != 0 {
+                    let base_for_phase = combat_resolution::get_enemy_armor_for_phase(def, combat.phase);
+                    let adjusted_total = (base_for_phase as i32 + base_bonus + armor_change)
+                        .max(armor_min as i32);
+                    let adjusted_bonus = adjusted_total - base_for_phase as i32;
+                    bonus_armor.insert(enemy.instance_id.as_str().to_string(), adjusted_bonus);
+                } else {
+                    bonus_armor.insert(enemy.instance_id.as_str().to_string(), base_bonus);
+                }
+            } else {
+                bonus_armor.insert(enemy.instance_id.as_str().to_string(), base_bonus);
+            }
         }
 
-        let result = combat_resolution::resolve_attack_with_removed_resistances(
+        // Pass None for city_color since we baked city armor into bonus_armor per-enemy
+        let result = combat_resolution::resolve_attack_with_city(
             &available, &ref_pairs, combat.phase, &bonus_armor, &removed_resistances,
+            None,
         );
         let target_count = target_indices.len();
 
         (target_indices, result, available, target_count, defend_assignments)
     };
 
-    // Phase 2: Apply mutations
+    // Phase 2: Record defend usage BEFORE marking defeats (FAQ S28/S29: defend
+    // triggers on declaration regardless of attack success, and persists for
+    // the entire combat even after the defender is killed).
+    {
+        let combat = state.combat.as_mut().unwrap();
+        let mut newly_used: Vec<String> = Vec::new();
+        let defenders: Vec<(String, u32)> = combat
+            .enemies
+            .iter()
+            .filter_map(|e| {
+                if e.is_defeated {
+                    return None;
+                }
+                let def = get_enemy(e.enemy_id.as_str())?;
+                if !combat_resolution::has_ability(def, EnemyAbilityType::Defend) {
+                    return None;
+                }
+                let defend_value = def.defend?;
+                if combat.used_defend.contains_key(e.instance_id.as_str()) {
+                    return None;
+                }
+                Some((e.instance_id.as_str().to_string(), defend_value))
+            })
+            .collect();
+
+        for target_id in target_instance_ids {
+            if !defend_assignments.contains_key(target_id.as_str()) {
+                continue;
+            }
+            let bonus = defend_assignments
+                .get(target_id.as_str())
+                .copied()
+                .unwrap_or(0);
+            // Find first available defender
+            if let Some(defender_id) =
+                defenders.iter().find_map(|(did, _)| {
+                    if !newly_used.contains(did)
+                        && !combat.used_defend.contains_key(did.as_str())
+                    {
+                        Some(did.clone())
+                    } else {
+                        None
+                    }
+                })
+            {
+                combat.used_defend.insert(
+                    defender_id.clone(),
+                    target_id.as_str().to_string(),
+                );
+                newly_used.push(defender_id);
+            }
+            // Persist the defend bonus for this target (FAQ S29)
+            if bonus > 0 {
+                combat
+                    .defend_bonuses
+                    .insert(target_id.as_str().to_string(), bonus);
+            }
+        }
+    }
+
+    // Phase 3: Apply mutations on success
     if result.success {
         let combat = state.combat.as_mut().unwrap();
         for &idx in &target_indices {
             combat.enemies[idx].is_defeated = true;
         }
         combat.fame_gained += result.fame_gained;
-
-        // Record defend usage (defender instance_id → protected target instance_id)
-        // We need to find which defenders were assigned by matching the auto_assign_defend logic
-        // The defend_assignments map tells us target_id → bonus, but we need defender→target
-        // Re-derive from the same logic: iterate defenders in order, assign to targets in order
-        {
-            let mut newly_used: Vec<String> = Vec::new();
-            let defenders: Vec<(String, u32)> = combat
-                .enemies
-                .iter()
-                .filter_map(|e| {
-                    if e.is_defeated {
-                        return None;
-                    }
-                    let def = get_enemy(e.enemy_id.as_str())?;
-                    if !combat_resolution::has_ability(def, EnemyAbilityType::Defend) {
-                        return None;
-                    }
-                    let defend_value = def.defend?;
-                    if combat.used_defend.contains_key(e.instance_id.as_str()) {
-                        return None;
-                    }
-                    Some((e.instance_id.as_str().to_string(), defend_value))
-                })
-                .collect();
-
-            for target_id in target_instance_ids {
-                if !defend_assignments.contains_key(target_id.as_str()) {
-                    continue;
-                }
-                // Find first available defender
-                if let Some(defender_id) =
-                    defenders.iter().find_map(|(did, _)| {
-                        if !newly_used.contains(did)
-                            && !combat.used_defend.contains_key(did.as_str())
-                        {
-                            Some(did.clone())
-                        } else {
-                            None
-                        }
-                    })
-                {
-                    combat.used_defend.insert(
-                        defender_id.clone(),
-                        target_id.as_str().to_string(),
-                    );
-                    newly_used.push(defender_id);
-                }
-            }
-        }
 
         // Collect summoned status for FamePerEnemyDefeated check
         let defeated_summoned_flags: Vec<bool> = target_indices.iter().map(|&idx| {
@@ -812,6 +991,9 @@ pub(super) fn apply_auto_damage(
             None => continue,
         };
 
+        // Per-enemy city color (FAQ S4: only city defenders, not rampaging)
+        let enemy_city = combat_resolution::effective_city_color_for_enemy(combat, enemy);
+
         let num_attacks = attack_count(def);
 
         // Get attack modifier for this enemy (from weaken, taunt, etc.)
@@ -838,7 +1020,7 @@ pub(super) fn apply_auto_damage(
                 .unwrap_or(0);
 
             let (base_damage, _element, _is_swift) =
-                combat_resolution::get_enemy_attack_info(def, attack_index);
+                combat_resolution::get_enemy_attack_info_with_city(def, attack_index, enemy_city);
 
             // Apply attack modifier (weaken, taunt, etc.)
             let modified_damage = if atk_change != 0 {
@@ -857,8 +1039,8 @@ pub(super) fn apply_auto_damage(
             }
 
             let (wounds, is_poison) =
-                combat_resolution::calculate_hero_wounds_with_damage(
-                    def, attack_index, hero_armor, reduced_damage,
+                combat_resolution::calculate_hero_wounds_with_damage_and_city(
+                    def, attack_index, hero_armor, reduced_damage, enemy_city,
                 );
 
             let is_paralyze = combat_resolution::has_ability(def, EnemyAbilityType::Paralyze);
@@ -900,6 +1082,7 @@ pub(super) fn apply_auto_damage(
             };
 
             let num_attacks = attack_count(def);
+            let cc = combat_resolution::effective_city_color_for_enemy(combat, enemy);
             let all_reduced_to_zero = (0..num_attacks).all(|i| {
                 if enemy.attacks_blocked.get(i).copied().unwrap_or(false) {
                     return true;
@@ -907,7 +1090,7 @@ pub(super) fn apply_auto_damage(
                 if enemy.attacks_cancelled.get(i).copied().unwrap_or(false) {
                     return true;
                 }
-                let (dmg, _, _) = combat_resolution::get_enemy_attack_info(def, i);
+                let (dmg, _, _) = combat_resolution::get_enemy_attack_info_with_city(def, i, cc);
                 dmg == 0 || dmg.saturating_sub(cumbersome_reduction) == 0
             });
 
@@ -1021,6 +1204,7 @@ pub(super) fn has_unassigned_damage(state: &GameState) -> bool {
             Some(d) => d,
             None => continue,
         };
+        let enemy_city = combat_resolution::effective_city_color_for_enemy(combat, enemy);
         let num_attacks = attack_count(def);
         for i in 0..num_attacks {
             if enemy.attacks_blocked.get(i).copied().unwrap_or(false) {
@@ -1032,7 +1216,7 @@ pub(super) fn has_unassigned_damage(state: &GameState) -> bool {
             if enemy.attacks_damage_assigned.get(i).copied().unwrap_or(true) {
                 continue;
             }
-            let (dmg, _, _) = combat_resolution::get_enemy_attack_info(def, i);
+            let (dmg, _, _) = combat_resolution::get_enemy_attack_info_with_city(def, i, enemy_city);
             if dmg > 0 {
                 return true;
             }
@@ -1074,8 +1258,10 @@ pub(super) fn apply_assign_damage_to_hero(
         .copied()
         .unwrap_or(0);
 
+    let city_color = combat_resolution::effective_city_color_for_enemy(combat, enemy);
+
     let (base_damage, _element, _is_swift) =
-        combat_resolution::get_enemy_attack_info(def, attack_index);
+        combat_resolution::get_enemy_attack_info_with_city(def, attack_index, city_color);
 
     let modified_damage = if atk_change != 0 {
         (base_damage as i32 + atk_change).max(atk_minimum as i32) as u32
@@ -1086,7 +1272,9 @@ pub(super) fn apply_assign_damage_to_hero(
     let reduced_damage = modified_damage.saturating_sub(cumbersome_reduction);
 
     let (wounds, is_poison) =
-        combat_resolution::calculate_hero_wounds_with_damage(def, attack_index, hero_armor, reduced_damage);
+        combat_resolution::calculate_hero_wounds_with_damage_and_city(
+            def, attack_index, hero_armor, reduced_damage, city_color,
+        );
 
     let is_paralyze = combat_resolution::has_ability(def, EnemyAbilityType::Paralyze);
 
@@ -1178,8 +1366,10 @@ pub(super) fn apply_assign_damage_to_unit(
         .copied()
         .unwrap_or(0);
 
+    let city_color = combat_resolution::effective_city_color_for_enemy(combat, enemy);
+
     let (base_damage, attack_element, _is_swift) =
-        combat_resolution::get_enemy_attack_info(def, attack_index);
+        combat_resolution::get_enemy_attack_info_with_city(def, attack_index, city_color);
 
     let modified_damage = if atk_change != 0 {
         (base_damage as i32 + atk_change).max(atk_minimum as i32) as u32
@@ -1189,9 +1379,9 @@ pub(super) fn apply_assign_damage_to_unit(
 
     let reduced_damage = modified_damage.saturating_sub(cumbersome_reduction);
 
-    let is_poison = combat_resolution::has_ability(def, EnemyAbilityType::Poison);
+    let is_poison = combat_resolution::has_ability_with_city(def, EnemyAbilityType::Poison, city_color);
     let is_paralyze = combat_resolution::has_ability(def, EnemyAbilityType::Paralyze);
-    let is_brutal = combat_resolution::has_ability(def, EnemyAbilityType::Brutal);
+    let is_brutal = combat_resolution::has_ability_with_city(def, EnemyAbilityType::Brutal, city_color);
     let effective_damage = if is_brutal { reduced_damage * 2 } else { reduced_damage };
 
     // Find the unit

@@ -83,6 +83,14 @@ pub(super) fn enumerate_cooperative_actions(
         None => return,
     };
 
+    // Can't propose from a space occupied by another player (FAQ S9)
+    let space_occupied = state.players.iter().enumerate().any(|(idx, other)| {
+        idx != player_idx && other.position == Some(player_pos)
+    });
+    if space_occupied {
+        return;
+    }
+
     for neighbor in player_pos.neighbors() {
         let hex_key = neighbor.key();
         let hex_state = match state.map.hexes.get(&hex_key) {

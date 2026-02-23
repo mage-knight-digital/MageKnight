@@ -2,9 +2,10 @@
 
 use mk_data::sites::{
     adventure_site_enemies, draws_fresh_enemies, healing_cost, is_adventure_site, is_inhabited,
+    CITY_AA_PURCHASE_COST, CITY_ARTIFACT_PURCHASE_COST, CITY_ELITE_UNIT_COST,
     MONASTERY_AA_PURCHASE_COST, SPELL_PURCHASE_COST,
 };
-use mk_types::enums::SiteType;
+use mk_types::enums::{BasicManaColor, SiteType};
 use mk_types::legal_action::LegalAction;
 use mk_types::state::{GameState, PlayerFlags};
 
@@ -213,6 +214,80 @@ pub(super) fn enumerate_site_actions(
             actions.push(LegalAction::BurnMonastery);
         }
     }
+
+    // City commerce — per-color interactions at conquered cities
+    if site.site_type == SiteType::City
+        && site.is_conquered
+        && !player
+            .flags
+            .contains(PlayerFlags::HAS_COMBATTED_THIS_TURN)
+    {
+        // Shield token influence bonus: +1 per shield on this city, once per turn
+        let shield_bonus = if !player
+            .flags
+            .contains(PlayerFlags::REPUTATION_BONUS_APPLIED_THIS_TURN)
+        {
+            city_shield_influence(hex_state, &player.id)
+        } else {
+            0
+        };
+        let effective_influence = player.influence_points + shield_bonus;
+
+        match site.city_color {
+            Some(BasicManaColor::Blue) => {
+                // Same as MageTower: BuySpell for each spell in offer
+                // Requires 7 influence + matching mana
+                if effective_influence >= SPELL_PURCHASE_COST {
+                    for (idx, card_id) in state.offers.spells.iter().enumerate() {
+                        // Check if spell has a color and player has matching mana
+                        if let Some(spell_color) = mk_data::cards::get_spell_color(card_id.as_str()) {
+                            if player_has_mana_of_color(player, spell_color) {
+                                actions.push(LegalAction::BuySpell {
+                                    card_id: card_id.clone(),
+                                    offer_index: idx,
+                                    mana_color: spell_color,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            Some(BasicManaColor::Green) => {
+                // AA from main offer (replenished), cost 6
+                if effective_influence >= CITY_AA_PURCHASE_COST {
+                    for (idx, card_id) in state.offers.advanced_actions.iter().enumerate() {
+                        actions.push(LegalAction::BuyCityAdvancedAction {
+                            card_id: card_id.clone(),
+                            offer_index: idx,
+                        });
+                    }
+                }
+                // Blind draw from AA deck, cost 6
+                if effective_influence >= CITY_AA_PURCHASE_COST
+                    && !state.decks.advanced_action_deck.is_empty()
+                {
+                    actions.push(LegalAction::BuyCityAdvancedActionFromDeck);
+                }
+            }
+            Some(BasicManaColor::Red) => {
+                // Artifact from deck (draw 2, keep 1), cost 12
+                if effective_influence >= CITY_ARTIFACT_PURCHASE_COST
+                    && !state.decks.artifact_deck.is_empty()
+                {
+                    actions.push(LegalAction::BuyArtifact);
+                }
+            }
+            Some(BasicManaColor::White) => {
+                // Elite unit add: pay 2 influence to add unit from deck to offer
+                if effective_influence >= CITY_ELITE_UNIT_COST
+                    && !state.decks.unit_deck.is_empty()
+                {
+                    actions.push(LegalAction::AddEliteToOffer);
+                }
+            }
+            None => {}
+        }
+    }
 }
 
 // =============================================================================
@@ -391,6 +466,32 @@ fn collect_altar_mana_sources(
     }
 
     sources
+}
+
+/// Count shield tokens placed by this player on the given hex's city.
+fn city_shield_influence(hex: &mk_types::state::HexState, player_id: &mk_types::ids::PlayerId) -> u32 {
+    hex.shield_tokens.iter().filter(|id| *id == player_id).count() as u32
+}
+
+/// Check if a player has mana of a given basic color (token, gold token, or crystal).
+fn player_has_mana_of_color(player: &mk_types::state::PlayerState, color: BasicManaColor) -> bool {
+    let target = mk_types::enums::ManaColor::from(color);
+    // Check matching-color token
+    if player.pure_mana.iter().any(|t| t.color == target) {
+        return true;
+    }
+    // Check gold token (wild)
+    if player.pure_mana.iter().any(|t| t.color == mk_types::enums::ManaColor::Gold) {
+        return true;
+    }
+    // Check matching-color crystal
+    let crystal_count = match color {
+        BasicManaColor::Red => player.crystals.red,
+        BasicManaColor::Blue => player.crystals.blue,
+        BasicManaColor::Green => player.crystals.green,
+        BasicManaColor::White => player.crystals.white,
+    };
+    crystal_count > 0
 }
 
 /// Check if a color pile has at least `count` tokens available.

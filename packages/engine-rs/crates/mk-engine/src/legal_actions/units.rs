@@ -70,6 +70,7 @@ fn refugee_camp_cost_modifier(unit: &UnitDefinition) -> i32 {
 fn unit_available_at_site(
     unit: &UnitDefinition,
     recruit_site: RecruitSite,
+    city_color: Option<BasicManaColor>,
 ) -> bool {
     match recruit_site {
         RecruitSite::Camp => {
@@ -79,6 +80,14 @@ fn unit_available_at_site(
         RecruitSite::MagicalGlade => {
             // Magical Glade: only units with MagicalGlade in recruit_sites
             unit.recruit_sites.contains(&RecruitSite::MagicalGlade)
+        }
+        RecruitSite::City => {
+            // White city: all unit types recruitable
+            if city_color == Some(BasicManaColor::White) {
+                return true;
+            }
+            // Other cities: normal recruit_sites check
+            unit.recruit_sites.contains(&recruit_site)
         }
         _ => {
             // Normal: unit's recruit_sites must include this site
@@ -167,6 +176,8 @@ pub(super) fn enumerate_unit_actions(
         return;
     }
 
+    let city_color = site.city_color;
+
     // Command limit check (bonds_of_loyalty adds +1 slot)
     let mut command_slots = get_level_stats(player.level).command_slots as usize;
     if player.skills.iter().any(|s| s.as_str() == "norowas_bonds_of_loyalty") {
@@ -195,7 +206,7 @@ pub(super) fn enumerate_unit_actions(
         };
 
         // Check unit is available at this site
-        if !unit_available_at_site(unit, recruit_site) {
+        if !unit_available_at_site(unit, recruit_site, city_color) {
             continue;
         }
 

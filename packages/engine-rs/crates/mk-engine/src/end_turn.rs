@@ -808,18 +808,42 @@ fn advance_turn(state: &mut GameState, current_player_idx: usize, is_time_bendin
     let turn_order_len = state.turn_order.len();
     let mut next_turn_idx = (state.current_player_index as usize + 1) % turn_order_len;
 
-    // Auto-execute dummy player turns (skip over them)
-    while crate::dummy_player::is_dummy_player(state.turn_order[next_turn_idx].as_str()) {
-        if let Some(ref mut dummy) = state.dummy_player {
-            if crate::dummy_player::execute_dummy_turn(dummy).is_none() {
-                // Dummy deck exhausted → announce end of round
-                state.end_of_round_announced_by =
-                    Some(PlayerId::from(crate::dummy_player::DUMMY_PLAYER_ID));
-                state.players_with_final_turn =
-                    state.players.iter().map(|p| p.id.clone()).collect();
+    // Auto-execute dummy player turns and skip flipped-token players (FAQ S17)
+    loop {
+        let turn_id = &state.turn_order[next_turn_idx];
+
+        if crate::dummy_player::is_dummy_player(turn_id.as_str()) {
+            if let Some(ref mut dummy) = state.dummy_player {
+                if crate::dummy_player::execute_dummy_turn(dummy).is_none() {
+                    // Dummy deck exhausted → announce end of round
+                    state.end_of_round_announced_by =
+                        Some(PlayerId::from(crate::dummy_player::DUMMY_PLAYER_ID));
+                    state.players_with_final_turn =
+                        state.players.iter().map(|p| p.id.clone()).collect();
+                }
             }
+            next_turn_idx = (next_turn_idx + 1) % turn_order_len;
+            continue;
         }
-        next_turn_idx = (next_turn_idx + 1) % turn_order_len;
+
+        // Check if this real player has a flipped token (cooperative assault invitee)
+        let pid = state
+            .players
+            .iter()
+            .position(|p| p.id == *turn_id)
+            .expect("Turn order entry not found in players");
+        if state.players[pid]
+            .flags
+            .contains(PlayerFlags::ROUND_ORDER_TOKEN_FLIPPED)
+        {
+            state.players[pid]
+                .flags
+                .remove(PlayerFlags::ROUND_ORDER_TOKEN_FLIPPED);
+            next_turn_idx = (next_turn_idx + 1) % turn_order_len;
+            continue;
+        }
+
+        break;
     }
 
     // Auto-skip players with flipped round-order tokens (from cooperative assaults)
