@@ -16,7 +16,6 @@ import { ReplayLoadScreen } from "./components/Replay";
 
 const MODE_PARAM = "mode" as const;
 const MODE_NETWORK = "network" as const;
-const MODE_RUST = "rust" as const;
 const SERVER_URL_PARAM = "serverUrl" as const;
 const GAME_ID_PARAM = "gameId" as const;
 const PLAYER_ID_PARAM = "playerId" as const;
