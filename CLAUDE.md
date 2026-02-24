@@ -60,261 +60,212 @@ PRs auto-close issues when merged via `Closes #XX` in PR body.
 
 ## Build & Test Commands
 
+### Rust Engine (primary)
+
 ```bash
-bun install           # Install dependencies
-bun run build         # Build all packages
-bun run test          # Run all tests
-bun run lint          # Lint all packages
-
-# Package-specific (run from package directory)
-bun run test:watch    # Watch mode for tests (core, shared)
-bun run build:esm     # Build ESM only
-bun run build:cjs     # Build CJS only
+cd packages/engine-rs
+cargo check              # Verify compilation
+cargo test               # Run all tests (~2100 tests)
+cargo clippy             # Lint
+cargo test -p mk-engine  # Test specific crate
 ```
 
-## Architecture
+### Client + Server
 
-This is a Bun monorepo implementing the Mage Knight board game with a client/server architecture.
-
-### Package Dependency Graph
-
-```
-client → shared
-server → core → shared
+```bash
+bun run dev:rust         # Rust WebSocket server + React client
+bun run cli              # CLI game runner (release mode)
 ```
 
-Note: Client currently embeds server for local single-player mode, but the architectural boundary is `client → shared` only.
+### RL Training
 
-### Packages
-
-- **@mage-knight/shared**: Types shared between client and server:
-  - `PlayerAction` (discriminated union of player inputs)
-  - `GameEvent` (discriminated union of engine outputs)
-  - `ClientGameState` and related types (filtered state sent to clients)
-  - Core types: `CardId`, `SkillId`, `ManaColor`, `HexCoord`, `Terrain`
-
-- **@mage-knight/core**: Pure TypeScript game engine (server-side only, never imported by client):
-  - `GameState` — full server-side state
-  - Card effects, combat, validation, modifiers
-  - Exports dual ESM/CJS builds
-
-- **@mage-knight/server**: Connects engine to clients:
-  - `GameServer` — multiplayer with per-player state filtering
-  - `toClientState()` — filters state (hides other players' hands, deck contents)
-
-- **@mage-knight/client**: React UI with hex map, card display, action menus
-
-### Communication Pattern
-
-1. Client sends `PlayerAction` → server
-2. Server validates, executes command, returns `GameEvent[]`
-3. Server filters state per-player via `toClientState()`
-4. Events + filtered state sent to client
+```bash
+cd packages/python-sdk && source .venv/bin/activate
+bun run train-rl         # Start training
+bun run tensorboard      # View metrics
+```
 
 ---
 
-## Core Systems
+## Architecture
 
-### Card Effect System (`core/src/engine/effects/`)
+The game engine is a Rust workspace at `packages/engine-rs/` with 6 crates and 2 tool binaries.
 
-Effects are a **discriminated union** with 20+ types. Key patterns:
+### Crate Dependency Graph
 
-- **Simple**: `GainMoveEffect`, `GainAttackEffect`, `GainBlockEffect`, `GainHealingEffect`
-- **Compound**: `CompoundEffect` executes sub-effects in sequence
-- **Choice**: `ChoiceEffect` presents options, creates `pendingChoice` on player
-- **Conditional**: `ConditionalEffect` branches on game state (time of day, terrain, in combat)
-- **Scaling**: `ScalingEffect` multiplies base effect (per enemy, per wound in hand)
-- **Multi-step**: `ManaDrawPoweredEffect`, `CardBoostEffect` require multiple resolutions
+```
+mk-types → mk-data → mk-engine → mk-features → mk-env → mk-python
+                                                    tools: mk-cli, mk-server
+```
 
-**Resolution modules** (split by category):
-- `atomicEffects.ts` — GainMove, GainAttack, GainBlock, etc.
-- `compound.ts` — Compound, Conditional, Scaling
-- `choice.ts` — Choice effects
-- `manaDrawEffects.ts` — Mana draw/pull effects
-- `cardBoostResolvers.ts` — Card boost effects
-- `combatEffects.ts` — Combat targeting
-- `index.ts` — Main `resolveEffect()` dispatcher
+### Crates
 
-**Resolution flow**: `resolveEffect()` → may create `pendingChoice` → player sends `RESOLVE_CHOICE` action → resolution continues
+- **mk-types**: Core types — 13 branded ID newtypes (`CardId`, `SkillId`, `UnitId`, `EnemyId`, etc.), all game enums (`ManaColor`, `Element`, `Terrain`, `GamePhase`, `CombatPhase`, `Hero`, etc.), hex coordinates, `PlayerAction` enum (~70 variants), `GameState`/`PlayerState`/`CombatState`/`MapState`, `PlayerFlags` bitfield (u32), `ActivePending` (21 variants) + `DeferredPending` (4 variants), `EffectType` (100+ discriminants), `CardEffect` enum, `ModifierEffect` (50+ variants), `ActiveModifier`, Mulberry32 RNG (seed-parity with TS)
 
-**Gotcha**: Effects can be nested. Always check if resolution creates a pending choice before assuming it's complete.
+- **mk-data**: Static game data — 70+ card definitions (basic actions, advanced actions, artifacts, spells), 31 unit definitions with 16 ability variants, 100+ enemy definitions, 70 skill definitions with passive modifiers, 25 artifact cards, tile layouts (starting tiles + countryside + core), site properties, ruins tokens, hero decks, fame/level thresholds, tactic IDs
 
-### Combat System (`core/src/engine/combat/`)
+- **mk-engine**: Game logic — action pipeline (`apply_action()` → validate → execute → compute legal actions), effect queue (VecDeque-based, replaces TS recursive resolution), combat system (4-phase: Ranged/Siege → Block → Assign Damage → Attack), movement (terrain costs, provocation, tile exploration), mana operations (die pool, tokens, crystals), card play (basic/powered/sideways with mana payment), end turn/round, valid actions enumeration, card playability evaluation, site interactions (commerce, monastery, ruins), cooperative assaults, modifier system, reward system, undo (snapshot-based)
+
+- **mk-features**: RL integration — state encoder (76 scalars + entity pools), action encoder (6 IDs + 34 scalars per action), 9 vocab tables, mode/source derivation, PyO3 `GameEngine` class with `encode_step()`
+
+- **mk-env**: Vectorized RL environment for parallel training via Rayon
+
+- **mk-python**: PyO3 module (`#[pymodule]`) exposing engine to Python
+
+### Tool Binaries
+
+- **mk-cli** (`tools/mk-cli/`): CLI game runner with random and human play modes
+- **mk-server** (`tools/mk-server/`): WebSocket server bridging Rust engine to React client
+
+### Other Packages
+
+- **client** (`packages/client/`): React UI with hex map, card display, action menus
+- **python-sdk** (`packages/python-sdk/`): RL training (PPO, REINFORCE), game viewer, tensorboard integration
+- **mage-dev** (`packages/mage-dev/`): Dev tooling for trace generation and debugging
+- **shared** (`packages/shared/`): TypeScript types shared between client and server (action types, event types, client state)
+
+---
+
+## Core Systems (Rust Engine)
+
+### Effect Queue (`mk-engine/src/effect_queue.rs`)
+
+Queue-based (VecDeque), not recursive. Replaces the TS recursive resolution pattern.
+
+```
+EffectQueue::drain() loop:
+  Atomic effects → mutate GameState directly
+  Compound → decompose, push sub-effects to front
+  Conditional → evaluate condition, push chosen branch to front
+  Scaling → evaluate factor, push scaled effect to front
+  Choice → filter resolvable options:
+    0 → skip, 1 → auto-resolve, N → return NeedsChoice
+```
+
+When a choice pauses resolution, remaining queue entries become the "continuation" stored in player pending state. On `ResolveChoice`, the chosen option + continuation are pushed to a new queue and draining resumes.
+
+**ChoiceResolution variants**: Standard, CrystallizeConsume, DiscardThenContinue, ManaDrawTakeDie, BoostTarget, UniversalPowerMana, SecretWaysLake, RegenerateMana, DuelingTarget, InvocationDiscard, PolarizationConvert, CurseTarget, CurseMode, CurseAttackIndex, ForkedLightningTarget, KnowYourPreyTarget, KnowYourPreyOption, PuppetMasterSelectToken, PuppetMasterUseMode, ShapeshiftCardSelect, ShapeshiftTypeSelect, RitualOfPainDiscard, NaturesVengeanceTarget, ManaOverloadColorSelect, SourceOpeningDieSelect, MasterOfChaosGoldChoice
+
+### Combat System
 
 4-phase combat: **Ranged/Siege → Block → Assign Damage → Attack**
 
-- `CombatState` tracks enemies, phase, damage, fortification
-- `ElementalCalc` handles damage with elemental resistances (fire/ice/cold)
-- Dungeons/Tombs: units cannot participate, gold mana unavailable
+- `CombatState` (boxed — large, uncommon) tracks enemies, phase, damage, fortification, city_color, enemy_assignments (cooperative)
+- City defender bonuses by color: White (+1 Armor), Blue (+2 Attack Ice/Fire), Red (Brutal on Physical), Green (Poison on Physical)
+- Dungeons/Tombs: units cannot participate, night mana rules apply
+- Enemy abilities: Vampiric, Defend, Cumbersome, Paralyze, Summon, ArcaneImmunity, Brutal, Poison, Swift, Fortified, Elusive, Poison
+- Instance IDs: `"enemy_0"`, `"enemy_1"` (not token-based)
 
-**Commands**: `enterCombatCommand`, `declareAttackCommand`, `declareBlockCommand`, `assignDamageCommand`, `endCombatPhaseCommand`
+### Action Pipeline
 
-### Validation System (`core/src/engine/validators/`)
+Every action flows through: validate → execute → compute valid actions.
 
-Every action goes through validators before execution:
+`LegalActionSet` is computed after each action and sent to the client. The client uses it to enable/disable UI elements.
 
-```typescript
-type Validator = (state, playerId, action) => ValidationResult;
-```
-
-- Validators are **composable** — each action type has a list of validators
-- 100+ validation codes in `validationCodes.ts` (e.g., `NOT_YOUR_TURN`, `CARD_NOT_IN_HAND`)
-- `validateAction()` runs all validators for an action type
-
-**ValidActions**: Server computes what actions are legal and sends to client. UI uses this to enable/disable buttons.
-
-### Mana System (`core/src/types/mana.ts`)
+### Mana System
 
 Three mana sources:
 1. **Die Pool**: Shared dice (players + 2). Day: gold available, black depleted. Night: reversed.
 2. **Tokens**: Temporary mana from card effects. Returned at end of turn.
 3. **Crystals**: Permanent storage (max 3 per color). Can convert to/from tokens.
 
-**Gotcha**: Mana Draw/Pull effects are multi-step — pick die, choose color, gain tokens. Die stays in pool (not removed) but marked with chosen color.
+Payment priority: matching-color token → gold token (wild) → matching-color crystal.
 
-### Command Pattern (`core/src/engine/commands/`)
+### Modifier System
 
-Commands implement `execute()` and `undo()`. Key concept: **reversibility**.
+Tracks active effects with duration (`Turn`, `Combat`, `Round`, `Permanent`) and scope.
 
-- `isReversible: true` — can undo (most card plays, movement)
-- `isReversible: false` — sets undo checkpoint (tile reveals, RNG, conquest)
+Query functions: `get_effective_terrain_cost()`, `get_effective_sideways_value()`, `is_rule_active()`, `find_replace_cost_for_terrain()`
 
-Undo works back to last checkpoint. Commands store state needed for undo in closure.
+Modifiers expire automatically at phase boundaries.
 
-### Modifier System (`core/src/engine/modifiers.ts`)
+### Undo System
 
-Tracks active effects with duration (`turn`, `combat`, `round`, `permanent`) and scope.
+Snapshot-based (replaces TS closure-based undo):
+- `save()` = reversible checkpoint (most card plays, movement)
+- `set_checkpoint()` = irreversible (tile reveals, RNG, conquest) — clears stack
+- `undo()` returns `Option<GameState>` — assign result, don't pass `&mut state`
 
-Query functions: `getEffectiveTerrainCost()`, `getEffectiveSidewaysValue()`, `isRuleActive()`
+### Pending State
 
-Modifiers expire automatically via `expireModifiers(state, reason)` at phase boundaries.
+Consolidated from 20+ TS fields into:
+- `ActivePending` — single blocking resolution (one at a time)
+- `DeferredPending` — entries that accumulate (rewards, level-ups, fame trackers)
+- `PendingQueue` — owns both, with `has_active()`, `is_empty()` helpers
 
-### Reward System (`core/src/engine/helpers/rewardHelpers.ts`)
+### Reward System
 
-Site conquest queues rewards to `player.pendingRewards`. Player must select before ending turn.
+Site conquest queues rewards to `player.pending`. Player must select before ending turn.
 
-- Choice rewards (spell, artifact, AA): queued, resolved via `SELECT_REWARD` action
+- Choice rewards (spell, artifact, AA): queued, resolved via `SelectReward` action
 - Immediate rewards (fame, crystals): granted instantly
 - Selected cards go to **top of deed deck** (drawn next round)
 
 ---
 
-## Key Gotchas
-
-### Rule Architecture: Validators & ValidActions
-
-To keep validation logic and action availability in sync, we follow a clean pattern:
-
-**Rules** (`core/src/engine/rules/`) are the single source of truth containing pure functions that define game mechanics.
-
-**Validators** (`core/src/engine/validators/`) import rules and reject invalid actions.
-
-**ValidActions** (`core/src/engine/validActions/`) import the same rules to compute what options are available to the player.
-
-This ensures validators and validActions are always aligned through shared code, not manual duplication.
-
-**Rule modules by domain:**
-- `rules/cardPlay.ts` — card restrictions, wound cards, effect contexts
-- `rules/combatTargeting.ts` — combat targeting eligibility
-- `rules/mana.ts` — mana color availability (time of day, dungeons)
-- `rules/movement.ts` — movement restrictions
-- `rules/sideways.ts` — sideways play restrictions
-- `rules/unitRecruitment.ts` — recruitment eligibility, cost calculations
-- `rules/siteInteraction.ts` — site accessibility, interaction eligibility
-- `rules/turnStructure.ts` — turn phases, rest mechanics
-- `rules/combatEnemyState.ts` — enemy targetability queries
-- `rules/effectDetection/` — effect type detection helpers
-
-**When adding new mechanics:**
-
-1. Define the rule logic in `core/src/engine/rules/` (or extend existing)
-   ```typescript
-   // rules/combatTargeting.ts
-   export function canAssignDamageToUnit(enemy, playerId): boolean { ... }
-   ```
-
-2. Import rule into validators to reject violations
-   ```typescript
-   // validators/combatValidators/targetValidators.ts
-   if (!canAssignDamageToUnit(enemy, playerId)) {
-     return invalid(CANNOT_TARGET_UNIT, "...");
-   }
-   ```
-
-3. Import same rule into validActions to filter options
-   ```typescript
-   // validActions/combatDamage.ts
-   const targetableEnemies = enemies.filter(e => canAssignDamageToUnit(e, playerId));
-   ```
-
-4. Add tests for the rule logic and its usage in validators/validActions
-
-**Key principle:** Rules are pure functions with no side effects or state mutations. They're imported by validators and validActions, never the other way around.
-
-### Card Playability (`core/src/engine/validActions/cards/cardPlayability.ts`)
-
-Card playability is a special case of the rule architecture above. Because determining "can this card be played basic/powered/sideways?" requires orchestrating many rules (combat phase gating, mana checks, resolvability, sideways value, discard costs, etc.), this logic is unified in `evaluateCardPlayability()` rather than duplicated across validators and validActions.
-
-- `buildPlayContext()` / `buildCombatPlayContext()` — construct a `PlayContext` from game state
-- `evaluateCardPlayability()` — returns `CardPlayabilityResult` with `basic`, `powered`, and `sideways` sub-results
-- `evaluateHandPlayability()` — batch-evaluates all cards in hand, filtering to playable ones
-- `toPlayableCard()` (`playableCardBuilder.ts`) — converts result to the `PlayableCard` shape sent to clients
-
-**Consumed by:**
-- `combat.ts` / `normalTurn.ts` — build `PlayableCard[]` for valid actions
-- `validateCardPlayableInContext` — maps `EffectPlayability` fields to validation error codes
-
-**When adding new card play restrictions:** Add the check inside `evaluateCardPlayability()` (or its helpers like `evaluateCombatEffectMode`). Both validators and validActions will pick it up automatically.
-
-### Monorepo Build Order
-Core/server consume shared via built outputs. When adding exports to shared:
-```bash
-cd packages/shared && bun run build  # Rebuild shared first
-bun run build                         # Then full build
-```
-
-### Client Running Stale Code
-After changes to core/shared, kill dev server and rebuild:
-```bash
-pkill -f vite; bun run build
-```
-
-### Effect Resolution Creates Pending State
-Many effects don't complete immediately. Check for `pendingChoice`, `pendingRewards`, `pendingTacticDecision` before assuming resolution is done.
-
-### Branded ID Types
-`CardId`, `UnitId`, `EnemyId` are branded strings. Use them for type safety:
-```typescript
-const cardId = "march" as CardId;  // Correct
-const cardId = "march";            // Type error in strict contexts
-```
+## Key Patterns & Gotchas
 
 ### RNG Threading
 All randomness must thread through `RngState`:
-```typescript
-const { result, rng: newRng } = shuffleWithRng(cards, state.rng);
-return { ...state, rng: newRng };
+```rust
+let (result, new_rng) = shuffle_with_rng(cards, state.rng);
+state.rng = new_rng;
 ```
+Mulberry32 PRNG with seed-for-seed parity with the TS engine.
+
+### Branded ID Types
+`CardId`, `UnitId`, `EnemyId` are newtype wrappers around `Box<str>`. Use the `define_id!` macro.
+
+### Deterministic Containers
+**BTreeMap** everywhere instead of HashMap for deterministic iteration order. `ManaColor` derives `PartialOrd + Ord` for use as BTreeMap key.
+
+### PlayerFlags Bitfield
+17 boolean fields packed into `PlayerFlags(u32)` using `bitflags!`. Manual serde (serialize as u32).
+
+### Boxed CombatState
+`GameState.combat` is `Option<Box<CombatState>>` — boxed because CombatState is large and combat is uncommon.
+
+### ArrayVec for Bounded Collections
+Units (max 8), banners (max 4), kept enemies (max 4) use `ArrayVec` to avoid heap allocation.
+
+### PoweredBy Enum
+- `PoweredBy::None` (wounds), `PoweredBy::Single(color)` (most cards), `PoweredBy::AnyBasic` (Crystal Joy)
+- `.primary_color()` → `Option<BasicManaColor>` (Single→Some, else None)
+- AnyBasic cards emit up to 4 PlayCardPowered legal actions (one per affordable basic color)
+- `play_card()` accepts `override_mana_color: Option<BasicManaColor>` for AnyBasic powered plays
+
+### Skills
+- `apply_use_skill()` does NOT set `HAS_TAKEN_ACTION` or `PLAYED_CARD_FROM_HAND`
+- Custom handlers return early (sideways skills, etc.), generic path uses EffectQueue
+- `push_passive_skill_modifiers()` called when skill acquired (Permanent duration)
+- Interactive skills: `place_skill_in_center()` (flip + Round/OtherPlayers markers), `ReturnInteractiveSkill` for returner benefits
+- Motivation cross-player cooldown: scan all players' `used_this_round`
+- SIDEWAYS_SKILLS mutual exclusivity: check `active_modifiers` for conflicting sources
+
+### Sites
+- Dungeon/Tomb: `units_allowed=false`, `night_mana_rules=true`, re-enterable
+- Plunder: burns site + rep -1
+- Commerce: BuySpell (7 influence), LearnAA (6 influence), BurnMonastery (-3 rep, violet enemy, artifact reward)
+- Conquest rewards: `queue_site_reward` → auto-grant or defer → `promote_site_reward`
+- City-color commerce: Blue (spells), Green (AA from offer or deck), Red (artifact blind draw), White (elite unit + all types)
+
+### Dummy Player (Solo Mode)
+In turn_order but NOT in `state.players`. Auto-executes turns.
+
+### Borrow Checker Patterns
+When processing effects that read and mutate state: collect from read-only → process draws → apply mutations (3 phases).
 
 ### Volkare/Entity Support (Future)
-The Lost Legion expansion adds Volkare, an AI-controlled antagonist that takes turns but isn't a `Player`. Current architecture assumes all turn-takers have full `Player` objects. When implementing new features:
-- Avoid hardcoding `PlayerId` where a generic actor ID could work
+The Lost Legion expansion adds Volkare, an AI-controlled antagonist. When implementing new features:
+- Avoid hardcoding player index where a generic actor ID could work
 - Keep combat state extensible (initiator/defender tracking may be needed)
 - Don't assume `Player` object exists without considering entity case
-
-See `docs/tickets/volkare-architecture-considerations.md` for details.
 
 ---
 
 ## No Magic Strings Policy
 
-All identifiers use exported constants:
-```typescript
-export const SOME_KIND = "some_kind" as const;
-export type SomeKind = typeof SOME_KIND | typeof OTHER_KIND;
-```
-
-Use constants in comparisons, object literals, switches. Never raw strings.
+All identifiers use exported constants or const strings. Use constants in comparisons, match arms, struct literals. Never raw strings.
 
 ---
 
@@ -322,10 +273,13 @@ Use constants in comparisons, object literals, switches. Never raw strings.
 
 **Always run before pushing:**
 ```bash
-bun run build && bun run lint && bun run test
+cd packages/engine-rs && cargo test && cargo clippy
 ```
 
-Catches cross-package type mismatches that IDE won't see until full build.
+For changes touching the client or shared types:
+```bash
+bun run build && bun run lint
+```
 
 ---
 
@@ -333,8 +287,8 @@ Catches cross-package type mismatches that IDE won't see until full build.
 
 **Always fix the root cause of lint errors — never bypass them.**
 
-- Do not use `// eslint-disable`, `@ts-ignore`, `@ts-expect-error`, or similar suppression comments
-- Do not modify ESLint/TypeScript config to weaken rules
+- Do not use `#[allow(...)]`, `// eslint-disable`, `@ts-ignore`, `@ts-expect-error`, or similar suppression comments
+- Do not modify linter config to weaken rules
 - If a lint error seems incorrect, investigate the underlying issue first
 
 **Bypass is only acceptable with strong justification:**
@@ -346,27 +300,34 @@ When in doubt, fix the code to satisfy the linter rather than silencing the warn
 
 ---
 
-## File Reference
+## File Reference (Rust Engine)
 
 | What | Where |
 |------|-------|
-| Basic action cards | `core/src/data/basicActions/` (by color) |
-| Advanced action cards | `core/src/data/advancedActions/` (by color/type) |
-| Spells | `core/src/data/spells.ts` |
-| Effect types | `core/src/types/effectTypes.ts` |
-| Effect resolution | `core/src/engine/effects/` (modular) |
-| Combat commands | `core/src/engine/commands/combat/` |
-| End turn phases | `core/src/engine/commands/endTurn/` |
-| Validators | `core/src/engine/validators/` |
-| Valid actions | `core/src/engine/validActions/` |
-| Card playability (unified) | `core/src/engine/validActions/cards/cardPlayability.ts` |
-| Game rules (shared) | `core/src/engine/rules/` |
-| Site properties | `core/src/data/siteProperties.ts` |
-| Client state filter | `server/src/index.ts` (`toClientState`) |
-| Mana source logic | `core/src/engine/mana/` |
+| Core types (IDs, enums, state) | `engine-rs/crates/mk-types/src/` |
+| Card definitions (basic + AA) | `engine-rs/crates/mk-data/src/cards/` |
+| Artifact card definitions | `engine-rs/crates/mk-data/src/artifacts.rs` |
+| Spell definitions | `engine-rs/crates/mk-data/src/spells.rs` |
+| Skill definitions | `engine-rs/crates/mk-data/src/skills/` |
+| Enemy definitions | `engine-rs/crates/mk-data/src/enemies.rs` |
+| Unit definitions | `engine-rs/crates/mk-data/src/units.rs` |
+| Site properties | `engine-rs/crates/mk-data/src/site_properties.rs` |
+| Tile layouts | `engine-rs/crates/mk-data/src/tiles.rs` |
+| Ruins tokens | `engine-rs/crates/mk-data/src/ruins_tokens.rs` |
+| Effect queue / resolvers | `engine-rs/crates/mk-engine/src/effect_queue.rs` |
+| Action pipeline | `engine-rs/crates/mk-engine/src/action_pipeline/` |
+| Combat logic | `engine-rs/crates/mk-engine/src/combat/` |
+| Movement | `engine-rs/crates/mk-engine/src/movement.rs` |
+| Valid actions / legal actions | `engine-rs/crates/mk-engine/src/legal_actions/` |
+| Card playability | `engine-rs/crates/mk-engine/src/legal_actions/card_playability.rs` |
+| End turn / round | `engine-rs/crates/mk-engine/src/end_turn.rs` |
+| Mana operations | `engine-rs/crates/mk-engine/src/mana.rs` |
+| Undo system | `engine-rs/crates/mk-engine/src/undo.rs` |
+| RL feature encoding | `engine-rs/crates/mk-features/src/` |
+| CLI game runner | `engine-rs/tools/mk-cli/` |
+| WebSocket server | `engine-rs/tools/mk-server/` |
 | Claude Code skills | `.claude/skills/` |
 
 
 
 Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
-

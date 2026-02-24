@@ -13,28 +13,13 @@ permissions:
   pull-requests: write
 
 jobs:
-  ci:
-    name: Build, Lint & Test
+  build-and-lint:
+    name: Build & Lint
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Detect changes by area
-        id: changes
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            python_sdk:
-              - 'packages/python-sdk/**'
-              - 'packages/shared/src/networkProtocol.ts'
-              - 'packages/shared/schemas/network-protocol/**'
-              - 'packages/server/src/WebSocketServer.ts'
-              - 'packages/server/src/GameServer.ts'
-              - '.github/workflows/ci.yml'
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -55,129 +40,15 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Verify generated network schemas are committed
-        run: |
-          bun run --filter @mage-knight/shared generate:deep-schemas
-          bun run --filter @mage-knight/shared generate:network-schemas
-          if ! git diff --quiet -- packages/shared/schemas/network-protocol/; then
-            echo "Generated network protocol schemas are out of date."
-            echo "Run: cd packages/shared && bun run generate:deep-schemas && bun run generate:network-schemas"
-            git --no-pager diff -- packages/shared/schemas/network-protocol/
-            exit 1
-          fi
-
-      - name: Verify protocol version bump for contract changes
-        if: github.event_name == 'pull_request'
-        run: |
-          git fetch origin main --no-tags --depth=1
-          bun run --filter @mage-knight/shared check:network-version
-
-      - name: Setup Python
-        if: steps.changes.outputs.python_sdk == 'true'
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-
-      - name: Verify generated Python protocol models are committed
-        if: steps.changes.outputs.python_sdk == 'true'
-        run: |
-          python packages/python-sdk/scripts/generate_protocol_models.py
-          if ! git diff --quiet -- packages/python-sdk/src/mage_knight_sdk/protocol_models.py; then
-            echo "Generated Python protocol models are out of date."
-            echo "Run: python packages/python-sdk/scripts/generate_protocol_models.py"
-            git --no-pager diff -- packages/python-sdk/src/mage_knight_sdk/protocol_models.py
-            exit 1
-          fi
-
       - name: Build
         run: bun run build
-
-      - name: Install Python SDK dependencies
-        if: steps.changes.outputs.python_sdk == 'true'
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e packages/python-sdk
-
-      - name: Test Python SDK
-        if: steps.changes.outputs.python_sdk == 'true'
-        run: |
-          python -m unittest packages/python-sdk/tests/test_client.py -v
-          python packages/python-sdk/tests/integration/test_websocket_client.py -v
 
       - name: Lint
         run: bun run lint
 
-      - name: Create output directories
-        run: mkdir -p test-results coverage/core coverage/shared coverage/server
-
-      - name: Test core
-        if: success()
-        run: |
-          cd packages/core
-          bun test --reporter=junit --reporter-outfile=../../test-results/core.xml \
-            --coverage --coverage-reporter=lcov --coverage-dir=../../coverage/core
-
-      - name: Test shared
-        if: success()
-        run: |
-          cd packages/shared
-          bun test --reporter=junit --reporter-outfile=../../test-results/shared.xml \
-            --coverage --coverage-reporter=lcov --coverage-dir=../../coverage/shared
-
-      - name: Test server
-        if: success()
-        run: |
-          cd packages/server
-          bun test --reporter=junit --reporter-outfile=../../test-results/server.xml \
-            --coverage --coverage-reporter=lcov --coverage-dir=../../coverage/server
-
-      - name: Test Report
-        uses: dorny/test-reporter@v1
-        if: always()
-        with:
-          name: Test Results
-          path: test-results/*.xml
-          reporter: java-junit
-
-      - name: Generate Coverage Report
-        if: always()
-        run: |
-          {
-            echo "## Coverage Report"
-            echo ""
-            echo "| Package | Lines | Coverage |"
-            echo "| --- | --- | --- |"
-            for pkg in core shared server; do
-              if [ -f "coverage/$pkg/lcov.info" ]; then
-                LINES_FOUND=$(grep -c "^DA:" "coverage/$pkg/lcov.info" 2>/dev/null || echo "0")
-                LINES_HIT=$(grep "^DA:" "coverage/$pkg/lcov.info" 2>/dev/null | grep -v ",0$" | wc -l | tr -d ' ')
-                if [ "$LINES_FOUND" -gt 0 ]; then
-                  PCT=$((LINES_HIT * 100 / LINES_FOUND))
-                  echo "| **$pkg** | $LINES_HIT / $LINES_FOUND | ${PCT}% |"
-                fi
-              fi
-            done
-          } > coverage-report.md
-          cat coverage-report.md
-
-      - name: Add Coverage to PR
-        uses: marocchino/sticky-pull-request-comment@v2
-        if: github.event_name == 'pull_request'
-        with:
-          path: coverage-report.md
-
-      - name: Upload to Codecov
-        uses: codecov/codecov-action@v5
-        if: always()
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: coverage/core/lcov.info,coverage/shared/lcov.info,coverage/server/lcov.info
-          fail_ci_if_error: false
-
   rust:
     name: Rust Build, Lint & Test
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
 
     steps:
       - name: Checkout
@@ -196,7 +67,11 @@ jobs:
         if: steps.rust-changes.outputs.rust == 'true'
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy
+          components: clippy, llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        if: steps.rust-changes.outputs.rust == 'true'
+        uses: taiki-e/install-action@cargo-llvm-cov
 
       - name: Cache Cargo
         if: steps.rust-changes.outputs.rust == 'true'
@@ -209,7 +84,15 @@ jobs:
         working-directory: packages/engine-rs
         run: cargo clippy --workspace --exclude mk-python -- -D warnings
 
-      - name: Test
+      - name: Test with coverage
         if: steps.rust-changes.outputs.rust == 'true'
         working-directory: packages/engine-rs
-        run: cargo test --workspace --exclude mk-python
+        run: cargo llvm-cov --workspace --exclude mk-python --lcov --output-path lcov.info
+
+      - name: Upload to Codecov
+        if: steps.rust-changes.outputs.rust == 'true'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: packages/engine-rs/lcov.info
+          fail_ci_if_error: false

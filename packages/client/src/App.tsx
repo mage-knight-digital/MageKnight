@@ -1,5 +1,4 @@
 import { useState, useCallback } from "react";
-import type { GameConfig } from "@mage-knight/shared";
 import { GameProvider } from "./context/GameProvider";
 import { ReplayProvider, type ArtifactData } from "./context/ReplayProvider";
 import { CardMenuPositionProvider } from "./context/CardMenuPositionContext";
@@ -13,7 +12,6 @@ import { PixiAppProvider } from "./contexts/PixiAppContext";
 import { TurnNotificationProvider } from "./contexts/TurnNotificationContext";
 import { GameView } from "./components/GameView";
 import { DebugPanel } from "./components/DebugPanel";
-import { SetupScreen } from "./components/Setup";
 import { ReplayLoadScreen } from "./components/Replay";
 
 const MODE_PARAM = "mode" as const;
@@ -79,13 +77,8 @@ function isReplayModeRequested(): boolean {
   return urlParams.get(MODE_PARAM) === MODE_REPLAY;
 }
 
-function getRuntimeRustConfig(): RuntimeRustConfig | null {
+function getRuntimeRustConfig(): RuntimeRustConfig {
   const urlParams = new URLSearchParams(window.location.search);
-  const mode = urlParams.get(MODE_PARAM);
-
-  if (mode !== MODE_RUST) {
-    return null;
-  }
 
   const hero = urlParams.get(HERO_PARAM) ?? "arythea";
   const serverUrl = urlParams.get(SERVER_URL_PARAM) ?? DEFAULT_RUST_SERVER_URL;
@@ -101,33 +94,12 @@ function getRuntimeRustConfig(): RuntimeRustConfig | null {
   };
 }
 
-// Get seed from URL param (?seed=12345) or use current time
-// This allows reproducible games for testing and debugging
-function getGameSeed(): number {
-  const urlParams = new URLSearchParams(window.location.search);
-  const seedParam = urlParams.get("seed");
-  if (seedParam) {
-    const seed = parseInt(seedParam, 10);
-    if (!isNaN(seed)) {
-      console.log("Game seed (from URL):", seed);
-      return seed;
-    }
-  }
-  const seed = Date.now();
-  console.log("Game seed (random):", seed);
-  return seed;
-}
-
-const GAME_SEED = getGameSeed();
 const RUNTIME_NETWORK_CONFIG = getRuntimeNetworkConfig();
 const RUNTIME_RUST_CONFIG = getRuntimeRustConfig();
 const NETWORK_MODE_REQUESTED = isNetworkModeRequested();
 const REPLAY_MODE_REQUESTED = isReplayModeRequested();
 
 export function App() {
-  // Game configuration state - null until setup is complete
-  const [gameConfig, setGameConfig] = useState<GameConfig | null>(null);
-
   // Replay mode state
   const [replayArtifact, setReplayArtifact] = useState<ArtifactData | null>(null);
   const [replayPlayerId, setReplayPlayerId] = useState<string | null>(null);
@@ -203,29 +175,15 @@ export function App() {
     );
   }
 
-  // Rust mode: connect to Rust mk-server via WebSocket
-  if (RUNTIME_RUST_CONFIG) {
-    return (
-      <GameProvider
-        mode="rust"
-        serverUrl={RUNTIME_RUST_CONFIG.serverUrl}
-        hero={RUNTIME_RUST_CONFIG.hero}
-        seed={RUNTIME_RUST_CONFIG.seed}
-        playerId={RUNTIME_RUST_CONFIG.playerId}
-      >
-        {gameShell}
-      </GameProvider>
-    );
-  }
-
-  // Show setup screen until configuration is complete
-  if (!gameConfig) {
-    return <SetupScreen onComplete={setGameConfig} />;
-  }
-
-  // Once setup is complete, render the game
+  // Default: connect to Rust mk-server
   return (
-    <GameProvider mode="local" seed={GAME_SEED} config={gameConfig}>
+    <GameProvider
+      mode="rust"
+      serverUrl={RUNTIME_RUST_CONFIG.serverUrl}
+      hero={RUNTIME_RUST_CONFIG.hero}
+      seed={RUNTIME_RUST_CONFIG.seed}
+      playerId={RUNTIME_RUST_CONFIG.playerId}
+    >
       {gameShell}
     </GameProvider>
   );

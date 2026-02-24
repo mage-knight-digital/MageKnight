@@ -5,8 +5,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { GameServer } from "@mage-knight/server";
-import type { ClientGameState, GameEvent, GameConfig, PlayerAction } from "@mage-knight/shared";
+import type { ClientGameState, GameEvent, PlayerAction } from "@mage-knight/shared";
 import { GameContext, type ActionLogEntry, type GameContextValue } from "./GameContext";
 import {
   WebSocketConnection,
@@ -21,16 +20,10 @@ import { snakeToCamel } from "../rust/snakeToCamel";
 import { patchRustState } from "../rust/patchRustState";
 import type { LegalAction } from "../rust/types";
 
-type GameMode = "local" | "network" | "rust";
+type GameMode = "network" | "rust";
 
 interface BaseGameProviderProps {
   children: ReactNode;
-}
-
-interface LocalGameProviderProps extends BaseGameProviderProps {
-  mode: "local";
-  seed?: number;
-  config: GameConfig;
 }
 
 interface NetworkGameProviderProps extends BaseGameProviderProps {
@@ -49,47 +42,9 @@ interface RustGameProviderProps extends BaseGameProviderProps {
   playerId?: string;
 }
 
-type GameProviderProps = LocalGameProviderProps | NetworkGameProviderProps | RustGameProviderProps;
+type GameProviderProps = NetworkGameProviderProps | RustGameProviderProps;
 
 let nextLogId = 1;
-
-/**
- * Get or create a GameServer instance.
- * In development, the server is preserved across HMR updates using import.meta.hot.data
- * to maintain game state (e.g., staying in combat) during code changes.
- * Server is only created when config is provided.
- * Uses dynamic import to avoid bundling server code in network mode.
- */
-async function getOrCreateServer(seed?: number, config?: GameConfig): Promise<GameServer | null> {
-  if (!config) return null;
-
-  // Dynamically import server to avoid bundling Node.js code in client
-  const { createGameServer } = await import("@mage-knight/server");
-
-  if (import.meta.hot) {
-    const hotData = import.meta.hot.data as {
-      server?: GameServer;
-      configHash?: string;
-    };
-
-    // Hash config to detect changes (e.g., different hero selections)
-    const configHash = JSON.stringify([config.playerIds, config.heroIds, config.scenarioId]);
-
-    // Development: preserve server across HMR updates, but recreate if config changes
-    if (!hotData.server || hotData.configHash !== configHash) {
-      const server = createGameServer(seed);
-      server.initializeGame(config.playerIds, config.heroIds, config.scenarioId, config);
-      hotData.server = server;
-      hotData.configHash = configHash;
-    }
-    return hotData.server;
-  }
-
-  // Production: create fresh server
-  const server = createGameServer(seed);
-  server.initializeGame(config.playerIds as string[], config.heroIds, config.scenarioId, config);
-  return server;
-}
 
 export function GameProvider(props: GameProviderProps) {
   const { children } = props;
@@ -102,7 +57,6 @@ export function GameProvider(props: GameProviderProps) {
   const [epoch, setEpoch] = useState(0);
   const [rustConnectionStatus, setRustConnectionStatus] = useState<ConnectionStatus | null>(null);
 
-  const serverRef = useRef<GameServer | null>(null);
   const wsConnectionRef = useRef<WebSocketConnection | null>(null);
   const rustConnectionRef = useRef<RustGameConnection | null>(null);
   const isActionLogEnabledRef = useRef(isActionLogEnabled);
@@ -114,24 +68,18 @@ export function GameProvider(props: GameProviderProps) {
   }, [isActionLogEnabled]);
 
   // Determine mode and playerId from props
-  // Cast to access mode-specific properties — discriminated union can't narrow via derived variable
   const mode: GameMode = props.mode;
-  const localProps = props as LocalGameProviderProps;
   const networkProps = props as NetworkGameProviderProps;
   const rustProps = props as RustGameProviderProps;
-  const myPlayerId = mode === "local"
-    ? (localProps.config.playerIds[0] ?? "player1")
-    : mode === "rust"
+  const myPlayerId = mode === "rust"
     ? (rustProps.playerId ?? "player_0")
     : networkProps.playerId;
 
-  // Handle state updates from either local or network mode
+  // Handle state updates from network mode
   const handleStateUpdate = useCallback((newEvents: readonly GameEvent[], newState: ClientGameState) => {
-    // Accumulate all events indefinitely (oldest at top, newest at bottom)
     setEvents((prev) => [...prev, ...newEvents]);
     setState(newState);
 
-    // Log events for debugging
     if (isActionLogEnabledRef.current && newEvents.length > 0) {
       setActionLog((prev) => [
         ...prev,
@@ -144,37 +92,11 @@ export function GameProvider(props: GameProviderProps) {
       ]);
     }
 
-    // Expose state for e2e testing (development only)
     if (import.meta.env.DEV) {
       (window as unknown as { __MAGE_KNIGHT_STATE__: ClientGameState }).
         __MAGE_KNIGHT_STATE__ = newState;
     }
   }, []);
-
-  // Local mode: create embedded game server
-  useEffect(() => {
-    if (mode !== "local") return;
-
-    let isMounted = true;
-
-    // Get existing server (HMR) or create new one
-    getOrCreateServer(localProps.seed, localProps.config).then((server) => {
-      if (!isMounted) return;
-      if (!server) return;
-
-      serverRef.current = server;
-
-      // Connect and receive state updates
-      server.connect(myPlayerId, handleStateUpdate);
-    });
-
-    return () => {
-      isMounted = false;
-      if (serverRef.current) {
-        serverRef.current.disconnect(myPlayerId);
-      }
-    };
-  }, [mode, localProps.seed, localProps.config, myPlayerId, handleStateUpdate]);
 
   // Network mode: connect via WebSocket
   useEffect(() => {
@@ -192,7 +114,6 @@ export function GameProvider(props: GameProviderProps) {
       onStatusChange: handleConnectionStatusChange,
     });
 
-    // Set session token if provided
     if (networkProps.sessionToken) {
       connection.setSessionToken(networkProps.sessionToken);
     }
@@ -218,12 +139,10 @@ export function GameProvider(props: GameProviderProps) {
         setLegalActions(actions);
         setEpoch(newEpoch);
         epochRef.current = newEpoch;
-        // Accumulate events for ActivityFeed
         if (rawEvents.length > 0) {
           setEvents((prev) => [...prev, ...(rawEvents as GameEvent[])]);
         }
 
-        // Debug: log Rust state updates to diagnose rendering issues
         if (import.meta.env.DEV) {
           const player = camelState.players?.[0];
           const cardActionTypes = actions
@@ -239,7 +158,6 @@ export function GameProvider(props: GameProviderProps) {
           );
         }
 
-        // Expose state for e2e testing (development only)
         if (import.meta.env.DEV) {
           (window as unknown as { __MAGE_KNIGHT_STATE__: ClientGameState }).
             __MAGE_KNIGHT_STATE__ = camelState;
@@ -264,7 +182,6 @@ export function GameProvider(props: GameProviderProps) {
   }, [mode, rustProps.serverUrl, rustProps.hero, rustProps.seed]);
 
   const sendAction = useCallback((action: Parameters<GameContextValue["sendAction"]>[0]) => {
-    // Log action for debugging
     if (isActionLogEnabledRef.current) {
       setActionLog((prev) => [
         ...prev,
@@ -277,31 +194,20 @@ export function GameProvider(props: GameProviderProps) {
       ]);
     }
 
-    // Send via local server, WebSocket connection, or Rust server
-    if (mode === "local" && serverRef.current) {
-      serverRef.current.handleAction(myPlayerId, action as PlayerAction);
-    } else if (mode === "network" && wsConnectionRef.current) {
+    if (mode === "network" && wsConnectionRef.current) {
       wsConnectionRef.current.sendAction(action as PlayerAction);
     } else if (mode === "rust" && rustConnectionRef.current) {
-      // In rust mode, action is a LegalAction — send with current epoch
       rustConnectionRef.current.sendAction(action as LegalAction, epochRef.current);
     }
-  }, [mode, myPlayerId]);
+  }, [mode]);
 
   const saveGame = useCallback((): string | null => {
-    if (mode === "local" && serverRef.current) {
-      return serverRef.current.saveGame();
-    }
-    // Network mode: save/load not supported (server manages state)
     return null;
-  }, [mode]);
+  }, []);
 
-  const loadGame = useCallback((json: string): void => {
-    if (mode === "local" && serverRef.current) {
-      serverRef.current.loadGame(json);
-    }
-    // Network mode: save/load not supported (server manages state)
-  }, [mode]);
+  const loadGame = useCallback((_json: string): void => {
+    // Save/load not supported in network/rust modes
+  }, []);
 
   const clearActionLog = useCallback(() => {
     setActionLog([]);

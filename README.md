@@ -3,23 +3,36 @@
 [![CI](https://github.com/eshaffer321/MageKnight/actions/workflows/ci.yml/badge.svg)](https://github.com/eshaffer321/MageKnight/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/eshaffer321/MageKnight/graph/badge.svg)](https://codecov.io/gh/eshaffer321/MageKnight)
 
-A digital implementation of the Mage Knight board game.
+A digital implementation of the Mage Knight board game, built with a Rust game engine and React client.
 
 ## Structure
 
 ```
 packages/
-├── core/      # Game engine (server-side only)
-├── server/    # Thin wrapper: actions → engine → events
-├── client/    # UI: sends actions, receives events (scaffold only)
-└── shared/    # Action types, event types, data types
+├── engine-rs/         # Rust game engine (primary — 6-crate workspace)
+│   ├── crates/
+│   │   ├── mk-types/      # Core types (IDs, enums, state, effects, modifiers)
+│   │   ├── mk-data/       # Static card/enemy/unit/skill/site data
+│   │   ├── mk-engine/     # Game logic (actions, combat, effects, validation)
+│   │   ├── mk-features/   # RL feature extraction (state/action encoding, PyO3)
+│   │   ├── mk-env/        # Vectorized RL environment (Rayon parallelism)
+│   │   └── mk-python/     # PyO3 bindings
+│   └── tools/
+│       ├── mk-cli/        # CLI game runner (random/human play modes)
+│       └── mk-server/     # WebSocket server for client communication
+├── client/            # React UI (hex map, cards, action menus)
+├── shared/            # TS types shared between client and server
+├── python-sdk/        # RL training (PPO, REINFORCE, game viewer)
+└── mage-dev/          # Dev tooling (trace generation, debugging)
 ```
 
 ## Development
 
 ### Prerequisites
 
-- [Bun](https://bun.sh/) >= 1.0
+- [Rust](https://rustup.rs/) (stable)
+- [Bun](https://bun.sh/) >= 1.0 (for client and shared types)
+- Python 3.10+ (for RL training, optional)
 
 ### Setup
 
@@ -28,56 +41,52 @@ bun install
 git config core.hooksPath .githooks
 ```
 
-The hooks configuration enables automatic asset symlinking when using git worktrees.
-
-### Scripts
+### Rust Engine
 
 ```bash
-bun run build   # Build all packages
-bun run test    # Run tests
-bun run lint    # Run linter
-bun run dev:client   # Existing local embedded-server mode
-bun run dev:server   # Standalone WebSocket server + dev room
-bun run dev:network  # Run server + client together
+cd packages/engine-rs
+cargo check            # Verify compilation
+cargo test             # Run all tests (~2100 tests)
+cargo clippy           # Lint
 ```
 
-### Local Network Multiplayer Dev Flow
+### Client + Server
 
-`dev:client` behavior is unchanged and still starts the local in-memory flow.
+```bash
+bun run dev            # Start Rust WebSocket server + React client
+bun run cli            # Run CLI game (release mode)
+```
 
-For local multiplayer iteration:
+### RL Training
 
-1. Run `bun run dev:network` (or run `bun run dev:server` and `bun run dev:client` separately).
-2. Copy the printed `http://localhost:3000/?...` URLs from `dev:server`.
-3. Open one URL per player in separate browser tabs/windows.
+```bash
+cd packages/python-sdk
+source .venv/bin/activate
+bun run train-rl       # Start RL training
+bun run tensorboard    # View training metrics
+bun run viewer         # Game replay viewer
+```
 
-The client runtime mode is selected from URL params:
+## Architecture
 
-- Local mode (default): no mode param, or anything except `?mode=network`
-- Network mode: `?mode=network&gameId=...&playerId=...`
-- Optional network params:
-  - `serverUrl` (default: `ws://localhost:3001`)
-  - `sessionToken` (if reconnect/auth flow requires it)
+### Rust Engine (`packages/engine-rs/`)
 
-## Packages
+The primary game engine is a 6-crate Rust workspace:
 
-### @mage-knight/shared
+```
+mk-types → mk-data → mk-engine → mk-features → mk-env → mk-python
+```
 
-Shared types and utilities used by both client and server:
-- Hex coordinate types and helpers
-- Terrain types and movement costs
-- Game events (discriminated union)
-- Player actions (discriminated union)
-- Connection abstraction (local/networked)
+- **mk-types**: Core types — IDs (branded newtypes), enums (terrain, mana, phases), game state, player state, combat state, effects, modifiers, hex coordinates, RNG (Mulberry32, seed-parity with TS)
+- **mk-data**: Static game data — 70+ card definitions, 31 unit definitions, 100+ enemy definitions, 70 skill definitions, 25 artifact cards, 24 spells, site properties, tile layouts, ruins tokens
+- **mk-engine**: Game logic — action pipeline, effect queue, combat (4-phase), movement, mana, undo, valid actions enumeration, card playability, site interactions, cooperative assaults
+- **mk-features**: RL integration — state/action encoding, vocab tables, mode/source derivation, PyO3 `GameEngine` class
+- **mk-env**: Vectorized environment for parallel RL training via Rayon
+- **mk-python**: PyO3 module exposing the engine to Python
 
-### @mage-knight/core
+### Client Communication
 
-Pure TypeScript game engine. Server-side only, not imported by client.
-
-### @mage-knight/server
-
-Server wrapper that connects the game engine to clients via the connection abstraction.
-
-### @mage-knight/client
-
-Web UI package (scaffold only, not yet implemented).
+1. Client sends `PlayerAction` → Rust WebSocket server (`mk-server`)
+2. Server validates, executes action, computes legal actions
+3. Filtered state + legal actions sent to client
+4. Client renders React UI with hex map, card display, action menus
