@@ -262,32 +262,36 @@ fn to_client_map(map: &MapState) -> ClientMapState {
         hexes: map
             .hexes
             .values()
-            .map(|hex| ClientHexState {
-                coord: hex.coord,
-                terrain: hex.terrain,
-                tile_id: hex.tile_id,
-                site: hex.site.as_ref().map(|s| ClientSite {
-                    site_type: s.site_type,
-                    owner: s.owner.clone(),
-                    is_conquered: s.is_conquered,
-                    is_burned: s.is_burned,
-                    city_color: s.city_color,
-                    mine_color: s.mine_color,
-                }),
-                rampaging_enemies: hex.rampaging_enemies.to_vec(),
-                enemies: hex
-                    .enemies
-                    .iter()
-                    .map(|e| ClientHexEnemy {
-                        color: e.color,
-                        is_revealed: e.is_revealed,
-                        token_id: if e.is_revealed {
-                            Some(e.token_id.clone())
-                        } else {
-                            None
-                        },
-                    })
-                    .collect(),
+            .map(|hex| {
+                let key = format!("{},{}", hex.coord.q, hex.coord.r);
+                let value = ClientHexState {
+                    coord: hex.coord,
+                    terrain: hex.terrain,
+                    tile_id: hex.tile_id,
+                    site: hex.site.as_ref().map(|s| ClientSite {
+                        site_type: s.site_type,
+                        owner: s.owner.clone(),
+                        is_conquered: s.is_conquered,
+                        is_burned: s.is_burned,
+                        city_color: s.city_color,
+                        mine_color: s.mine_color,
+                    }),
+                    rampaging_enemies: hex.rampaging_enemies.to_vec(),
+                    enemies: hex
+                        .enemies
+                        .iter()
+                        .map(|e| ClientHexEnemy {
+                            color: e.color,
+                            is_revealed: e.is_revealed,
+                            token_id: if e.is_revealed {
+                                Some(e.token_id.clone())
+                            } else {
+                                None
+                            },
+                        })
+                        .collect(),
+                };
+                (key, value)
             })
             .collect(),
 

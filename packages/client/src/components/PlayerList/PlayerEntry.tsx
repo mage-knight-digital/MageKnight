@@ -18,12 +18,12 @@ export function PlayerEntry({ player, isActive, isLocalPlayer }: PlayerEntryProp
   return (
     <div
       className={className}
-      title={`${player.heroId} - ${isActive ? "Active Turn" : "Waiting"}`}
+      title={`${player.hero} - ${isActive ? "Active Turn" : "Waiting"}`}
       role="listitem"
       aria-current={isActive ? "true" : undefined}
     >
       {/* Hero name */}
-      <span className="player-entry__hero">{player.heroId}</span>
+      <span className="player-entry__hero">{player.hero}</span>
 
       {/* Level */}
       <span className="player-entry__stat player-entry__stat--level" title="Level">

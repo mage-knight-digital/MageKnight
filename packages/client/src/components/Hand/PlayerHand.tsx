@@ -64,7 +64,7 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
     ? rustTacticOptions.length > 0
     : !!(
         player &&
-        player.selectedTacticId === null &&
+        player.selectedTactic === null &&
         state?.validActions?.mode === "tactics_selection"
       );
 

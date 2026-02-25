@@ -82,8 +82,8 @@ export function GameView() {
     return <div className="loading">Loading game state...</div>;
   }
   const isTacticSelectionActive = isRustMode
-    ? (player && player.selectedTacticId === null && tacticOptions.length > 0)
-    : (player && player.selectedTacticId === null && state.validActions?.mode === "tactics_selection");
+    ? (player && player.selectedTactic === null && tacticOptions.length > 0)
+    : (player && player.selectedTactic === null && state.validActions?.mode === "tactics_selection");
   const shouldDimForTactics = isTacticSelectionActive && isIntroComplete;
 
   const appClassName = [

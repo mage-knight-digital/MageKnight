@@ -25,7 +25,7 @@ import type { HeroId } from "../hero.js";
 
 // Dummy player state visible to the client (solo mode)
 export interface ClientDummyPlayer {
-  readonly heroId: HeroId;
+  readonly hero: HeroId;
   readonly turnsRemainingMin: number;
   readonly turnsRemainingMax: number;
 }
@@ -137,7 +137,7 @@ export interface ClientCombatAccumulator {
 // Client-visible player state
 export interface ClientPlayer {
   readonly id: string;
-  readonly heroId: HeroId;
+  readonly hero: HeroId;
   readonly position: HexCoord | null;
 
   // Progression
@@ -174,7 +174,7 @@ export interface ClientPlayer {
   // Turn state
   readonly movePoints: number;
   readonly influencePoints: number;
-  readonly pureMana: readonly ClientManaToken[];
+  readonly manaTokens: readonly ClientManaToken[];
   readonly hasMovedThisTurn: boolean;
   readonly hasTakenActionThisTurn: boolean;
   readonly usedManaFromSource: boolean;
@@ -183,7 +183,7 @@ export interface ClientPlayer {
 
   // Round state
   readonly knockedOut: boolean;
-  readonly selectedTacticId: TacticId | null;
+  readonly selectedTactic: TacticId | null;
   readonly tacticFlipped: boolean;
 
   // Pending choice (if card requires player selection)
@@ -239,7 +239,7 @@ export interface ClientManaSource {
 
 // Site on a hex (public)
 export interface ClientSite {
-  readonly type: string;
+  readonly siteType: string;
   readonly owner: string | null;
   readonly isConquered: boolean;
   readonly isBurned: boolean;
@@ -313,16 +313,11 @@ export interface ClientMapState {
   readonly tileSlots: Record<string, ClientTileSlot>;
 }
 
-// Card offer (public)
-export interface ClientCardOffer {
-  readonly cards: readonly CardId[];
-}
-
 // Game offers (public)
 export interface ClientGameOffers {
   readonly units: readonly UnitId[];
-  readonly advancedActions: ClientCardOffer;
-  readonly spells: ClientCardOffer;
+  readonly advancedActions: readonly CardId[];
+  readonly spells: readonly CardId[];
   readonly commonSkills: readonly SkillId[];
   readonly monasteryAdvancedActions: readonly CardId[];
 }

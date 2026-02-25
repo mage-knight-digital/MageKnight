@@ -100,8 +100,8 @@ export function TurnNotificationProvider({ children }: { children: ReactNode }) 
           (p) => p.id === event.nextPlayerId
         );
         // Use capitalized heroId for display (e.g., "arythea" -> "Arythea")
-        const heroName = nextPlayer?.heroId
-          ? capitalize(nextPlayer.heroId)
+        const heroName = nextPlayer?.hero
+          ? capitalize(nextPlayer.hero)
           : event.nextPlayerId;
 
         const message = isMyTurn ? "Your turn" : `${heroName}'s turn`;

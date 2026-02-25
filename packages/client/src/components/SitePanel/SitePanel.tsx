@@ -437,7 +437,7 @@ function computeSiteInfo(
   const hasUnrevealedEnemies = enemies?.some(e => !e.isRevealed) ?? false;
   const enemyRevealNote = hasUnrevealedEnemies && isNight ? " (revealed on assault)" : "";
   const sharedInfo = getSitePanelInfo({
-    siteType: site.type,
+    siteType: site.siteType,
     isConquered: site.isConquered,
     timeOfDay,
     hasUnrevealedEnemies,
@@ -447,7 +447,7 @@ function computeSiteInfo(
     return sharedInfo;
   }
 
-  switch (site.type) {
+  switch (site.siteType) {
     case "dungeon":
       return {
         fight: `1 Brown enemy${enemyRevealNote}`,
@@ -691,7 +691,7 @@ export function SitePanel({
   }
 
   // Use siteOptions if available, otherwise fall back to basic site info
-  const siteType = siteOptions?.siteType ?? site?.type ?? "unknown";
+  const siteType = siteOptions?.siteType ?? site?.siteType ?? "unknown";
   const siteName = siteOptions?.siteName ?? formatSiteName(siteType, site);
   const isConquered = siteOptions?.isConquered ?? site?.isConquered ?? false;
   const siteIconType = getSiteIconType(siteType, site?.cityColor);
@@ -702,7 +702,7 @@ export function SitePanel({
     : null;
   const sharedPanelInfo = site
     ? getSitePanelInfo({
-      siteType: site.type,
+      siteType: site.siteType,
       isConquered: site.isConquered,
       timeOfDay,
       hasUnrevealedEnemies: hex?.enemies?.some(e => !e.isRevealed) ?? false,

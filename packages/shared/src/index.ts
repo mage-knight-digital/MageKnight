@@ -208,7 +208,6 @@ export type {
   ClientHexState,
   ClientTileSlot,
   ClientMapState,
-  ClientCardOffer,
   ClientGameOffers,
   ClientGameState,
   ClientCombatState,

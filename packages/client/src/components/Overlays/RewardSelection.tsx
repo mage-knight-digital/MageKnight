@@ -51,13 +51,13 @@ function describeReward(reward: SiteReward): string {
 // Get the offer cards for a reward type
 function getOfferForReward(
   reward: SiteReward,
-  offers: { spells: { cards: readonly CardId[] }; advancedActions: { cards: readonly CardId[] } }
+  offers: { spells: readonly CardId[]; advancedActions: readonly CardId[] }
 ): readonly CardId[] {
   switch (reward.type) {
     case SITE_REWARD_SPELL:
-      return offers.spells.cards;
+      return offers.spells;
     case SITE_REWARD_ADVANCED_ACTION:
-      return offers.advancedActions.cards;
+      return offers.advancedActions;
     // TODO: Artifact rewards need artifact offer to be added to ClientGameOffers
     default:
       return [];

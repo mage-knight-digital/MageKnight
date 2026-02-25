@@ -73,7 +73,7 @@ export function TopBar() {
       {/* Left section: Hero identity */}
       <div className="top-bar__section top-bar__section--left">
         <div className="top-bar__hero">
-          <span className="top-bar__hero-name">{player.heroId}</span>
+          <span className="top-bar__hero-name">{player.hero}</span>
         </div>
 
         <div className="top-bar__stat" title="Level">
@@ -134,9 +134,9 @@ export function TopBar() {
           )}
         </div>
 
-        {player.pureMana.length > 0 && (
+        {player.manaTokens.length > 0 && (
           <div className="top-bar__mana-group top-bar__mana-group--tokens" title="Mana Tokens">
-            {player.pureMana.map((token, i) => (
+            {player.manaTokens.map((token, i) => (
               <span
                 key={i}
                 className={`top-bar__token top-bar__token--${token.color}`}

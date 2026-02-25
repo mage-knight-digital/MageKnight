@@ -170,7 +170,7 @@ export function PixiOfferView({ isVisible, onClose, initialTab = "units" }: Pixi
       const playerPos = player.position;
       const hexKey = playerPos ? `${playerPos.q},${playerPos.r}` : "";
       const hex = hexKey ? state.map.hexes[hexKey] : null;
-      const canBuyFromMonastery = hex?.site?.type === "monastery" && !hex.site.isBurned;
+      const canBuyFromMonastery = hex?.site?.siteType === "monastery" && !hex.site.isBurned;
       const playerInfluence = player.influencePoints ?? 0;
 
       const monasteryAAs = (state.offers.monasteryAdvancedActions ?? []).map((aaId) => {
@@ -201,10 +201,10 @@ export function PixiOfferView({ isVisible, onClose, initialTab = "units" }: Pixi
       const playerPos = player.position;
       const hexKey = playerPos ? `${playerPos.q},${playerPos.r}` : "";
       const hex = hexKey ? state.map.hexes[hexKey] : null;
-      const canBuySpells = hex?.site?.type === "mage_tower" && hex.site.isConquered;
+      const canBuySpells = hex?.site?.siteType === "mage_tower" && hex.site.isConquered;
       const playerInfluence = player.influencePoints ?? 0;
 
-      return state.offers.spells.cards.map((spellId) => {
+      return state.offers.spells.map((spellId) => {
         let canAcquire = false;
         let acquireLabel = "";
         let onAcquire: (() => void) | undefined;
@@ -231,7 +231,7 @@ export function PixiOfferView({ isVisible, onClose, initialTab = "units" }: Pixi
         : -1;
 
       // Regular AAs only (monastery AAs are in the units pane per game rules)
-      return state.offers.advancedActions.cards.map((aaId) => {
+      return state.offers.advancedActions.map((aaId) => {
         let canAcquire = false;
         let acquireLabel = "Level-up only";
         let onAcquire: (() => void) | undefined;

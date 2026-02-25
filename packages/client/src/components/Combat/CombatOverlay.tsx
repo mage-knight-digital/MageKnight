@@ -95,9 +95,9 @@ function CombatManaDisplay() {
   const { state } = useGame();
   if (!player) return null;
 
-  const { crystals, pureMana } = player;
+  const { crystals, manaTokens } = player;
   const hasCrystals = crystals.red > 0 || crystals.blue > 0 || crystals.green > 0 || crystals.white > 0;
-  const hasTokens = pureMana.length > 0;
+  const hasTokens = manaTokens.length > 0;
 
   if (!hasCrystals && !hasTokens) return null;
 
@@ -148,7 +148,7 @@ function CombatManaDisplay() {
         {/* Tokens */}
         {hasTokens && (
           <div className="combat-mana__group combat-mana__group--tokens">
-            {pureMana.map((token, i) => (
+            {manaTokens.map((token, i) => (
               <span
                 key={i}
                 className={`combat-mana__token combat-mana__token--${token.color}`}

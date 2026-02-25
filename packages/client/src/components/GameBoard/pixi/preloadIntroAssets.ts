@@ -59,7 +59,7 @@ export async function preloadIntroAssets(
 
   // Collect hero token URLs for all players
   for (const player of state.players) {
-    urlsToPreload.push(getHeroTokenUrl(player.heroId));
+    urlsToPreload.push(getHeroTokenUrl(player.hero));
   }
 
   // GPU texture upload is unavoidably blocking in JavaScript.

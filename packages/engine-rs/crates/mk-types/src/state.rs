@@ -123,6 +123,7 @@ pub enum ManaTokenSource {
 
 /// Crystal inventory (max 3 each).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Crystals {
     pub red: u8,
     pub blue: u8,
@@ -132,6 +133,7 @@ pub struct Crystals {
 
 /// Elemental attack values.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ElementalValues {
     pub physical: u32,
     pub fire: u32,
@@ -147,6 +149,7 @@ impl ElementalValues {
 
 /// Accumulated attack by type.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AccumulatedAttack {
     pub normal: u32,
     pub ranged: u32,
@@ -192,6 +195,7 @@ pub struct MasterOfChaosState {
 
 /// Banner attachment.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BannerAttachment {
     pub banner_id: CardId,
     pub unit_instance_id: UnitInstanceId,
@@ -200,6 +204,7 @@ pub struct BannerAttachment {
 
 /// Kept enemy token (Puppet Master).
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct KeptEnemyToken {
     pub enemy_id: EnemyId,
     pub name: String,

@@ -1,6 +1,4 @@
 export { type LegalAction, actionType, actionData, isAction } from "./types";
-export { snakeToCamel } from "./snakeToCamel";
-export { patchRustState } from "./patchRustState";
 export {
   groupCardActions,
   extractMoveTargets,

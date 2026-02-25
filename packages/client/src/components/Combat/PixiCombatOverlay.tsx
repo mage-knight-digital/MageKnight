@@ -132,11 +132,11 @@ export function PixiCombatOverlay({ combat }: PixiCombatOverlayProps) {
     const hex = state.map.hexes[key];
 
     // Check for site first
-    if (hex?.site?.type) {
-      if (hex.site.type === "city" && hex.site.cityColor) {
+    if (hex?.site?.siteType) {
+      if (hex.site.siteType === "city" && hex.site.cityColor) {
         return `city_${hex.site.cityColor}`;
       }
-      return hex.site.type;
+      return hex.site.siteType;
     }
 
     // Check for rampaging enemies

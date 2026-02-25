@@ -490,10 +490,10 @@ export function useGameBoardRenderer({
           renderHeroIntoContainer(
             heroContainer,
             p.position,
-            p.heroId,
+            p.hero,
             {
               isLocal,
-              heroName: HERO_NAMES[p.heroId],
+              heroName: HERO_NAMES[p.hero],
               indexInHex: Math.max(0, indexInHex),
               totalInHex,
             },
@@ -607,10 +607,10 @@ export function useGameBoardRenderer({
                 renderHeroIntoContainer(
                   heroContainer,
                   p.position,
-                  p.heroId,
+                  p.hero,
                   {
                     isLocal,
-                    heroName: HERO_NAMES[p.heroId],
+                    heroName: HERO_NAMES[p.hero],
                     indexInHex: Math.max(0, indexInHex),
                     totalInHex,
                   },
@@ -624,7 +624,7 @@ export function useGameBoardRenderer({
               // Play portal animation at local hero position, emerge all heroes
               if (heroPosition) {
                 const targetPixel = hexToPixel(heroPosition);
-                const activeHeroId = player?.heroId ?? null;
+                const activeHeroId = player?.hero ?? null;
                 const totalHeroes = heroContainerEntries.length;
                 let heroesEmerged = 0;
 
@@ -672,7 +672,7 @@ export function useGameBoardRenderer({
     isInitialized,
     state,
     player?.position,
-    player?.heroId,
+    player?.hero,
     myPlayerId,
     exploreTargets,
     centerAndApplyCamera,

@@ -26,7 +26,7 @@ export function TurnActions() {
 
   const isMyTurn = useIsMyTurn();
   // Must check player exists AND has a tactic (not null/undefined)
-  const hasTactic = player != null && player.selectedTacticId != null;
+  const hasTactic = player != null && player.selectedTactic != null;
 
   // Rust mode: derive turn options from legalActions
   const rustTurnOptions: TurnOptions = useMemo(

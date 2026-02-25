@@ -65,7 +65,7 @@ export function PlayerListPanel() {
     <div className={className}>
       {/* Turn indicator */}
       <div className="player-list-panel__indicator" role="status" aria-live="polite">
-        {isMyTurn ? "YOUR TURN" : `Waiting for ${currentPlayer?.heroId ?? "player"}...`}
+        {isMyTurn ? "YOUR TURN" : `Waiting for ${currentPlayer?.hero ?? "player"}...`}
       </div>
 
       {/* Player entries in turn order */}

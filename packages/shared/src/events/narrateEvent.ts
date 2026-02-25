@@ -37,7 +37,7 @@ export interface ActivityMessage {
 /** Player info needed for narration (hero name lookup) */
 export interface NarrationPlayer {
   readonly id: string;
-  readonly heroId: string;
+  readonly hero: string;
 }
 
 // ============================================================================
@@ -100,7 +100,7 @@ function heroName(
   playerId: string,
 ): string {
   const player = players.find((p) => p.id === playerId);
-  return player ? capitalize(player.heroId) : playerId;
+  return player ? capitalize(player.hero) : playerId;
 }
 
 /** Look up hero display name from player index */
@@ -109,7 +109,7 @@ function heroNameByIndex(
   playerIndex: number,
 ): string {
   const player = players[playerIndex];
-  return player ? capitalize(player.heroId) : `Player ${playerIndex + 1}`;
+  return player ? capitalize(player.hero) : `Player ${playerIndex + 1}`;
 }
 
 /** Format combat phase for display */

@@ -158,10 +158,10 @@ export function GameplayTab({ state, saveGame, loadGame, sendAction }: DebugTabP
     const player = gameState.players[0];
     if (!player) return;
 
-    if (!player.pureMana) {
-      player.pureMana = [];
+    if (!player.manaTokens) {
+      player.manaTokens = [];
     }
-    player.pureMana.push({ color, source: "debug" });
+    player.manaTokens.push({ color, source: "debug" });
     loadGame(JSON.stringify(gameState));
   };
 
@@ -173,10 +173,10 @@ export function GameplayTab({ state, saveGame, loadGame, sendAction }: DebugTabP
     const player = gameState.players[0];
     if (!player) return;
 
-    if (!player.pureMana) {
-      player.pureMana = [];
+    if (!player.manaTokens) {
+      player.manaTokens = [];
     }
-    player.pureMana.push(
+    player.manaTokens.push(
       { color: "red", source: "debug" },
       { color: "blue", source: "debug" },
       { color: "green", source: "debug" },

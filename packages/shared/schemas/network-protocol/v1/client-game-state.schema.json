@@ -639,21 +639,6 @@
       ],
       "type": "object"
     },
-    "ClientCardOffer": {
-      "additionalProperties": false,
-      "properties": {
-        "cards": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        }
-      },
-      "required": [
-        "cards"
-      ],
-      "type": "object"
-    },
     "ClientCombatAccumulator": {
       "additionalProperties": false,
       "properties": {
@@ -797,7 +782,7 @@
     "ClientDummyPlayer": {
       "additionalProperties": false,
       "properties": {
-        "heroId": {
+        "hero": {
           "$ref": "#/definitions/HeroId"
         },
         "turnsRemainingMax": {
@@ -808,7 +793,7 @@
         }
       },
       "required": [
-        "heroId",
+        "hero",
         "turnsRemainingMax",
         "turnsRemainingMin"
       ],
@@ -842,7 +827,10 @@
       "additionalProperties": false,
       "properties": {
         "advancedActions": {
-          "$ref": "#/definitions/ClientCardOffer"
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "commonSkills": {
           "items": {
@@ -857,7 +845,10 @@
           "type": "array"
         },
         "spells": {
-          "$ref": "#/definitions/ClientCardOffer"
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "units": {
           "items": {
@@ -1124,7 +1115,7 @@
         "healingPoints": {
           "type": "number"
         },
-        "heroId": {
+        "hero": {
           "$ref": "#/definitions/HeroId"
         },
         "id": {
@@ -1147,6 +1138,12 @@
         },
         "level": {
           "type": "number"
+        },
+        "manaTokens": {
+          "items": {
+            "$ref": "#/definitions/ClientManaToken"
+          },
+          "type": "array"
         },
         "movePoints": {
           "type": "number"
@@ -1250,16 +1247,10 @@
             }
           ]
         },
-        "pureMana": {
-          "items": {
-            "$ref": "#/definitions/ClientManaToken"
-          },
-          "type": "array"
-        },
         "reputation": {
           "type": "number"
         },
-        "selectedTacticId": {
+        "selectedTactic": {
           "anyOf": [
             {
               "enum": [
@@ -1326,13 +1317,14 @@
         "hasMovedThisTurn",
         "hasTakenActionThisTurn",
         "healingPoints",
-        "heroId",
+        "hero",
         "id",
         "influencePoints",
         "isResting",
         "keptEnemyTokens",
         "knockedOut",
         "level",
+        "manaTokens",
         "movePoints",
         "pendingChoice",
         "pendingDeepMineChoice",
@@ -1345,9 +1337,8 @@
         "playArea",
         "playedCardFromHandThisTurn",
         "position",
-        "pureMana",
         "reputation",
-        "selectedTacticId",
+        "selectedTactic",
         "skills",
         "stolenManaDie",
         "tacticFlipped",

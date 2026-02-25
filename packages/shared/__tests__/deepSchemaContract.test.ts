@@ -129,7 +129,7 @@ const ZERO_ACCUMULATED_ATTACK = {
 
 const minimalClientPlayer = {
   id: "player1",
-  heroId: "arythea",
+  hero: "arythea",
   position: { q: 0, r: 0 },
   fame: 0,
   level: 1,
@@ -148,14 +148,14 @@ const minimalClientPlayer = {
   keptEnemyTokens: [],
   movePoints: 0,
   influencePoints: 0,
-  pureMana: [],
+  manaTokens: [],
   hasMovedThisTurn: false,
   hasTakenActionThisTurn: false,
   usedManaFromSource: false,
   playedCardFromHandThisTurn: false,
   isResting: false,
   knockedOut: false,
-  selectedTacticId: null,
+  selectedTactic: null,
   tacticFlipped: false,
   pendingChoice: null,
   combatAccumulator: {

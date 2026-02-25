@@ -27,7 +27,7 @@ function countSiteLines(site: ClientSite): number {
   // Count based on site type (simplified - matches SiteTooltipContent logic)
   // fight, reward, interaction each add 1 if present
   // special rules add 1 each
-  const type = site.type;
+  const type = site.siteType;
 
   // Adventure sites typically have: fight + reward + special rules
   if (["dungeon", "tomb"].includes(type)) {

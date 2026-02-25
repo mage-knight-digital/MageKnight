@@ -1,11 +1,11 @@
 /**
  * Rust Event Narration
  *
- * Handles Rust engine events in their native snake_case format.
+ * Handles Rust engine events in their native camelCase format.
  * Separate from `narrateEvent()` which handles TS engine events (UPPER_CASE).
  *
- * Rust events come from serde with `#[serde(tag = "type", rename_all = "snake_case")]`
- * so types are like `"card_played"` and fields are like `player_id`.
+ * Rust events come from serde with `#[serde(tag = "type", rename_all = "camelCase")]`
+ * so types are like `"cardPlayed"` and fields are like `playerId`.
  *
  * @module events/narrateRustEvent
  */
@@ -45,7 +45,7 @@ function heroName(
   playerId: string,
 ): string {
   const player = players.find((p) => p.id === playerId);
-  return player ? capitalize(player.heroId) : playerId;
+  return player ? capitalize(player.hero) : playerId;
 }
 
 /** Format time of day for display */
@@ -65,13 +65,14 @@ function formatTimeOfDay(tod: string): string {
 // ============================================================================
 
 /**
- * Check if an event is a Rust engine event (snake_case type).
+ * Check if an event is a Rust engine event (camelCase type).
  *
- * Rust events have lowercase types like "card_played", "turn_started".
+ * Rust events have camelCase types like "cardPlayed", "turnStarted".
  * TS events have UPPER_CASE types like "CARD_PLAYED", "TURN_STARTED".
  */
 export function isRustEvent(event: { type: string }): boolean {
-  return typeof event.type === "string" && event.type === event.type.toLowerCase();
+  const t = event.type;
+  return typeof t === "string" && t.length > 0 && t[0] === t[0].toLowerCase() && !t.includes("_");
 }
 
 // ============================================================================
@@ -83,20 +84,20 @@ export function isRustEvent(event: { type: string }): boolean {
  *
  * Returns null for events that should not appear in the activity feed.
  *
- * @param event - The Rust event with snake_case type and fields
- * @param players - Array of {id, heroId} for hero name lookup
+ * @param event - The Rust event with camelCase type and fields
+ * @param players - Array of {id, hero} for hero name lookup
  * @returns An ActivityMessage, or null if the event should be suppressed
  */
 export function narrateRustEvent(
   event: RustEvent,
   players: readonly NarrationPlayer[],
 ): ActivityMessage | null {
-  const playerId = event.player_id as string | undefined;
+  const playerId = event.playerId as string | undefined;
 
   switch (event.type) {
     // ---- Lifecycle ----
 
-    case "game_started": {
+    case "gameStarted": {
       const hero = event.hero as string | undefined;
       const seed = event.seed as number | undefined;
       const heroLabel = hero ? capitalize(hero) : "Hero";
@@ -106,10 +107,10 @@ export function narrateRustEvent(
       };
     }
 
-    case "turn_started": {
+    case "turnStarted": {
       const name = playerId ? heroName(players, playerId) : "Hero";
       const round = event.round as number | undefined;
-      const tod = event.time_of_day as string | undefined;
+      const tod = event.timeOfDay as string | undefined;
       const todLabel = tod ? formatTimeOfDay(tod) : "";
       return {
         text: `--- ${name}'s Turn${round != null ? ` (Round ${round}${todLabel ? `, ${todLabel}` : ""})` : ""} ---`,
@@ -119,7 +120,7 @@ export function narrateRustEvent(
       };
     }
 
-    case "turn_ended": {
+    case "turnEnded": {
       const name = playerId ? heroName(players, playerId) : "Hero";
       return {
         text: `${name} ended their turn`,
@@ -128,7 +129,7 @@ export function narrateRustEvent(
       };
     }
 
-    case "round_ended": {
+    case "roundEnded": {
       const round = event.round as number | undefined;
       return {
         text: round != null ? `Round ${round} ended` : "Round ended",
@@ -136,7 +137,7 @@ export function narrateRustEvent(
       };
     }
 
-    case "game_ended": {
+    case "gameEnded": {
       const reason = event.reason as string | undefined;
       return {
         text: reason ? `Game ended — ${formatId(reason)}` : "Game ended",
@@ -146,9 +147,9 @@ export function narrateRustEvent(
 
     // ---- Tactics ----
 
-    case "tactic_selected": {
+    case "tacticSelected": {
       const name = playerId ? heroName(players, playerId) : "Hero";
-      const tacticId = event.tactic_id as string | undefined;
+      const tacticId = event.tacticId as string | undefined;
       const tacticLabel = tacticId ? formatId(tacticId) : "a tactic";
       return {
         text: `${name} selected ${tacticLabel}`,
@@ -159,9 +160,9 @@ export function narrateRustEvent(
 
     // ---- Cards ----
 
-    case "card_played": {
+    case "cardPlayed": {
       const name = playerId ? heroName(players, playerId) : "Hero";
-      const cardId = event.card_id as string | undefined;
+      const cardId = event.cardId as string | undefined;
       const mode = event.mode as string | { sideways: string } | undefined;
       const cardLabel = cardId ? formatId(cardId) : "a card";
       let modeLabel = "";
@@ -180,7 +181,7 @@ export function narrateRustEvent(
 
     // ---- Movement ----
 
-    case "player_moved": {
+    case "playerMoved": {
       const name = playerId ? heroName(players, playerId) : "Hero";
       const to = event.to as { q: number; r: number } | undefined;
       const toLabel = to ? `(${to.q},${to.r})` : "a new hex";
@@ -191,7 +192,7 @@ export function narrateRustEvent(
       };
     }
 
-    case "tile_explored": {
+    case "tileExplored": {
       const name = playerId ? heroName(players, playerId) : "Hero";
       return {
         text: `${name} explored new territory`,
@@ -202,7 +203,7 @@ export function narrateRustEvent(
 
     // ---- Combat ----
 
-    case "combat_started": {
+    case "combatStarted": {
       const name = playerId ? heroName(players, playerId) : "Hero";
       const hex = event.hex as { q: number; r: number } | undefined;
       const hexLabel = hex ? ` at (${hex.q},${hex.r})` : "";
@@ -213,7 +214,7 @@ export function narrateRustEvent(
       };
     }
 
-    case "combat_ended": {
+    case "combatEnded": {
       return {
         text: "Combat ended",
         category: EVENT_CATEGORY.COMBAT,
@@ -221,8 +222,8 @@ export function narrateRustEvent(
       };
     }
 
-    case "enemy_defeated": {
-      const enemyId = event.enemy_id as string | undefined;
+    case "enemyDefeated": {
+      const enemyId = event.enemyId as string | undefined;
       const enemyLabel = enemyId ? formatId(enemyId) : "Enemy";
       return {
         text: `${enemyLabel} defeated`,
@@ -233,7 +234,7 @@ export function narrateRustEvent(
 
     // ---- Sites ----
 
-    case "site_entered": {
+    case "siteEntered": {
       const name = playerId ? heroName(players, playerId) : "Hero";
       return {
         text: `${name} entered a site`,
@@ -244,13 +245,13 @@ export function narrateRustEvent(
 
     // ---- Choices ----
 
-    case "choice_resolved":
+    case "choiceResolved":
       // Internal bookkeeping — suppress
       return null;
 
     // ---- Progression ----
 
-    case "fame_gained": {
+    case "fameGained": {
       const name = playerId ? heroName(players, playerId) : "Hero";
       const amount = event.amount as number | undefined;
       return {
@@ -260,9 +261,9 @@ export function narrateRustEvent(
       };
     }
 
-    case "level_up": {
+    case "levelUp": {
       const name = playerId ? heroName(players, playerId) : "Hero";
-      const newLevel = event.new_level as number | undefined;
+      const newLevel = event.newLevel as number | undefined;
       return {
         text: newLevel != null ? `${name} reached level ${newLevel}!` : `${name} leveled up!`,
         category: EVENT_CATEGORY.PROGRESSION,
@@ -272,7 +273,7 @@ export function narrateRustEvent(
 
     // ---- Health ----
 
-    case "wound_taken": {
+    case "woundTaken": {
       const name = playerId ? heroName(players, playerId) : "Hero";
       return {
         text: `${name} took a wound`,
@@ -283,7 +284,7 @@ export function narrateRustEvent(
 
     // ---- Mana ----
 
-    case "crystal_gained": {
+    case "crystalGained": {
       const name = playerId ? heroName(players, playerId) : "Hero";
       const color = event.color as string | undefined;
       return {

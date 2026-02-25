@@ -1,19 +1,22 @@
 use std::env;
 use std::io::{self, Write};
+use std::path::PathBuf;
 
 use dialoguer::{theme::ColorfulTheme, Select};
+use serde::{Deserialize, Serialize};
 
 use mk_data::cards::get_card;
 use mk_data::enemies::get_enemy;
 use mk_data::units::get_unit;
-use mk_engine::action_pipeline::apply_legal_action;
-use mk_engine::legal_actions::enumerate_legal_actions_with_undo;
-use mk_engine::setup::create_solo_game;
+use mk_engine::action_pipeline::{apply_legal_action, initial_events};
+use mk_engine::client_state::to_client_state;
+use mk_engine::legal_actions::{enumerate_legal_actions, enumerate_legal_actions_with_undo};
+use mk_engine::setup::{create_solo_game, place_initial_tiles};
 use mk_engine::undo::UndoStack;
 use mk_types::effect::CardEffect;
 use mk_types::enums::*;
 use mk_types::legal_action::{LegalAction, TacticDecisionData};
-use mk_types::pending::ActivePending;
+use mk_types::pending::{ActivePending, ChoiceResolution, PendingTacticDecision, SubsetSelectionKind};
 use mk_types::state::*;
 
 const HEROES: [(&str, Hero); 7] = [
@@ -26,10 +29,28 @@ const HEROES: [(&str, Hero); 7] = [
     ("Braevalar", Hero::Braevalar),
 ];
 
-fn parse_args() -> (Hero, &'static str, u32) {
+// =============================================================================
+// CLI args
+// =============================================================================
+
+struct CliArgs {
+    hero: Hero,
+    hero_name: &'static str,
+    seed: u32,
+    replay: Option<PathBuf>,
+    step: bool,
+    from_step: Option<usize>,
+    to_artifact: Option<PathBuf>,
+}
+
+fn parse_args() -> CliArgs {
     let args: Vec<String> = env::args().collect();
     let mut hero: Option<(Hero, &'static str)> = None;
     let mut seed: Option<u32> = None;
+    let mut replay: Option<PathBuf> = None;
+    let mut step = false;
+    let mut from_step: Option<usize> = None;
+    let mut to_artifact: Option<PathBuf> = None;
 
     let mut i = 1;
     while i < args.len() {
@@ -52,23 +73,386 @@ fn parse_args() -> (Hero, &'static str, u32) {
                     seed = args[i].parse().ok();
                 }
             }
+            "--replay" => {
+                i += 1;
+                if i < args.len() {
+                    replay = Some(PathBuf::from(&args[i]));
+                }
+            }
+            "--step" => {
+                step = true;
+            }
+            "--from-step" => {
+                i += 1;
+                if i < args.len() {
+                    from_step = args[i].parse().ok();
+                }
+            }
+            "--to-artifact" => {
+                i += 1;
+                if i < args.len() {
+                    to_artifact = Some(PathBuf::from(&args[i]));
+                }
+            }
             _ => {}
         }
         i += 1;
     }
-    (
-        hero.map(|(h, _)| h).unwrap_or(Hero::Arythea),
-        hero.map(|(_, n)| n).unwrap_or("Arythea"),
-        seed.unwrap_or(42),
-    )
+    CliArgs {
+        hero: hero.map(|(h, _)| h).unwrap_or(Hero::Arythea),
+        hero_name: hero.map(|(_, n)| n).unwrap_or("Arythea"),
+        seed: seed.unwrap_or(42),
+        replay,
+        step,
+        from_step,
+        to_artifact,
+    }
 }
+
+// =============================================================================
+// Replay mode
+// =============================================================================
+
+#[derive(Deserialize)]
+struct ReplayFile {
+    seed: u32,
+    hero: String,
+    actions: Vec<usize>,
+    #[serde(default)]
+    steps: Option<usize>,
+    #[serde(default)]
+    fame: Option<u32>,
+    #[serde(default)]
+    episode: Option<u64>,
+}
+
+fn parse_replay_hero(name: &str) -> Hero {
+    match name.to_lowercase().as_str() {
+        "arythea" => Hero::Arythea,
+        "tovak" => Hero::Tovak,
+        "goldyx" => Hero::Goldyx,
+        "norowas" => Hero::Norowas,
+        "wolfhawk" => Hero::Wolfhawk,
+        "krang" => Hero::Krang,
+        "braevalar" => Hero::Braevalar,
+        _ => {
+            eprintln!("  Unknown hero '{}', defaulting to Arythea", name);
+            Hero::Arythea
+        }
+    }
+}
+
+fn hero_display_name(hero: Hero) -> &'static str {
+    for &(name, h) in &HEROES {
+        if h == hero {
+            return name;
+        }
+    }
+    "Unknown"
+}
+
+fn run_replay(replay_path: PathBuf, step_mode: bool, from_step: Option<usize>) {
+    let file_content = match std::fs::read_to_string(&replay_path) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("  Failed to read {}: {}", replay_path.display(), e);
+            std::process::exit(1);
+        }
+    };
+
+    let replay: ReplayFile = match serde_json::from_str(&file_content) {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("  Failed to parse replay JSON: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    let hero = parse_replay_hero(&replay.hero);
+    let hero_name = hero_display_name(hero);
+
+    println!(
+        "  Replaying: seed={} hero={} actions={}",
+        replay.seed,
+        hero_name,
+        replay.actions.len()
+    );
+    if let Some(s) = replay.steps {
+        print!("  (recorded steps={}", s);
+        if let Some(f) = replay.fame {
+            print!(", fame={}", f);
+        }
+        if let Some(ep) = replay.episode {
+            print!(", episode={}", ep);
+        }
+        println!(")");
+    }
+
+    let interactive_from = if step_mode {
+        0
+    } else {
+        from_step.unwrap_or(usize::MAX)
+    };
+
+    println!();
+
+    let mut state = create_solo_game(replay.seed, hero);
+    place_initial_tiles(&mut state);
+    let mut undo = UndoStack::new();
+    let player_idx = 0;
+
+    for (step_num, &action_index) in replay.actions.iter().enumerate() {
+        if state.game_ended {
+            println!("\n  === GAME OVER at step {} ===", step_num);
+            display_score(&state);
+            return;
+        }
+
+        // Use enumerate_legal_actions (no undo) to match the Python GameEngine,
+        // which records action indices without undo actions in the legal set.
+        let action_set = enumerate_legal_actions(&state, player_idx);
+
+        if action_set.actions.is_empty() {
+            println!("  Step {}: No legal actions — game stuck!", step_num);
+            display_state(&state, player_idx);
+            return;
+        }
+
+        if action_index >= action_set.actions.len() {
+            println!(
+                "  Step {}: action index {} out of range (0..{})",
+                step_num,
+                action_index,
+                action_set.actions.len()
+            );
+            display_state(&state, player_idx);
+            return;
+        }
+
+        let action = action_set.actions[action_index].clone();
+        let epoch = action_set.epoch;
+
+        if step_num >= interactive_from {
+            println!("  ── Step {} ──", step_num);
+            display_state(&state, player_idx);
+            println!("  Candidates ({}):", action_set.actions.len());
+            for (i, a) in action_set.actions.iter().enumerate() {
+                let marker = if i == action_index { ">>" } else { "  " };
+                println!("  {} [{:>3}] {}", marker, i, format_action(a, &state, player_idx));
+            }
+            println!();
+            print!("  Press Enter to continue (q to quit)...");
+            io::stdout().flush().unwrap();
+            let mut input = String::new();
+            io::stdin().read_line(&mut input).unwrap();
+            if input.trim().eq_ignore_ascii_case("q") {
+                println!("  Stopped at step {}.", step_num);
+                return;
+            }
+        }
+
+        match apply_legal_action(&mut state, &mut undo, player_idx, &action, epoch) {
+            Ok(result) => {
+                if result.game_ended {
+                    println!("\n  === GAME OVER at step {} ===", step_num + 1);
+                    display_score(&state);
+                    return;
+                }
+            }
+            Err(e) => {
+                println!("  Step {}: ERROR: {:?}", step_num, e);
+                display_state(&state, player_idx);
+                return;
+            }
+        }
+    }
+
+    // All actions exhausted
+    println!("\n  === REPLAY COMPLETE ({} actions) ===", replay.actions.len());
+    println!(
+        "  Round {} | Fame {} | Game ended: {}",
+        state.round,
+        state.players[player_idx].fame,
+        state.game_ended
+    );
+    display_score(&state);
+}
+
+// =============================================================================
+// Artifact generation
+// =============================================================================
+
+#[derive(Serialize)]
+struct ArtifactFile {
+    run: ArtifactRun,
+    #[serde(rename = "messageLog")]
+    message_log: Vec<ArtifactMessage>,
+}
+
+#[derive(Serialize)]
+struct ArtifactRun {
+    seed: u32,
+    outcome: String,
+    steps: usize,
+    run_index: u32,
+    game_id: String,
+}
+
+#[derive(Serialize)]
+struct ArtifactMessage {
+    player_id: String,
+    message_type: String,
+    payload: ArtifactPayload,
+}
+
+#[derive(Serialize)]
+struct ArtifactPayload {
+    events: Vec<mk_types::events::GameEvent>,
+    state: mk_types::client_state::ClientGameState,
+}
+
+fn run_replay_to_artifact(replay_path: PathBuf, artifact_path: PathBuf) {
+    let file_content = match std::fs::read_to_string(&replay_path) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("  Failed to read {}: {}", replay_path.display(), e);
+            std::process::exit(1);
+        }
+    };
+
+    let replay: ReplayFile = match serde_json::from_str(&file_content) {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("  Failed to parse replay JSON: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    let hero = parse_replay_hero(&replay.hero);
+    let hero_name = hero_display_name(hero);
+    let player_id_str = "player_0";
+
+    println!(
+        "  Generating artifact: seed={} hero={} actions={}",
+        replay.seed, hero_name, replay.actions.len()
+    );
+
+    let mut state = create_solo_game(replay.seed, hero);
+    place_initial_tiles(&mut state);
+    let mut undo = UndoStack::new();
+    let player_idx = 0;
+    let player_id = state.players[player_idx].id.clone();
+
+    let mut message_log = Vec::new();
+
+    // Initial frame
+    let init_events = initial_events(&state, replay.seed, hero);
+    let init_client = to_client_state(&state, &player_id);
+    message_log.push(ArtifactMessage {
+        player_id: player_id_str.to_string(),
+        message_type: "state_update".to_string(),
+        payload: ArtifactPayload {
+            events: init_events,
+            state: init_client,
+        },
+    });
+
+    let mut outcome = "ended".to_string();
+
+    for (step_num, &action_index) in replay.actions.iter().enumerate() {
+        if state.game_ended {
+            break;
+        }
+
+        let action_set = enumerate_legal_actions(&state, player_idx);
+
+        if action_set.actions.is_empty() {
+            eprintln!("  Step {}: No legal actions — game stuck!", step_num);
+            outcome = "stuck".to_string();
+            break;
+        }
+
+        if action_index >= action_set.actions.len() {
+            eprintln!(
+                "  Step {}: action index {} out of range (0..{})",
+                step_num, action_index, action_set.actions.len()
+            );
+            outcome = "error".to_string();
+            break;
+        }
+
+        let action = action_set.actions[action_index].clone();
+        let epoch = action_set.epoch;
+
+        match apply_legal_action(&mut state, &mut undo, player_idx, &action, epoch) {
+            Ok(result) => {
+                let client = to_client_state(&state, &player_id);
+                message_log.push(ArtifactMessage {
+                    player_id: player_id_str.to_string(),
+                    message_type: "state_update".to_string(),
+                    payload: ArtifactPayload {
+                        events: result.events,
+                        state: client,
+                    },
+                });
+            }
+            Err(e) => {
+                eprintln!("  Step {}: ERROR: {:?}", step_num, e);
+                outcome = "error".to_string();
+                break;
+            }
+        }
+    }
+
+    let artifact = ArtifactFile {
+        run: ArtifactRun {
+            seed: replay.seed,
+            outcome,
+            steps: message_log.len() - 1, // subtract initial frame
+            run_index: 0,
+            game_id: format!("replay-{}", replay.seed),
+        },
+        message_log,
+    };
+
+    match std::fs::write(&artifact_path, serde_json::to_string(&artifact).unwrap()) {
+        Ok(()) => {
+            println!("  Wrote artifact to {}", artifact_path.display());
+            println!(
+                "  Frames: {}, Final fame: {}",
+                artifact.run.steps,
+                state.players[player_idx].fame
+            );
+        }
+        Err(e) => {
+            eprintln!("  Failed to write artifact: {}", e);
+            std::process::exit(1);
+        }
+    }
+}
+
+// =============================================================================
+// Main
+// =============================================================================
 
 fn main() {
     println!("\n  =============================");
     println!("    M A G E   K N I G H T");
     println!("  =============================\n");
 
-    // Check if we're in an interactive terminal
+    let cli = parse_args();
+
+    // Replay mode
+    if let Some(replay_path) = cli.replay {
+        if let Some(artifact_path) = cli.to_artifact {
+            run_replay_to_artifact(replay_path, artifact_path);
+        } else {
+            run_replay(replay_path, cli.step, cli.from_step);
+        }
+        return;
+    }
+
+    // Interactive mode
     let is_tty = is_terminal();
 
     let (hero, hero_name, seed) = if is_tty {
@@ -88,7 +472,7 @@ fn main() {
         let s: u32 = input.trim().parse().unwrap_or(42);
         (h, hname, s)
     } else {
-        parse_args()
+        (cli.hero, cli.hero_name, cli.seed)
     };
 
     let mut state = create_solo_game(seed, hero);
@@ -257,7 +641,7 @@ fn display_state(state: &GameState, player_idx: usize) {
 
     // Combat
     if let Some(ref combat) = state.combat {
-        display_combat(combat);
+        display_combat(combat, player);
     }
 
     // Pending
@@ -278,14 +662,14 @@ fn display_state(state: &GameState, player_idx: usize) {
     println!();
 }
 
-fn display_combat(combat: &CombatState) {
+fn display_combat(combat: &CombatState, player: &PlayerState) {
     let phase = match combat.phase {
         CombatPhase::RangedSiege => "Ranged/Siege",
         CombatPhase::Block => "Block",
         CombatPhase::AssignDamage => "Assign Damage",
         CombatPhase::Attack => "Attack",
     };
-    println!("  ── Combat: {} ──", phase);
+    println!("  ── Combat ({}) ──", phase);
     for enemy in &combat.enemies {
         if enemy.is_defeated {
             continue;
@@ -305,6 +689,42 @@ fn display_combat(combat: &CombatState) {
             "    {} (atk:{} {} / armor:{}){}", name, atk, elem, armor, blocked
         );
     }
+
+    // Show player's accumulated combat values
+    let acc = &player.combat_accumulator;
+    let mut parts = Vec::new();
+    format_attack_part(&mut parts, "Melee", acc.attack.normal, &acc.attack.normal_elements);
+    format_attack_part(&mut parts, "Ranged", acc.attack.ranged, &acc.attack.ranged_elements);
+    format_attack_part(&mut parts, "Siege", acc.attack.siege, &acc.attack.siege_elements);
+    format_block_part(&mut parts, "Block", &acc.block_elements);
+    format_block_part(&mut parts, "Swift Block", &acc.swift_block_elements);
+    if !parts.is_empty() {
+        println!("  Player: {}", parts.join(" | "));
+    }
+}
+
+fn format_attack_part(parts: &mut Vec<String>, label: &str, total: u32, elements: &ElementalValues) {
+    if total == 0 {
+        return;
+    }
+    let elem = dominant_element_str(elements);
+    parts.push(format!("{} {} {}", label, total, elem));
+}
+
+fn format_block_part(parts: &mut Vec<String>, label: &str, elements: &ElementalValues) {
+    let total = elements.total();
+    if total == 0 {
+        return;
+    }
+    let elem = dominant_element_str(elements);
+    parts.push(format!("{} {} {}", label, total, elem));
+}
+
+fn dominant_element_str(ev: &ElementalValues) -> &'static str {
+    if ev.cold_fire > 0 { "cold-fire" }
+    else if ev.fire > 0 { "fire" }
+    else if ev.ice > 0 { "ice" }
+    else { "physical" }
 }
 
 fn display_score(state: &GameState) {
@@ -411,7 +831,7 @@ fn format_action(action: &LegalAction, state: &GameState, player_idx: usize) -> 
             let name = combat_enemy_name(state, enemy_instance_id.as_str());
             format!("Spend move on {} (cumbersome)", name)
         }
-        LegalAction::ResolveTacticDecision { data } => format_tactic_decision(data),
+        LegalAction::ResolveTacticDecision { data } => format_tactic_decision(data, state, player_idx),
         LegalAction::ActivateTactic => "Activate tactic".into(),
         LegalAction::InitiateManaSearch => "Mana Search (reroll dice)".into(),
         LegalAction::EnterSite => {
@@ -473,15 +893,46 @@ fn format_action(action: &LegalAction, state: &GameState, player_idx: usize) -> 
             None => "Complete rest".into(),
         },
         LegalAction::SubsetSelect { index } => {
-            format!("Select card #{}", index + 1)
+            let player = &state.players[player_idx];
+            if let Some(ActivePending::SubsetSelection(ref ss)) = player.pending.active {
+                match &ss.kind {
+                    SubsetSelectionKind::AttackTargets { eligible_instance_ids, .. } => {
+                        let name = eligible_instance_ids.get(*index)
+                            .and_then(|iid| state.combat.as_ref()
+                                .and_then(|c| c.enemies.iter().find(|e| &e.instance_id == iid))
+                                .and_then(|e| get_enemy(e.enemy_id.as_str()))
+                                .map(|d| d.name))
+                            .unwrap_or("???");
+                        format!("Target {}", name)
+                    }
+                    _ => format!("Select #{}", index + 1),
+                }
+            } else {
+                format!("Select #{}", index + 1)
+            }
         }
         LegalAction::SubsetConfirm => "Confirm selection".into(),
         LegalAction::EndCombatPhase => "End combat phase".into(),
         LegalAction::AssignDamageToHero { enemy_index, attack_index } => {
-            format!("Assign damage to hero (enemy {}, attack {})", enemy_index, attack_index)
+            let enemy_name = state.combat.as_ref()
+                .and_then(|c| c.enemies.get(*enemy_index))
+                .and_then(|e| get_enemy(e.enemy_id.as_str()))
+                .map(|d| d.name)
+                .unwrap_or("???");
+            format!("Assign {} (attack {}) damage to hero", enemy_name, attack_index)
         }
         LegalAction::AssignDamageToUnit { enemy_index, attack_index, unit_instance_id } => {
-            format!("Assign damage to unit {} (enemy {}, attack {})", unit_instance_id.as_str(), enemy_index, attack_index)
+            let enemy_name = state.combat.as_ref()
+                .and_then(|c| c.enemies.get(*enemy_index))
+                .and_then(|e| get_enemy(e.enemy_id.as_str()))
+                .map(|d| d.name)
+                .unwrap_or("???");
+            let unit_name = state.players[player_idx].units.iter()
+                .find(|u| u.instance_id == *unit_instance_id)
+                .and_then(|u| get_unit(u.unit_id.as_str()))
+                .map(|d| d.name)
+                .unwrap_or("???");
+            format!("Assign {} (attack {}) damage to {}", enemy_name, attack_index, unit_name)
         }
         LegalAction::ResolveCrystalJoyReclaim { discard_index } => match discard_index {
             Some(i) => format!("Reclaim card from discard (index {})", i),
@@ -618,6 +1069,25 @@ fn format_resolve_choice(
 ) -> String {
     let player = &state.players[player_idx];
     if let Some(ActivePending::Choice(ref choice)) = player.pending.active {
+        if let ChoiceResolution::ManaSourceSelect { ref sources, .. } = choice.resolution {
+            if let Some(src) = sources.get(choice_index) {
+                let src_type = match src.source_type {
+                    ManaSourceType::Token => "token",
+                    ManaSourceType::Crystal => "crystal",
+                    ManaSourceType::Die => "die",
+                };
+                return format!("Pay {} mana ({})", mana_color_str(src.color), src_type);
+            }
+        }
+        if let ChoiceResolution::DiscardThenContinue { ref eligible_indices } = choice.resolution {
+            if let Some(&hand_idx) = eligible_indices.get(choice_index) {
+                let card_name = player.hand.get(hand_idx)
+                    .and_then(|id| get_card(id.as_str()))
+                    .map(|def| def.name.to_string())
+                    .unwrap_or_else(|| format!("card #{}", hand_idx + 1));
+                return format!("Discard {}", card_name);
+            }
+        }
         if let Some(effect) = choice.options.get(choice_index) {
             return format!("Choose: {}", effect_summary(effect));
         }
@@ -635,17 +1105,36 @@ fn format_resolve_choice(
     format!("Choose option {}", choice_index + 1)
 }
 
-fn format_tactic_decision(data: &TacticDecisionData) -> String {
+fn format_tactic_decision(data: &TacticDecisionData, state: &GameState, player_idx: usize) -> String {
     match data {
         TacticDecisionData::ManaSteal { die_index } => {
-            format!("Mana Steal: take die #{}", die_index + 1)
+            let color = state
+                .source
+                .dice
+                .get(*die_index)
+                .map(|d| mana_color_str(d.color))
+                .unwrap_or_else(|| "?".into());
+            format!("Mana Steal: take {} die", color)
         }
         TacticDecisionData::Preparation { deck_card_index } => {
-            format!("Preparation: take deck card #{}", deck_card_index + 1)
+            let name = preparation_card_name(state, player_idx, *deck_card_index);
+            format!("Preparation: take {}", name)
         }
         TacticDecisionData::SparingPowerStash => "Sparing Power: stash top card".into(),
         TacticDecisionData::SparingPowerTake => "Sparing Power: take all stored cards".into(),
     }
+}
+
+fn preparation_card_name(state: &GameState, player_idx: usize, deck_card_index: usize) -> String {
+    if let Some(ActivePending::TacticDecision(PendingTacticDecision::Preparation {
+        ref deck_snapshot,
+    })) = state.players[player_idx].pending.active
+    {
+        if let Some(cid) = deck_snapshot.get(deck_card_index) {
+            return card_name(cid.as_str());
+        }
+    }
+    format!("card #{}", deck_card_index + 1)
 }
 
 fn format_activate_unit(

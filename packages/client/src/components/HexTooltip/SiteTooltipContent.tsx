@@ -62,7 +62,7 @@ function getSiteInfo({ site, timeOfDay, enemies }: GetSiteInfoOptions): SiteInfo
   const mineColor = site.mineColor as "white" | "green" | "red" | "blue" | undefined;
 
   const sharedInfo = getSiteTooltipInfo({
-    siteType: site.type,
+    siteType: site.siteType,
     isConquered: site.isConquered,
     timeOfDay,
     hasUnrevealedEnemies,
@@ -72,7 +72,7 @@ function getSiteInfo({ site, timeOfDay, enemies }: GetSiteInfoOptions): SiteInfo
     return sharedInfo;
   }
 
-  switch (site.type) {
+  switch (site.siteType) {
     case SITE_DUNGEON:
       return {
         name: "Dungeon",
@@ -223,7 +223,7 @@ function getSiteInfo({ site, timeOfDay, enemies }: GetSiteInfoOptions): SiteInfo
 
     default:
       return {
-        name: site.type,
+        name: site.siteType,
       };
   }
 }
@@ -271,7 +271,7 @@ export function SiteTooltipContent({ site, isAnimating, startIndex = 0, timeOfDa
       {info.interaction && (
         <div className="site-tooltip__line" style={getLineStyle()}>
           <span className="site-tooltip__line-icon">
-            <GameIcon type={site.type === SITE_MINE || site.type === SITE_DEEP_MINE ? "end_turn" : "influence"} size={20} />
+            <GameIcon type={site.siteType === SITE_MINE || site.siteType === SITE_DEEP_MINE ? "end_turn" : "influence"} size={20} />
           </span>
           <span className="site-tooltip__line-text">{info.interaction}</span>
         </div>

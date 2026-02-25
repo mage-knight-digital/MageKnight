@@ -39,7 +39,7 @@ export function getAvailableManaSources(
   // Track which token colors we've already added (tokens of same color are fungible)
   const addedTokenColors = new Set<string>();
 
-  for (const token of player.pureMana) {
+  for (const token of player.manaTokens) {
     // Exact color match
     if (token.color === requiredColor && !addedTokenColors.has(token.color)) {
       sources.push({ type: MANA_SOURCE_TOKEN, color: token.color });

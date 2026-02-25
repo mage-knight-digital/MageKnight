@@ -19,7 +19,7 @@ export function WaitingOverlay() {
   const currentPlayer = state.players.find(
     (p) => p.id === state.currentPlayerId
   );
-  const playerName = currentPlayer?.heroId ?? "another player";
+  const playerName = currentPlayer?.hero ?? "another player";
 
   return (
     <div className="waiting-overlay">

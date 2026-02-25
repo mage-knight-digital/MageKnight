@@ -12,4 +12,6 @@ path = "src/main.rs"
 mk-types = { workspace = true }
 mk-data = { workspace = true }
 mk-engine = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 dialoguer = "0.11"

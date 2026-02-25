@@ -20,6 +20,7 @@ use crate::state::{AccumulatedAttack, BannerAttachment, Crystals, ElementalValue
 
 /// Filtered game state sent to a specific player.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClientGameState {
     pub phase: GamePhase,
     pub round_phase: RoundPhase,
@@ -49,6 +50,7 @@ pub struct ClientGameState {
 
 /// Filtered player state. Other players' hands show count only.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClientPlayer {
     pub id: PlayerId,
     pub hero: Hero,
@@ -116,6 +118,7 @@ pub struct ClientManaToken {
 
 /// Filtered combat accumulator — only surface-level totals.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClientCombatAccumulator {
     pub attack: AccumulatedAttack,
     pub block: u32,
@@ -124,6 +127,7 @@ pub struct ClientCombatAccumulator {
 
 /// Stolen mana die info.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClientStolenDie {
     pub die_id: SourceDieId,
     pub color: ManaColor,
@@ -131,6 +135,7 @@ pub struct ClientStolenDie {
 
 /// Client-visible unit info.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClientPlayerUnit {
     pub instance_id: UnitInstanceId,
     pub unit_id: UnitId,
@@ -154,13 +159,15 @@ pub struct ClientPendingInfo {
 
 /// Filtered map state.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClientMapState {
-    pub hexes: Vec<ClientHexState>,
+    pub hexes: std::collections::BTreeMap<String, ClientHexState>,
     pub tiles: Vec<ClientTilePlacement>,
 }
 
 /// Filtered hex state.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClientHexState {
     pub coord: HexCoord,
     pub terrain: Terrain,
@@ -172,6 +179,7 @@ pub struct ClientHexState {
 
 /// Filtered hex enemy — token_id hidden when unrevealed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClientHexEnemy {
     pub color: EnemyColor,
     pub is_revealed: bool,
@@ -181,6 +189,7 @@ pub struct ClientHexEnemy {
 
 /// Filtered site — no deep mine colors (communicated via pending).
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClientSite {
     pub site_type: SiteType,
     pub owner: Option<PlayerId>,
@@ -192,6 +201,7 @@ pub struct ClientSite {
 
 /// Filtered tile placement — tile_id hidden when unrevealed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClientTilePlacement {
     pub center_coord: HexCoord,
     pub revealed: bool,
@@ -211,6 +221,7 @@ pub struct ClientManaSource {
 
 /// Filtered source die with computed stolen flag.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClientSourceDie {
     pub id: SourceDieId,
     pub color: ManaColor,
@@ -226,6 +237,7 @@ pub struct ClientSourceDie {
 
 /// Filtered combat state — enemy definitions hydrated, internals stripped.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClientCombatState {
     pub phase: CombatPhase,
     pub enemies: Vec<ClientCombatEnemy>,
@@ -236,6 +248,7 @@ pub struct ClientCombatState {
 
 /// Combat enemy with hydrated definition fields.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClientCombatEnemy {
     pub instance_id: CombatInstanceId,
     pub enemy_id: EnemyId,
@@ -271,6 +284,7 @@ pub struct ClientEnemyAttack {
 
 /// Offers visible to all players.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClientOffers {
     pub units: Vec<UnitId>,
     pub advanced_actions: Vec<CardId>,
@@ -279,6 +293,7 @@ pub struct ClientOffers {
 
 /// Deck counts (contents never revealed).
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClientDeckCounts {
     pub spells: usize,
     pub advanced_actions: usize,
@@ -292,6 +307,7 @@ pub struct ClientDeckCounts {
 
 /// Minimal dummy player info for solo mode display.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClientDummyPlayer {
     pub hero: Hero,
     pub deck_count: usize,

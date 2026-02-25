@@ -16,8 +16,6 @@ import {
   CONNECTION_STATUS_DISCONNECTED,
 } from "../network/WebSocketConnection";
 import { RustGameConnection, type ConnectionStatus } from "../rust/RustGameConnection";
-import { snakeToCamel } from "../rust/snakeToCamel";
-import { patchRustState } from "../rust/patchRustState";
 import type { LegalAction } from "../rust/types";
 
 type GameMode = "network" | "rust";
@@ -134,8 +132,8 @@ export function GameProvider(props: GameProviderProps) {
     const connection = new RustGameConnection({
       serverUrl: rustProps.serverUrl,
       onGameUpdate: (rawState, actions, newEpoch, rawEvents) => {
-        const camelState = patchRustState(snakeToCamel(rawState)) as ClientGameState;
-        setState(camelState);
+        const gameState = rawState as unknown as ClientGameState;
+        setState(gameState);
         setLegalActions(actions);
         setEpoch(newEpoch);
         epochRef.current = newEpoch;
@@ -144,23 +142,23 @@ export function GameProvider(props: GameProviderProps) {
         }
 
         if (import.meta.env.DEV) {
-          const player = camelState.players?.[0];
+          const player = gameState.players?.[0];
           const cardActionTypes = actions
             .filter((a: LegalAction) => typeof a !== "string" && (Object.keys(a)[0]?.startsWith("PlayCard")))
             .map((a: LegalAction) => typeof a === "string" ? a : Object.keys(a)[0]);
           console.log(
-            `[Rust Update] epoch=${newEpoch} phase=${camelState.phase} roundPhase=${camelState.roundPhase}`,
+            `[Rust Update] epoch=${newEpoch} phase=${gameState.phase} roundPhase=${gameState.roundPhase}`,
             `hand=[${player?.hand}]`,
-            `selectedTacticId=${player?.selectedTacticId}`,
+            `selectedTactic=${player?.selectedTactic}`,
             `actionCount=${actions.length} cardActions=${cardActionTypes.length}`,
-            `tiles=${camelState.map?.tiles?.length ?? 0}`,
+            `tiles=${gameState.map?.tiles?.length ?? 0}`,
             cardActionTypes.length > 0 ? `firstCardAction=${JSON.stringify(actions.find((a: LegalAction) => typeof a !== "string" && Object.keys(a)[0]?.startsWith("PlayCard")))}` : ""
           );
         }
 
         if (import.meta.env.DEV) {
           (window as unknown as { __MAGE_KNIGHT_STATE__: ClientGameState }).
-            __MAGE_KNIGHT_STATE__ = camelState;
+            __MAGE_KNIGHT_STATE__ = gameState;
         }
       },
       onError: (message) => {

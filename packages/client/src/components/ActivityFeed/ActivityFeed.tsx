@@ -20,7 +20,7 @@ export function ActivityFeed() {
   // Build players list for narration from state
   const players: NarrationPlayer[] = useMemo(() => {
     if (!state) return [];
-    return state.players.map((p) => ({ id: p.id, heroId: p.heroId }));
+    return state.players.map((p) => ({ id: p.id, hero: p.hero }));
   }, [state]);
 
   // Derive messages from events — pure computation, no effect needed

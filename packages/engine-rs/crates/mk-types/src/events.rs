@@ -16,9 +16,9 @@ use crate::ids::{CardId, EnemyId, PlayerId, TacticId};
 
 /// A game event emitted by the engine.
 ///
-/// Serializes with `{ "type": "variant_name", ...fields }` using snake_case.
+/// Serializes with `{ "type": "variantName", ...fields }` using camelCase.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(tag = "type", rename_all = "camelCase")]
 pub enum GameEvent {
     /// A new game has started.
     GameStarted {
@@ -135,7 +135,7 @@ pub enum GameEvent {
 
 /// How a card was played.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "camelCase")]
 pub enum CardPlayMode {
     Basic,
     Powered,

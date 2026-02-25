@@ -121,7 +121,7 @@ export function PixiTacticCarousel({ viewMode, isActive = true }: PixiTacticCaro
     if (!isActive) return false;
     if (!atlasLoaded) return false;
     if (!manaSourceComplete && !isIntroComplete) return false;
-    if (!player || player.selectedTacticId !== null) return false;
+    if (!player || player.selectedTactic !== null) return false;
     if (availableTactics.length === 0) return false;
     return true;
   }, [isActive, atlasLoaded, manaSourceComplete, isIntroComplete, player, availableTactics.length]);
