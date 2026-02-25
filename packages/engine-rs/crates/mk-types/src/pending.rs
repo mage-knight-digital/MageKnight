@@ -36,7 +36,9 @@ pub const MAX_OFFER_CARDS: usize = 8;
 pub const MAX_ATTACK_DEFEAT_FAME: usize = 4;
 /// Max unit maintenance entries.
 pub const MAX_UNIT_MAINTENANCE: usize = 8;
-/// Max items in a subset selection (hand size cap).
+/// Max items in a subset selection.
+/// NOTE: kept as a named constant for documentation; no longer used as an ArrayVec bound
+/// because wound counts can exceed any fixed cap.
 pub const MAX_SUBSET_ITEMS: usize = 8;
 
 // =============================================================================
@@ -594,18 +596,18 @@ pub enum SubsetSelectionKind {
     /// Mana Search tactic: reroll 1-2 source dice.
     ManaSearch {
         /// Actual die indices in state.source.dice that are rerollable.
-        rerollable_die_indices: ArrayVec<usize, MAX_SUBSET_ITEMS>,
+        rerollable_die_indices: Vec<usize>,
     },
     /// Attack declaration: pick target enemies for a single attack type.
     AttackTargets {
         attack_type: CombatType,
         /// Actual CombatInstanceIds of eligible enemies.
-        eligible_instance_ids: ArrayVec<CombatInstanceId, MAX_SUBSET_ITEMS>,
+        eligible_instance_ids: Vec<CombatInstanceId>,
     },
     /// Standard rest: optionally discard wounds from hand after discarding a non-wound card.
     RestWoundDiscard {
         /// Hand indices that contain wounds (pool indices map to these).
-        wound_hand_indices: ArrayVec<usize, MAX_SUBSET_ITEMS>,
+        wound_hand_indices: Vec<usize>,
     },
 }
 
@@ -620,7 +622,7 @@ pub struct SubsetSelectionState {
     /// Minimum selections before confirm is allowed (0 = can confirm empty set).
     pub min_selections: usize,
     /// Indices selected so far, in order.
-    pub selected: ArrayVec<usize, MAX_SUBSET_ITEMS>,
+    pub selected: Vec<usize>,
 }
 
 /// Tactic decision type.

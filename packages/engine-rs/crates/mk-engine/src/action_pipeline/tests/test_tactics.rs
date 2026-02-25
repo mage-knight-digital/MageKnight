@@ -1327,7 +1327,7 @@ fn subset_select_no_confirm_below_min() {
         pool_size: 2,
         max_selections: 2,
         min_selections: 1,
-        selected: arrayvec::ArrayVec::new(),
+        selected: Vec::new(),
     }));
 
     let undo = UndoStack::new();

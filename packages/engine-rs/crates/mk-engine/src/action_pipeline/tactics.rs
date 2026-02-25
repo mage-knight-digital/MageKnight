@@ -1,6 +1,5 @@
 //! Tactic selection, decision resolution, subset selection, and activation.
 
-use arrayvec::ArrayVec;
 use mk_data::tactics::tactic_turn_order;
 use mk_types::enums::*;
 use mk_types::ids::{CardId, CombatInstanceId, PlayerId};
@@ -165,7 +164,7 @@ pub(super) fn apply_tactic_on_pick_effects(
                         pool_size: hand_len,
                         max_selections: 3.min(hand_len),
                         min_selections: 0,
-                        selected: ArrayVec::new(),
+                        selected: Vec::new(),
                     }));
             }
         }
@@ -498,7 +497,7 @@ pub(super) fn apply_activate_tactic(
                         pool_size: hand_len,
                         max_selections: 5.min(hand_len),
                         min_selections: 0,
-                        selected: ArrayVec::new(),
+                        selected: Vec::new(),
                     }));
             }
         }
@@ -525,10 +524,10 @@ pub(super) fn apply_initiate_mana_search(
     state: &mut GameState,
     player_idx: usize,
 ) -> Result<ApplyResult, ApplyError> {
-    use mk_types::pending::{SubsetSelectionKind, SubsetSelectionState, MAX_SUBSET_ITEMS};
+    use mk_types::pending::{SubsetSelectionKind, SubsetSelectionState};
 
     // Compute rerollable die indices
-    let rerollable: ArrayVec<usize, MAX_SUBSET_ITEMS> = state
+    let rerollable: Vec<usize> = state
         .source
         .dice
         .iter()
@@ -554,7 +553,7 @@ pub(super) fn apply_initiate_mana_search(
             pool_size,
             max_selections,
             min_selections: 1,
-            selected: ArrayVec::new(),
+            selected: Vec::new(),
         }));
 
     Ok(ApplyResult {
@@ -570,7 +569,7 @@ pub(super) fn apply_initiate_attack(
     player_idx: usize,
     attack_type: CombatType,
 ) -> Result<ApplyResult, ApplyError> {
-    use mk_types::pending::{SubsetSelectionKind, SubsetSelectionState, MAX_SUBSET_ITEMS};
+    use mk_types::pending::{SubsetSelectionKind, SubsetSelectionState};
 
     let combat = state
         .combat
@@ -588,8 +587,7 @@ pub(super) fn apply_initiate_attack(
     }
 
     let pool_size = eligible.len();
-    let eligible_ids: ArrayVec<CombatInstanceId, MAX_SUBSET_ITEMS> =
-        eligible.into_iter().collect();
+    let eligible_ids: Vec<CombatInstanceId> = eligible.into_iter().collect();
 
     state.players[player_idx].pending.active =
         Some(ActivePending::SubsetSelection(SubsetSelectionState {
@@ -600,7 +598,7 @@ pub(super) fn apply_initiate_attack(
             pool_size,
             max_selections: pool_size, // Can target all
             min_selections: 1,
-            selected: ArrayVec::new(),
+            selected: Vec::new(),
         }));
 
     Ok(ApplyResult {

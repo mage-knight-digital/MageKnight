@@ -1,6 +1,5 @@
 //! Thin delegators for card play, movement, explore, rest, end turn, and undo.
 
-use arrayvec::ArrayVec;
 use mk_types::enums::*;
 use mk_types::events::GameEvent;
 use mk_types::pending::{ActivePending, SubsetSelectionKind, SubsetSelectionState};
@@ -229,14 +228,13 @@ pub(super) fn apply_complete_rest(
             player.discard.push(chosen_card);
 
             // Check if wounds remain in hand — if so, enter SubsetSelection.
-            let wound_hand_indices: ArrayVec<usize, { mk_types::pending::MAX_SUBSET_ITEMS }> =
-                player
-                    .hand
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, c)| c.as_str() == effect_queue::WOUND_CARD_ID)
-                    .map(|(i, _)| i)
-                    .collect();
+            let wound_hand_indices: Vec<usize> = player
+                .hand
+                .iter()
+                .enumerate()
+                .filter(|(_, c)| c.as_str() == effect_queue::WOUND_CARD_ID)
+                .map(|(i, _)| i)
+                .collect();
 
             if !wound_hand_indices.is_empty() {
                 let pool_size = wound_hand_indices.len();
@@ -246,7 +244,7 @@ pub(super) fn apply_complete_rest(
                         pool_size,
                         max_selections: pool_size,
                         min_selections: 0,
-                        selected: ArrayVec::new(),
+                        selected: Vec::new(),
                     },
                 ));
                 return Ok(ApplyResult {
