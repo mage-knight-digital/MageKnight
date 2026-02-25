@@ -1,5 +1,6 @@
 //! Unit recruitment, activation, ability resolution, and combat enemy selection.
 
+use metrics::counter;
 use mk_data::enemies::get_enemy;
 use mk_types::enums::*;
 use mk_types::pending::ActivePending;
@@ -55,6 +56,7 @@ pub(super) fn apply_recruit_unit(
     // Push unit — ArrayVec panics if over capacity, but enumeration
     // already checked command_slots so this should always fit.
     state.players[player_idx].units.push(unit);
+    counter!("mk_unit_recruited", "unit" => unit_id.as_str().to_string()).increment(1);
 
     // Bonds of Loyalty: track the bonds unit if this fills the extra slot
     if state.players[player_idx].bonds_of_loyalty_unit_instance_id.is_none()

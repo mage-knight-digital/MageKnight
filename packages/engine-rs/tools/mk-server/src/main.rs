@@ -17,8 +17,9 @@ use axum::{
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
     response::{Html, IntoResponse},
     routing::get,
-    Router,
+    Extension, Router,
 };
+use metrics_exporter_prometheus::PrometheusHandle;
 use serde::{Deserialize, Serialize};
 use tower_http::cors::CorsLayer;
 
@@ -235,6 +236,10 @@ async fn health() -> &'static str {
     "mk-server ok"
 }
 
+async fn metrics_handler(Extension(handle): Extension<PrometheusHandle>) -> String {
+    handle.render()
+}
+
 async fn index() -> Html<&'static str> {
     Html(
         r#"<!DOCTYPE html>
@@ -259,11 +264,25 @@ async fn main() {
         .and_then(|p| p.parse::<u16>().ok())
         .unwrap_or(3030);
 
+    let prometheus_handle = metrics_exporter_prometheus::PrometheusBuilder::new()
+        .install_recorder()
+        .expect("failed to install Prometheus metrics recorder");
+
+    let upkeep_handle = prometheus_handle.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            upkeep_handle.run_upkeep();
+        }
+    });
+
     let app = Router::new()
         .route("/", get(index))
         .route("/health", get(health))
+        .route("/metrics", get(metrics_handler))
         .route("/ws", get(ws_handler))
-        .layer(CorsLayer::permissive());
+        .layer(CorsLayer::permissive())
+        .layer(Extension(prometheus_handle));
 
     let addr = format!("0.0.0.0:{port}");
 

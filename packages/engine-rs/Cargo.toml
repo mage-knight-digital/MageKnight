@@ -35,5 +35,8 @@ pyo3 = { version = "0.22", features = ["extension-module"] }
 # Parallelism
 rayon = "1"
 
+# Metrics
+metrics = "0.24"
+
 # Testing
 proptest = "1"
