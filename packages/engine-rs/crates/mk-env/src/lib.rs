@@ -167,6 +167,10 @@ pub struct StepResult {
     pub fames: Vec<i32>,
     /// (N,) — whether each env panicked (subset of dones)
     pub panicked: Vec<bool>,
+    /// (N,) — whether done due to max_steps (not natural game end)
+    pub truncated: Vec<bool>,
+    /// (N,) — whether scenario end condition was triggered
+    pub scenario_end_triggered: Vec<bool>,
 }
 
 // =============================================================================
@@ -195,6 +199,11 @@ impl VecEnv {
 
     pub fn num_envs(&self) -> usize {
         self.envs.len()
+    }
+
+    /// Get the current seed for each environment.
+    pub fn seeds(&self) -> Vec<u32> {
+        self.envs.iter().map(|e| e.seed).collect()
     }
 
     /// Encode all environments in parallel, returning padded batch output.
@@ -241,14 +250,20 @@ impl VecEnv {
         let mut dones = Vec::with_capacity(n);
         let mut fames_after = Vec::with_capacity(n);
         let mut panicked = Vec::with_capacity(n);
+        let mut truncated = Vec::with_capacity(n);
+        let mut scenario_end_triggered = Vec::with_capacity(n);
 
         for (i, (game_ended, did_panic)) in results.iter().enumerate() {
-            let done = *game_ended || self.envs[i].is_done();
-            let fame_now = self.envs[i].fame() as i32;
+            let env = &self.envs[i];
+            let done = *game_ended || env.is_done();
+            let fame_now = env.fame() as i32;
             fame_deltas.push(fame_now - fames_before[i]);
             dones.push(done);
             fames_after.push(fame_now);
             panicked.push(*did_panic);
+            // Truncated = done due to max_steps, not natural game end
+            truncated.push(done && !env.state.game_ended);
+            scenario_end_triggered.push(env.state.scenario_end_triggered);
         }
 
         // Auto-reset finished environments
@@ -265,6 +280,8 @@ impl VecEnv {
             dones,
             fames: fames_after,
             panicked,
+            truncated,
+            scenario_end_triggered,
         }
     }
 

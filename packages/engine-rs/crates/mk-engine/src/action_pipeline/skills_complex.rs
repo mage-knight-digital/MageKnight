@@ -466,25 +466,26 @@ pub(super) fn apply_regenerate(
     bonus_color: BasicManaColor,
 ) -> Result<ApplyResult, ApplyError> {
     use mk_types::effect::CardEffect;
-    use mk_types::pending::{ChoiceResolution, PendingChoice};
+    use mk_types::pending::{ChoiceResolution, PendingChoice, RegenerateManaSource};
 
-    // Collect available mana colors the player can spend
+    // Collect every individual mana source the player can spend.
+    // Unlike the old color-dedup approach, each source (token, crystal, die) is
+    // listed separately so the player/agent chooses the exact source.
     let player = &state.players[player_idx];
-    let mut available_colors: Vec<ManaColor> = Vec::new();
-    let mut seen = [false; 6]; // R, B, G, W, Gold, Black
+    let mut sources: Vec<RegenerateManaSource> = Vec::new();
 
-    // Check tokens
+    // Deduplicate tokens by color (multiple tokens of the same color → one entry)
+    let mut seen_token = [false; 6]; // R, B, G, W, Gold, Black
     for token in &player.pure_mana {
-        let idx = mana_color_to_index(token.color);
-        if let Some(i) = idx {
-            if !seen[i] {
-                seen[i] = true;
-                available_colors.push(token.color);
+        if let Some(i) = mana_color_to_index(token.color) {
+            if !seen_token[i] {
+                seen_token[i] = true;
+                sources.push(RegenerateManaSource::Token(token.color));
             }
         }
     }
 
-    // Check crystals (basic colors only)
+    // Crystals (basic colors only)
     for (color, count) in [
         (BasicManaColor::Red, player.crystals.red),
         (BasicManaColor::Blue, player.crystals.blue),
@@ -492,42 +493,35 @@ pub(super) fn apply_regenerate(
         (BasicManaColor::White, player.crystals.white),
     ] {
         if count > 0 {
-            let mc = ManaColor::from(color);
-            let idx = mana_color_to_index(mc);
-            if let Some(i) = idx {
-                if !seen[i] {
-                    seen[i] = true;
-                    available_colors.push(mc);
-                }
-            }
+            sources.push(RegenerateManaSource::Crystal(color));
         }
     }
 
-    // Check source dice (respecting time-of-day restrictions)
+    // Source dice
+    let mut seen_die = [false; 6];
     for die in &state.source.dice {
         if !die.is_depleted && die.taken_by_player_id.is_none() {
-            let idx = mana_color_to_index(die.color);
-            if let Some(i) = idx {
-                if !seen[i] {
-                    seen[i] = true;
-                    available_colors.push(die.color);
+            if let Some(i) = mana_color_to_index(die.color) {
+                if !seen_die[i] {
+                    seen_die[i] = true;
+                    sources.push(RegenerateManaSource::SourceDie(die.color));
                 }
             }
         }
     }
 
-    if available_colors.is_empty() {
+    if sources.is_empty() {
         return Err(ApplyError::InternalError(
             "Regenerate: no mana available".into(),
         ));
     }
 
-    if available_colors.len() == 1 {
+    if sources.len() == 1 {
         // Auto-consume the single option
-        execute_regenerate(state, player_idx, available_colors[0], bonus_color)?;
+        execute_regenerate(state, player_idx, &sources[0], bonus_color)?;
     } else {
         // Multiple options: set pending choice
-        let options: Vec<CardEffect> = available_colors
+        let options: Vec<CardEffect> = sources
             .iter()
             .map(|_| CardEffect::Noop)
             .collect();
@@ -540,7 +534,7 @@ pub(super) fn apply_regenerate(
                 continuation: vec![],
                 movement_bonus_applied: false,
                 resolution: ChoiceResolution::RegenerateMana {
-                    available_colors,
+                    sources,
                     bonus_color,
                 },
             }));
@@ -566,51 +560,64 @@ pub(super) fn mana_color_to_index(color: ManaColor) -> Option<usize> {
 }
 
 
-/// Execute the regenerate effect: consume mana, remove wound, conditionally draw.
+/// Execute the regenerate effect: consume the specific mana source, remove wound, conditionally draw.
 pub(crate) fn execute_regenerate(
     state: &mut GameState,
     player_idx: usize,
-    mana_color: ManaColor,
+    source: &mk_types::pending::RegenerateManaSource,
     bonus_color: BasicManaColor,
 ) -> Result<(), ApplyError> {
-    // Consume 1 mana of the chosen color (token > crystal > die)
-    let player = &mut state.players[player_idx];
+    use mk_types::pending::RegenerateManaSource;
 
-    // Try token first
-    if let Some(pos) = player.pure_mana.iter().position(|t| t.color == mana_color) {
-        player.pure_mana.remove(pos);
-    } else if let Some(basic) = mana_color.to_basic() {
-        // Try crystal
-        let crystal_count = match basic {
-            BasicManaColor::Red => &mut player.crystals.red,
-            BasicManaColor::Blue => &mut player.crystals.blue,
-            BasicManaColor::Green => &mut player.crystals.green,
-            BasicManaColor::White => &mut player.crystals.white,
-        };
-        if *crystal_count > 0 {
-            *crystal_count -= 1;
-            match basic {
-                BasicManaColor::Red => player.spent_crystals_this_turn.red += 1,
-                BasicManaColor::Blue => player.spent_crystals_this_turn.blue += 1,
-                BasicManaColor::Green => player.spent_crystals_this_turn.green += 1,
-                BasicManaColor::White => player.spent_crystals_this_turn.white += 1,
+    let mana_color = match source {
+        RegenerateManaSource::Token(c) | RegenerateManaSource::SourceDie(c) => *c,
+        RegenerateManaSource::Crystal(b) => ManaColor::from(*b),
+    };
+
+    match source {
+        RegenerateManaSource::Token(color) => {
+            let player = &mut state.players[player_idx];
+            if let Some(pos) = player.pure_mana.iter().position(|t| t.color == *color) {
+                player.pure_mana.remove(pos);
+            } else {
+                return Err(ApplyError::InternalError(
+                    "Regenerate: chosen token not available".into(),
+                ));
             }
-        } else {
-            return Err(ApplyError::InternalError(
-                "Regenerate: cannot consume mana".into(),
-            ));
         }
-    } else {
-        // Gold/Black — try source die
-        if let Some(die) = state.source.dice.iter_mut().find(|d| {
-            d.color == mana_color && !d.is_depleted && d.taken_by_player_id.is_none()
-        }) {
-            die.taken_by_player_id = Some(state.players[player_idx].id.clone());
-            die.is_depleted = true;
-        } else {
-            return Err(ApplyError::InternalError(
-                "Regenerate: cannot consume mana".into(),
-            ));
+        RegenerateManaSource::Crystal(basic) => {
+            let player = &mut state.players[player_idx];
+            let crystal_count = match basic {
+                BasicManaColor::Red => &mut player.crystals.red,
+                BasicManaColor::Blue => &mut player.crystals.blue,
+                BasicManaColor::Green => &mut player.crystals.green,
+                BasicManaColor::White => &mut player.crystals.white,
+            };
+            if *crystal_count > 0 {
+                *crystal_count -= 1;
+                match basic {
+                    BasicManaColor::Red => player.spent_crystals_this_turn.red += 1,
+                    BasicManaColor::Blue => player.spent_crystals_this_turn.blue += 1,
+                    BasicManaColor::Green => player.spent_crystals_this_turn.green += 1,
+                    BasicManaColor::White => player.spent_crystals_this_turn.white += 1,
+                }
+            } else {
+                return Err(ApplyError::InternalError(
+                    "Regenerate: chosen crystal not available".into(),
+                ));
+            }
+        }
+        RegenerateManaSource::SourceDie(color) => {
+            if let Some(die) = state.source.dice.iter_mut().find(|d| {
+                d.color == *color && !d.is_depleted && d.taken_by_player_id.is_none()
+            }) {
+                die.taken_by_player_id = Some(state.players[player_idx].id.clone());
+                die.is_depleted = true;
+            } else {
+                return Err(ApplyError::InternalError(
+                    "Regenerate: chosen source die not available".into(),
+                ));
+            }
         }
     }
 

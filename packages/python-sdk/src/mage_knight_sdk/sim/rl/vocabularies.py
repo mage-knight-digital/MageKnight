@@ -26,8 +26,13 @@ class Vocabulary:
 
 
 def _build_vocab(name: str, values: tuple[str, ...]) -> Vocabulary:
-    """Build a Vocabulary from a tuple of known string values."""
-    mapping = {v: i + 1 for i, v in enumerate(values)}
+    """Build a Vocabulary from a tuple of known string values.
+
+    IDs are assigned by **sorted** order (alphabetical) to match the Rust
+    encoder which uses binary search on the sorted list.
+    """
+    sorted_values = sorted(values)
+    mapping = {v: i + 1 for i, v in enumerate(sorted_values)}
     return Vocabulary(name=name, _str_to_idx=mapping, size=len(values) + 1)
 
 
@@ -163,25 +168,29 @@ _ACTION_TYPE_IDS: tuple[str, ...] = (
     "ACTIVATE_TACTIC", "ACTIVATE_UNIT", "ALTAR_TRIBUTE",
     "ANNOUNCE_END_OF_ROUND", "ASSIGN_ATTACK", "ASSIGN_BANNER",
     "ASSIGN_BLOCK", "ASSIGN_DAMAGE", "BURN_MONASTERY",
-    "BUY_HEALING", "BUY_SPELL",
+    "BUY_SPELL",
     "CANCEL_COOPERATIVE_PROPOSAL", "CHALLENGE_RAMPAGING",
     "CHOOSE_LEVEL_UP_REWARDS", "COMPLETE_REST",
     "CONVERT_INFLUENCE_TO_BLOCK", "CONVERT_MOVE_TO_ATTACK",
     "DEBUG_ADD_FAME", "DEBUG_TRIGGER_LEVEL_UP",
     "DECLARE_ATTACK", "DECLARE_ATTACK_TARGETS", "DECLARE_BLOCK", "DECLARE_BLOCK_TARGET", "DECLARE_REST",
-    "DISBAND_UNIT", "END_COMBAT_PHASE", "END_TURN",
-    "ENTER_COMBAT", "ENTER_SITE", "EXPLORE", "FINALIZE_ATTACK", "FINALIZE_BLOCK", "INTERACT",
+    "DISBAND_UNIT", "DISBAND_UNIT_FOR_REWARD",
+    "END_COMBAT_PHASE", "END_TURN",
+    "ENTER_COMBAT", "ENTER_SITE", "EXPLORE",
+    "FINALIZE_ATTACK", "FINALIZE_BLOCK", "FORFEIT_TURN", "FORFEIT_UNIT_REWARD",
+    "INTERACT",
     "LEARN_ADVANCED", "LEARN_ADVANCED_ACTION", "MOVE",
     "PAY_HEROES_ASSAULT_INFLUENCE", "PAY_THUGS_DAMAGE_INFLUENCE",
     "DECLINE_PLUNDER",
     "PLAY_CARD", "PLAY_CARD_SIDEWAYS", "PLUNDER_VILLAGE",
     "PROPOSE_COOPERATIVE_ASSAULT", "RECRUIT_UNIT",
     "REROLL_SOURCE_DICE",
-    "RESOLVE_ARTIFACT_CRYSTAL_COLOR", "RESOLVE_BANNER_PROTECTION",
+    "RESOLVE_BANNER_PROTECTION",
     "RESOLVE_BOOK_OF_WISDOM", "RESOLVE_CHOICE",
-    "RESOLVE_CRYSTAL_JOY_RECLAIM", "RESOLVE_DECOMPOSE",
+    "RESOLVE_CRYSTAL_JOY_RECLAIM", "RESOLVE_CRYSTAL_ROLL_COLOR",
+    "RESOLVE_DECOMPOSE",
     "RESOLVE_DEEP_MINE", "RESOLVE_DISCARD",
-    "RESOLVE_DISCARD_FOR_ATTACK", "RESOLVE_DISCARD_FOR_BONUS",
+    "RESOLVE_DISCARD_FOR_BONUS",
     "RESOLVE_DISCARD_FOR_CRYSTAL", "RESOLVE_GLADE_WOUND",
     "RESOLVE_HEX_COST_REDUCTION", "RESOLVE_MAXIMAL_EFFECT",
     "RESOLVE_MEDITATION", "RESOLVE_SOURCE_OPENING_REROLL",
@@ -190,7 +199,7 @@ _ACTION_TYPE_IDS: tuple[str, ...] = (
     "RESOLVE_UNIT_MAINTENANCE",
     "RESPOND_TO_COOPERATIVE_PROPOSAL",
     "REST", "RETURN_INTERACTIVE_SKILL",
-    "SELECT_REWARD", "SELECT_TACTIC",
+    "SELECT_ARTIFACT", "SELECT_REWARD", "SELECT_TACTIC",
     "SPEND_MOVE_ON_CUMBERSOME", "UNASSIGN_ATTACK", "UNASSIGN_BLOCK",
     "UNDO", "USE_BANNER_FEAR", "USE_SKILL",
 )
@@ -203,11 +212,13 @@ ACTION_TYPE_VOCAB: Vocabulary = _build_vocab("action_type", _ACTION_TYPE_IDS)
 
 _MODE_IDS: tuple[str, ...] = (
     "cannot_act", "combat", "normal_turn",
-    "pending_artifact_crystal_color", "pending_banner_protection",
+    "pending_artifact_selection",
+    "pending_banner_protection",
     "pending_book_of_wisdom", "pending_choice",
-    "pending_crystal_joy_reclaim", "pending_decompose",
+    "pending_crystal_joy_reclaim", "pending_crystal_roll",
+    "pending_decompose",
     "pending_deep_mine", "pending_discard_cost",
-    "pending_discard_for_attack", "pending_discard_for_bonus",
+    "pending_discard_for_bonus",
     "pending_discard_for_crystal", "pending_glade_wound",
     "pending_hex_cost_reduction", "pending_level_up",
     "pending_maximal_effect", "pending_meditation",
@@ -226,7 +237,7 @@ MODE_VOCAB: Vocabulary = _build_vocab("mode", _MODE_IDS)
 # ---------------------------------------------------------------------------
 
 _SOURCE_IDS: tuple[str, ...] = (
-    "artifact_crystal_color",
+    "artifact_crystal_color", "artifact_selection.card",
     "banner_protection.remove", "banner_protection.skip",
     "book_of_wisdom.card",
     "combat.assign_attack", "combat.assign_block",
@@ -243,6 +254,7 @@ _SOURCE_IDS: tuple[str, ...] = (
     "combat.skills.activate", "combat.units.activate",
     "combat.thugs_payment",
     "crystal_joy.card", "crystal_joy.skip",
+    "crystal_roll.color",
     "decompose.card", "deep_mine.color",
     "discard_cost.optional_skip", "discard_cost.required",
     "discard_for_attack.none", "discard_for_attack.one",
@@ -265,7 +277,7 @@ _SOURCE_IDS: tuple[str, ...] = (
     "normal.tactic.activate", "normal.tactic.pending",
     "normal.tactic.reroll",
     "normal.turn.announce_end_round", "normal.turn.complete_rest",
-    "normal.turn.declare_rest", "normal.turn.end_turn",
+    "normal.turn.declare_rest", "normal.turn.end_turn", "normal.turn.forfeit",
     "normal.units.activate", "normal.units.recruit", "normal.units.recruit.disband",
     "plunder_decision.decline", "plunder_decision.plunder",
     "pending_choice.index",
@@ -293,6 +305,7 @@ _SOURCE_IDS: tuple[str, ...] = (
     "training.card",
     "turn.end_turn", "turn.undo",
     "unit_maintenance.disband", "unit_maintenance.keep",
+    "unit_reward.disband", "unit_reward.forfeit",
 )
 
 SOURCE_VOCAB: Vocabulary = _build_vocab("source", _SOURCE_IDS)

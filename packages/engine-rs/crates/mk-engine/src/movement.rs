@@ -107,6 +107,8 @@ pub enum ExploreError {
     AreaAlreadyOccupied,
     /// Player is not on the edge of their tile facing the explore direction.
     NotOnTileEdge,
+    /// Direction is not allowed by the map shape constraints.
+    DirectionNotAllowed,
 }
 
 /// Info about rampaging enemies provoked by skirting past them.
@@ -990,6 +992,12 @@ pub fn execute_explore(
     player_idx: usize,
     direction: HexDirection,
 ) -> Result<TileId, ExploreError> {
+    // Validate direction is allowed by map shape
+    let allowed = state.scenario_config.map_shape.expansion_directions();
+    if !allowed.contains(&direction) {
+        return Err(ExploreError::DirectionNotAllowed);
+    }
+
     let pos = state.players[player_idx]
         .position
         .ok_or(ExploreError::NoPosition)?;
@@ -1039,6 +1047,11 @@ pub fn execute_explore(
         center_coord: new_center,
         revealed: true,
     });
+
+    // Mark tile slot as filled
+    if let Some(slot) = state.map.tile_slots.get_mut(&new_center.key()) {
+        slot.filled = true;
+    }
 
     // Deduct move points
     state.players[player_idx].move_points -= explore_cost;
@@ -1572,12 +1585,13 @@ mod tests {
     #[test]
     fn explore_wrong_direction_from_edge_rejected() {
         let mut state = setup_game_with_move_points(5);
-        // Player at NE edge (1,-1) — but trying to explore West (opposite direction)
+        // Player at NE edge (1,-1) — but trying to explore West (opposite direction).
+        // Solo game uses Wedge shape, so W is not in expansion_directions.
         move_to_east_edge(&mut state);
         state.map.tile_deck.countryside.push(TileId::Countryside1);
 
         let result = execute_explore(&mut state, 0, HexDirection::W);
-        assert_eq!(result.unwrap_err(), ExploreError::NotOnTileEdge);
+        assert_eq!(result.unwrap_err(), ExploreError::DirectionNotAllowed);
     }
 
     // ---- Enemy drawing on explore tests ----
@@ -2518,6 +2532,86 @@ mod tests {
             state.offers.monastery_advanced_actions.len(),
             initial_count,
             "No AA drawn when deck is empty"
+        );
+    }
+
+    // ===========================================================================
+    // Map shape exploration constraint tests
+    // ===========================================================================
+
+    #[test]
+    fn explore_direction_rejected_for_wedge() {
+        let mut state = setup_game_with_move_points(5);
+        // Move to SW edge — could explore SW in an Open map, but not Wedge
+        state.players[0].position = Some(HexCoord::new(-1, 1));
+        state.map.tile_deck.countryside.push(TileId::Countryside1);
+
+        let result = execute_explore(&mut state, 0, HexDirection::SW);
+        assert_eq!(result.unwrap_err(), ExploreError::DirectionNotAllowed);
+    }
+
+    #[test]
+    fn explore_slot_marked_filled() {
+        let mut state = setup_game_with_move_points(5);
+        move_to_east_edge(&mut state);
+        state.map.tile_deck.countryside.push(TileId::Countryside1);
+
+        // Regenerate tile slots (setup helper clears the map and deck)
+        let total = 1 + state.map.tile_deck.countryside.len() as u32;
+        state.map.tile_slots =
+            crate::setup::generate_tile_slots(state.scenario_config.map_shape, total);
+
+        // E tile center = (3,-2) — should be a slot in Wedge
+        assert!(
+            state.map.tile_slots.contains_key("3,-2"),
+            "Wedge should have a slot at (3,-2)"
+        );
+        assert!(
+            !state.map.tile_slots.get("3,-2").unwrap().filled,
+            "Slot should start unfilled"
+        );
+
+        execute_explore(&mut state, 0, HexDirection::E).unwrap();
+
+        assert!(
+            state.map.tile_slots.get("3,-2").unwrap().filled,
+            "Slot should be marked filled after explore"
+        );
+    }
+
+    #[test]
+    fn explores_available_from_row1_tiles_after_initial_placement() {
+        // Simulate what the RL env sees: create_solo_game + place_initial_tiles.
+        // Verify that explore actions ARE available from row 1 tile edges.
+        let mut state = create_solo_game(42, Hero::Arythea);
+        crate::setup::place_initial_tiles(&mut state);
+        state.round_phase = RoundPhase::PlayerTurns;
+        state.players[0].move_points = 10;
+
+        // Check all hexes across both row 1 tiles for explore availability
+        let all_row1_hexes: [(i32, i32); 14] = [
+            // NE tile (center 1,-3)
+            (1, -3), (2, -4), (2, -3), (1, -2), (0, -2), (0, -3), (1, -4),
+            // E tile (center 3,-2)
+            (3, -2), (4, -3), (4, -2), (3, -1), (2, -1), (2, -2), (3, -3),
+        ];
+
+        let mut total_explore_positions = 0;
+        for (q, r) in all_row1_hexes {
+            state.players[0].position = Some(HexCoord::new(q, r));
+            let undo = crate::undo::UndoStack::new();
+            let legal = crate::legal_actions::enumerate_legal_actions_with_undo(&state, 0, &undo);
+            let has_explore = legal.actions.iter()
+                .any(|a| matches!(a, mk_types::legal_action::LegalAction::Explore { .. }));
+            if has_explore {
+                total_explore_positions += 1;
+            }
+        }
+        // 6 hexes should have explore actions: NE tile (2,-4), (2,-3), (1,-4)
+        // and E tile (4,-3), (4,-2), (3,-3)
+        assert_eq!(
+            total_explore_positions, 6,
+            "6 hexes on row 1 tiles should have explore actions"
         );
     }
 }

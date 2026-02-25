@@ -45,6 +45,17 @@ pub const MAX_SUBSET_ITEMS: usize = 8;
 // Sub-types used by pending variants
 // =============================================================================
 
+/// A specific mana source the player can choose to spend for Regenerate.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RegenerateManaSource {
+    /// A mana token the player owns.
+    Token(ManaColor),
+    /// A crystal (basic colors only).
+    Crystal(BasicManaColor),
+    /// A source die from the shared pool.
+    SourceDie(ManaColor),
+}
+
 /// Template describing the effects of a SelectCombatEnemy ability (unit or card).
 ///
 /// All SelectCombatEnemy abilities are expressible as a combination of
@@ -210,9 +221,9 @@ pub enum ChoiceResolution {
     UniversalPowerMana { available_colors: Vec<BasicManaColor> },
     /// Secret Ways: choosing option 1 consumes 1 Blue mana and applies lake modifiers.
     SecretWaysLake,
-    /// Regenerate: consume 1 mana of the chosen color, remove wound, conditionally draw.
+    /// Regenerate: consume 1 mana from the chosen source, remove wound, conditionally draw.
     RegenerateMana {
-        available_colors: Vec<ManaColor>,
+        sources: Vec<RegenerateManaSource>,
         bonus_color: BasicManaColor,
     },
     /// Dueling: target enemy for dueling modifier.

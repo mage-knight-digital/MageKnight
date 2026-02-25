@@ -44,6 +44,7 @@ DEFAULT_FLAGS=(
     --num-hidden-layers 2
     --mini-batch-size 256
     --checkpoint-every 10000
+    --step-penalty 0
 )
 
 # --- Helpers ---
@@ -457,6 +458,50 @@ print(json.dumps(cfg, indent=2))
 "
 }
 
+cmd_delete() {
+    local run_name="${1:-}"
+    if [ -z "$run_name" ]; then
+        echo "Usage: ./scripts/train delete <run-name>"
+        exit 1
+    fi
+
+    local run_dir
+    run_dir=$(_run_dir "$run_name")
+
+    if [ ! -d "$run_dir" ]; then
+        echo "Run '$run_name' not found."
+        exit 1
+    fi
+
+    # Don't delete the active run
+    local active_run
+    active_run=$(_active_run)
+    if [ "$run_name" = "$active_run" ]; then
+        local pid
+        if pid=$(_is_running); then
+            echo "ERROR: Run '$run_name' is currently running (PID $pid)."
+            echo "  Stop it first: ./scripts/train stop"
+            exit 1
+        fi
+    fi
+
+    # Show what will be deleted
+    local episodes
+    episodes=$(_episode_count "$run_dir")
+    echo "Delete run '$run_name'?"
+    echo "  Directory: $run_dir"
+    echo "  Episodes:  $episodes"
+    echo ""
+    read -rp "Type 'yes' to confirm: " confirm
+    if [ "$confirm" != "yes" ]; then
+        echo "Cancelled."
+        exit 0
+    fi
+
+    rm -rf "$run_dir"
+    echo "Deleted '$run_name'."
+}
+
 # --- Main ---
 
 case "${1:-}" in
@@ -465,13 +510,15 @@ case "${1:-}" in
     status) cmd_status ;;
     list)   cmd_list ;;
     config) shift; cmd_config "$@" ;;
+    delete) shift; cmd_delete "$@" ;;
     *)
-        echo "Usage: ./scripts/train {start|stop|status|list|config}"
+        echo "Usage: ./scripts/train {start|stop|status|list|delete|config}"
         echo ""
         echo "  start <name> [-- flags]  Start or resume a named run"
         echo "  stop                     Stop running training"
         echo "  status                   Show active run progress"
         echo "  list                     List all runs with stats"
+        echo "  delete <name>            Delete a run and its data"
         echo "  config <name>            Show full config for a run"
         echo ""
         echo "  tensorboard --logdir training/runs   # compare all runs"

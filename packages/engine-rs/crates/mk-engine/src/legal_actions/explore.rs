@@ -1,4 +1,4 @@
-use mk_types::hex::{HexCoord, HexDirection, TILE_HEX_OFFSETS};
+use mk_types::hex::{HexCoord, TILE_HEX_OFFSETS};
 use mk_types::legal_action::LegalAction;
 use mk_types::modifier::RuleOverride;
 use mk_types::state::{GameState, PlayerFlags};
@@ -45,8 +45,12 @@ pub(super) fn enumerate_explores(
         None => return,
     };
 
-    // HexDirection::ALL is in deterministic order (NE, E, SE, SW, W, NW).
-    for dir in &HexDirection::ALL {
+    let next_tile_is_core = state.map.tile_deck.countryside.is_empty();
+
+    // Use expansion_directions() to constrain which directions are valid.
+    let allowed_directions = state.scenario_config.map_shape.expansion_directions();
+
+    for dir in allowed_directions {
         let target_center = crate::movement::calculate_tile_placement(tile_center, *dir);
 
         let tile_exists = state
@@ -55,16 +59,60 @@ pub(super) fn enumerate_explores(
             .iter()
             .any(|t| t.center_coord == target_center);
 
-        if !tile_exists && crate::movement::is_player_near_explore_edge(pos, tile_center, *dir) {
-            let would_overlap = TILE_HEX_OFFSETS.iter().any(|offset| {
-                let hex_coord =
-                    HexCoord::new(target_center.q + offset.q, target_center.r + offset.r);
-                state.map.hexes.contains_key(&hex_coord.key())
-            });
+        if tile_exists {
+            continue;
+        }
 
-            if !would_overlap {
-                actions.push(LegalAction::Explore { direction: *dir });
+        if !crate::movement::is_player_near_explore_edge(pos, tile_center, *dir) {
+            continue;
+        }
+
+        // Tile slot validation: if slots are populated, target must exist and be unfilled.
+        if !state.map.tile_slots.is_empty() {
+            match state.map.tile_slots.get(&target_center.key()) {
+                None => continue,            // no slot exists for this position
+                Some(slot) if slot.filled => continue, // already filled
+                Some(slot) => {
+                    // Coastline filtering: core (brown) tiles cannot be placed on
+                    // coastline slots (leftmost/rightmost column in row > 0).
+                    if next_tile_is_core && is_coastline_slot(slot, &state.map.tile_slots) {
+                        continue;
+                    }
+                }
             }
         }
+
+        let would_overlap = TILE_HEX_OFFSETS.iter().any(|offset| {
+            let hex_coord =
+                HexCoord::new(target_center.q + offset.q, target_center.r + offset.r);
+            state.map.hexes.contains_key(&hex_coord.key())
+        });
+
+        if !would_overlap {
+            actions.push(LegalAction::Explore { direction: *dir });
+        }
     }
+}
+
+/// Check if a tile slot is on the coastline (leftmost or rightmost column in its row).
+///
+/// Row 0 is never coastline (it's the starting tile).
+/// For rows > 0, coastline = column 0 or column == row (the edges of the triangle).
+fn is_coastline_slot(
+    slot: &mk_types::state::TileSlot,
+    all_slots: &std::collections::BTreeMap<String, mk_types::state::TileSlot>,
+) -> bool {
+    if slot.row == 0 {
+        return false;
+    }
+
+    // Find the min and max columns in this row
+    let (min_col, max_col) = all_slots
+        .values()
+        .filter(|s| s.row == slot.row)
+        .fold((i32::MAX, i32::MIN), |(min, max), s| {
+            (min.min(s.column), max.max(s.column))
+        });
+
+    slot.column == min_col || slot.column == max_col
 }

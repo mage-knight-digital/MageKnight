@@ -16,3 +16,4 @@ class RewardConfig:
     terminal_end_bonus: float = 1.0
     terminal_max_steps_penalty: float = -0.5
     terminal_failure_penalty: float = -1.0
+    scenario_trigger_bonus: float = 0.0

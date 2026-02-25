@@ -20,6 +20,7 @@ def run_eval_game(
 ) -> dict:
     """Run a single game with the policy, capturing action indices."""
     from mk_python import GameEngine
+    from mage_knight_sdk.sim.rl.native_rl_runner import py_encoded_to_encoded_step
 
     engine = GameEngine(seed=seed, hero=hero)
     actions: list[int] = []
@@ -28,10 +29,10 @@ def run_eval_game(
 
     while step < max_steps and not engine.is_game_ended():
         py_encoded = engine.encode_step()
-        np_dict = py_encoded.as_numpy()
+        encoded_step = py_encoded_to_encoded_step(py_encoded)
 
         with torch.no_grad():
-            action_index = policy.choose_action_numpy(np_dict)
+            action_index = policy.choose_action_from_encoded(encoded_step)
 
         actions.append(action_index)
         game_ended = engine.apply_action(action_index)

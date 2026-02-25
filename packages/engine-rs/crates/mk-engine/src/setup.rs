@@ -284,6 +284,10 @@ pub fn create_solo_game(seed: u32, hero: Hero) -> GameState {
     // Create tile deck from scenario config
     map.tile_deck = mk_data::tiles::create_tile_deck(&scenario_config, &mut rng);
 
+    // Generate tile slots for map shape constraints
+    let total_tiles = 1 + map.tile_deck.countryside.len() as u32 + map.tile_deck.core.len() as u32;
+    map.tile_slots = generate_tile_slots(scenario_config.map_shape, total_tiles);
+
     // Find portal hex for player start position
     let hexes_def_for_portal = starting_tile_hexes(TileId::StartingA).unwrap();
     let portal_local = find_portal(hexes_def_for_portal).expect("Starting tile must have portal");
@@ -417,6 +421,10 @@ pub fn create_multiplayer_game(
 
     // Create tile deck from scenario config
     map.tile_deck = mk_data::tiles::create_tile_deck(&scenario_config, &mut rng);
+
+    // Generate tile slots for map shape constraints
+    let total_tiles = 1 + map.tile_deck.countryside.len() as u32 + map.tile_deck.core.len() as u32;
+    map.tile_slots = generate_tile_slots(scenario_config.map_shape, total_tiles);
 
     // Find portal hex for player start position
     let hexes_def_for_portal = starting_tile_hexes(TileId::StartingA).unwrap();
@@ -574,6 +582,11 @@ pub fn place_initial_tiles(state: &mut GameState) {
             revealed: true,
         });
 
+        // Mark tile slot as filled
+        if let Some(slot) = state.map.tile_slots.get_mut(&new_center.key()) {
+            slot.filled = true;
+        }
+
         placements.push((tile_id, new_center));
     }
 
@@ -582,6 +595,88 @@ pub fn place_initial_tiles(state: &mut GameState) {
         if let Some(tile_hexes) = get_tile_hexes(tile_id) {
             crate::movement::draw_enemies_on_tile(state, center, tile_hexes);
         }
+    }
+}
+
+/// Generate tile slots for a Wedge map shape.
+///
+/// The Wedge is a triangular grid expanding NE and E from origin.
+/// Row 0 = origin (1 slot). Row N = N+1 slots, computed by all
+/// combinations of NE and E steps that total N from origin.
+///
+/// `total_tiles` is the total number of map tiles (including starting tile),
+/// determining how many rows to generate.
+fn generate_wedge_slots(total_tiles: u32) -> BTreeMap<String, TileSlot> {
+    use mk_types::hex::TILE_PLACEMENT_OFFSETS;
+
+    let ne_offset = TILE_PLACEMENT_OFFSETS
+        .iter()
+        .find(|(d, _)| *d == HexDirection::NE)
+        .map(|(_, off)| *off)
+        .unwrap();
+    let e_offset = TILE_PLACEMENT_OFFSETS
+        .iter()
+        .find(|(d, _)| *d == HexDirection::E)
+        .map(|(_, off)| *off)
+        .unwrap();
+
+    let mut slots = BTreeMap::new();
+
+    // Row 0 = starting tile at origin (already placed, mark filled)
+    let origin = HexCoord::new(0, 0);
+    slots.insert(
+        origin.key(),
+        TileSlot {
+            coord: origin,
+            row: 0,
+            column: 0,
+            filled: true,
+        },
+    );
+
+    // Compute how many rows we need. Each row N has N+1 slots.
+    // Total slots through row R = sum(1..=R+1) = (R+1)(R+2)/2.
+    // We need enough rows to fit `total_tiles` slots.
+    let mut max_row = 0u32;
+    let mut cumulative = 1u32; // row 0 has 1 slot
+    while cumulative < total_tiles {
+        max_row += 1;
+        cumulative += max_row + 1;
+    }
+
+    // Generate rows 1..max_row. For each row, column 0 is the NE-most
+    // position and column N is the E-most.
+    for row in 1..=max_row {
+        for col in 0..=row {
+            // coord = origin + NE_offset * (row - col) + E_offset * col
+            let ne_steps = (row - col) as i32;
+            let e_steps = col as i32;
+            let coord = HexCoord::new(
+                ne_offset.q * ne_steps + e_offset.q * e_steps,
+                ne_offset.r * ne_steps + e_offset.r * e_steps,
+            );
+            slots.insert(
+                coord.key(),
+                TileSlot {
+                    coord,
+                    row,
+                    column: col as i32,
+                    filled: false,
+                },
+            );
+        }
+    }
+
+    slots
+}
+
+/// Generate tile slots for a map shape.
+///
+/// Only Wedge generates slots; Open variants return empty (no constraints).
+pub fn generate_tile_slots(shape: MapShape, total_tiles: u32) -> BTreeMap<String, TileSlot> {
+    match shape {
+        MapShape::Wedge => generate_wedge_slots(total_tiles),
+        MapShape::Open | MapShape::Open3 | MapShape::Open4 | MapShape::Open5 => BTreeMap::new(),
     }
 }
 
@@ -958,5 +1053,81 @@ mod tests {
             config,
             "test",
         );
+    }
+
+    // =========================================================================
+    // Tile slot tests
+    // =========================================================================
+
+    #[test]
+    fn solo_game_has_tile_slots() {
+        let state = create_solo_game(42, Hero::Arythea);
+        // Wedge shape should produce tile slots
+        assert!(
+            !state.map.tile_slots.is_empty(),
+            "Solo game (Wedge) should have tile slots"
+        );
+    }
+
+    #[test]
+    fn wedge_slots_row_counts() {
+        // First Reconnaissance solo: 8 countryside + 2 core = 10 in deck + 1 starting = 11 total
+        let state = create_solo_game(42, Hero::Arythea);
+        let slots = &state.map.tile_slots;
+
+        // Row 0 = 1 slot (origin), Row 1 = 2 slots, Row 2 = 3 slots, Row 3 = 4 slots
+        // Total = 1+2+3+4 = 10. Need 11 tiles → Row 4 = 5 slots → total = 15 slots.
+        for row in 0..=4u32 {
+            let count = slots.values().filter(|s| s.row == row).count();
+            assert_eq!(
+                count,
+                (row + 1) as usize,
+                "Row {} should have {} slots",
+                row,
+                row + 1
+            );
+        }
+    }
+
+    #[test]
+    fn wedge_origin_slot_is_filled() {
+        let state = create_solo_game(42, Hero::Arythea);
+        let origin_slot = state.map.tile_slots.get("0,0").unwrap();
+        assert!(origin_slot.filled, "Origin slot should be pre-filled");
+        assert_eq!(origin_slot.row, 0);
+        assert_eq!(origin_slot.column, 0);
+    }
+
+    #[test]
+    fn initial_tiles_mark_slots_filled() {
+        let mut state = create_solo_game(42, Hero::Arythea);
+        place_initial_tiles(&mut state);
+
+        // NE tile center = (1,-3), E tile center = (3,-2)
+        let ne_slot = state.map.tile_slots.get("1,-3").unwrap();
+        assert!(ne_slot.filled, "NE initial tile slot should be filled");
+
+        let e_slot = state.map.tile_slots.get("3,-2").unwrap();
+        assert!(e_slot.filled, "E initial tile slot should be filled");
+    }
+
+    #[test]
+    fn wedge_slot_coords_correct() {
+        let state = create_solo_game(42, Hero::Arythea);
+        let slots = &state.map.tile_slots;
+
+        // Row 1: NE from origin = (1,-3), E from origin = (3,-2)
+        let ne = slots.get("1,-3").unwrap();
+        assert_eq!(ne.row, 1);
+        assert_eq!(ne.column, 0);
+
+        let e = slots.get("3,-2").unwrap();
+        assert_eq!(e.row, 1);
+        assert_eq!(e.column, 1);
+
+        // Row 2 middle: NE from E = E from NE = (4,-5)
+        let mid = slots.get("4,-5").unwrap();
+        assert_eq!(mid.row, 2);
+        assert_eq!(mid.column, 1);
     }
 }

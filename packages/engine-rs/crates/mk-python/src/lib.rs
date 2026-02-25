@@ -19,6 +19,7 @@ use mk_engine::legal_actions::enumerate_legal_actions_with_undo;
 use mk_engine::scoring::calculate_final_scores;
 use mk_engine::setup::{create_solo_game, place_initial_tiles};
 use mk_engine::undo::UndoStack;
+use mk_env::VecEnv;
 use mk_features::EncodedStep;
 use mk_types::enums::Hero;
 use mk_types::events::GameEvent;
@@ -345,6 +346,11 @@ impl GameEngine {
         self.state.round
     }
 
+    /// Whether the scenario end condition has been triggered (e.g. city revealed).
+    fn scenario_end_triggered(&self) -> bool {
+        self.state.scenario_end_triggered
+    }
+
     /// Total steps applied so far.
     fn step_count(&self) -> u64 {
         self.step_count
@@ -494,6 +500,153 @@ impl GameEngine {
 }
 
 // =============================================================================
+// PyVecEnv — vectorized environment for batched RL training
+// =============================================================================
+
+/// Vectorized environment running N parallel Mage Knight games.
+///
+/// Uses Rayon for parallel stepping and encoding. Returns numpy arrays
+/// via Python dicts for efficient batched neural network forward passes.
+///
+///     from mk_python import PyVecEnv
+///     env = PyVecEnv(num_envs=16, base_seed=42)
+///     batch = env.encode_batch()        # dict of numpy arrays
+///     result = env.step_batch(actions)   # dict of numpy arrays
+#[pyclass]
+struct PyVecEnv {
+    inner: VecEnv,
+}
+
+/// Helper: convert a flat Vec<f32> to a numpy array with the given shape.
+fn vec_f32_to_numpy<'py>(
+    py: Python<'py>,
+    np: &Bound<'py, PyAny>,
+    data: &[f32],
+    shape: &[usize],
+) -> PyResult<PyObject> {
+    let list = pyo3::types::PyList::new_bound(py, data);
+    let arr = np.call_method1("array", (list,))?;
+    let arr = arr.call_method1("astype", ("float32",))?;
+    let shape_tuple = pyo3::types::PyTuple::new_bound(py, shape);
+    Ok(arr.call_method1("reshape", (shape_tuple,))?.to_object(py))
+}
+
+/// Helper: convert a flat Vec<i32> to a numpy array with the given shape.
+fn vec_i32_to_numpy<'py>(
+    py: Python<'py>,
+    np: &Bound<'py, PyAny>,
+    data: &[i32],
+    shape: &[usize],
+) -> PyResult<PyObject> {
+    let list = pyo3::types::PyList::new_bound(py, data);
+    let arr = np.call_method1("array", (list,))?;
+    let arr = arr.call_method1("astype", ("int32",))?;
+    let shape_tuple = pyo3::types::PyTuple::new_bound(py, shape);
+    Ok(arr.call_method1("reshape", (shape_tuple,))?.to_object(py))
+}
+
+/// Helper: convert a Vec<bool> to a numpy bool array.
+fn vec_bool_to_numpy<'py>(
+    py: Python<'py>,
+    np: &Bound<'py, PyAny>,
+    data: &[bool],
+) -> PyResult<PyObject> {
+    let list = pyo3::types::PyList::new_bound(py, data);
+    let arr = np.call_method1("array", (list,))?;
+    let arr = arr.call_method1("astype", ("bool",))?;
+    Ok(arr.to_object(py))
+}
+
+#[pymethods]
+impl PyVecEnv {
+    #[new]
+    #[pyo3(signature = (num_envs=16, base_seed=42, hero="arythea", max_steps=2000))]
+    fn new(num_envs: usize, base_seed: u32, hero: &str, max_steps: u64) -> PyResult<Self> {
+        let hero_enum = parse_hero(hero)?;
+        let inner = VecEnv::new(num_envs, base_seed, hero_enum, max_steps);
+        Ok(Self { inner })
+    }
+
+    fn num_envs(&self) -> usize {
+        self.inner.num_envs()
+    }
+
+    fn seeds(&self) -> Vec<u32> {
+        self.inner.seeds()
+    }
+
+    /// Encode all envs into a dict of numpy arrays.
+    fn encode_batch(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let batch = self.inner.encode_batch();
+        let np = py.import_bound("numpy")?;
+        let dict = pyo3::types::PyDict::new_bound(py);
+        let n = batch.num_envs;
+
+        dict.set_item("state_scalars", vec_f32_to_numpy(py, &np, &batch.state_scalars, &[n, batch.state_scalars.len() / n])?)?;
+        dict.set_item("state_ids", vec_i32_to_numpy(py, &np, &batch.state_ids, &[n, 3])?)?;
+
+        dict.set_item("hand_card_ids", vec_i32_to_numpy(py, &np, &batch.hand_card_ids, &[n, batch.max_hand])?)?;
+        dict.set_item("hand_counts", vec_i32_to_numpy(py, &np, &batch.hand_counts, &[n])?)?;
+
+        dict.set_item("unit_ids", vec_i32_to_numpy(py, &np, &batch.unit_ids, &[n, batch.max_units])?)?;
+        dict.set_item("unit_counts", vec_i32_to_numpy(py, &np, &batch.unit_counts, &[n])?)?;
+
+        dict.set_item("combat_enemy_ids", vec_i32_to_numpy(py, &np, &batch.combat_enemy_ids, &[n, batch.max_combat_enemies])?)?;
+        dict.set_item("combat_enemy_counts", vec_i32_to_numpy(py, &np, &batch.combat_enemy_counts, &[n])?)?;
+        dict.set_item("combat_enemy_scalars", vec_f32_to_numpy(py, &np, &batch.combat_enemy_scalars, &[n * batch.max_combat_enemies, mk_features::COMBAT_ENEMY_SCALAR_DIM])?)?;
+
+        dict.set_item("skill_ids", vec_i32_to_numpy(py, &np, &batch.skill_ids, &[n, batch.max_skills])?)?;
+        dict.set_item("skill_counts", vec_i32_to_numpy(py, &np, &batch.skill_counts, &[n])?)?;
+
+        dict.set_item("visible_site_ids", vec_i32_to_numpy(py, &np, &batch.visible_site_ids, &[n, batch.max_visible_sites])?)?;
+        dict.set_item("visible_site_counts", vec_i32_to_numpy(py, &np, &batch.visible_site_counts, &[n])?)?;
+        dict.set_item("visible_site_scalars", vec_f32_to_numpy(py, &np, &batch.visible_site_scalars, &[n * batch.max_visible_sites, mk_features::SITE_SCALAR_DIM])?)?;
+
+        dict.set_item("map_enemy_ids", vec_i32_to_numpy(py, &np, &batch.map_enemy_ids, &[n, batch.max_map_enemies])?)?;
+        dict.set_item("map_enemy_counts", vec_i32_to_numpy(py, &np, &batch.map_enemy_counts, &[n])?)?;
+        dict.set_item("map_enemy_scalars", vec_f32_to_numpy(py, &np, &batch.map_enemy_scalars, &[n * batch.max_map_enemies, mk_features::MAP_ENEMY_SCALAR_DIM])?)?;
+
+        dict.set_item("action_ids", vec_i32_to_numpy(py, &np, &batch.action_ids, &[n * batch.max_actions, 6])?)?;
+        dict.set_item("action_scalars", vec_f32_to_numpy(py, &np, &batch.action_scalars, &[n * batch.max_actions, mk_features::ACTION_SCALAR_DIM])?)?;
+        dict.set_item("action_counts", vec_i32_to_numpy(py, &np, &batch.action_counts, &[n])?)?;
+
+        dict.set_item("action_target_offsets", vec_i32_to_numpy(py, &np, &batch.action_target_offsets, &[n * (batch.max_actions + 1)])?)?;
+        dict.set_item("action_target_ids", vec_i32_to_numpy(py, &np, &batch.action_target_ids, &[batch.action_target_ids.len()])?)?;
+
+        dict.set_item("fames", vec_i32_to_numpy(py, &np, &batch.fames, &[n])?)?;
+        dict.set_item("max_actions", batch.max_actions)?;
+
+        Ok(dict.to_object(py))
+    }
+
+    /// Step all envs with the given action indices.
+    ///
+    /// Args:
+    ///     actions: numpy array or list of i32 action indices, one per env.
+    ///
+    /// Returns a dict with fame_deltas, dones, fames, panicked, truncated, scenario_end_triggered.
+    fn step_batch(&mut self, py: Python<'_>, actions: Vec<i32>) -> PyResult<PyObject> {
+        let result = self.inner.step_batch(&actions);
+        let np = py.import_bound("numpy")?;
+        let dict = pyo3::types::PyDict::new_bound(py);
+        let n = result.fame_deltas.len();
+
+        dict.set_item("fame_deltas", vec_i32_to_numpy(py, &np, &result.fame_deltas, &[n])?)?;
+        dict.set_item("dones", vec_bool_to_numpy(py, &np, &result.dones)?)?;
+        dict.set_item("fames", vec_i32_to_numpy(py, &np, &result.fames, &[n])?)?;
+        dict.set_item("panicked", vec_bool_to_numpy(py, &np, &result.panicked)?)?;
+        dict.set_item("truncated", vec_bool_to_numpy(py, &np, &result.truncated)?)?;
+        dict.set_item("scenario_end_triggered", vec_bool_to_numpy(py, &np, &result.scenario_end_triggered)?)?;
+
+        Ok(dict.to_object(py))
+    }
+
+    fn __repr__(&self) -> String {
+        format!("PyVecEnv(num_envs={})", self.inner.num_envs())
+    }
+}
+
+// =============================================================================
 // Module registration
 // =============================================================================
 
@@ -502,5 +655,6 @@ fn mk_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", "0.1.0")?;
     m.add_class::<GameEngine>()?;
     m.add_class::<PyEncodedStep>()?;
+    m.add_class::<PyVecEnv>()?;
     Ok(())
 }

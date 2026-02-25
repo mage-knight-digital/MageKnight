@@ -655,6 +655,20 @@ pub enum MapShape {
     Open5,
 }
 
+impl MapShape {
+    /// Valid tile expansion directions for this map shape.
+    ///
+    /// Wedge maps (First Reconnaissance) only allow NE and E exploration.
+    /// Open variants allow all 6 directions.
+    pub fn expansion_directions(self) -> &'static [crate::hex::HexDirection] {
+        use crate::hex::HexDirection;
+        match self {
+            Self::Wedge => &[HexDirection::NE, HexDirection::E],
+            Self::Open | Self::Open3 | Self::Open4 | Self::Open5 => &HexDirection::ALL,
+        }
+    }
+}
+
 // =============================================================================
 // Scenario End Trigger
 // =============================================================================
@@ -693,4 +707,30 @@ pub enum TacticRemovalMode {
 pub enum DiscardForBonusFilter {
     WoundOnly,
     AnyMaxOneWound,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::hex::HexDirection;
+
+    #[test]
+    fn expansion_directions_wedge() {
+        let dirs = MapShape::Wedge.expansion_directions();
+        assert_eq!(dirs, &[HexDirection::NE, HexDirection::E]);
+    }
+
+    #[test]
+    fn expansion_directions_open() {
+        let dirs = MapShape::Open.expansion_directions();
+        assert_eq!(dirs, &HexDirection::ALL);
+    }
+
+    #[test]
+    fn expansion_directions_open3_through_5() {
+        for shape in [MapShape::Open3, MapShape::Open4, MapShape::Open5] {
+            let dirs = shape.expansion_directions();
+            assert_eq!(dirs, &HexDirection::ALL, "{:?} should allow all 6 dirs", shape);
+        }
+    }
 }

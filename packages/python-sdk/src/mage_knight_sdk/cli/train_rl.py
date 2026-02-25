@@ -24,6 +24,7 @@ _METRIC_DESCRIPTIONS: dict[str, str] = {
     "optimization/entropy": "Action distribution entropy. High = exploring, low = exploiting. Should gradually decline, not collapse to zero.",
     "optimization/critic_loss": "MSE between value head predictions and actual returns. Lower = better state value estimates.",
     "optimization/action_count": "Total actions across all games in the sync batch. More = longer games = more training signal.",
+    "episode/scenario_ended": "1.0 if the game ended naturally (scenario complete), 0.0 if hit max steps or error. Tracks completion rate.",
 }
 
 
@@ -64,6 +65,7 @@ class _TBWriter:
         self._writer.add_scalar("reward/fame_max", self._max_fame, episode)
         self._writer.add_scalar("episode/steps", stats.steps, episode)
         self._writer.add_scalar("episode/fame_binary", 1.0 if stats.total_reward > 1.5 else 0.0, episode)
+        self._writer.add_scalar("episode/scenario_ended", 1.0 if getattr(stats, "scenario_triggered", False) else 0.0, episode)
         self._writer.add_scalar("optimization/loss", stats.optimization.loss, episode)
         self._writer.add_scalar("optimization/entropy", stats.optimization.entropy, episode)
         self._writer.add_scalar("optimization/critic_loss", stats.optimization.critic_loss, episode)
@@ -305,6 +307,7 @@ def _train_ppo_native(
         # Collect batch_size episodes
         episodes_data: list[list[Any]] = []
         batch_stats: list[EpisodeTrainingStats] = []
+        batch_fames: list[int] = []
 
         for i in range(batch_size):
             seed = args.seed + resume_episode_offset + episode_num + i
@@ -329,7 +332,9 @@ def _train_ppo_native(
                         loss=0.0, total_reward=0.0, mean_reward=0.0,
                         entropy=0.0, action_count=0,
                     ),
+                    scenario_triggered=result.scenario_end_triggered,
                 ))
+                batch_fames.append(result.fame)
                 continue
 
             episode_total_reward = sum(t.reward for t in transitions)
@@ -343,7 +348,9 @@ def _train_ppo_native(
                     mean_reward=episode_total_reward / max(len(transitions), 1),
                     entropy=0.0, action_count=len(transitions),
                 ),
+                scenario_triggered=result.scenario_end_triggered,
             ))
+            batch_fames.append(result.fame)
 
         # PPO optimization
         if episodes_data:
@@ -376,7 +383,7 @@ def _train_ppo_native(
 
             print(
                 f"ep={global_ep:04d} seed={seed} outcome={stats.outcome:<17} "
-                f"steps={stats.steps:<6} reward={stats.total_reward:>8.3f} "
+                f"steps={stats.steps:<6} fame={batch_fames[i]:<4} reward={stats.total_reward:>8.3f} "
                 f"loss={opt_stats.loss:>9.4f} entropy={opt_stats.entropy:>7.4f}"
             )
 
@@ -513,6 +520,7 @@ def _append_metrics_log(
         "outcome": stats.outcome,
         "steps": stats.steps,
         "reason": None,
+        "scenario_triggered": getattr(stats, "scenario_triggered", False),
         "timestamp": datetime.now(UTC).isoformat(),
         "total_reward": stats.total_reward,
         "optimization": {

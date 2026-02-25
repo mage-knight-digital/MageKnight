@@ -26,23 +26,17 @@ class VecTransition:
     """
 
     # State: numpy arrays (from batch slice)
-    state_scalars: np.ndarray          # (148,) float32
+    state_scalars: np.ndarray          # (STATE_SCALAR_DIM,) float32
     state_ids: np.ndarray              # (3,) int32
     hand_card_ids: np.ndarray          # (H,) int32 (trimmed to actual count)
     unit_ids: np.ndarray               # (U,) int32
-    unit_scalars: np.ndarray           # (U, 5) float32
     combat_enemy_ids: np.ndarray       # (CE,) int32
     combat_enemy_scalars: np.ndarray   # (CE, COMBAT_ENEMY_SCALAR_DIM) float32
     skill_ids: np.ndarray              # (S,) int32
-    skill_scalars: np.ndarray          # (S, 3) float32
     visible_site_ids: np.ndarray       # (VS,) int32
     visible_site_scalars: np.ndarray   # (VS, SITE_SCALAR_DIM) float32
     map_enemy_ids: np.ndarray          # (ME,) int32
     map_enemy_scalars: np.ndarray      # (ME, MAP_ENEMY_SCALAR_DIM) float32
-    spell_offer_ids: np.ndarray        # (SO,) int32
-    aa_offer_ids: np.ndarray           # (AO,) int32
-    unit_offer_ids: np.ndarray         # (UO,) int32
-    discard_card_ids: np.ndarray       # (D,) int32
 
     # Action: numpy arrays (trimmed to actual count)
     action_ids: np.ndarray             # (A, 6) int32
@@ -71,28 +65,16 @@ def _extract_vec_transition(
     sc = int(batch_dict["skill_counts"][i])
     vsc = int(batch_dict["visible_site_counts"][i])
     mec = int(batch_dict["map_enemy_counts"][i])
-    soc = int(batch_dict["spell_offer_counts"][i])
-    aoc = int(batch_dict["aa_offer_counts"][i])
-    uoc = int(batch_dict["unit_offer_counts"][i])
-    dc = int(batch_dict["discard_counts"][i])
     ac = int(batch_dict["action_counts"][i])
 
     n = batch_dict["state_scalars"].shape[0]
-    max_u = batch_dict["unit_ids"].shape[1]
     max_ce = batch_dict["combat_enemy_ids"].shape[1]
-    max_s = batch_dict["skill_ids"].shape[1]
     max_vs = batch_dict["visible_site_ids"].shape[1]
     max_me = batch_dict["map_enemy_ids"].shape[1]
 
     # Reshape 3D arrays that come as (N*max, dim) → index by env
-    unit_scalars_raw = batch_dict["unit_scalars"]  # (N*max_U, UNIT_SCALAR_DIM)
-    unit_scalars_3d = unit_scalars_raw.reshape(n, max_u, -1)
-
     ce_scalars_raw = batch_dict["combat_enemy_scalars"]
     ce_scalars_3d = ce_scalars_raw.reshape(n, max_ce, -1)
-
-    skill_scalars_raw = batch_dict["skill_scalars"]  # (N*max_S, SKILL_SCALAR_DIM)
-    skill_scalars_3d = skill_scalars_raw.reshape(n, max_s, -1)
 
     vs_scalars_raw = batch_dict["visible_site_scalars"]
     vs_scalars_3d = vs_scalars_raw.reshape(n, max_vs, -1)
@@ -110,19 +92,13 @@ def _extract_vec_transition(
         state_ids=batch_dict["state_ids"][i].copy(),
         hand_card_ids=batch_dict["hand_card_ids"][i, :hc].copy(),
         unit_ids=batch_dict["unit_ids"][i, :uc].copy(),
-        unit_scalars=unit_scalars_3d[i, :uc].copy(),
         combat_enemy_ids=batch_dict["combat_enemy_ids"][i, :cec].copy(),
         combat_enemy_scalars=ce_scalars_3d[i, :cec].copy(),
         skill_ids=batch_dict["skill_ids"][i, :sc].copy(),
-        skill_scalars=skill_scalars_3d[i, :sc].copy(),
         visible_site_ids=batch_dict["visible_site_ids"][i, :vsc].copy(),
         visible_site_scalars=vs_scalars_3d[i, :vsc].copy(),
         map_enemy_ids=batch_dict["map_enemy_ids"][i, :mec].copy(),
         map_enemy_scalars=me_scalars_3d[i, :mec].copy(),
-        spell_offer_ids=batch_dict["spell_offer_ids"][i, :soc].copy(),
-        aa_offer_ids=batch_dict["aa_offer_ids"][i, :aoc].copy(),
-        unit_offer_ids=batch_dict["unit_offer_ids"][i, :uoc].copy(),
-        discard_card_ids=batch_dict["discard_card_ids"][i, :dc].copy(),
         action_ids=action_ids_3d[i, :ac].copy(),
         action_scalars=action_scalars_3d[i, :ac].copy(),
         action_index=action_index,
@@ -139,21 +115,15 @@ def vec_transition_to_transition(vt: VecTransition) -> Transition:
         mode_id=int(vt.state_ids[0]),
         hand_card_ids=vt.hand_card_ids.tolist(),
         unit_ids=vt.unit_ids.tolist(),
-        unit_scalars=vt.unit_scalars.tolist(),
         current_terrain_id=int(vt.state_ids[1]),
         current_site_type_id=int(vt.state_ids[2]),
         combat_enemy_ids=vt.combat_enemy_ids.tolist(),
         combat_enemy_scalars=vt.combat_enemy_scalars.tolist(),
         skill_ids=vt.skill_ids.tolist(),
-        skill_scalars=vt.skill_scalars.tolist(),
         visible_site_ids=vt.visible_site_ids.tolist(),
         visible_site_scalars=vt.visible_site_scalars.tolist(),
         map_enemy_ids=vt.map_enemy_ids.tolist(),
         map_enemy_scalars=vt.map_enemy_scalars.tolist(),
-        spell_offer_ids=vt.spell_offer_ids.tolist(),
-        aa_offer_ids=vt.aa_offer_ids.tolist(),
-        unit_offer_ids=vt.unit_offer_ids.tolist(),
-        discard_card_ids=vt.discard_card_ids.tolist(),
     )
     n_actions = vt.action_ids.shape[0]
     actions = []
@@ -321,19 +291,13 @@ def collect_vecenv_rollout(
                     state_ids=last.state_ids,
                     hand_card_ids=last.hand_card_ids,
                     unit_ids=last.unit_ids,
-                    unit_scalars=last.unit_scalars,
                     combat_enemy_ids=last.combat_enemy_ids,
                     combat_enemy_scalars=last.combat_enemy_scalars,
                     skill_ids=last.skill_ids,
-                    skill_scalars=last.skill_scalars,
                     visible_site_ids=last.visible_site_ids,
                     visible_site_scalars=last.visible_site_scalars,
                     map_enemy_ids=last.map_enemy_ids,
                     map_enemy_scalars=last.map_enemy_scalars,
-                    spell_offer_ids=last.spell_offer_ids,
-                    aa_offer_ids=last.aa_offer_ids,
-                    unit_offer_ids=last.unit_offer_ids,
-                    discard_card_ids=last.discard_card_ids,
                     action_ids=last.action_ids,
                     action_scalars=last.action_scalars,
                     action_index=last.action_index,

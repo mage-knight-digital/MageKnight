@@ -408,6 +408,158 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         value = self.value_head(state_repr).squeeze(-1)  # scalar
         return logits, value
 
+    def forward_batch(
+        self, batch_dict: dict, device: torch.device,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Batched forward pass over a VecEnv batch dict.
+
+        Args:
+            batch_dict: dict of numpy arrays from PyVecEnv.encode_batch()
+            device: torch device
+
+        Returns:
+            (logits, values) where logits is (N, max_M) with -inf masking
+            and values is (N,).
+        """
+        n = int(batch_dict["action_counts"].shape[0])
+        action_counts = batch_dict["action_counts"]  # (N,)
+        max_m = int(action_counts.max())
+
+        # ── State encoding ────────────────────────────────────────────
+        scalars_t = torch.tensor(batch_dict["state_scalars"], dtype=torch.float32, device=device)  # (N, 76)
+        state_ids_t = torch.tensor(batch_dict["state_ids"], dtype=torch.long, device=device)  # (N, 3)
+
+        mode_vec = self.mode_emb(state_ids_t[:, 0])        # (N, emb)
+        terrain_vec = self.terrain_emb(state_ids_t[:, 1])   # (N, emb)
+        site_vec = self.site_emb(state_ids_t[:, 2])         # (N, emb)
+
+        emb = self.emb_dim
+
+        # Mean-pool hand card embeddings per env
+        hand_ids_t = torch.tensor(batch_dict["hand_card_ids"], dtype=torch.long, device=device)  # (N, max_H)
+        hand_counts_t = torch.tensor(batch_dict["hand_counts"], dtype=torch.long, device=device)  # (N,)
+        hand_embs = self.card_emb(hand_ids_t)  # (N, max_H, emb)
+        hand_mask = torch.arange(hand_ids_t.shape[1], device=device).unsqueeze(0) < hand_counts_t.unsqueeze(1)  # (N, max_H)
+        hand_embs_masked = hand_embs * hand_mask.unsqueeze(-1).float()
+        hand_pool = hand_embs_masked.sum(dim=1) / hand_counts_t.clamp(min=1).unsqueeze(-1).float()  # (N, emb)
+
+        # Mean-pool unit embeddings per env
+        unit_ids_t = torch.tensor(batch_dict["unit_ids"], dtype=torch.long, device=device)  # (N, max_U)
+        unit_counts_t = torch.tensor(batch_dict["unit_counts"], dtype=torch.long, device=device)  # (N,)
+        unit_embs = self.unit_emb(unit_ids_t)  # (N, max_U, emb)
+        unit_mask = torch.arange(unit_ids_t.shape[1], device=device).unsqueeze(0) < unit_counts_t.unsqueeze(1)
+        unit_embs_masked = unit_embs * unit_mask.unsqueeze(-1).float()
+        unit_pool = unit_embs_masked.sum(dim=1) / unit_counts_t.clamp(min=1).unsqueeze(-1).float()
+
+        # Mean-pool combat enemy embeddings + scalars
+        ce_ids_t = torch.tensor(batch_dict["combat_enemy_ids"], dtype=torch.long, device=device)  # (N, max_CE)
+        ce_counts_t = torch.tensor(batch_dict["combat_enemy_counts"], dtype=torch.long, device=device)  # (N,)
+        max_ce = ce_ids_t.shape[1]
+        ce_embs = self.enemy_emb(ce_ids_t)  # (N, max_CE, emb)
+        ce_scalars_flat = torch.tensor(batch_dict["combat_enemy_scalars"], dtype=torch.float32, device=device)  # (N*max_CE, CES_DIM)
+        ce_scalars_t = ce_scalars_flat.view(n, max_ce, -1)  # (N, max_CE, CES_DIM)
+        ce_combined = torch.cat([ce_embs, ce_scalars_t], dim=-1)  # (N, max_CE, emb+CES_DIM)
+        ce_mask = torch.arange(max_ce, device=device).unsqueeze(0) < ce_counts_t.unsqueeze(1)
+        ce_masked = ce_combined * ce_mask.unsqueeze(-1).float()
+        ce_pool = ce_masked.sum(dim=1) / ce_counts_t.clamp(min=1).unsqueeze(-1).float()  # (N, emb+CES_DIM)
+
+        # Mean-pool skill embeddings
+        skill_ids_t = torch.tensor(batch_dict["skill_ids"], dtype=torch.long, device=device)  # (N, max_S)
+        skill_counts_t = torch.tensor(batch_dict["skill_counts"], dtype=torch.long, device=device)
+        skill_embs = self.skill_emb(skill_ids_t)
+        skill_mask = torch.arange(skill_ids_t.shape[1], device=device).unsqueeze(0) < skill_counts_t.unsqueeze(1)
+        skill_embs_masked = skill_embs * skill_mask.unsqueeze(-1).float()
+        skill_pool = skill_embs_masked.sum(dim=1) / skill_counts_t.clamp(min=1).unsqueeze(-1).float()
+
+        # Mean-pool visible site embeddings + scalars
+        vs_ids_t = torch.tensor(batch_dict["visible_site_ids"], dtype=torch.long, device=device)  # (N, max_VS)
+        vs_counts_t = torch.tensor(batch_dict["visible_site_counts"], dtype=torch.long, device=device)
+        max_vs = vs_ids_t.shape[1]
+        vs_embs = self.map_site_emb(vs_ids_t)  # (N, max_VS, emb)
+        vs_scalars_flat = torch.tensor(batch_dict["visible_site_scalars"], dtype=torch.float32, device=device)  # (N*max_VS, SITE_DIM)
+        vs_scalars_t = vs_scalars_flat.view(n, max_vs, -1)
+        vs_combined = torch.cat([vs_embs, vs_scalars_t], dim=-1)
+        vs_mask = torch.arange(max_vs, device=device).unsqueeze(0) < vs_counts_t.unsqueeze(1)
+        vs_masked = vs_combined * vs_mask.unsqueeze(-1).float()
+        vs_pool = vs_masked.sum(dim=1) / vs_counts_t.clamp(min=1).unsqueeze(-1).float()
+
+        # Mean-pool map enemy embeddings + scalars
+        me_ids_t = torch.tensor(batch_dict["map_enemy_ids"], dtype=torch.long, device=device)  # (N, max_ME)
+        me_counts_t = torch.tensor(batch_dict["map_enemy_counts"], dtype=torch.long, device=device)
+        max_me = me_ids_t.shape[1]
+        me_embs = self.enemy_emb(me_ids_t)
+        me_scalars_flat = torch.tensor(batch_dict["map_enemy_scalars"], dtype=torch.float32, device=device)
+        me_scalars_t = me_scalars_flat.view(n, max_me, -1)
+        me_combined = torch.cat([me_embs, me_scalars_t], dim=-1)
+        me_mask = torch.arange(max_me, device=device).unsqueeze(0) < me_counts_t.unsqueeze(1)
+        me_masked = me_combined * me_mask.unsqueeze(-1).float()
+        me_pool = me_masked.sum(dim=1) / me_counts_t.clamp(min=1).unsqueeze(-1).float()
+
+        # Concatenate state input — same order as _encode_state_input
+        state_input = torch.cat([
+            scalars_t,
+            mode_vec, hand_pool, unit_pool,
+            terrain_vec, site_vec, ce_pool, skill_pool,
+            vs_pool, me_pool,
+        ], dim=-1)  # (N, state_input_dim)
+
+        state_reprs = self.state_encoder(state_input)  # (N, hidden)
+        values = self.value_head(state_reprs).squeeze(-1)  # (N,)
+
+        # ── Action encoding ───────────────────────────────────────────
+        # action_ids: (N*max_M, 6) → reshape to (N, max_M, 6)
+        action_ids_flat = torch.tensor(batch_dict["action_ids"], dtype=torch.long, device=device)  # (N*max_M, 6)
+        action_ids_3d = action_ids_flat.view(n, max_m, 6)
+        action_scalars_flat = torch.tensor(batch_dict["action_scalars"], dtype=torch.float32, device=device)  # (N*max_M, 34)
+        action_scalars_3d = action_scalars_flat.view(n, max_m, -1)
+
+        # Build target enemy pools from CSR offsets
+        target_offsets = batch_dict["action_target_offsets"]  # (N*(max_M+1),)
+        target_ids_np = batch_dict["action_target_ids"]  # (T_total,)
+        target_pools = torch.zeros(n, max_m, emb, device=device)
+        if len(target_ids_np) > 0:
+            all_target_ids = torch.tensor(target_ids_np, dtype=torch.long, device=device)
+            all_target_embs = self.enemy_emb(all_target_ids)  # (T_total, emb)
+            for env_i in range(n):
+                ac_i = int(action_counts[env_i])
+                base = env_i * (max_m + 1)
+                for j in range(ac_i):
+                    start = int(target_offsets[base + j])
+                    end = int(target_offsets[base + j + 1])
+                    if end > start:
+                        target_pools[env_i, j] = all_target_embs[start:end].mean(dim=0)
+
+        # Flatten for action encoder
+        flat_ids = action_ids_3d.view(n * max_m, 6)
+        flat_scalars = action_scalars_3d.view(n * max_m, -1)
+        flat_targets = target_pools.view(n * max_m, emb)
+
+        flat_action_input = torch.cat([
+            self.action_type_emb(flat_ids[:, 0]),
+            self.source_emb(flat_ids[:, 1]),
+            self.card_emb(flat_ids[:, 2]),
+            self.unit_emb(flat_ids[:, 3]),
+            self.enemy_emb(flat_ids[:, 4]),
+            self.skill_emb(flat_ids[:, 5]),
+            flat_targets,
+            flat_scalars,
+        ], dim=-1)  # (N*max_M, 7*emb + ACTION_SCALAR_DIM)
+
+        flat_action_reprs = self.action_encoder(flat_action_input)  # (N*max_M, hidden)
+        action_reprs = flat_action_reprs.view(n, max_m, -1)  # (N, max_M, hidden)
+
+        # Scoring
+        state_expanded = state_reprs.unsqueeze(1).expand(-1, max_m, -1)  # (N, max_M, hidden)
+        combined = torch.cat([state_expanded, action_reprs], dim=-1)  # (N, max_M, 2*hidden)
+        logits = self.scoring_head(combined.view(-1, combined.size(-1))).squeeze(-1).view(n, max_m)  # (N, max_M)
+
+        # Mask invalid positions
+        ac_t = torch.tensor(action_counts, dtype=torch.long, device=device)  # (N,)
+        mask = torch.arange(max_m, device=device).unsqueeze(0) < ac_t.unsqueeze(1)  # (N, max_M)
+        logits = logits.masked_fill(~mask, float("-inf"))
+
+        return logits, values
+
 
 class ReinforcePolicy:
     """Candidate-ranking policy optimized with episodic REINFORCE or PPO."""
@@ -464,6 +616,37 @@ class ReinforcePolicy:
         )
 
         return selected_index
+
+    def choose_actions_batch(
+        self, batch_dict: dict,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Choose actions for all envs in a VecEnv batch.
+
+        Args:
+            batch_dict: dict of numpy arrays from PyVecEnv.encode_batch()
+
+        Returns:
+            (actions, log_probs, values) as numpy arrays, all shape (N,).
+            actions: int32, log_probs: float32, values: float32.
+        """
+        self._network.train()
+        logits, values = self._network.forward_batch(batch_dict, self._device)
+        # logits: (N, max_M) with -inf at invalid positions
+        log_probs_all = torch.log_softmax(logits, dim=-1)  # (N, max_M)
+        probs = log_probs_all.exp()
+        selected = torch.multinomial(probs, 1).squeeze(-1)  # (N,)
+
+        n = logits.shape[0]
+        arange_n = torch.arange(n, device=self._device)
+        selected_log_probs = log_probs_all[arange_n, selected]  # (N,)
+
+        self.last_step_info = None  # batch mode doesn't use per-step info
+
+        return (
+            selected.detach().cpu().numpy().astype(np.int32),
+            selected_log_probs.detach().cpu().numpy().astype(np.float32),
+            values.detach().cpu().numpy().astype(np.float32),
+        )
 
     def record_step_reward(self, reward: float) -> None:
         if self._next_reward_index >= len(self._episode_rewards):

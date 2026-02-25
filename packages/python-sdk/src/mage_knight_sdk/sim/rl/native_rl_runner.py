@@ -50,6 +50,7 @@ class NativeRunResult:
     fame: int
     level: int
     round: int
+    scenario_end_triggered: bool = False
     reason: str | None = None
 
 
@@ -163,6 +164,7 @@ def run_native_rl_game(
             steps=step,
             total_reward=episode_total_reward,
             optimization=optimization,
+            scenario_triggered=engine.scenario_end_triggered(),
         )
 
     except Exception as e:
@@ -178,6 +180,7 @@ def run_native_rl_game(
         fame=engine.fame(),
         level=engine.level(),
         round=engine.round(),
+        scenario_end_triggered=engine.scenario_end_triggered(),
         reason=reason,
     )
     return result, stats
@@ -269,6 +272,7 @@ def run_native_rl_game_ppo(
         fame=engine.fame(),
         level=engine.level(),
         round=engine.round(),
+        scenario_end_triggered=engine.scenario_end_triggered(),
         reason=reason,
     )
     return result, transitions

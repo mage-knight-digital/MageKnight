@@ -394,11 +394,11 @@ pub fn resolve_pending_choice(
                 }
             }
         }
-        ChoiceResolution::RegenerateMana { available_colors, bonus_color } => {
-            // Consume mana of chosen color, remove wound, conditionally draw
-            if choice_index < available_colors.len() {
-                let color = available_colors[choice_index];
-                crate::action_pipeline::execute_regenerate(state, player_idx, color, *bonus_color)
+        ChoiceResolution::RegenerateMana { sources, bonus_color } => {
+            // Consume the specific mana source, remove wound, conditionally draw
+            if choice_index < sources.len() {
+                let source = &sources[choice_index];
+                crate::action_pipeline::execute_regenerate(state, player_idx, source, *bonus_color)
                     .map_err(|e| ResolveChoiceError::InternalError(format!("{:?}", e)))?;
             }
         }
