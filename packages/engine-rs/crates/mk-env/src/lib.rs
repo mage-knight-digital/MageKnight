@@ -293,7 +293,7 @@ mod tests {
         let env = VecEnv::new(4, 42, Hero::Arythea, 100);
         let batch = env.encode_batch();
         assert_eq!(batch.num_envs, 4);
-        assert_eq!(batch.state_scalars.len(), 4 * 84);
+        assert_eq!(batch.state_scalars.len(), 4 * mk_features::STATE_SCALAR_DIM);
         assert_eq!(batch.state_ids.len(), 4 * 3);
         assert_eq!(batch.action_counts.len(), 4);
         assert_eq!(batch.hand_counts.len(), 4);

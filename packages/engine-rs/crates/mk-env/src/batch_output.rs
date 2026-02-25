@@ -2,7 +2,7 @@
 
 use mk_features::{
     EncodedStep, ACTION_SCALAR_DIM, COMBAT_ENEMY_SCALAR_DIM,
-    MAP_ENEMY_SCALAR_DIM, SITE_SCALAR_DIM, UNIT_SCALAR_DIM,
+    MAP_ENEMY_SCALAR_DIM, SITE_SCALAR_DIM, STATE_SCALAR_DIM,
 };
 
 /// Pre-padded batch output ready for zero-copy numpy export.
@@ -27,8 +27,6 @@ pub struct BatchOutput {
     pub unit_ids: Vec<i32>,
     pub unit_counts: Vec<i32>,
     pub max_units: usize,
-    /// (N, max_U, UNIT_SCALAR_DIM) f32
-    pub unit_scalars: Vec<f32>,
 
     /// (N, max_CE) i32 — combat enemy IDs
     pub combat_enemy_ids: Vec<i32>,
@@ -55,26 +53,6 @@ pub struct BatchOutput {
     pub max_map_enemies: usize,
     /// (N, max_ME, MAP_ENEMY_SCALAR_DIM) f32
     pub map_enemy_scalars: Vec<f32>,
-
-    /// (N, max_SO) i32
-    pub spell_offer_ids: Vec<i32>,
-    pub spell_offer_counts: Vec<i32>,
-    pub max_spell_offers: usize,
-
-    /// (N, max_AO) i32
-    pub aa_offer_ids: Vec<i32>,
-    pub aa_offer_counts: Vec<i32>,
-    pub max_aa_offers: usize,
-
-    /// (N, max_UO) i32
-    pub unit_offer_ids: Vec<i32>,
-    pub unit_offer_counts: Vec<i32>,
-    pub max_unit_offers: usize,
-
-    /// (N, max_D) i32
-    pub discard_card_ids: Vec<i32>,
-    pub discard_counts: Vec<i32>,
-    pub max_discards: usize,
 
     // ── Action features ────────────────────────────────────────────
     /// (N, max_M, 6) i32 — action vocab IDs, 0-padded
@@ -107,10 +85,6 @@ impl BatchOutput {
         let mut max_skills = 0usize;
         let mut max_visible_sites = 0usize;
         let mut max_map_enemies = 0usize;
-        let mut max_spell_offers = 0usize;
-        let mut max_aa_offers = 0usize;
-        let mut max_unit_offers = 0usize;
-        let mut max_discards = 0usize;
         let mut max_actions = 0usize;
 
         for step in steps {
@@ -121,10 +95,6 @@ impl BatchOutput {
             max_skills = max_skills.max(s.skill_ids.len());
             max_visible_sites = max_visible_sites.max(s.visible_site_ids.len());
             max_map_enemies = max_map_enemies.max(s.map_enemy_ids.len());
-            max_spell_offers = max_spell_offers.max(s.spell_offer_ids.len());
-            max_aa_offers = max_aa_offers.max(s.aa_offer_ids.len());
-            max_unit_offers = max_unit_offers.max(s.unit_offer_ids.len());
-            max_discards = max_discards.max(s.discard_card_ids.len());
             max_actions = max_actions.max(step.actions.len());
         }
 
@@ -135,14 +105,10 @@ impl BatchOutput {
         let max_skills = max_skills.max(1);
         let max_visible_sites = max_visible_sites.max(1);
         let max_map_enemies = max_map_enemies.max(1);
-        let max_spell_offers = max_spell_offers.max(1);
-        let max_aa_offers = max_aa_offers.max(1);
-        let max_unit_offers = max_unit_offers.max(1);
-        let max_discards = max_discards.max(1);
         let max_actions = max_actions.max(1);
 
         // ── Pass 2: allocate and fill ──────────────────────────────
-        let state_scalar_dim = steps.first().map_or(84, |s| s.state.scalars.len());
+        let state_scalar_dim = steps.first().map_or(STATE_SCALAR_DIM, |s| s.state.scalars.len());
 
         let mut state_scalars = vec![0.0f32; n * state_scalar_dim];
         let mut state_ids = vec![0i32; n * 3];
@@ -152,7 +118,6 @@ impl BatchOutput {
 
         let mut unit_ids_buf = vec![0i32; n * max_units];
         let mut unit_counts = Vec::with_capacity(n);
-        let mut unit_scalars_buf = vec![0.0f32; n * max_units * UNIT_SCALAR_DIM];
 
         let mut combat_enemy_ids_buf = vec![0i32; n * max_combat_enemies];
         let mut combat_enemy_counts = Vec::with_capacity(n);
@@ -171,18 +136,6 @@ impl BatchOutput {
         let mut map_enemy_counts = Vec::with_capacity(n);
         let mut map_enemy_scalars_buf =
             vec![0.0f32; n * max_map_enemies * MAP_ENEMY_SCALAR_DIM];
-
-        let mut spell_offer_ids_buf = vec![0i32; n * max_spell_offers];
-        let mut spell_offer_counts = Vec::with_capacity(n);
-
-        let mut aa_offer_ids_buf = vec![0i32; n * max_aa_offers];
-        let mut aa_offer_counts = Vec::with_capacity(n);
-
-        let mut unit_offer_ids_buf = vec![0i32; n * max_unit_offers];
-        let mut unit_offer_counts = Vec::with_capacity(n);
-
-        let mut discard_card_ids_buf = vec![0i32; n * max_discards];
-        let mut discard_counts = Vec::with_capacity(n);
 
         let mut action_ids_buf = vec![0i32; n * max_actions * 6];
         let mut action_scalars_buf = vec![0.0f32; n * max_actions * ACTION_SCALAR_DIM];
@@ -218,11 +171,6 @@ impl BatchOutput {
             let u_off = i * max_units;
             for (j, &id) in s.unit_ids.iter().enumerate() {
                 unit_ids_buf[u_off + j] = id as i32;
-            }
-            let us_off = i * max_units * UNIT_SCALAR_DIM;
-            for (j, scalars) in s.unit_scalars.iter().enumerate() {
-                let row = us_off + j * UNIT_SCALAR_DIM;
-                unit_scalars_buf[row..row + UNIT_SCALAR_DIM].copy_from_slice(scalars);
             }
 
             // Combat enemies
@@ -275,38 +223,6 @@ impl BatchOutput {
                     .copy_from_slice(scalars);
             }
 
-            // Spell offers
-            let so = s.spell_offer_ids.len();
-            spell_offer_counts.push(so as i32);
-            let so_off = i * max_spell_offers;
-            for (j, &id) in s.spell_offer_ids.iter().enumerate() {
-                spell_offer_ids_buf[so_off + j] = id as i32;
-            }
-
-            // AA offers
-            let ao = s.aa_offer_ids.len();
-            aa_offer_counts.push(ao as i32);
-            let ao_off = i * max_aa_offers;
-            for (j, &id) in s.aa_offer_ids.iter().enumerate() {
-                aa_offer_ids_buf[ao_off + j] = id as i32;
-            }
-
-            // Unit offers
-            let uo = s.unit_offer_ids.len();
-            unit_offer_counts.push(uo as i32);
-            let uo_off = i * max_unit_offers;
-            for (j, &id) in s.unit_offer_ids.iter().enumerate() {
-                unit_offer_ids_buf[uo_off + j] = id as i32;
-            }
-
-            // Discard pile
-            let dc = s.discard_card_ids.len();
-            discard_counts.push(dc as i32);
-            let dc_off = i * max_discards;
-            for (j, &id) in s.discard_card_ids.iter().enumerate() {
-                discard_card_ids_buf[dc_off + j] = id as i32;
-            }
-
             // Actions
             let na = step.actions.len();
             action_counts_buf.push(na as i32);
@@ -352,7 +268,6 @@ impl BatchOutput {
             unit_ids: unit_ids_buf,
             unit_counts,
             max_units,
-            unit_scalars: unit_scalars_buf,
             combat_enemy_ids: combat_enemy_ids_buf,
             combat_enemy_counts,
             max_combat_enemies,
@@ -368,18 +283,6 @@ impl BatchOutput {
             map_enemy_counts,
             max_map_enemies,
             map_enemy_scalars: map_enemy_scalars_buf,
-            spell_offer_ids: spell_offer_ids_buf,
-            spell_offer_counts,
-            max_spell_offers,
-            aa_offer_ids: aa_offer_ids_buf,
-            aa_offer_counts,
-            max_aa_offers,
-            unit_offer_ids: unit_offer_ids_buf,
-            unit_offer_counts,
-            max_unit_offers,
-            discard_card_ids: discard_card_ids_buf,
-            discard_counts,
-            max_discards,
             action_ids: action_ids_buf,
             action_scalars: action_scalars_buf,
             action_counts: action_counts_buf,
