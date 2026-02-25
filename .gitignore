@@ -30,6 +30,10 @@ packages/client/public
 packages/client/e2e/screenshots/
 packages/client/vite.config.d.ts
 packages/client/vite.config.js
+packages/client/build.d.ts
+packages/client/build.js
+packages/client/dev.d.ts
+packages/client/dev.js
 
 # Rust build artifacts
 packages/engine-rs/target/
