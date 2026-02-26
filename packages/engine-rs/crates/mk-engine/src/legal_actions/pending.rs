@@ -1,9 +1,12 @@
 use mk_types::enums::{DeedCardType, DiscardForBonusFilter, GladeWoundChoice};
 use mk_types::legal_action::{LegalAction, TacticDecisionData};
 use mk_types::pending::{ActivePending, PendingLevelUpReward, PendingTacticDecision, SiteReward};
+use mk_types::state::PlayerFlags;
 
 use crate::effect_queue::{is_resolvable, WOUND_CARD_ID};
 use crate::undo::UndoStack;
+
+use super::cards::{is_influence_only, is_move_only};
 
 pub(super) fn enumerate_pending(
     active: &ActivePending,
@@ -15,22 +18,55 @@ pub(super) fn enumerate_pending(
     match active {
         ActivePending::Choice(choice) => {
             // Category 7: ResolveChoice by index.
-            for i in 0..choice.options.len() {
+            let player = &state.players[player_idx];
+            let is_interacting = player.flags.contains(PlayerFlags::IS_INTERACTING);
+            let in_combat = state.combat.is_some();
+            let pre_filter_len = actions.len();
+
+            for (i, option) in choice.options.iter().enumerate() {
+                // Skip influence-only options when not interacting (and not in combat).
+                if !in_combat && !is_interacting && is_influence_only(option) {
+                    continue;
+                }
+                // Skip move-only options when interacting (and not in combat).
+                if !in_combat && is_interacting && is_move_only(option) {
+                    continue;
+                }
                 actions.push(LegalAction::ResolveChoice { choice_index: i });
+            }
+
+            // Safety: if ALL options were filtered, emit them all (don't deadlock).
+            if !actions[pre_filter_len..]
+                .iter()
+                .any(|a| matches!(a, LegalAction::ResolveChoice { .. }))
+            {
+                for i in 0..choice.options.len() {
+                    actions.push(LegalAction::ResolveChoice { choice_index: i });
+                }
             }
         }
         ActivePending::DiscardForBonus(dfb) => {
             // Count eligible cards for discard
             let player = &state.players[player_idx];
+            let is_interacting = player.flags.contains(PlayerFlags::IS_INTERACTING);
+            let in_combat = state.combat.is_some();
             let eligible_count = count_eligible_for_discard(
                 &player.hand,
                 dfb.discard_filter,
             );
             let actual_max = (dfb.max_discards as usize).min(eligible_count);
+            let pre_filter_len = actions.len();
 
             // Enumerate: for each resolvable choice option × each discard count (0..=actual_max)
             for (ci, opt) in dfb.choice_options.iter().enumerate() {
                 if !is_resolvable(state, player_idx, opt) {
+                    continue;
+                }
+                // Mode gating
+                if !in_combat && !is_interacting && is_influence_only(opt) {
+                    continue;
+                }
+                if !in_combat && is_interacting && is_move_only(opt) {
                     continue;
                 }
                 for dc in 0..=actual_max {
@@ -38,6 +74,23 @@ pub(super) fn enumerate_pending(
                         choice_index: ci,
                         discard_count: dc,
                     });
+                }
+            }
+
+            // Safety: if ALL options were filtered, emit them all (don't deadlock).
+            if !actions[pre_filter_len..].iter().any(|a| {
+                matches!(a, LegalAction::ResolveDiscardForBonus { .. })
+            }) {
+                for (ci, opt) in dfb.choice_options.iter().enumerate() {
+                    if !is_resolvable(state, player_idx, opt) {
+                        continue;
+                    }
+                    for dc in 0..=actual_max {
+                        actions.push(LegalAction::ResolveDiscardForBonus {
+                            choice_index: ci,
+                            discard_count: dc,
+                        });
+                    }
                 }
             }
         }

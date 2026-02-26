@@ -100,20 +100,31 @@ fn march_basic_and_sideways_no_powered() {
     // No tokens, crystals, or source dice — powered should NOT be emitted
     let mut state = setup_game(vec!["march"]);
     state.source.dice.clear();
+
+    // Not interacting: only move sideways (influence gated)
     let legal = enumerate_legal_actions(&state, 0);
 
     let basic = legal.actions.iter().any(
         |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "march"),
     );
     let powered = legal.actions.iter().any(|a| matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "march"));
-    let sideways = legal.actions.iter().filter(|a| matches!(a, LegalAction::PlayCardSideways { card_id, .. } if card_id.as_str() == "march")).count();
+    let sideways_move = legal.actions.iter().any(|a| matches!(a, LegalAction::PlayCardSideways { sideways_as: SidewaysAs::Move, card_id, .. } if card_id.as_str() == "march"));
+    let sideways_inf = legal.actions.iter().any(|a| matches!(a, LegalAction::PlayCardSideways { sideways_as: SidewaysAs::Influence, card_id, .. } if card_id.as_str() == "march"));
 
     assert!(basic, "march basic should be available");
-    assert!(
-        !powered,
-        "march powered should NOT be available (no green mana)"
-    );
-    assert_eq!(sideways, 2, "march should have Move and Influence sideways");
+    assert!(!powered, "march powered should NOT be available (no green mana)");
+    assert!(sideways_move, "march sideways move should be available");
+    assert!(!sideways_inf, "march sideways influence should NOT be available (not interacting)");
+
+    // Interacting: only influence sideways (move gated)
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let sideways_move = legal.actions.iter().any(|a| matches!(a, LegalAction::PlayCardSideways { sideways_as: SidewaysAs::Move, card_id, .. } if card_id.as_str() == "march"));
+    let sideways_inf = legal.actions.iter().any(|a| matches!(a, LegalAction::PlayCardSideways { sideways_as: SidewaysAs::Influence, card_id, .. } if card_id.as_str() == "march"));
+
+    assert!(!sideways_move, "march sideways move should NOT be available (interacting)");
+    assert!(sideways_inf, "march sideways influence should be available (interacting)");
 }
 
 #[test]
@@ -645,7 +656,11 @@ fn pending_choice_emits_resolve_choices() {
         unit_instance_id: None,
         options: vec![
             CardEffect::GainMove { amount: 2 },
-            CardEffect::GainInfluence { amount: 2 },
+            CardEffect::GainAttack {
+                amount: 3,
+                combat_type: CombatType::Melee,
+                element: Element::Physical,
+            },
         ],
         continuation: vec![],
         movement_bonus_applied: false,
@@ -1145,7 +1160,8 @@ fn setup_village_recruit() -> GameState {
 
 #[test]
 fn recruit_unit_enumerated_at_village() {
-    let state = setup_village_recruit();
+    let mut state = setup_village_recruit();
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let legal = enumerate_legal_actions(&state, 0);
 
     let recruits: Vec<_> = legal
@@ -1173,6 +1189,7 @@ fn recruit_deducts_influence_and_creates_unit() {
     let mut state = setup_village_recruit();
     let mut undo = UndoStack::new();
 
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
     // Find peasants recruit action (cost=4 at rep 0)
     let peasant_action = legal
@@ -1214,6 +1231,7 @@ fn recruit_undo_restores_state() {
     let mut state = setup_village_recruit();
     let mut undo = UndoStack::new();
 
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
     let peasant_action = legal
         .actions

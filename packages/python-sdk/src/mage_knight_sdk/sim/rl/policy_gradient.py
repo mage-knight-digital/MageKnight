@@ -1070,10 +1070,13 @@ class ReinforcePolicy:
                 ) * adv_t[batch_t]
                 b_policy = -torch.min(surr1, surr2).sum()
 
-                # Entropy: select only valid positions to avoid 0*(-inf)=NaN
-                valid_lp = log_probs[mask]  # (total_valid,)
-                valid_p = valid_lp.exp()
-                b_entropy = -(valid_p * valid_lp).sum()
+                # Entropy: compute per-sample then sum, matching policy/critic reduction.
+                # mask: (bs, max_A), log_probs: (bs, max_A) with -inf where masked.
+                # Zero out masked positions to avoid 0*(-inf)=NaN.
+                safe_lp = log_probs.masked_fill(~mask, 0.0)
+                safe_p = log_probs.exp().masked_fill(~mask, 0.0)
+                per_sample_entropy = -(safe_p * safe_lp).sum(dim=-1)  # (bs,)
+                b_entropy = per_sample_entropy.sum()
 
                 b_critic = nn.functional.mse_loss(
                     values, ret_t[batch_t], reduction="sum",

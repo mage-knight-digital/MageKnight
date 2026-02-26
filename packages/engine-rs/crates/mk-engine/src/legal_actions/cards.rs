@@ -19,6 +19,7 @@ pub(super) fn enumerate_normal_cards(
     let player = &state.players[player_idx];
     let is_resting = player.flags.contains(PlayerFlags::IS_RESTING);
     let has_rested = player.flags.contains(PlayerFlags::HAS_RESTED_THIS_TURN);
+    let is_interacting = player.flags.contains(PlayerFlags::IS_INTERACTING);
 
     // Collect basic, powered, sideways separately to emit in category order.
     let mut basic_actions = Vec::new();
@@ -34,19 +35,26 @@ pub(super) fn enumerate_normal_cards(
         // Category 2: PlayCardBasic — allowed during rest (FAQ S3).
         if is_effect_playable_for_enumeration(state, player_idx, hand_index, &card_def.basic_effect)
         {
-            basic_actions.push(LegalAction::PlayCardBasic {
-                hand_index,
-                card_id: card_id.clone(),
-            });
+            let dominated = (!is_interacting && is_influence_only(&card_def.basic_effect))
+                || (is_interacting && is_move_only(&card_def.basic_effect));
+            if !dominated {
+                basic_actions.push(LegalAction::PlayCardBasic {
+                    hand_index,
+                    card_id: card_id.clone(),
+                });
+            }
         }
 
         // Category 3: PlayCardPowered — allowed during rest (FAQ S3).
         // Time Bending chain prevention: cannot play Space Bending powered during a time-bent turn.
         let time_bending_blocked = player.flags.contains(PlayerFlags::IS_TIME_BENT_TURN)
             && card_id.as_str() == "space_bending";
+        let powered_dominated = (!is_interacting && is_influence_only(&card_def.powered_effect))
+            || (is_interacting && is_move_only(&card_def.powered_effect));
         match card_def.powered_by {
             PoweredBy::Single(color) => {
                 if !time_bending_blocked
+                    && !powered_dominated
                     && is_effect_playable_for_enumeration(
                         state,
                         player_idx,
@@ -63,12 +71,14 @@ pub(super) fn enumerate_normal_cards(
                 }
             }
             PoweredBy::AnyBasic => {
-                if is_effect_playable_for_enumeration(
-                    state,
-                    player_idx,
-                    hand_index,
-                    &card_def.powered_effect,
-                ) {
+                if !powered_dominated
+                    && is_effect_playable_for_enumeration(
+                        state,
+                        player_idx,
+                        hand_index,
+                        &card_def.powered_effect,
+                    )
+                {
                     for &color in &ALL_BASIC_MANA_COLORS {
                         if can_afford_powered(state, player_idx, color) {
                             powered_actions.push(LegalAction::PlayCardPowered {
@@ -113,23 +123,25 @@ pub(super) fn enumerate_normal_cards(
             };
             if eff_value > 0 {
                 if has_rested {
-                    // After rest: influence only.
+                    // After rest: influence only (FAQ S3 — unchanged by IS_INTERACTING).
+                    sideways_actions.push(LegalAction::PlayCardSideways {
+                        hand_index,
+                        card_id: card_id.clone(),
+                        sideways_as: SidewaysAs::Influence,
+                    });
+                } else if player.flags.contains(PlayerFlags::IS_INTERACTING) {
+                    // Interacting: influence only (no movement while at site).
                     sideways_actions.push(LegalAction::PlayCardSideways {
                         hand_index,
                         card_id: card_id.clone(),
                         sideways_as: SidewaysAs::Influence,
                     });
                 } else {
-                    // Normal: both move and influence.
+                    // Not interacting: move only (no influence outside site).
                     sideways_actions.push(LegalAction::PlayCardSideways {
                         hand_index,
                         card_id: card_id.clone(),
                         sideways_as: SidewaysAs::Move,
-                    });
-                    sideways_actions.push(LegalAction::PlayCardSideways {
-                        hand_index,
-                        card_id: card_id.clone(),
-                        sideways_as: SidewaysAs::Influence,
                     });
                 }
             }
@@ -366,6 +378,199 @@ fn discard_costs_payable_with_hand(effect: &CardEffect, remaining_hand: &[CardId
             discard_costs_payable_with_hand(base_effect, remaining_hand)
         }
         _ => true,
+    }
+}
+
+/// Returns true if the effect tree produces only influence (no move/attack/block/other value)
+/// AND contains at least one influence-producing leaf.
+///
+/// Used to suppress basic/powered card plays for pure-influence cards when not at a site
+/// (`!IS_INTERACTING`), since influence is useless outside site interactions.
+///
+/// Purely neutral effects (e.g. Cure, ConvertManaToCrystal) return false — they should
+/// always be available regardless of interaction mode.
+pub(super) fn is_influence_only(effect: &CardEffect) -> bool {
+    has_influence_leaf(effect) && no_non_influence_value(effect)
+}
+
+/// Returns true if the effect tree produces only movement (no influence/attack/block/other value)
+/// AND contains at least one move-producing leaf.
+///
+/// Used to suppress basic/powered card plays for pure-move cards when at a site
+/// (`IS_INTERACTING`), since movement is useless during site interaction.
+pub(super) fn is_move_only(effect: &CardEffect) -> bool {
+    has_move_leaf(effect) && no_non_move_value(effect)
+}
+
+/// Returns true if the tree contains at least one influence-producing leaf.
+fn has_influence_leaf(effect: &CardEffect) -> bool {
+    match effect {
+        CardEffect::GainInfluence { .. } | CardEffect::PeacefulMomentAction { .. } => true,
+        CardEffect::Compound { effects } => effects.iter().any(has_influence_leaf),
+        CardEffect::Choice { options } => options.iter().any(has_influence_leaf),
+        CardEffect::Conditional {
+            then_effect,
+            else_effect,
+            ..
+        } => {
+            has_influence_leaf(then_effect)
+                || else_effect.as_ref().is_some_and(|e| has_influence_leaf(e))
+        }
+        CardEffect::Scaling { base_effect, .. } => has_influence_leaf(base_effect),
+        CardEffect::DiscardCost { then_effect, .. } => has_influence_leaf(then_effect),
+        _ => false,
+    }
+}
+
+/// Returns true if the tree contains no non-influence value-producing effects.
+fn no_non_influence_value(effect: &CardEffect) -> bool {
+    match effect {
+        // Influence producers — OK
+        CardEffect::GainInfluence { .. } | CardEffect::PeacefulMomentAction { .. } => true,
+
+        // Non-influence value producers → false
+        CardEffect::GainMove { .. }
+        | CardEffect::GainAttack { .. }
+        | CardEffect::GainBlock { .. }
+        | CardEffect::GainBlockElement { .. }
+        | CardEffect::GainHealing { .. }
+        | CardEffect::GainMana { .. }
+        | CardEffect::DrawCards { .. }
+        | CardEffect::CardBoost { .. }
+        | CardEffect::ManaBolt { .. }
+        | CardEffect::PureMagic { .. }
+        | CardEffect::AttackWithDefeatBonus { .. }
+        | CardEffect::GainAttackBowResolved { .. }
+        | CardEffect::SelectCombatEnemy { .. }
+        | CardEffect::SongOfWindPowered => false,
+
+        // Neutral — doesn't produce move/attack/block value
+        CardEffect::ChangeReputation { .. }
+        | CardEffect::GainFame { .. }
+        | CardEffect::GainCrystal { .. }
+        | CardEffect::ConvertManaToCrystal
+        | CardEffect::TakeWound
+        | CardEffect::Noop
+        | CardEffect::ApplyModifier { .. }
+        | CardEffect::HandLimitBonus { .. }
+        | CardEffect::ReadyUnit { .. }
+        | CardEffect::HealUnit { .. }
+        | CardEffect::ReadyAllUnits
+        | CardEffect::HealAllUnits
+        | CardEffect::ActivateBannerProtection
+        | CardEffect::FamePerEnemyDefeated { .. }
+        | CardEffect::GrantWoundImmunity
+        | CardEffect::RushOfAdrenaline { .. }
+        | CardEffect::EnergyFlow { .. }
+        | CardEffect::ReadyUnitsBudget { .. }
+        | CardEffect::SelectUnitForModifier { .. }
+        | CardEffect::Cure { .. }
+        | CardEffect::Disease => true,
+
+        // Structural — recurse
+        CardEffect::Compound { effects } => effects.iter().all(no_non_influence_value),
+        CardEffect::Choice { options } => options.iter().all(no_non_influence_value),
+        CardEffect::Conditional {
+            then_effect,
+            else_effect,
+            ..
+        } => {
+            no_non_influence_value(then_effect)
+                && else_effect
+                    .as_ref()
+                    .is_none_or(|e| no_non_influence_value(e))
+        }
+        CardEffect::Scaling { base_effect, .. } => no_non_influence_value(base_effect),
+        CardEffect::DiscardCost { then_effect, .. } => no_non_influence_value(then_effect),
+
+        // Complex / unknown → conservative false (don't gate)
+        _ => false,
+    }
+}
+
+/// Returns true if the tree contains at least one move-producing leaf.
+fn has_move_leaf(effect: &CardEffect) -> bool {
+    match effect {
+        CardEffect::GainMove { .. } | CardEffect::SongOfWindPowered => true,
+        CardEffect::Compound { effects } => effects.iter().any(has_move_leaf),
+        CardEffect::Choice { options } => options.iter().any(has_move_leaf),
+        CardEffect::Conditional {
+            then_effect,
+            else_effect,
+            ..
+        } => {
+            has_move_leaf(then_effect)
+                || else_effect.as_ref().is_some_and(|e| has_move_leaf(e))
+        }
+        CardEffect::Scaling { base_effect, .. } => has_move_leaf(base_effect),
+        CardEffect::DiscardCost { then_effect, .. } => has_move_leaf(then_effect),
+        _ => false,
+    }
+}
+
+/// Returns true if the tree contains no non-move value-producing effects.
+fn no_non_move_value(effect: &CardEffect) -> bool {
+    match effect {
+        // Move producers — OK
+        CardEffect::GainMove { .. } | CardEffect::SongOfWindPowered => true,
+
+        // Non-move value producers → false
+        CardEffect::GainInfluence { .. }
+        | CardEffect::GainAttack { .. }
+        | CardEffect::GainBlock { .. }
+        | CardEffect::GainBlockElement { .. }
+        | CardEffect::GainHealing { .. }
+        | CardEffect::GainMana { .. }
+        | CardEffect::DrawCards { .. }
+        | CardEffect::CardBoost { .. }
+        | CardEffect::ManaBolt { .. }
+        | CardEffect::PureMagic { .. }
+        | CardEffect::AttackWithDefeatBonus { .. }
+        | CardEffect::GainAttackBowResolved { .. }
+        | CardEffect::SelectCombatEnemy { .. }
+        | CardEffect::PeacefulMomentAction { .. } => false,
+
+        // Neutral — doesn't produce influence/attack/block value
+        CardEffect::ChangeReputation { .. }
+        | CardEffect::GainFame { .. }
+        | CardEffect::GainCrystal { .. }
+        | CardEffect::ConvertManaToCrystal
+        | CardEffect::TakeWound
+        | CardEffect::Noop
+        | CardEffect::ApplyModifier { .. }
+        | CardEffect::HandLimitBonus { .. }
+        | CardEffect::ReadyUnit { .. }
+        | CardEffect::HealUnit { .. }
+        | CardEffect::ReadyAllUnits
+        | CardEffect::HealAllUnits
+        | CardEffect::ActivateBannerProtection
+        | CardEffect::FamePerEnemyDefeated { .. }
+        | CardEffect::GrantWoundImmunity
+        | CardEffect::RushOfAdrenaline { .. }
+        | CardEffect::EnergyFlow { .. }
+        | CardEffect::ReadyUnitsBudget { .. }
+        | CardEffect::SelectUnitForModifier { .. }
+        | CardEffect::Cure { .. }
+        | CardEffect::Disease => true,
+
+        // Structural — recurse
+        CardEffect::Compound { effects } => effects.iter().all(no_non_move_value),
+        CardEffect::Choice { options } => options.iter().all(no_non_move_value),
+        CardEffect::Conditional {
+            then_effect,
+            else_effect,
+            ..
+        } => {
+            no_non_move_value(then_effect)
+                && else_effect
+                    .as_ref()
+                    .is_none_or(|e| no_non_move_value(e))
+        }
+        CardEffect::Scaling { base_effect, .. } => no_non_move_value(base_effect),
+        CardEffect::DiscardCost { then_effect, .. } => no_non_move_value(then_effect),
+
+        // Complex / unknown → conservative false (don't gate)
+        _ => false,
     }
 }
 
