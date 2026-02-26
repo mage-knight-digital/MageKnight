@@ -94,7 +94,7 @@ def main() -> int:
 
     parser.add_argument("--fame-delta-scale", type=float, default=1.0, help="Reward multiplier for fame deltas")
     parser.add_argument("--step-penalty", type=float, default=0.0, help="Per-step reward penalty")
-    parser.add_argument("--terminal-end-bonus", type=float, default=1.0, help="Bonus when game ends normally")
+    parser.add_argument("--terminal-end-bonus", type=float, default=0.0, help="Bonus when game ends normally")
     parser.add_argument("--terminal-max-steps-penalty", type=float, default=-0.5, help="Penalty when episode hits max steps")
     parser.add_argument("--terminal-failure-penalty", type=float, default=-1.0, help="Penalty for engine failures")
 
