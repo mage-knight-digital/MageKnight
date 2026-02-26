@@ -14,6 +14,7 @@ from .features import (
     MAP_ENEMY_SCALAR_DIM,
     SITE_SCALAR_DIM,
     STATE_SCALAR_DIM,
+    UNIT_SCALAR_DIM,
     EncodedStep,
     StateFeatures,
 )
@@ -236,13 +237,15 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         self.map_site_emb = nn.Embedding(SITE_VOCAB.size, emb_dim)  # separate weights for map sites
 
         # State encoder:
-        # scalars(76) + 6×emb (mode, hand, units, terrain, site, skills)
+        # scalars(83) + 5×emb (mode, hand, terrain, site, skills)
+        # + unit pool (emb + UNIT_SCALAR_DIM)
         # + combat enemy pool (emb + COMBAT_ENEMY_SCALAR_DIM)
         # + visible sites pool (emb + SITE_SCALAR_DIM)
         # + map enemy pool (emb + MAP_ENEMY_SCALAR_DIM)
         state_input_dim = (
             STATE_SCALAR_DIM
-            + 6 * emb_dim
+            + 5 * emb_dim
+            + (emb_dim + UNIT_SCALAR_DIM)
             + (emb_dim + COMBAT_ENEMY_SCALAR_DIM)
             + (emb_dim + SITE_SCALAR_DIM)
             + (emb_dim + MAP_ENEMY_SCALAR_DIM)
@@ -266,6 +269,7 @@ class _EmbeddingActionScoringNetwork(nn.Module):
 
         # Pre-allocated zero vectors to avoid repeated torch.zeros calls
         self.register_buffer("_zero_emb", torch.zeros(emb_dim))
+        self.register_buffer("_zero_unit_pool", torch.zeros(emb_dim + UNIT_SCALAR_DIM))
         self.register_buffer("_zero_combat_enemy_pool", torch.zeros(emb_dim + COMBAT_ENEMY_SCALAR_DIM))
         self.register_buffer("_zero_site_pool", torch.zeros(emb_dim + SITE_SCALAR_DIM))
         self.register_buffer("_zero_map_enemy_pool", torch.zeros(emb_dim + MAP_ENEMY_SCALAR_DIM))
@@ -286,12 +290,14 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         else:
             hand_pool = self._zero_emb
 
-        # Mean-pool unit embeddings
+        # Mean-pool unit embeddings + per-unit scalars
         if sf.unit_ids:
             unit_ids_t = torch.tensor(sf.unit_ids, dtype=torch.long, device=device)
-            unit_pool = self.unit_emb(unit_ids_t).mean(dim=0)
+            unit_embs = self.unit_emb(unit_ids_t)  # (N, emb_dim)
+            unit_scalar_t = torch.tensor(sf.unit_scalars, dtype=torch.float32, device=device)  # (N, UNIT_SCALAR_DIM)
+            unit_pool = torch.cat([unit_embs, unit_scalar_t], dim=1).mean(dim=0)  # (emb_dim + UNIT_SCALAR_DIM,)
         else:
-            unit_pool = self._zero_emb
+            unit_pool = self._zero_unit_pool
 
         # Mean-pool combat enemy embeddings + per-enemy scalars
         if sf.combat_enemy_ids:
@@ -335,6 +341,184 @@ class _EmbeddingActionScoringNetwork(nn.Module):
             terrain_vec, site_vec, combat_enemy_pool, skill_pool,
             visible_site_pool, map_enemy_pool,
         ])
+
+    def _precompute_state_raw_tensors(
+        self, transitions: list[Transition], device: torch.device,
+    ) -> dict[str, Any]:
+        """Convert transition state features into raw tensors (no embedding lookups).
+
+        This is called once before the PPO epoch loop. The expensive
+        Python→tensor conversion happens here; embedding lookups are deferred
+        to ``_encode_state_inputs_batched`` so gradients flow through them.
+        """
+        n = len(transitions)
+        scalars = torch.tensor(
+            [t.encoded_step.state.scalars for t in transitions],
+            dtype=torch.float32, device=device,
+        )  # (N, STATE_SCALAR_DIM)
+        mode_ids = torch.tensor(
+            [t.encoded_step.state.mode_id for t in transitions],
+            dtype=torch.long, device=device,
+        )  # (N,)
+        terrain_ids = torch.tensor(
+            [t.encoded_step.state.current_terrain_id for t in transitions],
+            dtype=torch.long, device=device,
+        )  # (N,)
+        site_type_ids = torch.tensor(
+            [t.encoded_step.state.current_site_type_id for t in transitions],
+            dtype=torch.long, device=device,
+        )  # (N,)
+
+        # Variable-length pools — store as lists of per-transition tensors
+        hand_card_ids: list[torch.Tensor] = []
+        unit_ids: list[torch.Tensor] = []
+        unit_scalars: list[torch.Tensor] = []
+        combat_enemy_ids: list[torch.Tensor] = []
+        combat_enemy_scalars: list[torch.Tensor] = []
+        skill_ids: list[torch.Tensor] = []
+        visible_site_ids: list[torch.Tensor] = []
+        visible_site_scalars: list[torch.Tensor] = []
+        map_enemy_ids: list[torch.Tensor] = []
+        map_enemy_scalars: list[torch.Tensor] = []
+
+        for t in transitions:
+            sf = t.encoded_step.state
+            hand_card_ids.append(
+                torch.tensor(sf.hand_card_ids, dtype=torch.long, device=device)
+                if sf.hand_card_ids else torch.empty(0, dtype=torch.long, device=device)
+            )
+            unit_ids.append(
+                torch.tensor(sf.unit_ids, dtype=torch.long, device=device)
+                if sf.unit_ids else torch.empty(0, dtype=torch.long, device=device)
+            )
+            unit_scalars.append(
+                torch.tensor(sf.unit_scalars, dtype=torch.float32, device=device)
+                if sf.unit_scalars else torch.empty(0, UNIT_SCALAR_DIM, dtype=torch.float32, device=device)
+            )
+            combat_enemy_ids.append(
+                torch.tensor(sf.combat_enemy_ids, dtype=torch.long, device=device)
+                if sf.combat_enemy_ids else torch.empty(0, dtype=torch.long, device=device)
+            )
+            combat_enemy_scalars.append(
+                torch.tensor(sf.combat_enemy_scalars, dtype=torch.float32, device=device)
+                if sf.combat_enemy_scalars else torch.empty(0, COMBAT_ENEMY_SCALAR_DIM, dtype=torch.float32, device=device)
+            )
+            skill_ids.append(
+                torch.tensor(sf.skill_ids, dtype=torch.long, device=device)
+                if sf.skill_ids else torch.empty(0, dtype=torch.long, device=device)
+            )
+            visible_site_ids.append(
+                torch.tensor(sf.visible_site_ids, dtype=torch.long, device=device)
+                if sf.visible_site_ids else torch.empty(0, dtype=torch.long, device=device)
+            )
+            visible_site_scalars.append(
+                torch.tensor(sf.visible_site_scalars, dtype=torch.float32, device=device)
+                if sf.visible_site_scalars else torch.empty(0, SITE_SCALAR_DIM, dtype=torch.float32, device=device)
+            )
+            map_enemy_ids.append(
+                torch.tensor(sf.map_enemy_ids, dtype=torch.long, device=device)
+                if sf.map_enemy_ids else torch.empty(0, dtype=torch.long, device=device)
+            )
+            map_enemy_scalars.append(
+                torch.tensor(sf.map_enemy_scalars, dtype=torch.float32, device=device)
+                if sf.map_enemy_scalars else torch.empty(0, MAP_ENEMY_SCALAR_DIM, dtype=torch.float32, device=device)
+            )
+
+        return {
+            "scalars": scalars,
+            "mode_ids": mode_ids,
+            "terrain_ids": terrain_ids,
+            "site_type_ids": site_type_ids,
+            "hand_card_ids": hand_card_ids,
+            "unit_ids": unit_ids,
+            "unit_scalars": unit_scalars,
+            "combat_enemy_ids": combat_enemy_ids,
+            "combat_enemy_scalars": combat_enemy_scalars,
+            "skill_ids": skill_ids,
+            "visible_site_ids": visible_site_ids,
+            "visible_site_scalars": visible_site_scalars,
+            "map_enemy_ids": map_enemy_ids,
+            "map_enemy_scalars": map_enemy_scalars,
+        }
+
+    def _encode_state_inputs_batched(
+        self, raw: dict[str, Any], batch_indices: list[int],
+    ) -> torch.Tensor:
+        """Build state input vectors for a mini-batch, with live gradients.
+
+        Takes precomputed raw tensors and a list of transition indices.
+        Runs embedding lookups (with gradients) and mean-pools variable-length
+        entity pools, returning ``(bs, state_input_dim)`` ready for
+        ``state_encoder``.
+        """
+        bs = len(batch_indices)
+
+        # Fixed-size lookups (batched)
+        scalars = raw["scalars"][batch_indices]                       # (bs, STATE_SCALAR_DIM)
+        mode_vec = self.mode_emb(raw["mode_ids"][batch_indices])      # (bs, emb)
+        terrain_vec = self.terrain_emb(raw["terrain_ids"][batch_indices])  # (bs, emb)
+        site_vec = self.site_emb(raw["site_type_ids"][batch_indices])     # (bs, emb)
+
+        # Variable-length pools — must iterate per-sample
+        emb = self.emb_dim
+        hand_pools = torch.zeros(bs, emb, device=scalars.device)
+        unit_pools = torch.zeros(bs, emb + UNIT_SCALAR_DIM, device=scalars.device)
+        combat_enemy_pools = torch.zeros(
+            bs, emb + COMBAT_ENEMY_SCALAR_DIM, device=scalars.device,
+        )
+        skill_pools = torch.zeros(bs, emb, device=scalars.device)
+        visible_site_pools = torch.zeros(
+            bs, emb + SITE_SCALAR_DIM, device=scalars.device,
+        )
+        map_enemy_pools = torch.zeros(
+            bs, emb + MAP_ENEMY_SCALAR_DIM, device=scalars.device,
+        )
+
+        for i, idx in enumerate(batch_indices):
+            # Hand cards
+            hids = raw["hand_card_ids"][idx]
+            if hids.numel() > 0:
+                hand_pools[i] = self.card_emb(hids).mean(dim=0)
+
+            # Units (embedding + per-unit scalars)
+            uids = raw["unit_ids"][idx]
+            if uids.numel() > 0:
+                u_embs = self.unit_emb(uids)
+                u_sc = raw["unit_scalars"][idx]
+                unit_pools[i] = torch.cat([u_embs, u_sc], dim=1).mean(dim=0)
+
+            # Combat enemies
+            ceids = raw["combat_enemy_ids"][idx]
+            if ceids.numel() > 0:
+                ce_embs = self.enemy_emb(ceids)
+                ce_sc = raw["combat_enemy_scalars"][idx]
+                combat_enemy_pools[i] = torch.cat([ce_embs, ce_sc], dim=1).mean(dim=0)
+
+            # Skills
+            sids = raw["skill_ids"][idx]
+            if sids.numel() > 0:
+                skill_pools[i] = self.skill_emb(sids).mean(dim=0)
+
+            # Visible sites
+            vsids = raw["visible_site_ids"][idx]
+            if vsids.numel() > 0:
+                vs_embs = self.map_site_emb(vsids)
+                vs_sc = raw["visible_site_scalars"][idx]
+                visible_site_pools[i] = torch.cat([vs_embs, vs_sc], dim=1).mean(dim=0)
+
+            # Map enemies
+            meids = raw["map_enemy_ids"][idx]
+            if meids.numel() > 0:
+                me_embs = self.enemy_emb(meids)
+                me_sc = raw["map_enemy_scalars"][idx]
+                map_enemy_pools[i] = torch.cat([me_embs, me_sc], dim=1).mean(dim=0)
+
+        return torch.cat([
+            scalars,
+            mode_vec, hand_pools, unit_pools,
+            terrain_vec, site_vec, combat_enemy_pools, skill_pools,
+            visible_site_pools, map_enemy_pools,
+        ], dim=-1)  # (bs, state_input_dim)
 
     def encode_state(self, step: EncodedStep, device: torch.device) -> torch.Tensor:
         """Encode state features into a single vector. Computed once per step."""
@@ -690,7 +874,7 @@ class ReinforcePolicy:
                 adv_std = advantages.std(unbiased=False)
                 if float(adv_std.item()) > 1e-8:
                     advantages = (advantages - advantages.mean()) / adv_std
-            policy_loss = -(log_probs * advantages).sum()
+            policy_loss = -(log_probs * advantages).mean()
         else:
             # Legacy REINFORCE: no value head, use normalized returns directly
             critic_loss = torch.tensor(0.0, device=self._device)
@@ -699,9 +883,9 @@ class ReinforcePolicy:
                 returns_std = returns_tensor.std(unbiased=False)
                 if float(returns_std.item()) > 1e-8:
                     returns_tensor = (returns_tensor - returns_mean) / returns_std
-            policy_loss = -(log_probs * returns_tensor).sum()
+            policy_loss = -(log_probs * returns_tensor).mean()
 
-        entropy_bonus = entropies.sum()
+        entropy_bonus = entropies.mean()
         loss = (
             policy_loss
             + self.config.critic_coefficient * critic_loss
@@ -791,13 +975,8 @@ class ReinforcePolicy:
                 for a in actions
             ])
 
-        # ---- Precompute all state inputs ONCE (before epoch loop) ----
-        # Standard PPO practice: clipping handles slight embedding staleness.
-        with torch.no_grad():
-            precomp_state_inputs = torch.stack([
-                net._encode_state_input(t.encoded_step.state, self._device)
-                for t in transitions
-            ])  # (N, state_input_dim)
+        # ---- Precompute raw tensors ONCE (Python→tensor, no embeddings) ----
+        raw_state = net._precompute_state_raw_tensors(transitions, self._device)
 
         for _epoch in range(ppo_epochs):
             random.shuffle(indices)
@@ -809,10 +988,9 @@ class ReinforcePolicy:
 
                 self._optimizer.zero_grad(set_to_none=True)
 
-                # Index precomputed state inputs and run state encoder
-                state_reprs = net.state_encoder(
-                    precomp_state_inputs[batch_t],
-                )  # (bs, hidden)
+                # Embedding lookups with live gradients (not precomputed)
+                state_inputs = net._encode_state_inputs_batched(raw_state, batch)
+                state_reprs = net.state_encoder(state_inputs)  # (bs, hidden)
                 values = net.value_head(state_reprs).squeeze(-1)  # (bs,)
 
                 # ---- Batched action encoding ----
@@ -1010,8 +1188,17 @@ def compute_gae(
     episodes: list[list[Transition]],
     gamma: float,
     gae_lambda: float,
+    terminated: list[bool] | None = None,
 ) -> tuple[list[Transition], list[float], list[float]]:
     """Compute GAE advantages and target returns for collected episodes.
+
+    Args:
+        episodes: list of episode transition lists.
+        gamma: discount factor.
+        gae_lambda: GAE lambda parameter.
+        terminated: per-episode flag, True if episode ended naturally,
+                    False if truncated (hit max_steps). If None, all episodes
+                    are assumed to be terminated (backwards compatible).
 
     Returns (flat_transitions, advantages, returns) — all aligned lists.
     """
@@ -1019,17 +1206,24 @@ def compute_gae(
     all_advantages: list[float] = []
     all_returns: list[float] = []
 
-    for episode in episodes:
+    for ep_idx, episode in enumerate(episodes):
         if not episode:
             continue
         values = [t.value for t in episode]
         rewards = [t.reward for t in episode]
         n = len(episode)
 
+        # For truncated episodes, bootstrap from critic's last value estimate
+        # instead of assuming 0.0 (which systematically undervalues long episodes)
+        ep_terminated = True if terminated is None else terminated[ep_idx]
+
         advantages = [0.0] * n
         gae = 0.0
         for t in reversed(range(n)):
-            next_value = values[t + 1] if t < n - 1 else 0.0
+            if t == n - 1:
+                next_value = 0.0 if ep_terminated else values[t]
+            else:
+                next_value = values[t + 1]
             delta = rewards[t] + gamma * next_value - values[t]
             gae = delta + gamma * gae_lambda * gae
             advantages[t] = gae

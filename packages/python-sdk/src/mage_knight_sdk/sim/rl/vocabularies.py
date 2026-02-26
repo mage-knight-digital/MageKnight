@@ -306,6 +306,17 @@ _SOURCE_IDS: tuple[str, ...] = (
     "turn.end_turn", "turn.undo",
     "unit_maintenance.disband", "unit_maintenance.keep",
     "unit_reward.disband", "unit_reward.forfeit",
+    # Added to match Rust encoder source strings
+    "circlet_of_proficiency.card",
+    "combat.use_banner_courage",
+    "cooperative.cancel", "cooperative.propose", "cooperative.respond",
+    "meditation.done",
+    "normal.assign_banner",
+    "normal.site.add_elite_to_offer", "normal.site.altar_tribute",
+    "normal.site.buy_artifact", "normal.site.buy_city_aa",
+    "normal.site.buy_city_aa_deck",
+    "pending.select_artifact",
+    "tome_of_all_spells.card",
 )
 
 SOURCE_VOCAB: Vocabulary = _build_vocab("source", _SOURCE_IDS)

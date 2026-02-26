@@ -11,7 +11,7 @@ use mk_types::hex::HexCoord;
 // =============================================================================
 
 /// Number of scalar features per state observation.
-pub const STATE_SCALAR_DIM: usize = 76;
+pub const STATE_SCALAR_DIM: usize = 83;
 
 /// Number of scalar features per action.
 pub const ACTION_SCALAR_DIM: usize = 34;
@@ -25,6 +25,9 @@ pub const SITE_SCALAR_DIM: usize = 6;
 /// Number of scalar features per map enemy in the state pool.
 pub const MAP_ENEMY_SCALAR_DIM: usize = 11;
 
+/// Number of scalar features per unit in the state pool.
+pub const UNIT_SCALAR_DIM: usize = 2;
+
 // =============================================================================
 // Feature structs
 // =============================================================================
@@ -32,7 +35,7 @@ pub const MAP_ENEMY_SCALAR_DIM: usize = 11;
 /// State features computed once per step (shared across all candidate actions).
 #[derive(Debug, Clone)]
 pub struct StateFeatures {
-    /// 76 floats: player core, resources, tempo, combat, hex, neighbors, spatial, mana source.
+    /// 83 floats: player core, resources, tempo, combat, hex, neighbors, spatial, mana source.
     pub scalars: Vec<f32>,
     /// MODE_VOCAB index.
     pub mode_id: u16,
@@ -40,6 +43,8 @@ pub struct StateFeatures {
     pub hand_card_ids: Vec<u16>,
     /// Variable-length UNIT_VOCAB indices for player units.
     pub unit_ids: Vec<u16>,
+    /// UNIT_SCALAR_DIM floats per unit [is_ready, is_wounded].
+    pub unit_scalars: Vec<Vec<f32>>,
     /// TERRAIN_VOCAB index for current hex terrain.
     pub current_terrain_id: u16,
     /// SITE_VOCAB index for current hex site type.
@@ -174,10 +179,11 @@ mod tests {
 
     #[test]
     fn dimension_constants() {
-        assert_eq!(STATE_SCALAR_DIM, 76);
+        assert_eq!(STATE_SCALAR_DIM, 83);
         assert_eq!(ACTION_SCALAR_DIM, 34);
         assert_eq!(COMBAT_ENEMY_SCALAR_DIM, 20);
         assert_eq!(SITE_SCALAR_DIM, 6);
         assert_eq!(MAP_ENEMY_SCALAR_DIM, 11);
+        assert_eq!(UNIT_SCALAR_DIM, 2);
     }
 }

@@ -1,4 +1,4 @@
-//! State encoder — produces StateFeatures (76 scalars + entity pools).
+//! State encoder — produces StateFeatures (83 scalars + entity pools).
 //!
 //! Directly accesses Rust structs instead of crawling JSON dicts.
 
@@ -22,16 +22,16 @@ pub fn encode_state(state: &GameState, player_idx: usize) -> StateFeatures {
     // Build scalar groups
     let player_core = extract_player_core(state, player, player_idx); // 10
     let resources = extract_resources(player); // 13
-    let tempo = extract_tempo(state, player); // 5
+    let tempo = extract_tempo(state, player); // 11
     let (combat_scalars, combat_enemy_ids, combat_enemy_scalars) =
         extract_combat(state, player); // 10
     let (hex_scalars, current_terrain_id, current_site_type_id) =
         extract_current_hex(state, pos); // 3
     let neighbor_scalars = extract_neighbors(state, pos); // 24
     let global_spatial = extract_global_spatial(state, pos); // 5
-    let mana_source = extract_mana_source(state); // 6
+    let mana_source = extract_mana_source(state); // 7
 
-    let mut scalars = Vec::with_capacity(76);
+    let mut scalars = Vec::with_capacity(83);
     scalars.extend_from_slice(&player_core);
     scalars.extend_from_slice(&resources);
     scalars.extend_from_slice(&tempo);
@@ -43,7 +43,7 @@ pub fn encode_state(state: &GameState, player_idx: usize) -> StateFeatures {
 
     let mode_id = derive_mode(state, player_idx);
     let hand_card_ids = extract_hand_card_ids(player);
-    let unit_ids = extract_unit_ids(player);
+    let (unit_ids, unit_scalars) = extract_units(player);
     let skill_ids = extract_skill_ids(player);
     let (visible_site_ids, visible_site_scalars) = extract_visible_sites(state, pos);
     let (map_enemy_ids, map_enemy_scalars) = extract_map_enemies(state, pos);
@@ -53,6 +53,7 @@ pub fn encode_state(state: &GameState, player_idx: usize) -> StateFeatures {
         mode_id,
         hand_card_ids,
         unit_ids,
+        unit_scalars,
         current_terrain_id,
         current_site_type_id,
         combat_enemy_ids,
@@ -135,24 +136,12 @@ fn extract_resources(player: &PlayerState) -> [f32; 13] {
 // Tempo (5 scalars)
 // =============================================================================
 
-fn extract_tempo(state: &GameState, player: &PlayerState) -> [f32; 5] {
+fn extract_tempo(state: &GameState, player: &PlayerState) -> [f32; 11] {
+    let flag = |f: PlayerFlags| -> f32 {
+        if player.flags.contains(f) { 1.0 } else { 0.0 }
+    };
+
     let is_day = if state.time_of_day == TimeOfDay::Day {
-        1.0
-    } else {
-        0.0
-    };
-    let has_moved = if player
-        .flags
-        .contains(PlayerFlags::HAS_MOVED_THIS_TURN)
-    {
-        1.0
-    } else {
-        0.0
-    };
-    let has_taken_action = if player
-        .flags
-        .contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN)
-    {
         1.0
     } else {
         0.0
@@ -166,9 +155,16 @@ fn extract_tempo(state: &GameState, player: &PlayerState) -> [f32; 5] {
     [
         scale(state.round as f32, 6.0),
         is_day,
-        has_moved,
-        has_taken_action,
+        flag(PlayerFlags::HAS_MOVED_THIS_TURN),
+        flag(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN),
         end_of_round,
+        // 5 additional critical flags
+        flag(PlayerFlags::IS_RESTING),
+        flag(PlayerFlags::HAS_RESTED_THIS_TURN),
+        flag(PlayerFlags::TACTIC_FLIPPED),
+        flag(PlayerFlags::WOUND_IMMUNITY_ACTIVE),
+        flag(PlayerFlags::HAS_COMBATTED_THIS_TURN),
+        flag(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN),
     ]
 }
 
@@ -308,15 +304,17 @@ fn extract_combat(
 }
 
 /// Compute effective damage dealt to an enemy from the combat accumulator.
-/// This is an approximation — the full element/resistance calculation is complex,
-/// but for RL features we use total assigned attack as a proxy.
+/// Includes both physical and elemental assigned attack values.
 fn compute_effective_damage(
     acc: &mk_types::state::CombatAccumulator,
 ) -> f32 {
-    let total = acc.assigned_attack.normal
+    let phys = acc.assigned_attack.normal
         + acc.assigned_attack.ranged
         + acc.assigned_attack.siege;
-    total as f32
+    let elem = acc.assigned_attack.normal_elements.total()
+        + acc.assigned_attack.ranged_elements.total()
+        + acc.assigned_attack.siege_elements.total();
+    (phys + elem) as f32
 }
 
 /// Compute block progress for an enemy.
@@ -324,7 +322,8 @@ fn compute_block_progress(
     acc: &mk_types::state::CombatAccumulator,
     def: Option<&EnemyDefinition>,
 ) -> (f32, f32, f32) {
-    let eff_block = (acc.block + acc.assigned_block) as f32;
+    let eff_block = (acc.block + acc.assigned_block
+        + acc.block_elements.total() + acc.assigned_block_elements.total()) as f32;
     let req_block = if let Some(d) = def {
         // Use primary attack damage as required block
         if let Some(attacks) = d.attacks {
@@ -439,13 +438,14 @@ fn extract_global_spatial(state: &GameState, pos: HexCoord) -> [f32; 5] {
 // Mana Source (6 scalars)
 // =============================================================================
 
-fn extract_mana_source(state: &GameState) -> [f32; 6] {
+fn extract_mana_source(state: &GameState) -> [f32; 7] {
     let mut available_count = 0u32;
     let mut has_red = false;
     let mut has_blue = false;
     let mut has_green = false;
     let mut has_white = false;
     let mut has_gold = false;
+    let mut has_black = false;
 
     for die in &state.source.dice {
         if !die.is_depleted && die.taken_by_player_id.is_none() {
@@ -456,7 +456,7 @@ fn extract_mana_source(state: &GameState) -> [f32; 6] {
                 ManaColor::Green => has_green = true,
                 ManaColor::White => has_white = true,
                 ManaColor::Gold => has_gold = true,
-                ManaColor::Black => {} // Black presence not tracked
+                ManaColor::Black => has_black = true,
             }
         }
     }
@@ -468,6 +468,7 @@ fn extract_mana_source(state: &GameState) -> [f32; 6] {
         if has_green { 1.0 } else { 0.0 },
         if has_white { 1.0 } else { 0.0 },
         if has_gold { 1.0 } else { 0.0 },
+        if has_black { 1.0 } else { 0.0 },
     ]
 }
 
@@ -479,8 +480,16 @@ fn extract_hand_card_ids(player: &PlayerState) -> Vec<u16> {
     player.hand.iter().map(|c| CARD_VOCAB.encode(c.as_str())).collect()
 }
 
-fn extract_unit_ids(player: &PlayerState) -> Vec<u16> {
-    player.units.iter().map(|u| UNIT_VOCAB.encode(u.unit_id.as_str())).collect()
+fn extract_units(player: &PlayerState) -> (Vec<u16>, Vec<Vec<f32>>) {
+    let mut ids = Vec::with_capacity(player.units.len());
+    let mut scalars = Vec::with_capacity(player.units.len());
+    for u in &player.units {
+        ids.push(UNIT_VOCAB.encode(u.unit_id.as_str()));
+        let is_ready = if u.state == mk_types::enums::UnitState::Ready { 1.0 } else { 0.0 };
+        let is_wounded = if u.wounded { 1.0 } else { 0.0 };
+        scalars.push(vec![is_ready, is_wounded]);
+    }
+    (ids, scalars)
 }
 
 fn extract_skill_ids(player: &PlayerState) -> Vec<u16> {
@@ -650,11 +659,11 @@ mod tests {
     use mk_types::enums::Hero;
 
     #[test]
-    fn encode_state_produces_76_scalars() {
+    fn encode_state_produces_83_scalars() {
         let mut state = create_solo_game(42, Hero::Arythea);
         place_initial_tiles(&mut state);
         let features = encode_state(&state, 0);
-        assert_eq!(features.scalars.len(), 76);
+        assert_eq!(features.scalars.len(), 83);
     }
 
     #[test]

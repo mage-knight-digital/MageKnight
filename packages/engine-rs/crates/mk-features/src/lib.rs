@@ -6,7 +6,7 @@
 //!
 //! ```text
 //! encode_step(state, player_idx, action_set)
-//!   ├── encode_state()   → StateFeatures (76 scalars + entity pools)
+//!   ├── encode_state()   → StateFeatures (83 scalars + entity pools)
 //!   ├── derive_mode()    → mode_id
 //!   ├── encode_actions() → Vec<ActionFeatures> (6 IDs + 34 scalars each)
 //!   │     └── derive_source() per action
@@ -22,7 +22,7 @@ pub mod vocab;
 
 pub use types::{
     ActionFeatures, EncodedStep, StateFeatures, ACTION_SCALAR_DIM, COMBAT_ENEMY_SCALAR_DIM,
-    MAP_ENEMY_SCALAR_DIM, SITE_SCALAR_DIM, STATE_SCALAR_DIM,
+    MAP_ENEMY_SCALAR_DIM, SITE_SCALAR_DIM, STATE_SCALAR_DIM, UNIT_SCALAR_DIM,
 };
 pub use vocab::{
     ACTION_TYPE_VOCAB, CARD_VOCAB, ENEMY_VOCAB, MODE_VOCAB, SITE_VOCAB, SKILL_VOCAB,

@@ -2,7 +2,7 @@
 
 use mk_features::{
     EncodedStep, ACTION_SCALAR_DIM, COMBAT_ENEMY_SCALAR_DIM,
-    MAP_ENEMY_SCALAR_DIM, SITE_SCALAR_DIM, STATE_SCALAR_DIM,
+    MAP_ENEMY_SCALAR_DIM, SITE_SCALAR_DIM, STATE_SCALAR_DIM, UNIT_SCALAR_DIM,
 };
 
 /// Pre-padded batch output ready for zero-copy numpy export.
@@ -27,6 +27,8 @@ pub struct BatchOutput {
     pub unit_ids: Vec<i32>,
     pub unit_counts: Vec<i32>,
     pub max_units: usize,
+    /// (N, max_U, UNIT_SCALAR_DIM) f32
+    pub unit_scalars: Vec<f32>,
 
     /// (N, max_CE) i32 — combat enemy IDs
     pub combat_enemy_ids: Vec<i32>,
@@ -118,6 +120,7 @@ impl BatchOutput {
 
         let mut unit_ids_buf = vec![0i32; n * max_units];
         let mut unit_counts = Vec::with_capacity(n);
+        let mut unit_scalars_buf = vec![0.0f32; n * max_units * UNIT_SCALAR_DIM];
 
         let mut combat_enemy_ids_buf = vec![0i32; n * max_combat_enemies];
         let mut combat_enemy_counts = Vec::with_capacity(n);
@@ -171,6 +174,12 @@ impl BatchOutput {
             let u_off = i * max_units;
             for (j, &id) in s.unit_ids.iter().enumerate() {
                 unit_ids_buf[u_off + j] = id as i32;
+            }
+            let us_off = i * max_units * UNIT_SCALAR_DIM;
+            for (j, scalars) in s.unit_scalars.iter().enumerate() {
+                let row = us_off + j * UNIT_SCALAR_DIM;
+                unit_scalars_buf[row..row + UNIT_SCALAR_DIM]
+                    .copy_from_slice(scalars);
             }
 
             // Combat enemies
@@ -268,6 +277,7 @@ impl BatchOutput {
             unit_ids: unit_ids_buf,
             unit_counts,
             max_units,
+            unit_scalars: unit_scalars_buf,
             combat_enemy_ids: combat_enemy_ids_buf,
             combat_enemy_counts,
             max_combat_enemies,

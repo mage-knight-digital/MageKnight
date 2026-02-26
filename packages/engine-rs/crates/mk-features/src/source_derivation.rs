@@ -69,7 +69,7 @@ pub fn derive_source_str(action: &LegalAction, state: &GameState, player_idx: us
         }
         LegalAction::DeclareRest => "normal.turn.declare_rest",
         LegalAction::CompleteRest { .. } => "normal.turn.complete_rest",
-        LegalAction::AnnounceEndOfRound => "normal.turn.announce_end_of_round",
+        LegalAction::AnnounceEndOfRound => "normal.turn.announce_end_round",
         LegalAction::ForfeitTurn => "normal.turn.forfeit",
         LegalAction::Undo => "turn.undo",
 
@@ -133,8 +133,8 @@ pub fn derive_source_str(action: &LegalAction, state: &GameState, player_idx: us
         // === Meditation ===
         LegalAction::ResolveMeditation { place_on_top, .. } => {
             match place_on_top {
-                Some(true) => "meditation.place_top",
-                Some(false) => "meditation.place_bottom",
+                Some(true) => "meditation.place.top",
+                Some(false) => "meditation.place.bottom",
                 None => "meditation.select",
             }
         }
@@ -162,7 +162,7 @@ pub fn derive_source_str(action: &LegalAction, state: &GameState, player_idx: us
         LegalAction::AltarTribute { .. } => "normal.site.altar_tribute",
         LegalAction::AssignBanner { .. } => "normal.assign_banner",
         LegalAction::UseBannerCourage { .. } => "combat.use_banner_courage",
-        LegalAction::UseBannerFear { .. } => "combat.use_banner_fear",
+        LegalAction::UseBannerFear { .. } => "combat.banner_fear",
         LegalAction::SelectReward { .. } => "pending_reward.card",
         LegalAction::ResolveBookOfWisdom { .. } => "book_of_wisdom.card",
         LegalAction::ResolveTomeOfAllSpells { .. } => "tome_of_all_spells.card",
@@ -315,6 +315,79 @@ mod tests {
         ];
         for s in &sources {
             assert!(SOURCE_VOCAB.encode(s) > 0, "Source '{}' not in vocab", s);
+        }
+    }
+
+    #[test]
+    fn all_derived_sources_in_vocab() {
+        // Verify every literal source string from derive_source_str is in SOURCE_VOCAB.
+        // These are all the static strings that can be returned.
+        let all_sources = [
+            "normal.move", "normal.explore", "normal.challenge",
+            "combat.play_card.basic", "normal.play_card.basic",
+            "combat.play_card.powered", "normal.play_card.powered",
+            "normal.play_card.sideways.move", "normal.play_card.sideways.influence",
+            "normal.play_card.sideways.attack", "normal.play_card.sideways.block",
+            "combat.play_card.sideways.move", "combat.play_card.sideways.influence",
+            "combat.play_card.sideways.attack", "combat.play_card.sideways.block",
+            "combat.declare_block", "combat.declare_targets",
+            "combat.end_phase", "combat.cumbersome", "combat.assign_damage",
+            "pending_choice.index",
+            "normal.turn.end_turn", "normal.turn.declare_rest",
+            "normal.turn.complete_rest", "normal.turn.announce_end_round",
+            "normal.turn.forfeit", "turn.undo",
+            "tactics.available", "normal.tactic.activate", "normal.tactic.reroll",
+            "pending_tactic_decision.die", "pending_tactic_decision.card",
+            "pending_tactic_decision.cards.0", "pending_tactic_decision.cards.1",
+            "pending_tactic_decision.cards.2", "pending_tactic_decision.cards.3",
+            "pending_tactic_decision.sparing.stash", "pending_tactic_decision.sparing.take",
+            "normal.site.enter", "normal.site.interact",
+            "plunder_decision.plunder", "plunder_decision.decline",
+            "glade.hand", "glade.discard", "glade.skip",
+            "normal.units.recruit", "combat.units.activate", "normal.units.activate",
+            "combat.skills.activate", "normal.skills.activate", "normal.skills.return",
+            "discard_for_bonus.choice", "decompose.card",
+            "discard_for_crystal.card", "discard_for_crystal.skip",
+            "source_opening.reroll", "source_opening.keep",
+            "training.card", "maximal_effect.card",
+            "crystal_joy.card", "crystal_joy.skip",
+            "steady_tempo.place", "steady_tempo.skip",
+            "banner_protection.remove", "banner_protection.skip",
+            "meditation.place.top", "meditation.place.bottom", "meditation.select",
+            "meditation.done",
+            "level_up.common", "level_up.drawn",
+            "cooperative.propose", "cooperative.respond", "cooperative.cancel",
+            "normal.site.buy_spell", "normal.site.buy_aa",
+            "normal.site.buy_artifact", "normal.site.buy_city_aa",
+            "normal.site.buy_city_aa_deck", "normal.site.add_elite_to_offer",
+            "pending.select_artifact", "normal.site.burn_monastery",
+            "normal.site.altar_tribute", "normal.assign_banner",
+            "combat.use_banner_courage", "combat.banner_fear",
+            "pending_reward.card", "book_of_wisdom.card",
+            "tome_of_all_spells.card", "circlet_of_proficiency.card",
+            "combat.convert_move_to_attack", "combat.convert_influence_to_block",
+            "combat.heroes_assault_payment", "combat.thugs_payment",
+            "unit_maintenance.keep", "unit_maintenance.disband",
+            "hex_cost_reduction.coordinate", "terrain_cost_reduction.terrain",
+            "crystal_roll.color",
+            "unit_reward.forfeit", "unit_reward.disband",
+            // pending_choice variants
+            "pending_choice.gain_move", "pending_choice.gain_attack",
+            "pending_choice.gain_block", "pending_choice.gain_healing",
+            "pending_choice.gain_influence", "pending_choice.gain_mana",
+            "pending_choice.draw_cards", "pending_choice.gain_fame",
+            "pending_choice.gain_crystal", "pending_choice.apply_modifier",
+            "pending_choice.change_reputation", "pending_choice.noop",
+            "pending_choice.card_boost", "pending_choice.ready_unit",
+            "pending_choice.compound", "pending_choice.conditional",
+            "pending_choice.scaling",
+        ];
+        for s in &all_sources {
+            assert!(
+                SOURCE_VOCAB.encode(s) > 0,
+                "Source '{}' not found in SOURCE_VOCAB — will map to UNK (0)",
+                s
+            );
         }
     }
 }

@@ -143,7 +143,7 @@ fn extract_entity_ids(
     let mut unit_id: u16 = 0;
     let mut enemy_id: u16 = 0;
     let mut skill_id: u16 = 0;
-    let target_enemy_ids: Vec<u16> = Vec::new();
+    let mut target_enemy_ids: Vec<u16> = Vec::new();
 
     let player = &state.players[player_idx];
 
@@ -237,6 +237,38 @@ fn extract_entity_ids(
         | LegalAction::AssignBanner { card_id: cid, .. }
         | LegalAction::SelectArtifact { card_id: cid } => {
             card_id = CARD_VOCAB.encode(cid.as_str());
+        }
+
+        LegalAction::SubsetSelect { index } => {
+            // For attack targets, resolve the enemy at this pool index
+            if let Some(mk_types::pending::ActivePending::SubsetSelection(ref ss)) = player.pending.active {
+                if let mk_types::pending::SubsetSelectionKind::AttackTargets { ref eligible_instance_ids, .. } = ss.kind {
+                    if let Some(iid) = eligible_instance_ids.get(*index) {
+                        if let Some(ref combat) = state.combat {
+                            if let Some(e) = combat.enemies.iter().find(|e| e.instance_id == *iid) {
+                                target_enemy_ids.push(ENEMY_VOCAB.encode(e.enemy_id.as_str()));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        LegalAction::SubsetConfirm => {
+            // For attack targets, resolve all selected enemies
+            if let Some(mk_types::pending::ActivePending::SubsetSelection(ref ss)) = player.pending.active {
+                if let mk_types::pending::SubsetSelectionKind::AttackTargets { ref eligible_instance_ids, .. } = ss.kind {
+                    if let Some(ref combat) = state.combat {
+                        for &sel_idx in &ss.selected {
+                            if let Some(iid) = eligible_instance_ids.get(sel_idx) {
+                                if let Some(e) = combat.enemies.iter().find(|e| e.instance_id == *iid) {
+                                    target_enemy_ids.push(ENEMY_VOCAB.encode(e.enemy_id.as_str()));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         _ => {}

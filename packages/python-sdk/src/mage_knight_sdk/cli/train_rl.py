@@ -93,7 +93,7 @@ def main() -> int:
     parser.add_argument("--num-hidden-layers", type=int, default=1, help="Number of hidden layers in state/action encoders (default: 1)")
 
     parser.add_argument("--fame-delta-scale", type=float, default=1.0, help="Reward multiplier for fame deltas")
-    parser.add_argument("--step-penalty", type=float, default=-0.001, help="Per-step reward penalty")
+    parser.add_argument("--step-penalty", type=float, default=0.0, help="Per-step reward penalty")
     parser.add_argument("--terminal-end-bonus", type=float, default=1.0, help="Bonus when game ends normally")
     parser.add_argument("--terminal-max-steps-penalty", type=float, default=-0.5, help="Penalty when episode hits max steps")
     parser.add_argument("--terminal-failure-penalty", type=float, default=-1.0, help="Penalty for engine failures")
@@ -306,6 +306,7 @@ def _train_ppo_native(
 
         # Collect batch_size episodes
         episodes_data: list[list[Any]] = []
+        batch_terminated: list[bool] = []
         batch_stats: list[EpisodeTrainingStats] = []
         batch_fames: list[int] = []
 
@@ -313,7 +314,7 @@ def _train_ppo_native(
             seed = args.seed + resume_episode_offset + episode_num + i
             hero = resolve_hero(args.hero, seed)
 
-            result, transitions = run_native_rl_game_ppo(
+            result, transitions, terminated = run_native_rl_game_ppo(
                 seed=seed,
                 hero=hero,
                 policy=policy,
@@ -339,6 +340,7 @@ def _train_ppo_native(
 
             episode_total_reward = sum(t.reward for t in transitions)
             episodes_data.append(transitions)
+            batch_terminated.append(terminated)
             batch_stats.append(EpisodeTrainingStats(
                 outcome=result.outcome,
                 steps=result.steps,
@@ -356,6 +358,7 @@ def _train_ppo_native(
         if episodes_data:
             transitions_flat, advantages, returns = compute_gae(
                 episodes_data, args.gamma, args.gae_lambda,
+                terminated=batch_terminated,
             )
             opt_stats = policy.optimize_ppo(
                 transitions_flat, advantages, returns,

@@ -85,6 +85,11 @@ impl PyEncodedStep {
         self.inner.state.unit_ids.clone()
     }
 
+    /// UNIT_SCALAR_DIM floats per unit [is_ready, is_wounded] (list of lists).
+    fn unit_scalars(&self) -> Vec<Vec<f32>> {
+        self.inner.state.unit_scalars.clone()
+    }
+
     /// SKILL_VOCAB indices for the player's skills.
     fn skill_ids(&self) -> Vec<u16> {
         self.inner.state.skill_ids.clone()
@@ -437,7 +442,7 @@ impl GameEngine {
     /// Encode the current state + legal actions into RL features.
     ///
     /// Returns a PyEncodedStep containing:
-    /// - State features (76 scalars, mode, entity pools)
+    /// - State features (83 scalars, mode, entity pools with unit scalars)
     /// - Per-action features (6 vocab IDs + 34 scalars each)
     ///
     /// This replaces the Python-side feature extraction pipeline,
@@ -590,6 +595,7 @@ impl PyVecEnv {
 
         dict.set_item("unit_ids", vec_i32_to_numpy(py, &np, &batch.unit_ids, &[n, batch.max_units])?)?;
         dict.set_item("unit_counts", vec_i32_to_numpy(py, &np, &batch.unit_counts, &[n])?)?;
+        dict.set_item("unit_scalars", vec_f32_to_numpy(py, &np, &batch.unit_scalars, &[n * batch.max_units, mk_features::UNIT_SCALAR_DIM])?)?;
 
         dict.set_item("combat_enemy_ids", vec_i32_to_numpy(py, &np, &batch.combat_enemy_ids, &[n, batch.max_combat_enemies])?)?;
         dict.set_item("combat_enemy_counts", vec_i32_to_numpy(py, &np, &batch.combat_enemy_counts, &[n])?)?;

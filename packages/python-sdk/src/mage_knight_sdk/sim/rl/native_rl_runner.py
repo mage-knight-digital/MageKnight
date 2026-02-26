@@ -61,6 +61,7 @@ def py_encoded_to_encoded_step(py_encoded: Any) -> EncodedStep:
         mode_id=py_encoded.mode_id(),
         hand_card_ids=py_encoded.hand_card_ids(),
         unit_ids=py_encoded.unit_ids(),
+        unit_scalars=py_encoded.unit_scalars(),
         current_terrain_id=py_encoded.current_terrain_id(),
         current_site_type_id=py_encoded.current_site_type_id(),
         combat_enemy_ids=py_encoded.combat_enemy_ids(),
@@ -154,6 +155,9 @@ def run_native_rl_game(
             terminal = reward_config.terminal_end_bonus
         else:
             terminal = reward_config.terminal_max_steps_penalty
+        # Scenario trigger bonus (e.g. city revealed)
+        if engine.scenario_end_triggered():
+            terminal += reward_config.scenario_trigger_bonus
         policy.add_terminal_reward(terminal)
         episode_total_reward += terminal
 
@@ -193,10 +197,11 @@ def run_native_rl_game_ppo(
     reward_config: RewardConfig | None = None,
     max_steps: int = 10000,
     rng: random.Random | None = None,
-) -> tuple[NativeRunResult, list[Transition]]:
+) -> tuple[NativeRunResult, list[Transition], bool]:
     """Run a single game, collecting PPO transitions instead of optimizing.
 
-    Returns (result, transitions). Transitions list may be empty on error.
+    Returns (result, transitions, terminated). terminated is True if the episode
+    ended naturally (game over), False if truncated (hit max_steps) or errored.
     """
     if reward_config is None:
         reward_config = RewardConfig()
@@ -247,6 +252,9 @@ def run_native_rl_game_ppo(
             terminal = reward_config.terminal_end_bonus
         else:
             terminal = reward_config.terminal_max_steps_penalty
+        # Scenario trigger bonus
+        if engine.scenario_end_triggered():
+            terminal += reward_config.scenario_trigger_bonus
         if transitions:
             last = transitions[-1]
             transitions[-1] = Transition(
@@ -261,10 +269,21 @@ def run_native_rl_game_ppo(
         outcome = "engine_error"
         reason = str(e)
         logger.warning("Engine error in seed %d at step %d: %s", seed, step, e)
+        # Apply failure penalty to last transition
+        if transitions:
+            last = transitions[-1]
+            transitions[-1] = Transition(
+                encoded_step=last.encoded_step,
+                action_index=last.action_index,
+                log_prob=last.log_prob,
+                value=last.value,
+                reward=last.reward + reward_config.terminal_failure_penalty,
+            )
 
     # Reset policy buffers (PPO doesn't optimize per-episode)
     policy._reset_episode_buffers()
 
+    terminated = outcome == "ended"
     result = NativeRunResult(
         seed=seed,
         outcome=outcome,
@@ -275,4 +294,4 @@ def run_native_rl_game_ppo(
         scenario_end_triggered=engine.scenario_end_triggered(),
         reason=reason,
     )
-    return result, transitions
+    return result, transitions, terminated
