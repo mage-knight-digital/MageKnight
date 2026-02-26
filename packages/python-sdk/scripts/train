@@ -45,6 +45,8 @@ DEFAULT_FLAGS=(
     --mini-batch-size 256
     --checkpoint-every 10000
     --step-penalty 0
+    --learning-rate 3e-3
+    --entropy-coef 0.05
 )
 
 # --- Helpers ---
