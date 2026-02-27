@@ -834,6 +834,10 @@ fn format_action(action: &LegalAction, state: &GameState, player_idx: usize) -> 
         LegalAction::ResolveTacticDecision { data } => format_tactic_decision(data, state, player_idx),
         LegalAction::ActivateTactic => "Activate tactic".into(),
         LegalAction::InitiateManaSearch => "Mana Search (reroll dice)".into(),
+        LegalAction::BeginInteraction => {
+            let site_name = player_site_name(state, player_idx);
+            format!("Begin interaction with {}", site_name)
+        }
         LegalAction::EnterSite => {
             let site_name = player_site_name(state, player_idx);
             format!("Enter {}", site_name)

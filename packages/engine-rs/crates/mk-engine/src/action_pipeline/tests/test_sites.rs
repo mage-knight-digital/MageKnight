@@ -226,6 +226,7 @@ fn interact_site_enumerated_at_village() {
     place_player_on_site(&mut state, SiteType::Village);
     state.players[0].influence_points = 6; // enough for 2 heals at cost 3
 
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     let healing_actions: Vec<_> = actions.actions.iter()
         .filter(|a| matches!(a, LegalAction::InteractSite { .. }))
@@ -288,6 +289,7 @@ fn monastery_cheaper_healing() {
     place_player_on_site(&mut state, SiteType::Monastery);
     state.players[0].influence_points = 2;
 
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     assert!(
         actions.actions.iter().any(|a| matches!(a, LegalAction::InteractSite { healing: 1 })),
@@ -325,6 +327,7 @@ fn multiple_healing_levels_enumerated() {
     place_player_on_site(&mut state, SiteType::Village);
     state.players[0].influence_points = 9; // enough for 3 heals at cost 3
 
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     let healing_actions: Vec<_> = actions.actions.iter()
         .filter(|a| matches!(a, LegalAction::InteractSite { .. }))
@@ -548,6 +551,7 @@ fn buy_spell_enumerated_at_conquered_mage_tower() {
     });
     state.offers.spells = vec![CardId::from("fireball")];
 
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     let buy_spells: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::BuySpell { .. })).collect();
     assert_eq!(buy_spells.len(), 1);
@@ -619,6 +623,7 @@ fn buy_spell_multiple_offers_enumerated() {
     });
     state.offers.spells = vec![CardId::from("fireball"), CardId::from("snowstorm"), CardId::from("restoration")];
 
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     let buy_spells: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::BuySpell { .. })).collect();
     assert_eq!(buy_spells.len(), 3);
@@ -653,6 +658,7 @@ fn buy_spell_crystal_satisfies_mana_cost() {
     state.players[0].crystals.red = 1; // Red crystal can pay for red spell
     state.offers.spells = vec![CardId::from("fireball")]; // Red spell
 
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     let buy_spells: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::BuySpell { .. })).collect();
     assert_eq!(buy_spells.len(), 1, "Red crystal should satisfy red spell mana cost");
@@ -710,6 +716,7 @@ fn learn_aa_enumerated_at_monastery() {
     state.players[0].influence_points = 6;
     state.offers.monastery_advanced_actions = vec![CardId::from("crystal_mastery")];
 
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     let learn_aas: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::LearnAdvancedAction { .. })).collect();
     assert_eq!(learn_aas.len(), 1);
@@ -778,6 +785,7 @@ fn burn_monastery_enumerated_at_monastery() {
     // Need violet tokens available
     state.enemy_tokens.violet_draw = vec![EnemyTokenId::from("monks_1")];
 
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     let burns: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::BurnMonastery)).collect();
     assert_eq!(burns.len(), 1);
@@ -1124,6 +1132,7 @@ fn burn_monastery_available_with_discard_pile_tokens() {
     state.enemy_tokens.violet_draw.clear();
     state.enemy_tokens.violet_discard = vec![EnemyTokenId::from("monks_1")];
 
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     let burns: Vec<_> = actions.actions.iter()
         .filter(|a| matches!(a, LegalAction::BurnMonastery))
@@ -3216,6 +3225,7 @@ fn positive_rep_increases_effective_influence() {
     // Village healing costs 3 per wound.
     // Without rep bonus: 1 influence < 3, no healing available.
     // With rep bonus: effective 3 >= 3, healing 1 should appear.
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     assert!(
         actions.actions.iter().any(|a| matches!(a, LegalAction::InteractSite { healing: 1 })),
@@ -3305,6 +3315,7 @@ fn max_rep_bonus_at_plus_seven() {
     state.players[0].influence_points = 0; // effective = 5
 
     // Village cost = 3 per wound. Effective = 5 → can heal 1 wound.
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     assert!(
         actions.actions.iter().any(|a| matches!(a, LegalAction::InteractSite { healing: 1 })),
@@ -3465,6 +3476,7 @@ fn shield_bonus_enables_recruitment_at_city() {
     // Peasants cost 4, available at Village but scouts available at City
     state.offers.units = vec![mk_types::ids::UnitId::from("scouts")]; // cost 4, City recruitable
 
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     let recruit = actions.actions.iter().find(|a| matches!(a, LegalAction::RecruitUnit { .. }));
     assert!(recruit.is_some(), "Shield bonus should enable recruitment at conquered city");
@@ -3484,6 +3496,7 @@ fn normal_unit_cost_uses_base_cost_only() {
     state.offers.units = vec![mk_types::ids::UnitId::from("peasants")]; // cost 4
 
     // Peasants cost 4, effective influence = 4, should be affordable
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     let recruit = actions.actions.iter().find(|a| matches!(a, LegalAction::RecruitUnit { .. }));
     assert!(recruit.is_some(), "Normal unit should be recruitable with blanket rep bonus");
@@ -3506,6 +3519,7 @@ fn thugs_cost_has_reversed_reputation_delta() {
 
     state.offers.units = vec![mk_types::ids::UnitId::from("thugs")]; // cost 5
 
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     let recruit = actions.actions.iter().find(|a| matches!(a, LegalAction::RecruitUnit { .. }));
     assert!(recruit.is_some(), "Thugs should be recruitable");
@@ -3528,6 +3542,7 @@ fn heroes_cost_has_doubled_reputation_delta() {
 
     state.offers.units = vec![mk_types::ids::UnitId::from("hero_blue")]; // cost 9, is_hero
 
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     let recruit = actions.actions.iter().find(|a| matches!(a, LegalAction::RecruitUnit { .. }));
     assert!(recruit.is_some(), "Hero should be recruitable with doubled rep discount");
@@ -3633,6 +3648,7 @@ fn blue_city_buy_spell_enumerated() {
     state.players[0].pure_mana.push(ManaToken { color: ManaColor::Blue, source: ManaTokenSource::Effect, cannot_power_spells: false });
     state.offers.spells = vec![CardId::from("fireball"), CardId::from("snowstorm")];
 
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     let buy_spells: Vec<_> = actions.actions.iter()
         .filter(|a| matches!(a, LegalAction::BuySpell { .. }))
@@ -3689,6 +3705,7 @@ fn green_city_buy_aa_enumerated() {
     state.players[0].influence_points = 6;
     state.offers.advanced_actions = vec![CardId::from("aa_1"), CardId::from("aa_2"), CardId::from("aa_3")];
 
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     let buy_aas: Vec<_> = actions.actions.iter()
         .filter(|a| matches!(a, LegalAction::BuyCityAdvancedAction { .. }))
@@ -3741,6 +3758,7 @@ fn red_city_buy_artifact_enumerated() {
     state.players[0].influence_points = 12;
     state.decks.artifact_deck = vec![CardId::from("artifact_a")];
 
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     let buy_artifacts: Vec<_> = actions.actions.iter()
         .filter(|a| matches!(a, LegalAction::BuyArtifact))
@@ -3807,6 +3825,7 @@ fn white_city_add_elite_enumerated() {
     state.players[0].influence_points = 2;
     state.decks.unit_deck = vec![mk_types::ids::UnitId::from("altem_mages")];
 
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     let add_elites: Vec<_> = actions.actions.iter()
         .filter(|a| matches!(a, LegalAction::AddEliteToOffer))
@@ -3864,6 +3883,7 @@ fn white_city_recruit_all_types() {
     // Peasants only have Village as recruit site
     state.offers.units = vec![mk_types::ids::UnitId::from("peasants")];
 
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     let recruits: Vec<_> = actions.actions.iter()
         .filter(|a| matches!(a, LegalAction::RecruitUnit { .. }))
@@ -3937,6 +3957,7 @@ fn wrong_color_no_cross_commerce() {
     state.offers.spells = vec![CardId::from("fireball")];
     state.decks.artifact_deck = vec![CardId::from("art_1")];
 
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
 
     // Red city should have BuyArtifact but NOT BuySpell
@@ -3981,6 +4002,7 @@ fn shield_bonus_grants_influence_for_commerce() {
     state.decks.artifact_deck = vec![CardId::from("art_1")];
 
     // Should enumerate BuyArtifact (costs 12) because 10 + 2 shield = 12
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     let buy_artifacts: Vec<_> = actions.actions.iter()
         .filter(|a| matches!(a, LegalAction::BuyArtifact))
@@ -4135,6 +4157,7 @@ fn green_city_blind_draw_enumerated() {
     state.players[0].influence_points = 6;
     state.decks.advanced_action_deck = vec![CardId::from("deck_aa_1")];
 
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     let blind_draws: Vec<_> = actions.actions.iter()
         .filter(|a| matches!(a, LegalAction::BuyCityAdvancedActionFromDeck))
@@ -4211,6 +4234,7 @@ fn spell_mana_gold_token_works() {
     state.players[0].pure_mana.push(ManaToken { color: ManaColor::Gold, source: ManaTokenSource::Effect, cannot_power_spells: false });
     state.offers.spells = vec![CardId::from("fireball")]; // Red spell
 
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     let buy_spells: Vec<_> = actions.actions.iter()
         .filter(|a| matches!(a, LegalAction::BuySpell { .. }))
@@ -4238,6 +4262,7 @@ fn spell_mana_crystal_works() {
     state.players[0].crystals.red = 1;
     state.offers.spells = vec![CardId::from("fireball")]; // Red spell
 
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     let buy_spells: Vec<_> = actions.actions.iter()
         .filter(|a| matches!(a, LegalAction::BuySpell { .. }))
@@ -4282,6 +4307,7 @@ fn spell_mana_applies_at_blue_city_too() {
     state.players[0].crystals = Crystals::default();
     state.offers.spells = vec![CardId::from("fireball")]; // Red spell
 
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     let buy_spells: Vec<_> = actions.actions.iter()
         .filter(|a| matches!(a, LegalAction::BuySpell { .. }))

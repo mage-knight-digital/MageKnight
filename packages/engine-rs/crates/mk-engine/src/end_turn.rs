@@ -728,6 +728,7 @@ fn reset_player_turn_inner(player: &mut PlayerState) {
     player.healing_points = 0;
 
     // Clear all turn flags (preserve non-turn flags)
+    player.flags.remove(PlayerFlags::USED_MANA_FROM_SOURCE);
     player.flags.remove(PlayerFlags::HAS_MOVED_THIS_TURN);
     player.flags.remove(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
     player.flags.remove(PlayerFlags::HAS_COMBATTED_THIS_TURN);
@@ -750,6 +751,7 @@ fn reset_player_turn_inner(player: &mut PlayerState) {
     player
         .flags
         .remove(PlayerFlags::REPUTATION_BONUS_APPLIED_THIS_TURN);
+    player.flags.remove(PlayerFlags::IS_INTERACTING);
 
     // Clear mana state (crystals persist, tokens don't)
     player.pure_mana.clear();
@@ -1678,6 +1680,24 @@ mod tests {
         assert!(!state.players[0]
             .flags
             .contains(PlayerFlags::HAS_MOVED_THIS_TURN));
+    }
+
+    #[test]
+    fn end_turn_clears_used_mana_from_source_flag() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state
+            .players[0]
+            .flags
+            .insert(PlayerFlags::USED_MANA_FROM_SOURCE);
+        play_card(&mut state, 0, 0, false, None).unwrap();
+
+        end_turn(&mut state, 0).unwrap();
+        assert!(
+            !state.players[0]
+                .flags
+                .contains(PlayerFlags::USED_MANA_FROM_SOURCE),
+            "USED_MANA_FROM_SOURCE should be cleared after end of turn"
+        );
     }
 
     #[test]

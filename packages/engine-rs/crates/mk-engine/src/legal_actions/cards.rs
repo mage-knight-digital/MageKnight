@@ -32,26 +32,35 @@ pub(super) fn enumerate_normal_cards(
             None => continue,
         };
 
-        // Category 2: PlayCardBasic — allowed during rest (FAQ S3).
-        if is_effect_playable_for_enumeration(state, player_idx, hand_index, &card_def.basic_effect)
-        {
-            let dominated = (!is_interacting && is_influence_only(&card_def.basic_effect))
-                || (is_interacting && is_move_only(&card_def.basic_effect));
-            if !dominated {
-                basic_actions.push(LegalAction::PlayCardBasic {
-                    hand_index,
-                    card_id: card_id.clone(),
-                });
-            }
-        }
+        let is_wound = card_id.as_str() == WOUND_CARD_ID;
 
-        // Category 3: PlayCardPowered — allowed during rest (FAQ S3).
-        // Time Bending chain prevention: cannot play Space Bending powered during a time-bent turn.
-        let time_bending_blocked = player.flags.contains(PlayerFlags::IS_TIME_BENT_TURN)
-            && card_id.as_str() == "space_bending";
-        let powered_dominated = (!is_interacting && is_influence_only(&card_def.powered_effect))
-            || (is_interacting && is_move_only(&card_def.powered_effect));
-        match card_def.powered_by {
+        // Wounds have no basic/powered effect — skip to sideways.
+        if !is_wound {
+            // Category 2: PlayCardBasic — allowed during rest (FAQ S3).
+            if is_effect_playable_for_enumeration(
+                state,
+                player_idx,
+                hand_index,
+                &card_def.basic_effect,
+            ) {
+                let dominated = (!is_interacting && is_influence_only(&card_def.basic_effect))
+                    || (is_interacting && is_move_only(&card_def.basic_effect));
+                if !dominated {
+                    basic_actions.push(LegalAction::PlayCardBasic {
+                        hand_index,
+                        card_id: card_id.clone(),
+                    });
+                }
+            }
+
+            // Category 3: PlayCardPowered — allowed during rest (FAQ S3).
+            // Time Bending chain prevention: cannot play Space Bending powered during a time-bent turn.
+            let time_bending_blocked = player.flags.contains(PlayerFlags::IS_TIME_BENT_TURN)
+                && card_id.as_str() == "space_bending";
+            let powered_dominated =
+                (!is_interacting && is_influence_only(&card_def.powered_effect))
+                    || (is_interacting && is_move_only(&card_def.powered_effect));
+            match card_def.powered_by {
             PoweredBy::Single(color) => {
                 if !time_bending_blocked
                     && !powered_dominated
@@ -91,6 +100,7 @@ pub(super) fn enumerate_normal_cards(
                 }
             }
             PoweredBy::None => {}
+            }
         }
 
         // Category 4: PlayCardSideways.
@@ -99,7 +109,6 @@ pub(super) fn enumerate_normal_cards(
         // Normal: both move and influence.
         // Wounds: only if WoundsPlayableSideways rule active + effective value > 0.
         if !is_resting {
-            let is_wound = card_id.as_str() == WOUND_CARD_ID;
             let eff_value = if is_wound {
                 if is_rule_active(state, player_idx, RuleOverride::WoundsPlayableSideways) {
                     get_effective_sideways_value(
@@ -170,64 +179,72 @@ pub(super) fn enumerate_combat_cards(
             None => continue,
         };
 
-        // Category 2: PlayCardBasic.
-        if is_effect_playable_for_enumeration(state, player_idx, hand_index, &card_def.basic_effect)
-        {
-            basic_actions.push(LegalAction::PlayCardBasic {
-                hand_index,
-                card_id: card_id.clone(),
-            });
-        }
+        let is_wound = card_id.as_str() == WOUND_CARD_ID;
 
-        // Category 3: PlayCardPowered.
-        // Time Bending chain prevention: cannot play Space Bending powered during a time-bent turn.
-        let time_bending_blocked = player.flags.contains(PlayerFlags::IS_TIME_BENT_TURN)
-            && card_id.as_str() == "space_bending";
-        match card_def.powered_by {
-            PoweredBy::Single(color) => {
-                if !time_bending_blocked
-                    && is_effect_playable_for_enumeration(
-                        state,
-                        player_idx,
-                        hand_index,
-                        &card_def.powered_effect,
-                    )
-                    && can_afford_powered(state, player_idx, color)
-                {
-                    powered_actions.push(LegalAction::PlayCardPowered {
-                        hand_index,
-                        card_id: card_id.clone(),
-                        mana_color: color,
-                    });
-                }
+        // Wounds have no basic/powered effect — skip to sideways.
+        if !is_wound {
+            // Category 2: PlayCardBasic.
+            if is_effect_playable_for_enumeration(
+                state,
+                player_idx,
+                hand_index,
+                &card_def.basic_effect,
+            ) {
+                basic_actions.push(LegalAction::PlayCardBasic {
+                    hand_index,
+                    card_id: card_id.clone(),
+                });
             }
-            PoweredBy::AnyBasic => {
-                if !time_bending_blocked
-                    && is_effect_playable_for_enumeration(
-                        state,
-                        player_idx,
-                        hand_index,
-                        &card_def.powered_effect,
-                    )
-                {
-                    for &color in &ALL_BASIC_MANA_COLORS {
-                        if can_afford_powered(state, player_idx, color) {
-                            powered_actions.push(LegalAction::PlayCardPowered {
-                                hand_index,
-                                card_id: card_id.clone(),
-                                mana_color: color,
-                            });
+
+            // Category 3: PlayCardPowered.
+            // Time Bending chain prevention: cannot play Space Bending powered during a time-bent turn.
+            let time_bending_blocked = player.flags.contains(PlayerFlags::IS_TIME_BENT_TURN)
+                && card_id.as_str() == "space_bending";
+            match card_def.powered_by {
+                PoweredBy::Single(color) => {
+                    if !time_bending_blocked
+                        && is_effect_playable_for_enumeration(
+                            state,
+                            player_idx,
+                            hand_index,
+                            &card_def.powered_effect,
+                        )
+                        && can_afford_powered(state, player_idx, color)
+                    {
+                        powered_actions.push(LegalAction::PlayCardPowered {
+                            hand_index,
+                            card_id: card_id.clone(),
+                            mana_color: color,
+                        });
+                    }
+                }
+                PoweredBy::AnyBasic => {
+                    if !time_bending_blocked
+                        && is_effect_playable_for_enumeration(
+                            state,
+                            player_idx,
+                            hand_index,
+                            &card_def.powered_effect,
+                        )
+                    {
+                        for &color in &ALL_BASIC_MANA_COLORS {
+                            if can_afford_powered(state, player_idx, color) {
+                                powered_actions.push(LegalAction::PlayCardPowered {
+                                    hand_index,
+                                    card_id: card_id.clone(),
+                                    mana_color: color,
+                                });
+                            }
                         }
                     }
                 }
+                PoweredBy::None => {}
             }
-            PoweredBy::None => {}
         }
 
         // Category 4: PlayCardSideways (combat: Attack and Block).
         // Wounds: only if WoundsPlayableSideways rule active + effective value > 0.
         {
-            let is_wound = card_id.as_str() == WOUND_CARD_ID;
             let eff_value = if is_wound {
                 if is_rule_active(state, player_idx, RuleOverride::WoundsPlayableSideways) {
                     get_effective_sideways_value(

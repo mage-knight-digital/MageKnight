@@ -841,6 +841,38 @@ fn combat_emits_combat_actions() {
     assert!(block_sideways, "combat should have Block sideways");
 }
 
+#[test]
+fn wound_not_playable_basic_in_combat() {
+    let mut state = setup_game(vec!["wound"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::RangedSiege,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let wound_basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "wound"),
+    );
+    assert!(
+        !wound_basic,
+        "wound should not be playable as basic in combat"
+    );
+}
+
+#[test]
+fn wound_not_playable_basic_outside_combat() {
+    let state = setup_game(vec!["wound"]);
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let wound_basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "wound"),
+    );
+    assert!(
+        !wound_basic,
+        "wound should not be playable as basic outside combat"
+    );
+}
+
 // =========================================================================
 // Epoch
 // =========================================================================
@@ -5796,5 +5828,39 @@ fn coastline_allows_countryside() {
     assert!(
         !explore_dirs.is_empty(),
         "Countryside tiles should be allowed on coastline slots"
+    );
+}
+
+#[test]
+fn improvisation_powered_available_in_combat_with_red_source_die() {
+    // Improvisation is a red card. In combat (attack phase) with a red source die
+    // available and USED_MANA_FROM_SOURCE not set, PlayCardPowered should be offered.
+    // Improvisation powered = CardBoost { bonus: 2 }, which needs a target action card
+    // whose powered effect is resolvable in combat.
+    let mut state = setup_game(vec!["improvisation", "arythea_battle_versatility"]);
+    setup_source_dice(&mut state, vec![(ManaColor::Red, false)]);
+
+    // Enter combat so GainAttack/GainBlock are resolvable
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Attack,
+        ..CombatState::default()
+    }));
+
+    // Verify flag is NOT set
+    assert!(
+        !state.players[0]
+            .flags
+            .contains(PlayerFlags::USED_MANA_FROM_SOURCE),
+        "precondition: USED_MANA_FROM_SOURCE should be false"
+    );
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let powered = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "improvisation"),
+    );
+    assert!(
+        powered,
+        "improvisation powered should be available in combat with red source die; actions: {:?}",
+        legal.actions
     );
 }

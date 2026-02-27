@@ -128,6 +128,29 @@ pub(super) fn enumerate_site_actions(
         return;
     }
 
+    // Check if the player is at an accessible inhabited site
+    let is_interacting = player.flags.contains(PlayerFlags::IS_INTERACTING);
+
+    if !is_interacting && is_inhabited(site.site_type) {
+        // Access check: Village/Monastery/RefugeeCamp always accessible.
+        // Keep/MageTower/City only when conquered.
+        let accessible = match site.site_type {
+            SiteType::Keep | SiteType::MageTower | SiteType::City => site.is_conquered,
+            _ => true,
+        };
+        // Must not be burned (monastery check)
+        let not_burned = site.site_type != SiteType::Monastery || !site.is_burned;
+        if accessible && not_burned {
+            actions.push(LegalAction::BeginInteraction);
+        }
+        return;
+    }
+
+    // === All commerce below requires IS_INTERACTING ===
+    if !is_interacting {
+        return;
+    }
+
     // Compute effective influence once (accounts for reputation bonus + shield tokens)
     let effective_influence = compute_effective_influence(state, player_idx);
 

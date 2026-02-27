@@ -274,6 +274,17 @@ pub fn apply_legal_action(
             tactics::apply_initiate_mana_search(state, player_idx)?
         }
 
+        LegalAction::BeginInteraction => {
+            // Reversible: just sets a flag
+            undo_stack.save(state);
+            state.players[player_idx].flags.insert(PlayerFlags::IS_INTERACTING);
+            ApplyResult {
+                needs_reenumeration: true,
+                game_ended: false,
+                events: Vec::new(),
+            }
+        }
+
         LegalAction::EnterSite => {
             // Irreversible: draws enemy tokens (RNG)
             undo_stack.set_checkpoint();

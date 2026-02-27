@@ -122,11 +122,20 @@ fn wound_not_sideways_playable() {
 
 #[test]
 fn sideways_options_are_move_and_influence() {
-    let state = setup_game(vec!["march"]);
+    // Not interacting: move only
+    let mut state = setup_game(vec!["march"]);
     let va = get_valid_actions(&state, 0);
     if let ValidActions::NormalTurn(actions) = va {
         let card = &actions.playable_cards[0];
         assert!(card.sideways_options.contains(&SidewaysAs::Move));
+        assert!(!card.sideways_options.contains(&SidewaysAs::Influence));
+    }
+    // Interacting: influence only
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
+    let va = get_valid_actions(&state, 0);
+    if let ValidActions::NormalTurn(actions) = va {
+        let card = &actions.playable_cards[0];
+        assert!(!card.sideways_options.contains(&SidewaysAs::Move));
         assert!(card.sideways_options.contains(&SidewaysAs::Influence));
         assert!(!card.sideways_options.contains(&SidewaysAs::Attack));
         assert!(!card.sideways_options.contains(&SidewaysAs::Block));

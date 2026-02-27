@@ -83,6 +83,7 @@ bitflags! {
         const TACTIC_FLIPPED                    = 1 << 15;
         const BEFORE_TURN_TACTIC_PENDING        = 1 << 16;
         const REPUTATION_BONUS_APPLIED_THIS_TURN = 1 << 17;
+        const IS_INTERACTING                   = 1 << 18;
     }
 }
 

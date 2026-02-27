@@ -92,6 +92,9 @@ pub enum LegalAction {
     ActivateTactic,
     /// Initiate mana search — enters SubsetSelection for rerollable dice.
     InitiateManaSearch,
+    /// Begin interaction with an inhabited site (village, monastery, keep, tower, city).
+    /// Gates commerce actions and influence sideways behind IS_INTERACTING flag.
+    BeginInteraction,
     EnterSite,
     InteractSite {
         healing: u32,
