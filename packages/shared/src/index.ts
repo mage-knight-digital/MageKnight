@@ -212,6 +212,7 @@ export type {
   ClientGameState,
   ClientCombatState,
   ClientCombatEnemy,
+  ClientPendingInfo,
   ClientPendingChoice,
   ClientPendingDiscard,
   ClientPendingLevelUpReward,

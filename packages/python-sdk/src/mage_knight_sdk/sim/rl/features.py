@@ -12,7 +12,7 @@ from dataclasses import dataclass
 # Embedding-based encoding constants
 # ---------------------------------------------------------------------------
 
-STATE_SCALAR_DIM = 83
+STATE_SCALAR_DIM = 84
 ACTION_SCALAR_DIM = 34
 SITE_SCALAR_DIM = 6   # per-site scalars for map pool
 MAP_ENEMY_SCALAR_DIM = 11  # per-enemy scalars for map enemy pool

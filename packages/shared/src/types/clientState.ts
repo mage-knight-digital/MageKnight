@@ -49,6 +49,18 @@ export interface ClientKeptEnemyToken {
   readonly resistances: EnemyResistances;
 }
 
+/**
+ * Rust engine pending info — the shape sent by mk-server.
+ * Contains a label and string option descriptions.
+ */
+export interface ClientPendingInfo {
+  readonly kind: string;
+  readonly label: string;
+  readonly options: readonly string[];
+  /** For subset-selection pendings, the currently selected indices. */
+  readonly selected?: readonly number[];
+}
+
 // Pending choice - when a card or skill requires player selection
 export interface ClientPendingChoice {
   readonly cardId: CardId | null;
@@ -186,7 +198,10 @@ export interface ClientPlayer {
   readonly selectedTactic: TacticId | null;
   readonly tacticFlipped: boolean;
 
-  // Pending choice (if card requires player selection)
+  // Pending state from Rust engine (label + option descriptions)
+  readonly pending: ClientPendingInfo | null;
+
+  // Pending choice (if card requires player selection) — TS engine legacy
   readonly pendingChoice: ClientPendingChoice | null;
 
   // Combat accumulator (accumulated attack/block from played cards)

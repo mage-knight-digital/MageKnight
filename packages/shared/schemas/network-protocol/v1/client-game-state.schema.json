@@ -1039,6 +1039,37 @@
       ],
       "type": "object"
     },
+    "ClientPendingInfo": {
+      "additionalProperties": false,
+      "description": "Rust engine pending info — the shape sent by mk-server.\nContains a label and string option descriptions.",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "selected": {
+          "description": "For subset-selection pendings, the currently selected indices.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "label",
+        "options"
+      ],
+      "type": "object"
+    },
     "ClientPendingLevelUpReward": {
       "additionalProperties": false,
       "properties": {
@@ -1147,6 +1178,16 @@
         },
         "movePoints": {
           "type": "number"
+        },
+        "pending": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ClientPendingInfo"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "pendingChoice": {
           "anyOf": [
@@ -1326,6 +1367,7 @@
         "level",
         "manaTokens",
         "movePoints",
+        "pending",
         "pendingChoice",
         "pendingDeepMineChoice",
         "pendingDiscard",

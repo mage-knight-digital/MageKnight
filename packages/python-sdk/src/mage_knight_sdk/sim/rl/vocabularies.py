@@ -167,7 +167,7 @@ ENEMY_VOCAB: Vocabulary = _build_vocab("enemy", _ENEMY_IDS)
 _ACTION_TYPE_IDS: tuple[str, ...] = (
     "ACTIVATE_TACTIC", "ACTIVATE_UNIT", "ALTAR_TRIBUTE",
     "ANNOUNCE_END_OF_ROUND", "ASSIGN_ATTACK", "ASSIGN_BANNER",
-    "ASSIGN_BLOCK", "ASSIGN_DAMAGE", "BURN_MONASTERY",
+    "ASSIGN_BLOCK", "ASSIGN_DAMAGE", "BEGIN_INTERACTION", "BURN_MONASTERY",
     "BUY_SPELL",
     "CANCEL_COOPERATIVE_PROPOSAL", "CHALLENGE_RAMPAGING",
     "CHOOSE_LEVEL_UP_REWARDS", "COMPLETE_REST",
@@ -270,6 +270,7 @@ _SOURCE_IDS: tuple[str, ...] = (
     "normal.play_card.basic", "normal.play_card.powered", "normal.play_card.sideways",
     "normal.play_card.sideways.move", "normal.play_card.sideways.influence",
     "normal.play_card.sideways.attack", "normal.play_card.sideways.block",
+    "normal.site.begin_interaction",
     "normal.site.burn_monastery", "normal.site.buy_aa",
     "normal.site.buy_spell", "normal.site.enter",
     "normal.site.heal", "normal.site.interact",
