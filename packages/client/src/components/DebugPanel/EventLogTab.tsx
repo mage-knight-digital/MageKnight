@@ -11,7 +11,9 @@
 import { useRef, useEffect, useState } from "react";
 import { useGame } from "../../hooks/useGame";
 import type { ActionLogEntry } from "../../context/GameContext";
-import type { PlayerAction, GameEvent } from "@mage-knight/shared";
+import type { GameEvent } from "@mage-knight/shared";
+import type { LegalAction } from "../../rust/types";
+import { actionType } from "../../rust/types";
 
 export function EventLogTab() {
   const { actionLog, clearActionLog, isActionLogEnabled, setActionLogEnabled } = useGame();
@@ -58,17 +60,8 @@ export function EventLogTab() {
     navigator.clipboard.writeText(logText);
   };
 
-  const formatActionSummary = (action: PlayerAction): string => {
-    const type = action.type;
-    // Extract key info based on action type
-    if ("cardId" in action) {
-      return `${type} (${action.cardId})`;
-    }
-    if ("targetHex" in action) {
-      const hex = action.targetHex as { q: number; r: number };
-      return `${type} (${hex.q},${hex.r})`;
-    }
-    return type;
+  const formatActionSummary = (action: LegalAction): string => {
+    return actionType(action);
   };
 
   const formatEventsSummary = (events: readonly GameEvent[]): string => {
@@ -88,7 +81,7 @@ export function EventLogTab() {
     const isAction = entry.type === "action";
 
     const summary = isAction
-      ? formatActionSummary(entry.data as PlayerAction)
+      ? formatActionSummary(entry.data as LegalAction)
       : formatEventsSummary(entry.data as readonly GameEvent[]);
 
     return (

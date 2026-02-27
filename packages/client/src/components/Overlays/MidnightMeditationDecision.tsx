@@ -1,10 +1,7 @@
-import { useState } from "react";
-import {
-  RESOLVE_TACTIC_DECISION_ACTION,
-  TACTIC_DECISION_MIDNIGHT_MEDITATION,
-} from "@mage-knight/shared";
+import { useCallback, useMemo } from "react";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
+import { extractSubsetSelectOptions, findAction } from "../../rust/legalActionUtils";
 
 // Format card ID for display (convert snake_case to Title Case)
 function formatCardName(cardId: string): string {
@@ -15,58 +12,65 @@ function formatCardName(cardId: string): string {
 }
 
 export function MidnightMeditationDecision() {
-  const { state, sendAction } = useGame();
+  const { legalActions, sendAction } = useGame();
   const player = useMyPlayer();
-  // Track selected cards by their index in the hand array (to handle duplicates)
-  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
 
-  // Check if we have a pending Midnight Meditation decision
-  const pendingDecision =
-    state?.validActions?.mode === "pending_tactic_decision"
-      ? state.validActions.tacticDecision
-      : undefined;
-  if (
-    !pendingDecision ||
-    pendingDecision.type !== TACTIC_DECISION_MIDNIGHT_MEDITATION ||
-    !player
-  ) {
+  const isActive =
+    player?.pending?.kind === "midnight_meditation" && legalActions.length > 0;
+
+  const subsetOptions = useMemo(
+    () => extractSubsetSelectOptions(legalActions),
+    [legalActions],
+  );
+  const confirmAction = findAction(legalActions, "SubsetConfirm");
+
+  // Build lookup: hand index → SubsetSelect action (only for unselected items)
+  const optionByIndex = useMemo(() => {
+    const map = new Map<number, (typeof subsetOptions)[number]>();
+    for (const opt of subsetOptions) {
+      map.set(opt.index, opt);
+    }
+    return map;
+  }, [subsetOptions]);
+
+  const handleCardClick = useCallback(
+    (index: number) => {
+      const opt = optionByIndex.get(index);
+      if (opt) sendAction(opt.action);
+    },
+    [optionByIndex, sendAction],
+  );
+
+  const handleConfirm = useCallback(() => {
+    if (confirmAction) sendAction(confirmAction);
+  }, [confirmAction, sendAction]);
+
+  if (!isActive || !player) {
     return null;
   }
 
-  const maxCards = pendingDecision.maxCards ?? 5;
   const hand = Array.isArray(player.hand) ? player.hand : [];
-
-  const toggleCard = (index: number) => {
-    if (selectedIndices.includes(index)) {
-      setSelectedIndices(selectedIndices.filter((i) => i !== index));
-    } else if (selectedIndices.length < maxCards) {
-      setSelectedIndices([...selectedIndices, index]);
-    }
-  };
-
-  const handleConfirm = () => {
-    // Convert indices back to cardIds for the action
-    const selectedCards = selectedIndices.map((i) => hand[i]);
-    sendAction({
-      type: RESOLVE_TACTIC_DECISION_ACTION,
-      decision: {
-        type: TACTIC_DECISION_MIDNIGHT_MEDITATION,
-        cardIds: selectedCards,
-      },
-    });
-    setSelectedIndices([]);
-  };
+  const selected = new Set(player.pending?.selected ?? []);
+  const maxCards = 5;
 
   return (
     <div className="overlay">
       <div className="overlay__content choice-selection">
         <h2 className="choice-selection__title">Midnight Meditation</h2>
-        <p style={{ color: "#999", marginBottom: "1rem", textAlign: "center" }}>
-          Select up to {maxCards} cards to shuffle into your deck.
-          You will draw the same number of cards back.
+        <p
+          style={{ color: "#999", marginBottom: "1rem", textAlign: "center" }}
+        >
+          Select up to {maxCards} cards to shuffle into your deck. You will draw
+          the same number of cards back.
         </p>
-        <p style={{ color: "#3498db", marginBottom: "1rem", textAlign: "center" }}>
-          Selected: {selectedIndices.length} / {maxCards}
+        <p
+          style={{
+            color: "#3498db",
+            marginBottom: "1rem",
+            textAlign: "center",
+          }}
+        >
+          Selected: {selected.size} / {maxCards}
         </p>
 
         {hand.length === 0 ? (
@@ -85,13 +89,15 @@ export function MidnightMeditationDecision() {
             }}
           >
             {hand.map((cardId, index) => {
-              const isSelected = selectedIndices.includes(index);
+              const isSelected = selected.has(index);
+              const isSelectable = optionByIndex.has(index);
               const isWound = cardId.includes("wound");
               return (
                 <button
                   key={`${cardId}-${index}`}
                   type="button"
-                  onClick={() => toggleCard(index)}
+                  onClick={() => handleCardClick(index)}
+                  disabled={!isSelectable}
                   style={{
                     padding: "0.75rem 1rem",
                     borderRadius: "6px",
@@ -104,12 +110,8 @@ export function MidnightMeditationDecision() {
                     border: isSelected
                       ? "2px solid #fff"
                       : "2px solid transparent",
-                    cursor:
-                      selectedIndices.length >= maxCards && !isSelected
-                        ? "not-allowed"
-                        : "pointer",
-                    opacity:
-                      selectedIndices.length >= maxCards && !isSelected ? 0.5 : 1,
+                    cursor: isSelectable ? "pointer" : "not-allowed",
+                    opacity: isSelectable ? 1 : 0.5,
                     fontSize: "0.85rem",
                     fontWeight: isSelected ? 700 : 400,
                     transition: "all 0.2s ease",
@@ -123,26 +125,34 @@ export function MidnightMeditationDecision() {
           </div>
         )}
 
-        <div style={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
-          <button
-            type="button"
-            onClick={handleConfirm}
+        {confirmAction && (
+          <div
             style={{
-              padding: "0.75rem 2rem",
-              borderRadius: "6px",
-              background: "#1a237e",
-              color: "#fff",
-              border: "none",
-              cursor: "pointer",
-              fontSize: "1rem",
-              fontWeight: 600,
+              display: "flex",
+              gap: "1rem",
+              justifyContent: "center",
             }}
           >
-            {selectedIndices.length === 0
-              ? "Skip (Shuffle Nothing)"
-              : `Shuffle ${selectedIndices.length} Card${selectedIndices.length > 1 ? "s" : ""}`}
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={handleConfirm}
+              style={{
+                padding: "0.75rem 2rem",
+                borderRadius: "6px",
+                background: "#1a237e",
+                color: "#fff",
+                border: "none",
+                cursor: "pointer",
+                fontSize: "1rem",
+                fontWeight: 600,
+              }}
+            >
+              {selected.size === 0
+                ? "Skip (Shuffle Nothing)"
+                : `Shuffle ${selected.size} Card${selected.size > 1 ? "s" : ""}`}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

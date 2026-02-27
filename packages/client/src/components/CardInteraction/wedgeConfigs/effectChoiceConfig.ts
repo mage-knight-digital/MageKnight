@@ -5,7 +5,7 @@
  * Used when a card effect returns a pending choice.
  */
 
-import type { ClientPendingChoice } from "@mage-knight/shared";
+import type { RustPendingInfo } from "../types";
 import type { PieMenuWedge } from "../PieMenuRenderer";
 import { getEffectColors, formatEffectLabel } from "../utils/colorHelpers";
 
@@ -29,18 +29,19 @@ export interface EffectChoiceConfig {
 // ============================================================================
 
 /**
- * Build effect choice wedges from a pending choice.
+ * Build effect choice wedges from the Rust engine's pending info.
  *
- * @param pendingChoice The pending choice from the engine
+ * @param pendingInfo The pending info from the Rust engine (label + string options)
  * @param canUndo Whether undo is available (shows "Undo" in center)
  */
 export function buildEffectChoiceConfig(
-  pendingChoice: ClientPendingChoice,
+  pendingInfo: RustPendingInfo,
   canUndo: boolean = false
 ): EffectChoiceConfig {
-  const wedges: EffectChoiceWedge[] = pendingChoice.options.map((option, index) => {
-    const { label, sublabel } = formatEffectLabel(option.description);
-    const colors = getEffectColors(option.type, option.description);
+  const wedges: EffectChoiceWedge[] = pendingInfo.options.map((description, index) => {
+    const { label, sublabel } = formatEffectLabel(description);
+    // Use the description for both type and description since Rust only sends strings
+    const colors = getEffectColors(description, description);
 
     return {
       id: `choice-${index}`,

@@ -101,7 +101,7 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
   }, []);
 
   // Game state hooks
-  const { state, sendAction, myPlayerId, legalActions, isRustMode } = useGame();
+  const { state, sendAction, myPlayerId, legalActions } = useGame();
   const player = useMyPlayer();
   const isMyTurn = useIsMyTurn();
   const { startIntro, isIntroComplete } = useGameIntro();
@@ -313,7 +313,6 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
     hoveredHex,
     playerPosition: player?.position ?? null,
     legalActions,
-    isRustMode,
   });
 
   const {
@@ -356,7 +355,6 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
     playerPosition: player?.position ?? null,
     sendAction,
     isMyTurn,
-    isRustMode,
     rustMoveActions,
     rustExploreActions,
     rustChallengeActions,

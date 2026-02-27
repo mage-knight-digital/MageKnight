@@ -13,9 +13,15 @@ import type {
   ManaColor,
   ManaSourceInfo,
   PlayableCard,
-  ClientPendingChoice,
+  ClientPendingInfo,
   SidewaysAs,
 } from "@mage-knight/shared";
+
+/**
+ * Pending info from the Rust engine's ClientPlayer.pending field.
+ * Re-exported alias for convenience.
+ */
+export type RustPendingInfo = ClientPendingInfo;
 
 // ============================================================================
 // State Types
@@ -76,8 +82,8 @@ interface CardInteractionManaSelect extends CardInteractionBase {
  */
 interface CardInteractionEffectChoice extends CardInteractionBase {
   readonly type: "effect-choice";
-  /** The pending choice from the engine */
-  readonly pendingChoice: ClientPendingChoice;
+  /** The pending choice from the Rust engine */
+  readonly pendingChoice: RustPendingInfo;
 }
 
 /**
@@ -196,7 +202,7 @@ interface SelectChoiceAction {
  */
 interface EngineChoiceRequiredAction {
   readonly type: typeof CARD_INTERACTION_ENGINE_CHOICE_REQUIRED;
-  readonly pendingChoice: ClientPendingChoice;
+  readonly pendingChoice: RustPendingInfo;
 }
 
 /**

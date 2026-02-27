@@ -13,15 +13,12 @@
 import { useCallback, useMemo, useEffect } from "react";
 import {
   PLAY_CARD_ACTION,
-  PLAY_CARD_SIDEWAYS_ACTION,
-  RESOLVE_CHOICE_ACTION,
-  UNDO_ACTION,
-  MANA_BLACK,
   type ManaSourceInfo,
   type ManaColor,
 } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
+import { hasAction, extractChoiceOptions } from "../../rust/legalActionUtils";
 import type { CardActionGroup } from "../../rust/legalActionUtils";
 import { useRegisterOverlay } from "../../contexts/OverlayContext";
 import { useCardMenuPosition } from "../../context/CardMenuPositionContext";
@@ -51,7 +48,7 @@ const MENU_CARD_SCALE = 1.4;
 // ============================================================================
 
 export function UnifiedCardMenu() {
-  const { state: gameState, sendAction, isRustMode } = useGame();
+  const { state: gameState, sendAction, legalActions } = useGame();
   const player = useMyPlayer();
   const { state: interactionState, dispatch } = useCardInteraction();
   const { setPosition, visualScale } = useCardMenuPosition();
@@ -102,23 +99,11 @@ export function UnifiedCardMenu() {
     );
   }, [interactionState, gameState, player]);
 
-  // Get black mana sources for spells
-  const blackManaSources = useMemo(() => {
-    if (interactionState.type !== "action-select") return [];
-    if (!gameState || !player) return [];
-    if (!interactionState.playability.isSpell) return [];
-
-    return getAvailableManaSources(gameState, player, MANA_BLACK);
-  }, [interactionState, gameState, player]);
-
   // Determine if we're in combat
   const isInCombat = gameState?.combat !== null;
 
-  // Can undo (for effect choice state)
-  const canUndo =
-    gameState?.validActions && "turn" in gameState.validActions
-      ? gameState.validActions.turn.canUndo
-      : false;
+  // Can undo (for effect choice state) — derive from legalActions
+  const canUndo = hasAction(legalActions, "Undo");
 
   // Save position for ChoiceSelection fallback (during transition)
   useEffect(() => {
@@ -131,32 +116,35 @@ export function UnifiedCardMenu() {
     }
   }, [interactionState, setPosition]);
 
-  // Watch for pendingChoice from engine or complete the action
+  // Derive choice options from legalActions (must be before the useEffect that references it)
+  const choiceOptions = useMemo(() => extractChoiceOptions(legalActions), [legalActions]);
+
+  // Watch for pending choices from the Rust engine or complete the action.
+  // We use choiceOptions (derived from legalActions) rather than player.pending
+  // because legalActions update atomically with server responses, avoiding races
+  // where stale player.pending re-triggers the effect-choice state.
   useEffect(() => {
     if (interactionState.type === "completing") {
-      if (player?.pendingChoice) {
-        // Engine returned a choice - transition to effect-choice
+      if (choiceOptions.length > 0 && player?.pending) {
+        // Server responded with new choice options — transition to effect-choice
         dispatch({
           type: "ENGINE_CHOICE_REQUIRED",
-          pendingChoice: player.pendingChoice,
+          pendingChoice: player.pending,
         });
-      } else {
-        // No pending choice - action completed, return to idle
-        // Use a microtask to allow the action to fully process
-        const timeoutId = setTimeout(() => {
-          dispatch({ type: "ACTION_COMPLETED" });
-        }, 50);
-        return () => clearTimeout(timeoutId);
+      } else if (choiceOptions.length === 0 && !player?.pending) {
+        // No pending and no choice actions — action fully completed
+        dispatch({ type: "ACTION_COMPLETED" });
       }
+      // Otherwise: still waiting for server response (stale state), do nothing
     }
-  }, [interactionState.type, player?.pendingChoice, dispatch]);
+  }, [interactionState.type, choiceOptions.length, player?.pending, dispatch]);
 
   // Handle cancel
   const handleCancel = useCallback(() => {
     if (interactionState.type === "mana-select") {
       dispatch({ type: "BACK_TO_ACTION_SELECT" });
     } else if (interactionState.type === "effect-choice" && canUndo) {
-      sendAction({ type: UNDO_ACTION });
+      sendAction("Undo");
       dispatch({ type: "ACTION_COMPLETED" });
     } else {
       dispatch({ type: "CLOSE_MENU" });
@@ -170,27 +158,21 @@ export function UnifiedCardMenu() {
 
       playSound("cardPlay");
 
-      // In Rust mode, look up the pre-computed LegalAction from the _rustActions group
+      // Look up the pre-computed LegalAction from the _rustActions group
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const rustActions: CardActionGroup | undefined =
-        isRustMode && interactionState.playability
+        interactionState.playability
           ? (interactionState.playability as any)["_rustActions"] as CardActionGroup | undefined
           : undefined;
 
       if (wedge.actionType === "basic") {
-        if (isRustMode && rustActions?.basic) {
+        if (rustActions?.basic) {
           sendAction(rustActions.basic);
-        } else {
-          sendAction({
-            type: PLAY_CARD_ACTION,
-            cardId: interactionState.cardId,
-            powered: false,
-          });
         }
         dispatch({ type: "SELECT_BASIC" });
       } else if (wedge.actionType === "powered") {
-        if (isRustMode && rustActions) {
-          // In Rust mode, each powered variant is a separate LegalAction with mana pre-selected.
+        if (rustActions) {
+          // Each powered variant is a separate LegalAction with mana pre-selected.
           // If there's only one powered option, send it directly.
           // If multiple, we use the wedge's manaColor to find the right one.
           const manaColor = wedge.manaColor;
@@ -201,64 +183,18 @@ export function UnifiedCardMenu() {
             sendAction(match.action);
             dispatch({ type: "SELECT_BASIC" }); // Skip mana-select, go straight to completing
           }
-        } else {
-          const isSpell = interactionState.playability.isSpell;
-
-          if (isSpell && blackManaSources.length > 0) {
-            // Spell: go to black mana selection
-            dispatch({
-              type: "SELECT_POWERED",
-              availableSources: manaSources,
-              blackSources: blackManaSources,
-            });
-          } else if (manaSources.length === 0) {
-            // No mana needed (shouldn't happen)
-            sendAction({
-              type: PLAY_CARD_ACTION,
-              cardId: interactionState.cardId,
-              powered: true,
-            });
-            dispatch({
-              type: "SELECT_POWERED",
-              availableSources: [],
-            });
-          } else if (manaSources.length === 1) {
-            // Single source: auto-select
-            sendAction({
-              type: PLAY_CARD_ACTION,
-              cardId: interactionState.cardId,
-              powered: true,
-              manaSource: manaSources[0],
-            });
-            dispatch({
-              type: "SELECT_POWERED",
-              availableSources: manaSources,
-            });
-          } else {
-            // Multiple sources: show selection
-            dispatch({
-              type: "SELECT_POWERED",
-              availableSources: manaSources,
-            });
-          }
         }
       } else if (wedge.actionType === "sideways" && wedge.sidewaysAs) {
-        if (isRustMode && rustActions) {
+        if (rustActions) {
           const match = rustActions.sideways.find(s => s.sidewaysAs === wedge.sidewaysAs);
           if (match) {
             sendAction(match.action);
           }
-        } else {
-          sendAction({
-            type: PLAY_CARD_SIDEWAYS_ACTION,
-            cardId: interactionState.cardId,
-            as: wedge.sidewaysAs,
-          });
         }
         dispatch({ type: "SELECT_SIDEWAYS", as: wedge.sidewaysAs });
       }
     },
-    [interactionState, manaSources, blackManaSources, dispatch, sendAction, isRustMode]
+    [interactionState, dispatch, sendAction]
   );
 
   // Handle mana source selection
@@ -302,20 +238,21 @@ export function UnifiedCardMenu() {
     [interactionState, dispatch, sendAction, lastBlackSourceRef, lastManaSourceRef]
   );
 
-  // Handle effect choice selection
+  // Handle effect choice selection — send the actual LegalAction from legalActions
   const handleChoiceSelect = useCallback(
     (wedgeId: string, wedge: EffectChoiceWedge) => {
       if (interactionState.type !== "effect-choice") return;
 
       playSound("cardPlay");
 
-      sendAction({
-        type: RESOLVE_CHOICE_ACTION,
-        choiceIndex: wedge.choiceIndex,
-      });
+      // Find the actual legal action for this choice index
+      const option = choiceOptions.find(o => o.choiceIndex === wedge.choiceIndex);
+      if (option) {
+        sendAction(option.action);
+      }
       dispatch({ type: "SELECT_CHOICE", choiceIndex: wedge.choiceIndex });
     },
-    [interactionState.type, dispatch, sendAction]
+    [interactionState.type, dispatch, sendAction, choiceOptions]
   );
 
   // Build wedge config based on state

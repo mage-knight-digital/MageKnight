@@ -2,11 +2,11 @@
  * Game board selectors hook
  *
  * Memoized selectors for move targets, reachable hexes, explore targets, and path preview.
- * Supports both TS engine (validActions) and Rust engine (legalActions) modes.
+ * Derives all data from Rust engine legalActions.
  */
 
 import { useMemo } from "react";
-import type { HexCoord, HexDirection, MoveTarget, ReachableHex, ClientGameState } from "@mage-knight/shared";
+import type { HexCoord, HexDirection, MoveTarget, ReachableHex } from "@mage-knight/shared";
 import { findTileCenterForHex, calculateTilePlacementPosition } from "@mage-knight/shared";
 import type { ExploreTarget } from "../pixi/rendering";
 import { findPath } from "../pixi/pathfinding";
@@ -18,11 +18,10 @@ import {
 } from "../../../rust/legalActionUtils";
 
 interface UseGameBoardSelectorsParams {
-  state: ClientGameState | null;
+  state: import("@mage-knight/shared").ClientGameState | null;
   hoveredHex: HexCoord | null;
   playerPosition: HexCoord | null;
   legalActions?: LegalAction[];
-  isRustMode?: boolean;
 }
 
 interface UseGameBoardSelectorsReturn {
@@ -33,11 +32,11 @@ interface UseGameBoardSelectorsReturn {
   exploreTargets: ExploreTarget[];
   pathPreview: HexCoord[];
   isPathTerminal: boolean;
-  /** In Rust mode, maps hex key "q,r" to the LegalAction for that move. */
+  /** Maps hex key "q,r" to the LegalAction for that move. */
   rustMoveActions: Map<string, LegalAction>;
-  /** In Rust mode, maps direction to the LegalAction for that explore. */
+  /** Maps direction to the LegalAction for that explore. */
   rustExploreActions: Map<string, LegalAction>;
-  /** In Rust mode, maps hex key "q,r" to the LegalAction for that challenge. */
+  /** Maps hex key "q,r" to the LegalAction for that challenge. */
   rustChallengeActions: Map<string, LegalAction>;
 }
 
@@ -46,111 +45,89 @@ export function useGameBoardSelectors({
   hoveredHex,
   playerPosition,
   legalActions = [],
-  isRustMode = false,
 }: UseGameBoardSelectorsParams): UseGameBoardSelectorsReturn {
-  // Rust mode: derive move targets from legalActions
-  const rustMoveOptions = useMemo(
-    () => isRustMode ? extractMoveTargets(legalActions) : [],
-    [isRustMode, legalActions]
+  // Derive move targets from legalActions
+  const moveOptions = useMemo(
+    () => extractMoveTargets(legalActions),
+    [legalActions]
   );
 
-  const rustExploreOptions = useMemo(
-    () => isRustMode ? extractExploreDirections(legalActions) : [],
-    [isRustMode, legalActions]
+  const exploreOptions = useMemo(
+    () => extractExploreDirections(legalActions),
+    [legalActions]
   );
 
-  const rustChallengeOptions = useMemo(
-    () => isRustMode ? extractChallengeTargets(legalActions) : [],
-    [isRustMode, legalActions]
+  const challengeOptions = useMemo(
+    () => extractChallengeTargets(legalActions),
+    [legalActions]
   );
 
   // Memoized valid move targets
   const validMoveTargets = useMemo<readonly MoveTarget[]>(() => {
-    if (isRustMode) {
-      return rustMoveOptions.map(opt => ({
-        hex: opt.hex,
-        cost: opt.cost,
-        // Rust doesn't provide isTerminal yet — default false
-      }));
-    }
-    const va = state?.validActions;
-    return va?.mode === "normal_turn" ? (va.move?.targets ?? []) : [];
-  }, [isRustMode, rustMoveOptions, state?.validActions]);
+    return moveOptions.map(opt => ({
+      hex: opt.hex,
+      cost: opt.cost,
+    }));
+  }, [moveOptions]);
 
+  // TODO: Phase 2 — Rust doesn't provide multi-hop reachability yet
   const reachableHexes = useMemo<readonly ReachableHex[]>(() => {
-    if (isRustMode) return []; // Rust doesn't provide multi-hop reachability yet
-    const va = state?.validActions;
-    return va?.mode === "normal_turn" ? (va.move?.reachable ?? []) : [];
-  }, [isRustMode, state?.validActions]);
+    return [];
+  }, []);
 
   // Challenge target hexes
   const challengeTargetHexes = useMemo<readonly HexCoord[]>(() => {
-    if (isRustMode) {
-      return rustChallengeOptions.map(opt => opt.hex);
-    }
-    const va = state?.validActions;
-    return va?.mode === "normal_turn" ? (va.challenge?.targetHexes ?? []) : [];
-  }, [isRustMode, rustChallengeOptions, state?.validActions]);
+    return challengeOptions.map(opt => opt.hex);
+  }, [challengeOptions]);
 
-  // Hex cost reduction targets (only in pending_hex_cost_reduction)
+  // TODO: Phase 2 — derive from legalActions when Rust provides hex cost reduction actions
   const hexCostReductionTargets = useMemo<readonly HexCoord[]>(() => {
-    if (isRustMode) return []; // Not yet supported in Rust mode
-    const va = state?.validActions;
-    return va?.mode === "pending_hex_cost_reduction" ? va.hexCostReduction.availableCoordinates : [];
-  }, [isRustMode, state?.validActions]);
+    return [];
+  }, []);
 
   const exploreTargets = useMemo<ExploreTarget[]>(() => {
-    if (isRustMode) {
-      if (!playerPosition || !state?.map?.tiles) return [];
+    if (!playerPosition || !state?.map?.tiles) return [];
 
-      const tiles = state.map.tiles;
-      const tileCenters: HexCoord[] = Array.isArray(tiles)
-        ? tiles.map((t: { centerCoord: HexCoord }) => t.centerCoord)
-        : Object.values(tiles).map((t: unknown) =>
-            (t as { centerCoord: HexCoord }).centerCoord);
+    const tiles = state.map.tiles;
+    const tileCenters: HexCoord[] = Array.isArray(tiles)
+      ? tiles.map((t: { centerCoord: HexCoord }) => t.centerCoord)
+      : Object.values(tiles).map((t: unknown) =>
+          (t as { centerCoord: HexCoord }).centerCoord);
 
-      const fromTileCoord = findTileCenterForHex(playerPosition, tileCenters)
-        ?? playerPosition;
+    const fromTileCoord = findTileCenterForHex(playerPosition, tileCenters)
+      ?? playerPosition;
 
-      return rustExploreOptions.map(opt => ({
-        coord: calculateTilePlacementPosition(fromTileCoord, opt.direction as HexDirection),
-        direction: opt.direction as HexDirection,
-        fromTileCoord,
-      }));
-    }
-    const va = state?.validActions;
-    if (va?.mode !== "normal_turn" || !va.explore) return [];
-    return va.explore.directions.map((dir) => ({
-      coord: dir.targetCoord,
-      direction: dir.direction,
-      fromTileCoord: dir.fromTileCoord,
+    return exploreOptions.map(opt => ({
+      coord: calculateTilePlacementPosition(fromTileCoord, opt.direction as HexDirection),
+      direction: opt.direction as HexDirection,
+      fromTileCoord,
     }));
-  }, [isRustMode, rustExploreOptions, state?.validActions, state?.map?.tiles, playerPosition]);
+  }, [exploreOptions, state?.map?.tiles, playerPosition]);
 
-  // Maps for Rust mode action dispatch
+  // Maps for action dispatch
   const rustMoveActions = useMemo(() => {
     const map = new Map<string, LegalAction>();
-    for (const opt of rustMoveOptions) {
+    for (const opt of moveOptions) {
       map.set(`${opt.hex.q},${opt.hex.r}`, opt.action);
     }
     return map;
-  }, [rustMoveOptions]);
+  }, [moveOptions]);
 
   const rustExploreActions = useMemo(() => {
     const map = new Map<string, LegalAction>();
-    for (const opt of rustExploreOptions) {
+    for (const opt of exploreOptions) {
       map.set(opt.direction, opt.action);
     }
     return map;
-  }, [rustExploreOptions]);
+  }, [exploreOptions]);
 
   const rustChallengeActions = useMemo(() => {
     const map = new Map<string, LegalAction>();
-    for (const opt of rustChallengeOptions) {
+    for (const opt of challengeOptions) {
       map.set(`${opt.hex.q},${opt.hex.r}`, opt.action);
     }
     return map;
-  }, [rustChallengeOptions]);
+  }, [challengeOptions]);
 
   // Path preview computation
   const pathPreview = useMemo<HexCoord[]>(() => {

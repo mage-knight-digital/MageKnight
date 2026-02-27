@@ -17,7 +17,7 @@
 
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { Sprite, Graphics, Container, type Texture } from "pixi.js";
-import { SELECT_TACTIC_ACTION, type TacticId } from "@mage-knight/shared";
+import { type TacticId } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { extractTacticOptions } from "../../rust/legalActionUtils";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
@@ -66,7 +66,7 @@ interface PixiTacticCarouselProps {
 
 export function PixiTacticCarousel({ viewMode, isActive = true }: PixiTacticCarouselProps) {
   const { app, overlayLayer } = usePixiApp();
-  const { state, sendAction, legalActions, isRustMode } = useGame();
+  const { state, sendAction, legalActions } = useGame();
   const player = useMyPlayer();
   const { isIntroComplete } = useGameIntro();
   const { emit: emitAnimationEvent } = useAnimationDispatcher();
@@ -104,15 +104,10 @@ export function PixiTacticCarousel({ viewMode, isActive = true }: PixiTacticCaro
   const cardWidth = Math.round(cardHeight * TACTIC_ASPECT_RATIO);
 
   // Get available tactics from game state
-  const rustTacticOptions = useMemo(() => extractTacticOptions(legalActions), [legalActions]);
+  const tacticOptions = useMemo(() => extractTacticOptions(legalActions), [legalActions]);
   const availableTactics = useMemo(() => {
-    if (isRustMode) {
-      return rustTacticOptions.map(opt => opt.tacticId as TacticId);
-    }
-    return state?.validActions?.mode === "tactics_selection"
-      ? (state.validActions.tactics.availableTactics ?? [])
-      : [];
-  }, [isRustMode, rustTacticOptions, state?.validActions]);
+    return tacticOptions.map(opt => opt.tacticId as TacticId);
+  }, [tacticOptions]);
 
   const timeOfDay = state?.timeOfDay ?? "day";
 
@@ -451,12 +446,8 @@ export function PixiTacticCarousel({ viewMode, isActive = true }: PixiTacticCaro
 
         // Send action after animation delay
         setTimeout(() => {
-          if (isRustMode) {
-            const rustAction = rustTacticOptions.find(opt => opt.tacticId === tacticId);
-            if (rustAction) sendAction(rustAction.action);
-          } else {
-            sendAction({ type: SELECT_TACTIC_ACTION, tacticId });
-          }
+          const option = tacticOptions.find(opt => opt.tacticId === tacticId);
+          if (option) sendAction(option.action);
           emitAnimationEvent("tactics-complete");
         }, SELECTION_DELAY_MS);
       }
@@ -464,7 +455,7 @@ export function PixiTacticCarousel({ viewMode, isActive = true }: PixiTacticCaro
 
     document.addEventListener("click", handleClick, true);
     return () => document.removeEventListener("click", handleClick, true);
-  }, [isAppReady, viewMode, findCardAtPosition, shouldShowTactics, availableTactics, selectedTactic, cardPositions, sendAction, emitAnimationEvent, isRustMode, rustTacticOptions]);
+  }, [isAppReady, viewMode, findCardAtPosition, shouldShowTactics, availableTactics, selectedTactic, cardPositions, sendAction, emitAnimationEvent, tacticOptions]);
 
   // Track previous hovered index for animation
   const prevHoveredIndexRef = useRef<number | null>(null);

@@ -2,13 +2,14 @@
  * Debug Panel Types - Shared types for debug panel components
  */
 
-import type { ClientGameState, PlayerAction } from "@mage-knight/shared";
+import type { ClientGameState } from "@mage-knight/shared";
+import type { GameAction } from "../../context/GameContext";
 
 export interface DebugTabProps {
   state: ClientGameState;
   saveGame: () => string | null;
   loadGame: (json: string) => void;
-  sendAction: (action: PlayerAction) => void;
+  sendAction: (action: GameAction) => void;
 }
 
 export type TabId = "gameplay" | "saveload" | "audio" | "display" | "eventlog";

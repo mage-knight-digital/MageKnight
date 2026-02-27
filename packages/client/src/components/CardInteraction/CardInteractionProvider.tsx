@@ -205,13 +205,11 @@ function cardInteractionReducer(
         console.warn("[CardInteraction] SELECT_CHOICE in wrong state:", state.type);
         return state;
       }
-      return {
-        type: "completing",
-        cardId: state.cardId,
-        cardIndex: state.cardIndex,
-        playability: state.playability,
-        sourceRect: state.sourceRect,
-      };
+      // Go directly to idle. If the choice creates another pending (e.g., Improvisation
+      // step 2), ChoiceSelection will handle it as a standalone overlay. This avoids
+      // the race where stale player.pending re-triggers effect-choice before the server
+      // responds to our ResolveChoice.
+      return INITIAL_STATE;
     }
 
     case CARD_INTERACTION_ENGINE_CHOICE_REQUIRED: {

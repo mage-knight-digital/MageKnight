@@ -2,12 +2,11 @@
  * Hex interaction hook for PixiJS hex grid
  *
  * Manages movement highlights and click handlers for hex interactions.
- * Supports both TS engine (PlayerAction) and Rust engine (LegalAction) modes.
+ * Uses Rust engine LegalAction dispatch exclusively.
  */
 
 import { useCallback } from "react";
 import type { HexCoord, MoveTarget, ReachableHex } from "@mage-knight/shared";
-import { MOVE_ACTION, EXPLORE_ACTION, CHALLENGE_RAMPAGING_ACTION, RESOLVE_HEX_COST_REDUCTION_ACTION } from "@mage-knight/shared";
 import type { MoveHighlight, ExploreTarget } from "../pixi/rendering";
 import { findPath } from "../pixi/pathfinding";
 import type { LegalAction } from "../../../rust/types";
@@ -18,10 +17,8 @@ interface UseHexInteractionParams {
   challengeTargetHexes: readonly HexCoord[];
   hexCostReductionTargets: readonly HexCoord[];
   playerPosition: HexCoord | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sendAction: (action: any) => void;
+  sendAction: (action: LegalAction) => void;
   isMyTurn: boolean;
-  isRustMode?: boolean;
   rustMoveActions?: Map<string, LegalAction>;
   rustExploreActions?: Map<string, LegalAction>;
   rustChallengeActions?: Map<string, LegalAction>;
@@ -41,7 +38,6 @@ export function useHexInteraction({
   playerPosition,
   sendAction,
   isMyTurn,
-  isRustMode = false,
   rustMoveActions,
   rustExploreActions,
   rustChallengeActions,
@@ -96,16 +92,7 @@ export function useHexInteraction({
       // Block interaction if not player's turn
       if (!isMyTurn) return;
 
-      // Check for hex cost reduction first
-      const isCostReductionTarget = hexCostReductionTargets.some(
-        (t) => t.q === coord.q && t.r === coord.r
-      );
-      if (isCostReductionTarget) {
-        if (isRustMode) return; // Not supported in Rust mode yet
-        sendAction({ type: RESOLVE_HEX_COST_REDUCTION_ACTION, coordinate: coord });
-        return;
-      }
-
+      // TODO: Phase 2 — hex cost reduction via legalActions
       if (!playerPosition) return;
 
       // Check for challenge action first
@@ -114,13 +101,9 @@ export function useHexInteraction({
       );
 
       if (isChallengeTarget) {
-        if (isRustMode) {
-          const key = `${coord.q},${coord.r}`;
-          const action = rustChallengeActions?.get(key);
-          if (action) sendAction(action);
-        } else {
-          sendAction({ type: CHALLENGE_RAMPAGING_ACTION, targetHex: coord });
-        }
+        const key = `${coord.q},${coord.r}`;
+        const action = rustChallengeActions?.get(key);
+        if (action) sendAction(action);
         return;
       }
 
@@ -129,13 +112,9 @@ export function useHexInteraction({
       );
 
       if (isAdjacentTarget) {
-        if (isRustMode) {
-          const key = `${coord.q},${coord.r}`;
-          const action = rustMoveActions?.get(key);
-          if (action) sendAction(action);
-        } else {
-          sendAction({ type: MOVE_ACTION, target: coord });
-        }
+        const key = `${coord.q},${coord.r}`;
+        const action = rustMoveActions?.get(key);
+        if (action) sendAction(action);
         return;
       }
 
@@ -146,17 +125,13 @@ export function useHexInteraction({
       if (isReachableTarget) {
         const path = findPath(playerPosition, coord, reachableHexes, validMoveTargets);
         if (path.length > 1 && path[1]) {
-          if (isRustMode) {
-            const key = `${path[1].q},${path[1].r}`;
-            const action = rustMoveActions?.get(key);
-            if (action) sendAction(action);
-          } else {
-            sendAction({ type: MOVE_ACTION, target: path[1] });
-          }
+          const key = `${path[1].q},${path[1].r}`;
+          const action = rustMoveActions?.get(key);
+          if (action) sendAction(action);
         }
       }
     },
-    [isMyTurn, playerPosition, validMoveTargets, reachableHexes, challengeTargetHexes, hexCostReductionTargets, sendAction, isRustMode, rustMoveActions, rustChallengeActions]
+    [isMyTurn, playerPosition, validMoveTargets, reachableHexes, challengeTargetHexes, sendAction, rustMoveActions, rustChallengeActions]
   );
 
   // Handle explore click
@@ -165,18 +140,10 @@ export function useHexInteraction({
       // Block interaction if not player's turn
       if (!isMyTurn) return;
 
-      if (isRustMode) {
-        const action = rustExploreActions?.get(target.direction);
-        if (action) sendAction(action);
-      } else {
-        sendAction({
-          type: EXPLORE_ACTION,
-          direction: target.direction,
-          fromTileCoord: target.fromTileCoord,
-        });
-      }
+      const action = rustExploreActions?.get(target.direction);
+      if (action) sendAction(action);
     },
-    [isMyTurn, sendAction, isRustMode, rustExploreActions]
+    [isMyTurn, sendAction, rustExploreActions]
   );
 
   return {

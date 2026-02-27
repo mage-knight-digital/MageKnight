@@ -175,6 +175,11 @@ export function getEffectColors(
     return { fill: 0x64734b, hover: 0x788860 };
   }
 
+  // Discard - muted red
+  if (desc.includes("discard")) {
+    return { fill: 0x5a3232, hover: 0x704040 };
+  }
+
   // Default - warm neutral brown
   return { fill: 0x3c3732, hover: 0x4e4842 };
 }

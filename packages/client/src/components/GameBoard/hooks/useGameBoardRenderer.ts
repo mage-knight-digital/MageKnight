@@ -348,7 +348,13 @@ export function useGameBoardRenderer({
         app.renderer.render(app.stage);
       }
 
-      renderBoardShape(layers, state.map.tileSlots);
+      // Rust server sends snake_case `tile_slots`; TS shared type expects `tileSlots`.
+      // Use either key until shared types are aligned in Phase 3.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const tileSlots = state.map.tileSlots ?? (state.map as any).tile_slots;
+      if (tileSlots) {
+        renderBoardShape(layers, tileSlots);
+      }
 
       const hexKeysToReveal = new Set(revealingHexKeysRef.current);
 

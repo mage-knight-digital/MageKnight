@@ -1,14 +1,4 @@
 import { useEffect, useState, useRef, useMemo } from "react";
-import {
-  END_TURN_ACTION,
-  UNDO_ACTION,
-  ACTIVATE_TACTIC_ACTION,
-  DECLARE_REST_ACTION,
-  ANNOUNCE_END_OF_ROUND_ACTION,
-  TACTIC_THE_RIGHT_MOMENT,
-  TACTIC_LONG_NIGHT,
-  TACTIC_MIDNIGHT_MEDITATION,
-} from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { useIsMyTurn } from "../../hooks/useIsMyTurn";
@@ -16,11 +6,11 @@ import {
   useGameIntro,
   UI_REVEAL_TIMING,
 } from "../../contexts/GameIntroContext";
-import { extractTurnOptions, type TurnOptions } from "../../rust/legalActionUtils";
+import { extractTurnOptions, hasAction, type TurnOptions } from "../../rust/legalActionUtils";
 import "./TurnActions.css";
 
 export function TurnActions() {
-  const { state, sendAction, legalActions, isRustMode } = useGame();
+  const { state, sendAction, legalActions } = useGame();
   const player = useMyPlayer();
   const { isIntroComplete } = useGameIntro();
 
@@ -28,8 +18,8 @@ export function TurnActions() {
   // Must check player exists AND has a tactic (not null/undefined)
   const hasTactic = player != null && player.selectedTactic != null;
 
-  // Rust mode: derive turn options from legalActions
-  const rustTurnOptions: TurnOptions = useMemo(
+  // Derive turn options from legalActions
+  const turnOptions: TurnOptions = useMemo(
     () => extractTurnOptions(legalActions),
     [legalActions]
   );
@@ -74,29 +64,16 @@ export function TurnActions() {
       setSealAnimState("visible");
     }
   }, [hasTactic, isIntroComplete]);
-  const va = state?.validActions;
-  const canUndo = isRustMode
-    ? rustTurnOptions.canUndo
-    : (va && "turn" in va ? va.turn.canUndo : false);
 
-  // Check for activatable tactics
-  const canActivateTactic = isRustMode
-    ? rustTurnOptions.canActivateTactic
-    : false;
-  const canActivate = !isRustMode && va?.mode === "normal_turn"
-    ? va.tacticEffects?.canActivate
-    : undefined;
-  const canActivateTheRightMoment = isRustMode ? canActivateTactic : (canActivate?.theRightMoment === true);
-  const canActivateLongNight = isRustMode ? false : (canActivate?.longNight === true);
-  const canActivateMidnightMeditation = isRustMode ? false : (canActivate?.midnightMeditation === true);
+  const canUndo = turnOptions.canUndo;
+  const canActivateTactic = turnOptions.canActivateTactic;
+  // TODO: Phase 2 — derive from legalActions when Rust supports these tactic variants
+  const canActivateLongNight = false;
+  const canActivateMidnightMeditation = false;
 
-  // Check for rest options
-  const canDeclareRest = isRustMode
-    ? rustTurnOptions.canDeclareRest
-    : (va?.mode === "normal_turn" ? (va.turn.canDeclareRest ?? false) : false);
-  const canAnnounceEndOfRound = !isRustMode && va?.mode === "normal_turn"
-    ? (va.turn.canAnnounceEndOfRound ?? false)
-    : false;
+  const canDeclareRest = turnOptions.canDeclareRest;
+  const canAnnounceEndOfRound = hasAction(legalActions, "AnnounceEndOfRound");
+  const canForfeitTurn = hasAction(legalActions, "ForfeitTurn");
 
   // Ctrl+Z / Cmd+Z keyboard shortcut for undo
   useEffect(() => {
@@ -104,7 +81,7 @@ export function TurnActions() {
       if ((e.ctrlKey || e.metaKey) && e.key === "z") {
         e.preventDefault();
         if (canUndo && isMyTurn) {
-          sendAction({ type: UNDO_ACTION });
+          sendAction("Undo");
         }
       }
     };
@@ -115,56 +92,32 @@ export function TurnActions() {
 
   if (!state || !player) return null;
 
-  const isForcedForfeitTurn =
-    va?.mode === "normal_turn" &&
-    (va.turn.canEndTurn ?? false) &&
-    player.deckCount === 0 &&
-    (Array.isArray(player.hand) ? player.hand.length === 0 : player.hand === 0) &&
-    state.endOfRoundAnnouncedBy !== null &&
-    state.endOfRoundAnnouncedBy !== player.id;
-
   const handleEndTurn = () => {
-    if (isRustMode && rustTurnOptions.endTurnAction) {
-      sendAction(rustTurnOptions.endTurnAction);
-    } else {
-      sendAction({ type: END_TURN_ACTION });
+    if (turnOptions.endTurnAction) {
+      sendAction(turnOptions.endTurnAction);
     }
   };
 
   const handleUndo = () => {
-    if (isRustMode && rustTurnOptions.undoAction) {
-      sendAction(rustTurnOptions.undoAction);
-    } else {
-      sendAction({ type: UNDO_ACTION });
+    if (turnOptions.undoAction) {
+      sendAction(turnOptions.undoAction);
     }
   };
 
   const handleActivateTheRightMoment = () => {
-    if (isRustMode && rustTurnOptions.activateTacticAction) {
-      sendAction(rustTurnOptions.activateTacticAction);
-    } else {
-      sendAction({ type: ACTIVATE_TACTIC_ACTION, tacticId: TACTIC_THE_RIGHT_MOMENT });
+    if (turnOptions.activateTacticAction) {
+      sendAction(turnOptions.activateTacticAction);
     }
   };
 
-  const handleActivateLongNight = () => {
-    sendAction({ type: ACTIVATE_TACTIC_ACTION, tacticId: TACTIC_LONG_NIGHT });
-  };
-
-  const handleActivateMidnightMeditation = () => {
-    sendAction({ type: ACTIVATE_TACTIC_ACTION, tacticId: TACTIC_MIDNIGHT_MEDITATION });
-  };
-
   const handleDeclareRest = () => {
-    if (isRustMode && rustTurnOptions.declareRestAction) {
-      sendAction(rustTurnOptions.declareRestAction);
-    } else {
-      sendAction({ type: DECLARE_REST_ACTION });
+    if (turnOptions.declareRestAction) {
+      sendAction(turnOptions.declareRestAction);
     }
   };
 
   const handleAnnounceEndOfRound = () => {
-    sendAction({ type: ANNOUNCE_END_OF_ROUND_ACTION });
+    sendAction("AnnounceEndOfRound");
   };
 
   // Build seal class names based on intro animation state
@@ -189,11 +142,11 @@ export function TurnActions() {
           disabled={!isMyTurn || !hasTactic}
           type="button"
           data-testid="end-turn-btn"
-          title={isForcedForfeitTurn ? "Forfeit your turn" : "End your turn"}
+          title={canForfeitTurn ? "Forfeit your turn" : "End your turn"}
         >
           <span className="end-turn-seal__icon">⚔</span>
           <span className="end-turn-seal__text">
-            {isForcedForfeitTurn ? "Forfeit" : "End Turn"}
+            {canForfeitTurn ? "Forfeit" : "End Turn"}
           </span>
         </button>
       )}
@@ -202,7 +155,7 @@ export function TurnActions() {
       {showSeal && (
         <div className="turn-actions">
           {/* Tactic buttons */}
-          {canActivateTheRightMoment && (
+          {canActivateTactic && (
             <button
               className="turn-actions__btn turn-actions__btn--tactic"
               onClick={handleActivateTheRightMoment}
@@ -215,7 +168,7 @@ export function TurnActions() {
           {canActivateLongNight && (
             <button
               className="turn-actions__btn turn-actions__btn--tactic-dark"
-              onClick={handleActivateLongNight}
+              onClick={() => {}}
               type="button"
               title="Shuffle discard, put 3 cards back in deck"
             >
@@ -225,7 +178,7 @@ export function TurnActions() {
           {canActivateMidnightMeditation && (
             <button
               className="turn-actions__btn turn-actions__btn--tactic-dark"
-              onClick={handleActivateMidnightMeditation}
+              onClick={() => {}}
               type="button"
               title="Shuffle hand cards into deck, draw same amount"
             >

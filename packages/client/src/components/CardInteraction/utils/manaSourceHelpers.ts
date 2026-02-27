@@ -59,9 +59,10 @@ export function getAvailableManaSources(
   }
 
   // 3. Check available dice from the source (only in combat or normal_turn)
+  // validActions may be undefined when running against the Rust engine
   const va = state.validActions;
   const manaOptions =
-    va.mode === "combat" || va.mode === "normal_turn" ? va.mana : undefined;
+    va && (va.mode === "combat" || va.mode === "normal_turn") ? va.mana : undefined;
   if (manaOptions) {
     // Matching color dice
     const matchingDice = manaOptions.availableDice.filter(

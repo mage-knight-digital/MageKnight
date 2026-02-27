@@ -1,10 +1,10 @@
 import { useMemo, useCallback } from "react";
-import { RESOLVE_CHOICE_ACTION, UNDO_ACTION } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { useCardMenuPosition } from "../../context/CardMenuPositionContext";
 import { useRegisterOverlay } from "../../contexts/OverlayContext";
 import { useCardInteraction } from "../CardInteraction";
+import { extractChoiceOptions, hasAction } from "../../rust/legalActionUtils";
 import { PixiPieMenu, type PixiPieMenuItem } from "../CardActionMenu";
 import "./ChoiceSelection.css";
 
@@ -12,7 +12,7 @@ import "./ChoiceSelection.css";
  * Map effect types to hex colors for PixiJS rendering.
  * Returns { fill, hover } colors for the wedge.
  */
-function getEffectColors(type: string, description: string): { fill: number; hover: number } {
+function getEffectColors(description: string): { fill: number; hover: number } {
   const desc = description.toLowerCase();
 
   // Check for mana-related effects
@@ -36,7 +36,7 @@ function getEffectColors(type: string, description: string): { fill: number; hov
   }
 
   // Check for combat effects
-  if (type.includes("attack") || desc.includes("attack")) {
+  if (desc.includes("attack")) {
     if (desc.includes("fire")) {
       return { fill: 0xa04030, hover: 0xc05040 };
     }
@@ -45,7 +45,7 @@ function getEffectColors(type: string, description: string): { fill: number; hov
     }
     return { fill: 0x8c5a32, hover: 0xa87040 };
   }
-  if (type.includes("block") || desc.includes("block")) {
+  if (desc.includes("block")) {
     if (desc.includes("fire")) {
       return { fill: 0x824637, hover: 0x9a5847 };
     }
@@ -53,18 +53,23 @@ function getEffectColors(type: string, description: string): { fill: number; hov
   }
 
   // Movement - earthy brown-green
-  if (type.includes("move") || desc.includes("move")) {
+  if (desc.includes("move")) {
     return { fill: 0x465537, hover: 0x566848 };
   }
 
   // Influence - dusty purple
-  if (type.includes("influence") || desc.includes("influence")) {
+  if (desc.includes("influence")) {
     return { fill: 0x55415f, hover: 0x6a5475 };
   }
 
   // Healing - moss green
-  if (type.includes("heal") || desc.includes("heal")) {
+  if (desc.includes("heal")) {
     return { fill: 0x64734b, hover: 0x788860 };
+  }
+
+  // Discard - muted red
+  if (desc.includes("discard")) {
+    return { fill: 0x5a3232, hover: 0x704040 };
   }
 
   // Default - warm neutral brown
@@ -72,8 +77,6 @@ function getEffectColors(type: string, description: string): { fill: number; hov
 }
 
 // Format effect description into label + sublabel for pie menu
-// E.g., "Gain blue mana" -> { label: "Blue", sublabel: "Mana" }
-// E.g., "+3 Attack" -> { label: "+3", sublabel: "Attack" }
 function formatEffectLabel(description: string): { label: string; sublabel?: string } {
   const desc = description.toLowerCase();
 
@@ -84,7 +87,7 @@ function formatEffectLabel(description: string): { label: string; sublabel?: str
     return { label: color, sublabel: "Mana" };
   }
 
-  // Numeric effects: "+N Something" or "N Something"
+  // Numeric effects: "+N Something"
   const numMatch = description.match(/^\+?(\d+)\s+(.+)$/);
   if (numMatch && numMatch[1] && numMatch[2]) {
     return { label: `+${numMatch[1]}`, sublabel: numMatch[2] };
@@ -111,53 +114,53 @@ function formatEffectLabel(description: string): { label: string; sublabel?: str
 }
 
 export function ChoiceSelection() {
-  const { state, sendAction } = useGame();
+  const { state, sendAction, legalActions } = useGame();
   const player = useMyPlayer();
   const { position: savedPosition } = useCardMenuPosition();
   const { state: cardInteractionState } = useCardInteraction();
 
-  // Extract data before hooks (may be undefined if no pending choice)
-  const pendingChoice = player?.pendingChoice;
-  const sourceCardId = pendingChoice?.cardId;
-  const canUndo =
-    state?.validActions && "turn" in state.validActions
-      ? state.validActions.turn.canUndo
-      : false;
+  // Derive choices from legalActions — only show when server actually has ResolveChoice actions
+  const choiceOptions = useMemo(() => extractChoiceOptions(legalActions), [legalActions]);
+  const pendingInfo = player?.pending;
+  const hasChoices = choiceOptions.length > 0;
+  const canUndo = hasAction(legalActions, "Undo");
   const isInCombat = state?.combat !== null;
 
   // Don't render if UnifiedCardMenu is handling the interaction
-  // This covers all non-idle states since the unified menu owns the entire card interaction flow
   const unifiedMenuHandling = cardInteractionState.type !== "idle";
 
   // Register this component as an active overlay to disable background interactions
-  useRegisterOverlay(!!pendingChoice && !unifiedMenuHandling);
+  useRegisterOverlay(hasChoices && !unifiedMenuHandling);
 
   const handleSelectChoice = useCallback((choiceIndex: number) => {
-    sendAction({
-      type: RESOLVE_CHOICE_ACTION,
-      choiceIndex,
-    });
-  }, [sendAction]);
+    // Find the actual LegalAction to send (guaranteed to be accepted by the server)
+    const option = choiceOptions.find(o => o.choiceIndex === choiceIndex);
+    if (option) {
+      sendAction(option.action);
+    }
+  }, [sendAction, choiceOptions]);
 
   const handleUndo = useCallback(() => {
-    sendAction({ type: UNDO_ACTION });
+    sendAction("Undo");
   }, [sendAction]);
 
-  // Convert options to PixiPieMenu items
+  // Build pie items from pending.options labels, but only for choice indices that are legal
   const pieItems: PixiPieMenuItem[] = useMemo(() => {
-    const options = pendingChoice?.options ?? [];
-    return options.map((option, index) => {
-      const { label, sublabel } = formatEffectLabel(option.description);
-      const colors = getEffectColors(option.type, option.description);
+    const pendingOptions = pendingInfo?.options ?? [];
+    return choiceOptions.map((opt) => {
+      // Use the pending option description if available, fall back to index
+      const description = pendingOptions[opt.choiceIndex] ?? `Option ${opt.choiceIndex + 1}`;
+      const { label, sublabel } = formatEffectLabel(description);
+      const colors = getEffectColors(description);
       return {
-        id: String(index),
+        id: String(opt.choiceIndex),
         label,
         sublabel,
         color: colors.fill,
         hoverColor: colors.hover,
       };
     });
-  }, [pendingChoice?.options]);
+  }, [choiceOptions, pendingInfo?.options]);
 
   const handlePieSelect = useCallback((id: string) => {
     const index = parseInt(id, 10);
@@ -166,8 +169,8 @@ export function ChoiceSelection() {
     }
   }, [handleSelectChoice]);
 
-  // Don't render if no pending choice or if UnifiedCardMenu is handling it
-  if (!pendingChoice || unifiedMenuHandling) {
+  // Don't render if no choices or if UnifiedCardMenu is handling it
+  if (!hasChoices || unifiedMenuHandling) {
     return null;
   }
 
@@ -178,7 +181,7 @@ export function ChoiceSelection() {
       onCancel={canUndo ? handleUndo : () => {}}
       position={savedPosition ?? undefined}
       overlayOpacity={isInCombat ? 0.4 : 0.7}
-      centerLabel={canUndo && !sourceCardId ? "Undo" : undefined}
+      centerLabel={canUndo ? "Undo" : undefined}
     />
   );
 }
