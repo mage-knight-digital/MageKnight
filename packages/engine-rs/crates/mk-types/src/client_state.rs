@@ -147,10 +147,16 @@ pub struct ClientPlayerUnit {
 /// Description of pending state for UI display.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClientPendingInfo {
+    /// Machine-readable kind, e.g. "rethink", "midnight_meditation", "choice".
+    /// Allows the client to show the correct overlay without string-matching `label`.
+    pub kind: String,
     /// Human-readable label, e.g. "Choose an option".
     pub label: String,
     /// For choice-type pendings, descriptions of each option.
     pub options: Vec<String>,
+    /// For subset-selection pendings, the currently selected indices.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub selected: Vec<usize>,
 }
 
 // =============================================================================

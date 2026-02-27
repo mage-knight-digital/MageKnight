@@ -7,7 +7,7 @@ use mk_data::enemies::get_enemy;
 use mk_types::client_state::*;
 use mk_types::enums::*;
 use mk_types::ids::{PlayerId, TacticId};
-use mk_types::pending::ActivePending;
+use mk_types::pending::{ActivePending, ChoiceResolution};
 use mk_types::state::*;
 
 /// Convert full game state to a client-visible view for a specific player.
@@ -149,7 +149,11 @@ fn to_client_player(player: &PlayerState, is_self: bool) -> ClientPlayer {
         is_resting: player.flags.contains(PlayerFlags::IS_RESTING),
         knocked_out: player.flags.contains(PlayerFlags::KNOCKED_OUT),
 
-        pending: player.pending.active.as_ref().map(to_client_pending),
+        pending: player
+            .pending
+            .active
+            .as_ref()
+            .map(|active| to_client_pending(active, player)),
     }
 }
 
@@ -157,15 +161,70 @@ fn to_client_player(player: &PlayerState, is_self: bool) -> ClientPlayer {
 // Pending state description
 // =============================================================================
 
-fn to_client_pending(active: &ActivePending) -> ClientPendingInfo {
+fn to_client_pending(active: &ActivePending, player: &PlayerState) -> ClientPendingInfo {
+    let kind = pending_kind(active).to_string();
     let label = pending_label(active).to_string();
-    let options = pending_options(active);
-    ClientPendingInfo { label, options }
+    let options = pending_options(active, player);
+    let selected = match active {
+        ActivePending::SubsetSelection(ss) => ss.selected.clone(),
+        _ => Vec::new(),
+    };
+    ClientPendingInfo {
+        kind,
+        label,
+        options,
+        selected,
+    }
+}
+
+fn pending_kind(active: &ActivePending) -> &'static str {
+    match active {
+        ActivePending::Choice(_) => "choice",
+        ActivePending::Discard(_) => "discard",
+        ActivePending::DiscardForBonus(_) => "discard_for_bonus",
+        ActivePending::DiscardForCrystal(_) => "discard_for_crystal",
+        ActivePending::Decompose(_) => "decompose",
+        ActivePending::MaximalEffect(_) => "maximal_effect",
+        ActivePending::BookOfWisdom(_) => "book_of_wisdom",
+        ActivePending::Training(_) => "training",
+        ActivePending::TacticDecision(_) => "tactic_decision",
+        ActivePending::LevelUpReward(_) => "level_up_reward",
+        ActivePending::DeepMineChoice { .. } => "deep_mine_choice",
+        ActivePending::GladeWoundChoice => "glade_wound_choice",
+        ActivePending::BannerProtectionChoice => "banner_protection",
+        ActivePending::SourceOpeningReroll { .. } => "source_opening_reroll",
+        ActivePending::Meditation(_) => "meditation",
+        ActivePending::PlunderDecision => "plunder_decision",
+        ActivePending::UnitMaintenance(_) => "unit_maintenance",
+        ActivePending::TerrainCostReduction(_) => "terrain_cost_reduction",
+        ActivePending::CrystalJoyReclaim(_) => "crystal_joy_reclaim",
+        ActivePending::SteadyTempoDeckPlacement(_) => "steady_tempo_placement",
+        ActivePending::UnitAbilityChoice { .. } => "unit_ability_choice",
+        ActivePending::SubsetSelection(ss) => match &ss.kind {
+            mk_types::pending::SubsetSelectionKind::Rethink => "rethink",
+            mk_types::pending::SubsetSelectionKind::MidnightMeditation => "midnight_meditation",
+            mk_types::pending::SubsetSelectionKind::ManaSearch { .. } => "mana_search",
+            mk_types::pending::SubsetSelectionKind::AttackTargets { .. } => "attack_targets",
+            mk_types::pending::SubsetSelectionKind::RestWoundDiscard { .. } => "rest_wound_discard",
+        },
+        ActivePending::SelectCombatEnemy { .. } => "select_combat_enemy",
+        ActivePending::SiteRewardChoice { .. } => "site_reward_choice",
+        ActivePending::TomeOfAllSpells(_) => "tome_of_all_spells",
+        ActivePending::CircletOfProficiency(_) => "circlet_of_proficiency",
+        ActivePending::ArtifactSelection(_) => "artifact_selection",
+        ActivePending::CrystalRollColorChoice { .. } => "crystal_roll_color",
+    }
 }
 
 fn pending_label(active: &ActivePending) -> &'static str {
     match active {
-        ActivePending::Choice(_) => "Choose an option",
+        ActivePending::Choice(choice) => {
+            if matches!(choice.resolution, ChoiceResolution::DiscardThenContinue { .. }) {
+                "Choose a card to discard"
+            } else {
+                "Choose an option"
+            }
+        }
         ActivePending::Discard(_) => "Discard cards",
         ActivePending::DiscardForBonus(_) => "Discard for bonus",
         ActivePending::DiscardForCrystal(_) => "Discard for crystal",
@@ -201,13 +260,24 @@ fn pending_label(active: &ActivePending) -> &'static str {
     }
 }
 
-fn pending_options(active: &ActivePending) -> Vec<String> {
+fn pending_options(active: &ActivePending, player: &PlayerState) -> Vec<String> {
     match active {
-        ActivePending::Choice(choice) => choice
-            .options
-            .iter()
-            .map(effect_summary)
-            .collect(),
+        ActivePending::Choice(choice) => {
+            // For DiscardThenContinue, show card names instead of identical effect descriptions
+            if let ChoiceResolution::DiscardThenContinue { eligible_indices } = &choice.resolution {
+                return eligible_indices
+                    .iter()
+                    .map(|&idx| {
+                        if idx < player.hand.len() {
+                            format!("Discard {}", player.hand[idx])
+                        } else {
+                            "Discard card".to_string()
+                        }
+                    })
+                    .collect();
+            }
+            choice.options.iter().map(effect_summary).collect()
+        }
         ActivePending::UnitAbilityChoice { options, .. } => {
             options.iter().map(|o| format!("{:?}", o)).collect()
         }
@@ -222,8 +292,8 @@ fn pending_options(active: &ActivePending) -> Vec<String> {
 fn effect_summary(effect: &mk_types::effect::CardEffect) -> String {
     use mk_types::effect::CardEffect;
     match effect {
-        CardEffect::GainMove { amount } => format!("Move {}", amount),
-        CardEffect::GainInfluence { amount } => format!("Influence {}", amount),
+        CardEffect::GainMove { amount } => format!("+{} Move", amount),
+        CardEffect::GainInfluence { amount } => format!("+{} Influence", amount),
         CardEffect::GainAttack {
             amount,
             combat_type,
@@ -234,10 +304,10 @@ fn effect_summary(effect: &mk_types::effect::CardEffect) -> String {
                 CombatType::Ranged => "Ranged ",
                 CombatType::Siege => "Siege ",
             };
-            format!("{}Attack {} {:?}", ct, amount, element)
+            format!("+{} {}Attack {:?}", amount, ct, element)
         }
-        CardEffect::GainBlock { amount, element } => format!("Block {} {:?}", amount, element),
-        CardEffect::GainHealing { amount } => format!("Heal {}", amount),
+        CardEffect::GainBlock { amount, element } => format!("+{} Block {:?}", amount, element),
+        CardEffect::GainHealing { amount } => format!("+{} Heal", amount),
         CardEffect::GainMana { color, amount } => format!("Gain {} {:?} mana", amount, color),
         CardEffect::DrawCards { count } => format!("Draw {} cards", count),
         CardEffect::GainFame { amount } => format!("Gain {} fame", amount),
