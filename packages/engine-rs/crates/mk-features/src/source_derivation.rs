@@ -179,6 +179,7 @@ pub fn derive_source_str(action: &LegalAction, state: &GameState, player_idx: us
         LegalAction::ResolveCrystalRollColor { .. } => "crystal_roll.color",
         LegalAction::ForfeitUnitReward => "unit_reward.forfeit",
         LegalAction::DisbandUnitForReward { .. } => "unit_reward.disband",
+        LegalAction::BeginInteraction => "normal.site.begin_interaction",
     }
 }
 

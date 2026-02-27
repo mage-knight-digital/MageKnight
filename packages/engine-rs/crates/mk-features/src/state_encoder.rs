@@ -1,4 +1,4 @@
-//! State encoder — produces StateFeatures (83 scalars + entity pools).
+//! State encoder — produces StateFeatures (84 scalars + entity pools).
 //!
 //! Directly accesses Rust structs instead of crawling JSON dicts.
 
@@ -22,7 +22,7 @@ pub fn encode_state(state: &GameState, player_idx: usize) -> StateFeatures {
     // Build scalar groups
     let player_core = extract_player_core(state, player, player_idx); // 10
     let resources = extract_resources(player); // 13
-    let tempo = extract_tempo(state, player); // 11
+    let tempo = extract_tempo(state, player); // 12
     let (combat_scalars, combat_enemy_ids, combat_enemy_scalars) =
         extract_combat(state, player); // 10
     let (hex_scalars, current_terrain_id, current_site_type_id) =
@@ -31,7 +31,7 @@ pub fn encode_state(state: &GameState, player_idx: usize) -> StateFeatures {
     let global_spatial = extract_global_spatial(state, pos); // 5
     let mana_source = extract_mana_source(state); // 7
 
-    let mut scalars = Vec::with_capacity(83);
+    let mut scalars = Vec::with_capacity(84);
     scalars.extend_from_slice(&player_core);
     scalars.extend_from_slice(&resources);
     scalars.extend_from_slice(&tempo);
@@ -133,10 +133,10 @@ fn extract_resources(player: &PlayerState) -> [f32; 13] {
 }
 
 // =============================================================================
-// Tempo (5 scalars)
+// Tempo (12 scalars)
 // =============================================================================
 
-fn extract_tempo(state: &GameState, player: &PlayerState) -> [f32; 11] {
+fn extract_tempo(state: &GameState, player: &PlayerState) -> [f32; 12] {
     let flag = |f: PlayerFlags| -> f32 {
         if player.flags.contains(f) { 1.0 } else { 0.0 }
     };
@@ -165,6 +165,7 @@ fn extract_tempo(state: &GameState, player: &PlayerState) -> [f32; 11] {
         flag(PlayerFlags::WOUND_IMMUNITY_ACTIVE),
         flag(PlayerFlags::HAS_COMBATTED_THIS_TURN),
         flag(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN),
+        flag(PlayerFlags::IS_INTERACTING),
     ]
 }
 
@@ -659,11 +660,11 @@ mod tests {
     use mk_types::enums::Hero;
 
     #[test]
-    fn encode_state_produces_83_scalars() {
+    fn encode_state_produces_84_scalars() {
         let mut state = create_solo_game(42, Hero::Arythea);
         place_initial_tiles(&mut state);
         let features = encode_state(&state, 0);
-        assert_eq!(features.scalars.len(), 83);
+        assert_eq!(features.scalars.len(), 84);
     }
 
     #[test]

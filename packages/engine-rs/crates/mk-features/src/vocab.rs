@@ -289,14 +289,14 @@ define_vocab!(ENEMY_VOCAB, "enemy",
 );
 
 // =============================================================================
-// Action Type Vocabulary (78 entries)
+// Action Type Vocabulary (79 entries)
 // =============================================================================
 
 define_vocab!(ACTION_TYPE_VOCAB, "action_type",
     ordered: [
         "ACTIVATE_TACTIC", "ACTIVATE_UNIT", "ALTAR_TRIBUTE",
         "ANNOUNCE_END_OF_ROUND", "ASSIGN_ATTACK", "ASSIGN_BANNER",
-        "ASSIGN_BLOCK", "ASSIGN_DAMAGE", "BURN_MONASTERY",
+        "ASSIGN_BLOCK", "ASSIGN_DAMAGE", "BEGIN_INTERACTION", "BURN_MONASTERY",
         "BUY_SPELL",
         "CANCEL_COOPERATIVE_PROPOSAL", "CHALLENGE_RAMPAGING",
         "CHOOSE_LEVEL_UP_REWARDS", "COMPLETE_REST",
@@ -335,7 +335,7 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
     sorted: [
         "ACTIVATE_TACTIC", "ACTIVATE_UNIT", "ALTAR_TRIBUTE",
         "ANNOUNCE_END_OF_ROUND", "ASSIGN_ATTACK", "ASSIGN_BANNER",
-        "ASSIGN_BLOCK", "ASSIGN_DAMAGE", "BURN_MONASTERY",
+        "ASSIGN_BLOCK", "ASSIGN_DAMAGE", "BEGIN_INTERACTION", "BURN_MONASTERY",
         "BUY_SPELL",
         "CANCEL_COOPERATIVE_PROPOSAL", "CHALLENGE_RAMPAGING",
         "CHOOSE_LEVEL_UP_REWARDS", "COMPLETE_REST",
@@ -422,7 +422,7 @@ define_vocab!(MODE_VOCAB, "mode",
 );
 
 // =============================================================================
-// Source Vocabulary (115 entries)
+// Source Vocabulary (116 entries)
 // =============================================================================
 
 define_vocab!(SOURCE_VOCAB, "source",
@@ -466,6 +466,7 @@ define_vocab!(SOURCE_VOCAB, "source",
         "normal.play_card.sideways.move", "normal.play_card.sideways.influence",
         "normal.play_card.sideways.attack", "normal.play_card.sideways.block",
         "normal.site.add_elite_to_offer", "normal.site.altar_tribute",
+        "normal.site.begin_interaction",
         "normal.site.burn_monastery", "normal.site.buy_aa",
         "normal.site.buy_artifact", "normal.site.buy_city_aa",
         "normal.site.buy_city_aa_deck",
@@ -547,6 +548,7 @@ define_vocab!(SOURCE_VOCAB, "source",
         "normal.play_card.sideways.attack", "normal.play_card.sideways.block",
         "normal.play_card.sideways.influence", "normal.play_card.sideways.move",
         "normal.site.add_elite_to_offer", "normal.site.altar_tribute",
+        "normal.site.begin_interaction",
         "normal.site.burn_monastery", "normal.site.buy_aa",
         "normal.site.buy_artifact", "normal.site.buy_city_aa",
         "normal.site.buy_city_aa_deck",
@@ -741,7 +743,7 @@ mod tests {
 
     #[test]
     fn action_type_vocab_size() {
-        assert_eq!(ACTION_TYPE_VOCAB.size(), 80); // 79 entries + UNK
+        assert_eq!(ACTION_TYPE_VOCAB.size(), 81); // 80 entries + UNK
     }
 
     #[test]
@@ -752,7 +754,7 @@ mod tests {
     #[test]
     fn source_vocab_size() {
         // Count the ordered entries
-        assert_eq!(SOURCE_VOCAB.size(), 142); // 141 entries + UNK
+        assert_eq!(SOURCE_VOCAB.size(), 143); // 142 entries + UNK
     }
 
     #[test]

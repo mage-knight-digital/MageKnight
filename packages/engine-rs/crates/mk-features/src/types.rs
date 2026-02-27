@@ -11,7 +11,7 @@ use mk_types::hex::HexCoord;
 // =============================================================================
 
 /// Number of scalar features per state observation.
-pub const STATE_SCALAR_DIM: usize = 83;
+pub const STATE_SCALAR_DIM: usize = 84;
 
 /// Number of scalar features per action.
 pub const ACTION_SCALAR_DIM: usize = 34;
@@ -35,7 +35,7 @@ pub const UNIT_SCALAR_DIM: usize = 2;
 /// State features computed once per step (shared across all candidate actions).
 #[derive(Debug, Clone)]
 pub struct StateFeatures {
-    /// 83 floats: player core, resources, tempo, combat, hex, neighbors, spatial, mana source.
+    /// 84 floats: player core, resources, tempo, combat, hex, neighbors, spatial, mana source.
     pub scalars: Vec<f32>,
     /// MODE_VOCAB index.
     pub mode_id: u16,
@@ -179,7 +179,7 @@ mod tests {
 
     #[test]
     fn dimension_constants() {
-        assert_eq!(STATE_SCALAR_DIM, 83);
+        assert_eq!(STATE_SCALAR_DIM, 84);
         assert_eq!(ACTION_SCALAR_DIM, 34);
         assert_eq!(COMBAT_ENEMY_SCALAR_DIM, 20);
         assert_eq!(SITE_SCALAR_DIM, 6);

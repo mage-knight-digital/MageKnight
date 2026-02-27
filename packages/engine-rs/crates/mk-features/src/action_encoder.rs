@@ -69,6 +69,7 @@ fn derive_action_type(action: &LegalAction) -> u16 {
         LegalAction::ResolveTacticDecision { .. } => "RESOLVE_TACTIC_DECISION",
         LegalAction::ActivateTactic => "ACTIVATE_TACTIC",
         LegalAction::InitiateManaSearch => "REROLL_SOURCE_DICE",
+        LegalAction::BeginInteraction => "BEGIN_INTERACTION",
         LegalAction::EnterSite => "ENTER_SITE",
         LegalAction::InteractSite { .. } => "INTERACT",
         LegalAction::PlunderSite => "PLUNDER_VILLAGE",
