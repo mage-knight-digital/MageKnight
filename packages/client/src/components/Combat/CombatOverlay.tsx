@@ -1,83 +1,52 @@
 /**
  * CombatOverlay - Combat UI that floats over the dimmed game board
  *
+ * Wired to Rust LegalActions — all combat actions are derived from the
+ * legalActions[] array via useCombatActions().
+ *
  * No modal - enemies appear as large tokens floating over the board,
  * player hand stays visible at bottom.
  */
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import type {
-  ClientCombatState,
-  CombatOptions,
-  DamageAssignmentOption,
-  DamageAssignment,
-  BlockOption,
-} from "@mage-knight/shared";
+import type { ClientCombatState } from "@mage-knight/shared";
 import {
-  UNDO_ACTION,
   COMBAT_PHASE_ATTACK,
   COMBAT_PHASE_BLOCK,
   COMBAT_PHASE_RANGED_SIEGE,
   COMBAT_PHASE_ASSIGN_DAMAGE,
-  ASSIGN_DAMAGE_ACTION,
-  END_COMBAT_PHASE_ACTION,
-  ASSIGN_ATTACK_ACTION,
-  UNASSIGN_ATTACK_ACTION,
-  ASSIGN_BLOCK_ACTION,
-  UNASSIGN_BLOCK_ACTION,
-  DECLARE_BLOCK_TARGET_ACTION,
-  FINALIZE_BLOCK_ACTION,
-  DECLARE_ATTACK_TARGETS_ACTION,
-  FINALIZE_ATTACK_ACTION,
   MANA_RED,
   MANA_BLUE,
   MANA_GREEN,
   MANA_WHITE,
 } from "@mage-knight/shared";
 import type { BasicManaColor } from "@mage-knight/shared";
-import type {
-  AssignAttackOption,
-  UnassignAttackOption,
-  AssignBlockOption,
-  UnassignBlockOption,
-} from "@mage-knight/shared";
 import { PixiEnemyCard } from "./PixiEnemyCard";
 import { EnemyDetailPanel } from "./EnemyDetailPanel";
 import { PixiPhaseRail } from "./PixiPhaseRail";
 import { PixiEnemyTokens } from "./PixiEnemyTokens";
 import { PixiScreenEffects } from "./PixiScreenEffects";
-import { PixiAttackPool } from "./PixiAttackPool";
-import { PixiBlockPool } from "./PixiBlockPool";
-import { PixiPowerLine } from "./PixiPowerLine";
 import { ManaSourceOverlay } from "../GameBoard/ManaSourceOverlay";
-import {
-  CombatDragProvider,
-  type ChipData,
-  type DamageChipData,
-  type BlockChipData,
-} from "../../contexts/CombatDragContext";
-import { AmountPicker } from "./AmountPicker";
 import { DamageAssignmentPanel } from "./DamageAssignmentPanel";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
+import { useCombatActions } from "../../hooks/useCombatActions";
+import type { LegalAction } from "../../rust/types";
 import "./CombatOverlay.css";
 
 type EffectType = "damage" | "block" | "attack" | null;
 
 interface CombatOverlayProps {
   combat: ClientCombatState;
-  // combatOptions may be undefined during choice resolution - combat scene stays visible
-  // but action buttons are disabled
-  combatOptions?: CombatOptions;
 }
 
 
 // Element icons for display
 const ELEMENT_ICONS: Record<string, string> = {
-  fire: "🔥",
-  ice: "❄️",
-  coldFire: "💜",
-  physical: "⚔️",
+  fire: "\uD83D\uDD25",
+  ice: "\u2744\uFE0F",
+  coldFire: "\uD83D\uDC9C",
+  physical: "\u2694\uFE0F",
 };
 
 interface ElementBreakdown {
@@ -92,7 +61,6 @@ interface ElementBreakdown {
  */
 function CombatManaDisplay() {
   const player = useMyPlayer();
-  const { state } = useGame();
   if (!player) return null;
 
   const { crystals, manaTokens } = player;
@@ -101,11 +69,8 @@ function CombatManaDisplay() {
 
   if (!hasCrystals && !hasTokens) return null;
 
-  // Check which crystals can be converted from validActions
-  const convertibleColors: readonly BasicManaColor[] =
-    state?.validActions && "mana" in state.validActions
-      ? state.validActions.mana.convertibleColors
-      : [];
+  // TODO: Wire crystal conversion via Rust legal actions
+  const convertibleColors: readonly BasicManaColor[] = [];
 
   const handleCrystalClick = (_color: BasicManaColor) => {
     // Crystal conversion is handled inline via card play mana sourcing
@@ -227,7 +192,7 @@ function AccumulatorDisplay() {
             <span className="combat-hud__accumulator-value">{totalSiege}</span>
             <span className="combat-hud__accumulator-label">Siege</span>
             {hasFortifiedEnemy && totalSiege === 0 && (
-              <span className="combat-hud__siege-hint">needed for 🏰</span>
+              <span className="combat-hud__siege-hint">needed for \uD83C\uDFF0</span>
             )}
           </div>
 
@@ -237,13 +202,13 @@ function AccumulatorDisplay() {
               {elements.fire > 0 && (
                 <span className={`combat-hud__element combat-hud__element--fire ${hasFireResistantEnemy ? "combat-hud__element--halved" : ""}`}>
                   {ELEMENT_ICONS["fire"]} {elements.fire}
-                  {hasFireResistantEnemy && <span className="combat-hud__halved-note">→{Math.floor(elements.fire / 2)}</span>}
+                  {hasFireResistantEnemy && <span className="combat-hud__halved-note">\u2192{Math.floor(elements.fire / 2)}</span>}
                 </span>
               )}
               {elements.ice > 0 && (
                 <span className={`combat-hud__element combat-hud__element--ice ${hasIceResistantEnemy ? "combat-hud__element--halved" : ""}`}>
                   {ELEMENT_ICONS["ice"]} {elements.ice}
-                  {hasIceResistantEnemy && <span className="combat-hud__halved-note">→{Math.floor(elements.ice / 2)}</span>}
+                  {hasIceResistantEnemy && <span className="combat-hud__halved-note">\u2192{Math.floor(elements.ice / 2)}</span>}
                 </span>
               )}
             </div>
@@ -271,19 +236,19 @@ function AccumulatorDisplay() {
             {elements.fire > 0 && (
               <span className={`combat-hud__element combat-hud__element--fire ${hasFireResistantEnemy ? "combat-hud__element--halved" : ""}`}>
                 {ELEMENT_ICONS["fire"]} {elements.fire}
-                {hasFireResistantEnemy && <span className="combat-hud__halved-note">→{Math.floor(elements.fire / 2)}</span>}
+                {hasFireResistantEnemy && <span className="combat-hud__halved-note">\u2192{Math.floor(elements.fire / 2)}</span>}
               </span>
             )}
             {elements.ice > 0 && (
               <span className={`combat-hud__element combat-hud__element--ice ${hasIceResistantEnemy ? "combat-hud__element--halved" : ""}`}>
                 {ELEMENT_ICONS["ice"]} {elements.ice}
-                {hasIceResistantEnemy && <span className="combat-hud__halved-note">→{Math.floor(elements.ice / 2)}</span>}
+                {hasIceResistantEnemy && <span className="combat-hud__halved-note">\u2192{Math.floor(elements.ice / 2)}</span>}
               </span>
             )}
             {elements.coldFire > 0 && (
               <span className={`combat-hud__element combat-hud__element--coldFire ${hasFireResistantEnemy && hasIceResistantEnemy ? "combat-hud__element--halved" : ""}`}>
                 {ELEMENT_ICONS["coldFire"]} {elements.coldFire}
-                {hasFireResistantEnemy && hasIceResistantEnemy && <span className="combat-hud__halved-note">→{Math.floor(elements.coldFire / 2)}</span>}
+                {hasFireResistantEnemy && hasIceResistantEnemy && <span className="combat-hud__halved-note">\u2192{Math.floor(elements.coldFire / 2)}</span>}
               </span>
             )}
           </div>
@@ -292,7 +257,7 @@ function AccumulatorDisplay() {
         {/* Resistance warning */}
         {(hasFireResistantEnemy && elements.fire > 0) || (hasIceResistantEnemy && elements.ice > 0) ? (
           <div className="combat-hud__resistance-warning">
-            ⚠️ Some enemies resist elemental attacks
+            \u26A0\uFE0F Some enemies resist elemental attacks
           </div>
         ) : null}
       </div>
@@ -344,13 +309,10 @@ function AccumulatorDisplay() {
   return null;
 }
 
-function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
+function CombatOverlayInner({ combat }: CombatOverlayProps) {
   const { phase, enemies } = combat;
-  const { state, sendAction } = useGame();
-  const canUndo =
-    state?.validActions && "turn" in state.validActions
-      ? state.validActions.turn.canUndo
-      : false;
+  const { sendAction } = useGame();
+  const combatActions = useCombatActions();
 
   // Visual effect state - use a counter to force animation restart
   const [activeEffect, setActiveEffect] = useState<EffectType>(null);
@@ -362,88 +324,39 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
     ? enemies.find((e) => e.instanceId === detailPanelEnemy)
     : null;
 
-  // Amount picker state for drag-drop overkill handling
-  const [pendingDrop, setPendingDrop] = useState<{
-    chip: ChipData;
-    enemyInstanceId: string;
-    enemyName: string;
-    position: { x: number; y: number };
+  // Damage assignment panel state — tracks which enemy's damage is being assigned
+  // When set, shows the DamageAssignmentPanel with available unit options
+  const [damageAssignmentEnemy, setDamageAssignmentEnemy] = useState<{
+    enemyIndex: number;
+    attackIndex: number;
+    heroAction: LegalAction;
+    unitActions: { unitInstanceId: string; action: LegalAction }[];
   } | null>(null);
-
-  // Damage assignment panel state
-  const [selectedDamageOption, setSelectedDamageOption] = useState<DamageAssignmentOption | null>(null);
 
   const triggerEffect = useCallback((effect: EffectType) => {
     setActiveEffect(effect);
-    setEffectKey(k => k + 1); // Force animation restart
-    // Clear effect after animation completes
+    setEffectKey(k => k + 1);
     setTimeout(() => setActiveEffect(null), 400);
   }, []);
 
-  // Track wounds and which enemy dealt them to trigger strike animation
+  // Track wounds to trigger strike animation
   const prevWoundsRef = useRef<number>(combat.woundsThisCombat);
-  const lastDamageEnemyRef = useRef<string | null>(null);
 
   const player = useMyPlayer();
-
-  // When player clicks "Take Damage", check if units are available
-  // If so, show the DamageAssignmentPanel. Otherwise, send damage directly to hero.
-  const handleAssignDamage = useCallback((enemyInstanceId: string) => {
-    lastDamageEnemyRef.current = enemyInstanceId;
-
-    // Find the damage option for this enemy
-    const damageOption = combatOptions?.damageAssignments?.find(
-      (d) => d.enemyInstanceId === enemyInstanceId
-    );
-
-    // If player has units that can be assigned, show the panel
-    const hasAvailableUnits = damageOption?.availableUnits?.some((u) => u.canBeAssigned) ?? false;
-
-    if (hasAvailableUnits && damageOption) {
-      setSelectedDamageOption(damageOption);
-    } else {
-      // No units available - assign all damage to hero
-      sendAction({ type: ASSIGN_DAMAGE_ACTION, enemyInstanceId, attackIndex: damageOption?.attackIndex });
-    }
-  }, [sendAction, combatOptions?.damageAssignments]);
-
-  // Handle damage assignment confirmation from panel
-  const handleDamageAssignmentConfirm = useCallback(
-    (enemyInstanceId: string, assignments: readonly DamageAssignment[]) => {
-      lastDamageEnemyRef.current = enemyInstanceId;
-      sendAction({
-        type: ASSIGN_DAMAGE_ACTION,
-        enemyInstanceId,
-        assignments,
-        attackIndex: selectedDamageOption?.attackIndex,
-      });
-      setSelectedDamageOption(null);
-    },
-    [sendAction, selectedDamageOption]
-  );
-
-  // Handle damage assignment panel cancel
-  const handleDamageAssignmentCancel = useCallback(() => {
-    setSelectedDamageOption(null);
-  }, []);
 
   useEffect(() => {
     const prevWounds = prevWoundsRef.current;
     const currentWounds = combat.woundsThisCombat;
 
     if (currentWounds > prevWounds) {
-      // One hit animation per enemy attack (not per wound)
-      // Impact effect at ~190ms into the animation
       const impactTime = 190;
       const animationDuration = 450;
 
-      // Trigger screen effect at moment of impact
       setTimeout(() => {
         setActiveEffect("damage");
         setEffectKey(k => k + 1);
       }, impactTime);
 
-      // Clear screen effect
       setTimeout(() => setActiveEffect(null), animationDuration + 100);
     }
 
@@ -455,197 +368,13 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
   const isAttackPhase = phase === COMBAT_PHASE_ATTACK;
   const isRangedSiegePhase = phase === COMBAT_PHASE_RANGED_SIEGE;
 
-  // Target-first flow stage flags
-  const isBlockStage1 = isBlockPhase && (combatOptions?.canDeclareBlockTarget ?? false);
-  const isBlockStage2 = isBlockPhase && (combatOptions?.canFinalizeBlock ?? false);
-  const isAttackStage1 = (isAttackPhase || isRangedSiegePhase) && (combatOptions?.canDeclareTargets ?? false);
-  const isAttackStage2 = (isAttackPhase || isRangedSiegePhase) && (combatOptions?.canFinalizeAttack ?? false);
-
-  // Attack target selection state (Stage 1)
-  const [selectedAttackTargets, setSelectedAttackTargets] = useState<Set<string>>(new Set());
-
-  // Reset attack target selection when entering/leaving Stage 1
+  // Reset damage assignment panel when phase changes
   useEffect(() => {
-    if (!isAttackStage1) {
-      setSelectedAttackTargets(new Set());
-    }
-  }, [isAttackStage1]);
-
-  // Detect touch device to use +/- buttons instead of drag-drop
-  const isTouchDevice = useMemo(() => {
-    // Check for touch capability
-    if (typeof window === "undefined") return false;
-    return "ontouchstart" in window || navigator.maxTouchPoints > 0;
-  }, []);
-
-  // Use drag-drop on desktop, +/- buttons on touch devices
-  const useDragDrop = !isTouchDevice;
-
-  // ========================================
-  // Incremental Attack Handlers (Phase 5)
-  // ========================================
-
-  const handleAssignAttack = useCallback((option: AssignAttackOption) => {
-    sendAction({
-      type: ASSIGN_ATTACK_ACTION,
-      enemyInstanceId: option.enemyInstanceId,
-      attackType: option.attackType,
-      element: option.element,
-      amount: option.amount,
-    });
-  }, [sendAction]);
-
-  const handleUnassignAttack = useCallback((option: UnassignAttackOption) => {
-    sendAction({
-      type: UNASSIGN_ATTACK_ACTION,
-      enemyInstanceId: option.enemyInstanceId,
-      attackType: option.attackType,
-      element: option.element,
-      amount: option.amount,
-    });
-  }, [sendAction]);
-
-  // ========================================
-  // Incremental Block Handlers (Phase 6)
-  // ========================================
-
-  const handleAssignBlock = useCallback((option: AssignBlockOption) => {
-    sendAction({
-      type: ASSIGN_BLOCK_ACTION,
-      enemyInstanceId: option.enemyInstanceId,
-      element: option.element,
-      amount: option.amount,
-    });
-  }, [sendAction]);
-
-  const handleUnassignBlock = useCallback((option: UnassignBlockOption) => {
-    sendAction({
-      type: UNASSIGN_BLOCK_ACTION,
-      enemyInstanceId: option.enemyInstanceId,
-      element: option.element,
-      amount: option.amount,
-    });
-  }, [sendAction]);
-
-  // ========================================
-  // Target-First Block Handlers
-  // ========================================
-
-  const handleDeclareBlockTarget = useCallback((blockOption: BlockOption) => {
-    sendAction({
-      type: DECLARE_BLOCK_TARGET_ACTION,
-      targetEnemyInstanceId: blockOption.enemyInstanceId,
-      attackIndex: blockOption.attackIndex,
-    });
-  }, [sendAction]);
-
-  const handleFinalizeBlock = useCallback(() => {
-    triggerEffect("block");
-    sendAction({ type: FINALIZE_BLOCK_ACTION });
-  }, [sendAction, triggerEffect]);
-
-  // ========================================
-  // Target-First Attack Handlers
-  // ========================================
-
-  const handleToggleAttackTarget = useCallback((enemyInstanceId: string) => {
-    setSelectedAttackTargets(prev => {
-      const next = new Set(prev);
-      if (next.has(enemyInstanceId)) {
-        next.delete(enemyInstanceId);
-      } else {
-        next.add(enemyInstanceId);
-      }
-      return next;
-    });
-  }, []);
-
-  const handleDeclareAttackTargets = useCallback(() => {
-    if (selectedAttackTargets.size === 0) return;
-    sendAction({
-      type: DECLARE_ATTACK_TARGETS_ACTION,
-      targetEnemyInstanceIds: [...selectedAttackTargets],
-    });
-  }, [sendAction, selectedAttackTargets]);
-
-  const handleFinalizeAttack = useCallback(() => {
-    triggerEffect("attack");
-    sendAction({ type: FINALIZE_ATTACK_ACTION });
-  }, [sendAction, triggerEffect]);
-
-  // ========================================
-  // Drag & Drop Handlers (PixiJS)
-  // ========================================
-
-  // Handle drag-drop completion from CombatDragContext
-  const handleDragAssign = useCallback((chip: ChipData, enemyInstanceId: string) => {
-    // Find enemy name for the picker
-    const enemy = enemies.find(e => e.instanceId === enemyInstanceId);
-    if (!enemy) return;
-
-    // For now, always assign the full amount (no overkill detection yet)
-    // TODO: Add overkill detection and show amount picker
-    if (chip.poolType === "attack" && "attackType" in chip) {
-      const damageChip = chip as DamageChipData;
-      triggerEffect("attack");
-      sendAction({
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId,
-        attackType: damageChip.attackType,
-        element: damageChip.element,
-        amount: damageChip.amount,
-      });
-    } else if (chip.poolType === "block") {
-      const blockChip = chip as BlockChipData;
-      sendAction({
-        type: ASSIGN_BLOCK_ACTION,
-        enemyInstanceId,
-        element: blockChip.element,
-        amount: blockChip.amount,
-      });
-    }
-  }, [enemies, sendAction, triggerEffect]);
-
-  // Handle amount picker confirmation
-  const handleAmountConfirm = useCallback((amount: number) => {
-    if (!pendingDrop) return;
-
-    const { chip, enemyInstanceId } = pendingDrop;
-    if (chip.poolType === "attack" && "attackType" in chip) {
-      const damageChip = chip as DamageChipData;
-      triggerEffect("attack");
-      sendAction({
-        type: ASSIGN_ATTACK_ACTION,
-        enemyInstanceId,
-        attackType: damageChip.attackType,
-        element: damageChip.element,
-        amount,
-      });
-    } else if (chip.poolType === "block") {
-      const blockChip = chip as BlockChipData;
-      sendAction({
-        type: ASSIGN_BLOCK_ACTION,
-        enemyInstanceId,
-        element: blockChip.element,
-        amount,
-      });
-    }
-    setPendingDrop(null);
-  }, [pendingDrop, sendAction, triggerEffect]);
-
-  const handleAmountCancel = useCallback(() => {
-    setPendingDrop(null);
-  }, []);
-
-  // Calculate if all enemies can be defeated (for continue button pulse)
-  // Note: combatOptions may be undefined during choice resolution
-  const allEnemiesDefeatable = combatOptions?.enemies?.every(
-    e => e.isDefeated || e.canDefeat
-  ) ?? false;
+    setDamageAssignmentEnemy(null);
+  }, [phase]);
 
   // Calculate token positions for PixiEnemyCard (must match PixiEnemyTokens layout)
   const enemyCardData = useMemo(() => {
-    // Match CSS clamp: clamp(100px, min(18vw, 28vh), 280px)
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const tokenSize = Math.min(Math.max(100, Math.min(vw * 0.18, vh * 0.28)), 280);
@@ -657,22 +386,37 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
     const baseY = vh * 0.38;
 
     return enemies.map((enemy, index) => {
-      const damageOption = combatOptions?.damageAssignments?.find(d => d.enemyInstanceId === enemy.instanceId);
-      const enemyAttackState = combatOptions?.enemies?.find(e => e.enemyInstanceId === enemy.instanceId);
-      const assignableAttacks = combatOptions?.assignableAttacks?.filter(a => a.enemyInstanceId === enemy.instanceId) ?? [];
-      const unassignableAttacks = combatOptions?.unassignableAttacks?.filter(u => u.enemyInstanceId === enemy.instanceId) ?? [];
-      const enemyBlockState = combatOptions?.enemyBlockStates?.find(e => e.enemyInstanceId === enemy.instanceId);
-      const assignableBlocks = combatOptions?.assignableBlocks?.filter(b => b.enemyInstanceId === enemy.instanceId) ?? [];
-      const unassignableBlocks = combatOptions?.unassignableBlocks?.filter(u => u.enemyInstanceId === enemy.instanceId) ?? [];
-
-      // Block target-first: find the BlockOption for this enemy
-      const blockTargetOption = combatOptions?.declareBlockTargetOptions?.find(
-        o => o.enemyInstanceId === enemy.instanceId
+      // Block actions for this enemy
+      const enemyBlockActions = combatActions.blockActions.filter(
+        b => b.enemyInstanceId === enemy.instanceId
+      );
+      // Cumbersome actions for this enemy
+      const enemyCumbersomeAction = combatActions.cumbersomeActions.find(
+        c => c.enemyInstanceId === enemy.instanceId
+      );
+      // Banner fear actions for this enemy
+      const enemyBannerFearActions = combatActions.bannerFearActions.filter(
+        b => b.enemyInstanceId === enemy.instanceId
       );
 
-      // Attack target-first: check targeting state
-      const isTargetableForAttack = combatOptions?.declareTargetOptions?.includes(enemy.instanceId) ?? false;
-      const isDeclaredAttackTarget = combatOptions?.declaredTargets?.includes(enemy.instanceId) ?? false;
+      // Damage: find hero/unit actions for this enemy (by enemy index)
+      const enemyIndex = index; // enemies array is in order
+      const damageToHero = combatActions.damageToHeroOptions.find(
+        d => d.enemyIndex === enemyIndex
+      );
+      const damageToUnits = combatActions.damageToUnitOptions.filter(
+        d => d.enemyIndex === enemyIndex
+      );
+
+      // SubsetSelect: map index to enemy (non-defeated, in combat order)
+      const subsetSelectAction = combatActions.subsetSelectOptions.find(
+        s => {
+          // Map subset index to eligible enemies (non-defeated, ordered)
+          const eligible = enemies.filter(e => !e.isDefeated);
+          const eligibleIndex = eligible.findIndex(e => e.instanceId === enemy.instanceId);
+          return eligibleIndex === s.index;
+        }
+      );
 
       return {
         enemy,
@@ -681,36 +425,55 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
           y: baseY,
         },
         tokenRadius,
+
+        // Block phase
         isBlockPhase,
-        enemyBlockState,
-        assignableBlocks,
-        unassignableBlocks,
+        blockActions: enemyBlockActions,
+        cumbersomeAction: enemyCumbersomeAction,
+        bannerFearActions: enemyBannerFearActions,
+
+        // Damage phase
         isDamagePhase,
-        damageOption,
+        damageToHeroAction: damageToHero,
+        damageToUnitActions: damageToUnits,
+
+        // Attack phase
         isAttackPhase: isAttackPhase || isRangedSiegePhase,
         isRangedSiegePhase,
-        enemyAttackState,
-        assignableAttacks,
-        unassignableAttacks,
-        canDefeat: enemyAttackState?.canDefeat ?? false,
-        useDragDrop,
-        // Target-first block fields
-        isBlockStage1,
-        isBlockStage2,
-        blockTargetOption,
-        declaredBlockTarget: combatOptions?.declaredBlockTarget,
-        // Target-first attack fields
-        isAttackStage1,
-        isAttackStage2,
-        isSelectedAsAttackTarget: selectedAttackTargets.has(enemy.instanceId),
-        isTargetableForAttack,
-        isDeclaredAttackTarget,
+
+        // Attack: initiate or target selection
+        isSelectingTargets: combatActions.isSelectingTargets,
+        subsetSelectAction,
+
+        // canDefeat: no longer sent from TS options, use enemy.isDefeated as proxy
+        canDefeat: false,
       };
     });
-  }, [enemies, combatOptions, isBlockPhase, isDamagePhase, isAttackPhase, isRangedSiegePhase, useDragDrop, isBlockStage1, isBlockStage2, isAttackStage1, isAttackStage2, selectedAttackTargets]);
+  }, [enemies, combatActions, isBlockPhase, isDamagePhase, isAttackPhase, isRangedSiegePhase]);
+
+  // Handle "Take Damage" button on enemy card
+  // If units are available, show the DamageAssignmentPanel. Otherwise, send hero damage directly.
+  const handleAssignDamage = useCallback((enemyIndex: number) => {
+    const heroOpt = combatActions.damageToHeroOptions.find(d => d.enemyIndex === enemyIndex);
+    const unitOpts = combatActions.damageToUnitOptions.filter(d => d.enemyIndex === enemyIndex);
+
+    if (!heroOpt) return;
+
+    if (unitOpts.length > 0) {
+      // Show DamageAssignmentPanel for unit selection
+      setDamageAssignmentEnemy({
+        enemyIndex,
+        attackIndex: heroOpt.attackIndex,
+        heroAction: heroOpt.action,
+        unitActions: unitOpts.map(u => ({ unitInstanceId: u.unitInstanceId, action: u.action })),
+      });
+    } else {
+      // No units — send damage directly to hero
+      sendAction(heroOpt.action);
+    }
+  }, [combatActions.damageToHeroOptions, combatActions.damageToUnitOptions, sendAction]);
 
   return (
-    <CombatDragProvider onAssign={handleDragAssign}>
     <div className="combat-scene" data-testid="combat-overlay">
       {/* PixiJS Screen Effects - damage/block/attack flashes */}
       <PixiScreenEffects activeEffect={activeEffect} effectKey={effectKey} />
@@ -718,16 +481,16 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
       {/* PixiJS Phase Rail - renders to canvas */}
       <PixiPhaseRail
         currentPhase={phase}
-        canEndPhase={combatOptions?.canEndPhase ?? false}
-        onEndPhase={() => sendAction({ type: END_COMBAT_PHASE_ACTION })}
-        allEnemiesDefeatable={allEnemiesDefeatable && (isAttackPhase || isRangedSiegePhase)}
+        canEndPhase={combatActions.canEndPhase}
+        onEndPhase={() => combatActions.endPhaseAction && sendAction(combatActions.endPhaseAction)}
+        allEnemiesDefeatable={false}
       />
 
       {/* PixiJS Enemy Tokens - renders token visuals to canvas */}
       <PixiEnemyTokens
         enemies={enemies.map((enemy) => ({
           enemy,
-          canDefeat: combatOptions?.enemies?.find(e => e.enemyInstanceId === enemy.instanceId)?.canDefeat ?? false,
+          canDefeat: false,
         }))}
       />
 
@@ -735,42 +498,19 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
       <PixiEnemyCard
         enemies={enemyCardData}
         onEnemyClick={setDetailPanelEnemy}
-        onAssignBlockIncremental={handleAssignBlock}
-        onUnassignBlock={handleUnassignBlock}
-        onDeclareBlockTarget={handleDeclareBlockTarget}
-        onFinalizeBlock={handleFinalizeBlock}
+        onSendAction={sendAction}
         onAssignDamage={handleAssignDamage}
-        onAssignAttack={(option) => {
-          triggerEffect("attack");
-          handleAssignAttack(option);
-        }}
-        onUnassignAttack={handleUnassignAttack}
-        onToggleAttackTarget={handleToggleAttackTarget}
+        onTriggerEffect={triggerEffect}
       />
 
-      {/* PixiJS Attack/Block pools and power line - render to canvas */}
-      {/* Show pools in Stage 2 (targets declared), or legacy mode (no stage flags) */}
-      {useDragDrop && (isAttackPhase || isRangedSiegePhase) && combatOptions?.availableAttack && (isAttackStage2 || !isAttackStage1) && (
-        <PixiAttackPool
-          availableAttack={combatOptions.availableAttack}
-          isRangedSiegePhase={isRangedSiegePhase}
-          showSiegeWarning={combat.isAtFortifiedSite}
-        />
-      )}
-      {useDragDrop && isBlockPhase && combatOptions?.availableBlock && (isBlockStage2 || !isBlockStage1) && (
-        <PixiBlockPool availableBlock={combatOptions.availableBlock} />
-      )}
-      <PixiPowerLine />
-
-      {/* Main layout: battle area (phase rail now rendered by PixiPhaseRail) */}
+      {/* Main layout: battle area */}
       <div className="combat-scene__layout">
-        {/* Battle area with enemies */}
         <div className="combat-scene__battlefield">
           {/* Undo button */}
-          {canUndo && (
+          {combatActions.canUndo && combatActions.undoAction && (
             <button
               className="combat-scene__undo"
-              onClick={() => sendAction({ type: UNDO_ACTION })}
+              onClick={() => sendAction(combatActions.undoAction!)}
               type="button"
             >
               Undo
@@ -787,65 +527,86 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
             <CombatManaDisplay />
           </div>
 
-          {/* Enemies - layout placeholder for positioning, actual tokens rendered by PixiEnemyTokens */}
+          {/* Enemies - layout placeholder for positioning */}
           <div className="combat-scene__enemies" />
 
-          {/* Target-first attack: Declare Targets button (Stage 1, targets selected) */}
-          {isAttackStage1 && selectedAttackTargets.size > 0 && (
+          {/* Initiate Attack buttons (pre-target-selection) */}
+          {combatActions.initiateAttackOptions.length > 0 && !combatActions.isSelectingTargets && (
+            <div className="combat-scene__initiate-attacks">
+              {combatActions.initiateAttackOptions.map((opt) => (
+                <button
+                  key={opt.attackType}
+                  className="combat-scene__initiate-attack-btn"
+                  onClick={() => {
+                    triggerEffect("attack");
+                    sendAction(opt.action);
+                  }}
+                  type="button"
+                >
+                  {opt.attackType === "ranged" ? "Ranged Attack" :
+                   opt.attackType === "siege" ? "Siege Attack" : "Attack"}
+                </button>
+              ))}
+              {combatActions.convertMoveToAttack.map((opt, i) => (
+                <button
+                  key={`convert-move-${i}`}
+                  className="combat-scene__initiate-attack-btn combat-scene__initiate-attack-btn--convert"
+                  onClick={() => sendAction(opt.action)}
+                  type="button"
+                >
+                  Convert {opt.movePoints} Move \u2192 {opt.attackType === "ranged" ? "Ranged" : opt.attackType === "siege" ? "Siege" : "Attack"}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Subset Confirm button (target selection active) */}
+          {combatActions.isSelectingTargets && combatActions.subsetConfirmAction && (
             <button
               className="combat-scene__declare-targets"
-              onClick={handleDeclareAttackTargets}
+              onClick={() => {
+                triggerEffect("attack");
+                sendAction(combatActions.subsetConfirmAction!);
+              }}
               type="button"
             >
-              Declare {selectedAttackTargets.size} Target{selectedAttackTargets.size > 1 ? "s" : ""}
+              Confirm Attack
             </button>
           )}
 
-          {/* Target-first attack: Finalize Attack button (Stage 2) */}
-          {isAttackStage2 && (
+          {/* Convert Influence to Block buttons */}
+          {combatActions.convertInfluenceToBlock.length > 0 && (
+            <div className="combat-scene__convert-influence">
+              {combatActions.convertInfluenceToBlock.map((opt, i) => (
+                <button
+                  key={`convert-inf-${i}`}
+                  className="combat-scene__convert-influence-btn"
+                  onClick={() => sendAction(opt.action)}
+                  type="button"
+                >
+                  Convert {opt.influencePoints} Influence \u2192 Block
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Heroes Assault action */}
+          {combatActions.payHeroesAssaultAction && (
             <button
-              className="combat-scene__finalize-attack"
-              onClick={handleFinalizeAttack}
+              className="combat-scene__heroes-assault-btn"
+              onClick={() => sendAction(combatActions.payHeroesAssaultAction!)}
               type="button"
             >
-              Finalize Attack
+              Pay Heroes Assault
             </button>
           )}
 
-          {/* Target-first block: Finalize Block button (Stage 2) */}
-          {isBlockStage2 && (
-            <button
-              className="combat-scene__finalize-block"
-              onClick={handleFinalizeBlock}
-              type="button"
-            >
-              Finalize Block
-            </button>
-          )}
-
-          {/* Legacy accumulated power display (mobile fallback or when pool data unavailable) */}
-          {(!useDragDrop || (!combatOptions?.availableAttack && !combatOptions?.availableBlock)) && (
-            <AccumulatorDisplay />
-          )}
+          {/* Accumulated power display */}
+          <AccumulatorDisplay />
         </div>
-
       </div>
 
-      {/* Amount picker modal for overkill handling */}
-      {pendingDrop && (
-        <AmountPicker
-          maxAmount={pendingDrop.chip.amount}
-          attackType={"attackType" in pendingDrop.chip ? pendingDrop.chip.attackType : undefined}
-          element={pendingDrop.chip.element}
-          enemyName={pendingDrop.enemyName}
-          position={pendingDrop.position}
-          mode={pendingDrop.chip.poolType === "block" ? "block" : "attack"}
-          onConfirm={handleAmountConfirm}
-          onCancel={handleAmountCancel}
-        />
-      )}
-
-      {/* Enemy Detail Panel - full rulebook details (stays HTML for complex layout) */}
+      {/* Enemy Detail Panel - full rulebook details */}
       {selectedEnemy && (
         <EnemyDetailPanel
           enemy={selectedEnemy}
@@ -854,19 +615,24 @@ function CombatOverlayInner({ combat, combatOptions }: CombatOverlayProps) {
       )}
 
       {/* Damage Assignment Panel - unit selection for damage absorption */}
-      {selectedDamageOption && player && (
+      {damageAssignmentEnemy && player && (
         <DamageAssignmentPanel
-          damageOption={selectedDamageOption}
-          onAssign={handleDamageAssignmentConfirm}
-          onCancel={handleDamageAssignmentCancel}
-          handLimit={player.handLimit}
-          woundsThisCombat={combat.woundsThisCombat}
+          enemyIndex={damageAssignmentEnemy.enemyIndex}
+          attackIndex={damageAssignmentEnemy.attackIndex}
+          enemyName={enemies[damageAssignmentEnemy.enemyIndex]?.name ?? "Enemy"}
+          heroAction={damageAssignmentEnemy.heroAction}
+          unitActions={damageAssignmentEnemy.unitActions}
+          onSendAction={(action) => {
+            sendAction(action);
+            setDamageAssignmentEnemy(null);
+          }}
+          onCancel={() => setDamageAssignmentEnemy(null)}
+          combat={combat}
         />
       )}
     </div>
-    </CombatDragProvider>
   );
 }
 
-// Export the component with provider
+// Export the component
 export { CombatOverlayInner as CombatOverlay };

@@ -27,6 +27,7 @@ import { RestCompletionOverlay } from "./Overlays/RestCompletionOverlay";
 import { DiscardCostOverlay } from "./Overlays/DiscardCostOverlay";
 import { HexCostReductionOverlay } from "./Overlays/HexCostReductionOverlay";
 import { TerrainCostReductionOverlay } from "./Overlays/TerrainCostReductionOverlay";
+import { PlunderDecisionOverlay } from "./Overlays/PlunderDecisionOverlay";
 import { LevelUpRewardSelection } from "./Overlays/LevelUpRewardSelection";
 import { CombatOverlay, PixiCombatOverlay } from "./Combat";
 import { OfferView, type OfferPane } from "./OfferView";
@@ -34,7 +35,7 @@ import { ReplayControls } from "./Replay";
 import { ActivityFeed } from "./ActivityFeed/ActivityFeed";
 
 export function GameView() {
-  const { state, legalActions, isRustMode } = useGame();
+  const { state, legalActions } = useGame();
   const player = useMyPlayer();
   const { isIntroComplete } = useGameIntro();
   const { isInCinematic } = useCinematic();
@@ -81,9 +82,7 @@ export function GameView() {
   if (!state) {
     return <div className="loading">Loading game state...</div>;
   }
-  const isTacticSelectionActive = isRustMode
-    ? (player && player.selectedTactic === null && tacticOptions.length > 0)
-    : (player && player.selectedTactic === null && state.validActions?.mode === "tactics_selection");
+  const isTacticSelectionActive = player && player.selectedTactic === null && tacticOptions.length > 0;
   const shouldDimForTactics = isTacticSelectionActive && isIntroComplete;
 
   const appClassName = [
@@ -117,17 +116,11 @@ export function GameView() {
       <DiscardCostOverlay />
       <HexCostReductionOverlay />
       <TerrainCostReductionOverlay />
+      <PlunderDecisionOverlay />
       {inCombat && (
         <>
           <PixiCombatOverlay combat={state.combat} />
-          <CombatOverlay
-            combat={state.combat}
-            combatOptions={
-              state.validActions.mode === "combat"
-                ? state.validActions.combat
-                : undefined
-            }
-          />
+          <CombatOverlay combat={state.combat} />
         </>
       )}
 
