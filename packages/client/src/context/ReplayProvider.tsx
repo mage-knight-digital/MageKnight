@@ -190,7 +190,6 @@ export function ReplayProvider({ artifact, playerId, artifactName, children }: R
       setActionLogEnabled: NOOP_CLEAR_LOG,
       legalActions: [],
       epoch: 0,
-      isRustMode: true,
     }),
     [currentState, accumulatedEvents, playerId]
   );
