@@ -3,13 +3,27 @@ use mk_types::effect::CardEffect;
 use mk_types::enums::*;
 use mk_types::ids::CardId;
 use mk_types::legal_action::LegalAction;
-use mk_types::modifier::RuleOverride;
+use mk_types::modifier::{ModifierEffect, RuleOverride};
 use mk_types::state::{GameState, PlayerFlags};
 
 use crate::card_play::{get_effective_sideways_value, is_rule_active};
 use crate::effect_queue::is_resolvable;
 
 use super::utils::WOUND_CARD_ID;
+
+/// Check if the player has an active attack conversion modifier
+/// (TransformAttacksColdFire or AddSiegeToAttacks) that makes sideways melee
+/// attacks useful in RangedSiege phase.
+fn has_attack_conversion_modifier(state: &GameState, player_idx: usize) -> bool {
+    let player_id = &state.players[player_idx].id;
+    state.active_modifiers.iter().any(|m| {
+        m.created_by_player_id == *player_id
+            && matches!(
+                m.effect,
+                ModifierEffect::TransformAttacksColdFire | ModifierEffect::AddSiegeToAttacks
+            )
+    })
+}
 
 pub(super) fn enumerate_normal_cards(
     state: &GameState,
@@ -271,7 +285,12 @@ pub(super) fn enumerate_combat_cards(
                 )
             };
             if eff_value > 0 {
-                if matches!(combat_phase, CombatPhase::RangedSiege | CombatPhase::Attack) {
+                // Sideways Attack: Attack phase always, RangedSiege only when modifiers
+                // convert melee → useful type (ColdFire or Siege).
+                if combat_phase == CombatPhase::Attack
+                    || (combat_phase == CombatPhase::RangedSiege
+                        && has_attack_conversion_modifier(state, player_idx))
+                {
                     sideways_actions.push(LegalAction::PlayCardSideways {
                         hand_index,
                         card_id: card_id.clone(),

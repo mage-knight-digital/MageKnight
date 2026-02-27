@@ -125,7 +125,17 @@ impl SelectEnemyTemplate {
     }
 }
 
-/// Option for a unit ability choice (MoveOrInfluence, AttackOrBlockWoundSelf).
+/// Mana scaling tier for Altem Mages ColdFire ability.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AltemMagesManaScaling {
+    Free,
+    Blue,
+    Red,
+    Both,
+}
+
+/// Option for a unit ability choice (MoveOrInfluence, AttackOrBlockWoundSelf, Altem Mages).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum UnitAbilityChoiceOption {
@@ -133,6 +143,15 @@ pub enum UnitAbilityChoiceOption {
     GainInfluence { value: u32 },
     GainAttack { value: u32, element: Element },
     GainBlock { value: u32, element: Element },
+    GainManaToken { color: BasicManaColor },
+    GainColdFireAttack { value: u32, mana_cost: AltemMagesManaScaling },
+    GainColdFireBlock { value: u32, mana_cost: AltemMagesManaScaling },
+    TransformAttacksToColdFire,
+    AddSiegeToAllAttacks,
+    /// Peek at a face-down enemy on the map (Scouts).
+    ScoutPeekHex { coord: crate::hex::HexCoord, enemy_index: usize, fame_bonus: u32 },
+    /// Peek at the top of an enemy draw pile (Scouts).
+    ScoutPeekPile { color: EnemyColor, fame_bonus: u32 },
 }
 
 /// An effect waiting to be resolved after a pending choice completes.
@@ -761,12 +780,15 @@ pub enum ActivePending {
     TerrainCostReduction(PendingTerrainCostReduction),
     CrystalJoyReclaim(PendingCrystalJoyReclaim),
     SteadyTempoDeckPlacement(PendingSteadyTempoDeckPlacement),
-    /// Unit ability that requires player choice (MoveOrInfluence, AttackOrBlockWoundSelf).
+    /// Unit ability that requires player choice (MoveOrInfluence, AttackOrBlockWoundSelf, Altem Mages).
     UnitAbilityChoice {
         unit_instance_id: UnitInstanceId,
         options: Vec<UnitAbilityChoiceOption>,
         /// If true, wound the unit after choice is resolved (AttackOrBlockWoundSelf).
         wound_self: bool,
+        /// Remaining sequential choices after this one (GainManaChoose).
+        #[serde(default)]
+        remaining_choices: u32,
     },
     /// Auto-regressive subset selection (Rethink, Midnight Meditation, etc.).
     SubsetSelection(SubsetSelectionState),

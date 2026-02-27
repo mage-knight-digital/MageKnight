@@ -520,6 +520,19 @@ pub(super) fn apply_declare_attack_inner(
             state.combat.as_mut().unwrap().fame_gained += bonus_fame;
         }
 
+        // Hook: ScoutFameBonus — +fame if a peeked enemy was defeated
+        let scout_bonus = count_scout_fame_bonus(
+            &state.active_modifiers,
+            &state.players[player_idx].id,
+            &target_indices.iter().map(|&idx| {
+                state.combat.as_ref().unwrap().enemies[idx].enemy_id.as_str().to_string()
+            }).collect::<Vec<_>>(),
+        );
+        if scout_bonus > 0 {
+            state.players[player_idx].fame += scout_bonus;
+            state.combat.as_mut().unwrap().fame_gained += scout_bonus;
+        }
+
         // Hook: SoulHarvesterCrystalTracking — award crystals per defeated enemy
         resolve_soul_harvester_crystals(state, player_idx, &defeated_summoned_flags);
 
@@ -1550,6 +1563,29 @@ pub(super) fn count_fame_per_enemy_bonus(
     total_bonus
 }
 
+
+/// Count bonus fame from ScoutFameBonus modifiers when matching enemies are defeated.
+fn count_scout_fame_bonus(
+    modifiers: &[mk_types::modifier::ActiveModifier],
+    player_id: &PlayerId,
+    defeated_enemy_ids: &[String],
+) -> u32 {
+    use mk_types::modifier::ModifierEffect;
+
+    let mut total = 0u32;
+    for m in modifiers {
+        if let ModifierEffect::ScoutFameBonus { revealed_enemy_ids, fame } = &m.effect {
+            if m.created_by_player_id != *player_id {
+                continue;
+            }
+            let any_match = defeated_enemy_ids.iter().any(|eid| revealed_enemy_ids.contains(eid));
+            if any_match {
+                total += fame;
+            }
+        }
+    }
+    total
+}
 
 /// Award crystals from SoulHarvesterCrystalTracking modifiers on enemy defeat.
 ///

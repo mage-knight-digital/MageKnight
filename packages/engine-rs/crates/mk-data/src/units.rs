@@ -51,6 +51,17 @@ pub enum UnitAbility {
         /// (terrain, cost_change, minimum_cost) — cost_change is negative for reductions.
         terrain_reductions: &'static [(Terrain, i32, u32)],
     },
+    /// Gain N mana tokens with sequential color choices (Altem Mages ability 1).
+    GainManaChoose { count: u32 },
+    /// ColdFire Attack/Block with optional mana scaling (Altem Mages ability 2).
+    AltemMagesColdFire { base: u32, blue_value: u32, red_value: u32, both_value: u32 },
+    /// Choose: transform attacks to ColdFire or add Siege. Costs black mana (handled in handler).
+    AltemMagesAttackModifier,
+    /// Peek at a face-down token within distance or top of enemy draw pile.
+    /// If that enemy is defeated this turn, gain bonus fame (Scouts).
+    ScoutPeek { distance: u32, fame_bonus: u32 },
+    /// Move + allow exploring tiles at distance 2 instead of 1 (Scouts).
+    MoveWithExtendedExplore { move_value: u32 },
     /// Complex ability not yet modeled.
     Other { description: &'static str },
 }
@@ -106,7 +117,7 @@ const fn siege(value: u32, element: Element) -> UnitAbility { UnitAbility::Siege
 const fn mov(value: u32) -> UnitAbility { UnitAbility::Move { value } }
 const fn inf(value: u32) -> UnitAbility { UnitAbility::Influence { value } }
 const fn heal(value: u32) -> UnitAbility { UnitAbility::Heal { value } }
-const fn other(description: &'static str) -> UnitAbility { UnitAbility::Other { description } }
+
 
 const P: Element = Element::Physical;
 const F: Element = Element::Fire;
@@ -310,8 +321,8 @@ static SCOUTS: UnitDefinition = UnitDefinition {
     copies: 2, reversed_reputation: false, restricted_from_free_recruit: false, is_hero: false,
     abilities: &[
         UnitAbilitySlot::free(siege(1, P)),
-        UnitAbilitySlot::free(other("scout peek")),
-        UnitAbilitySlot::free(other("move 2 + explore")),
+        UnitAbilitySlot::free(UnitAbility::ScoutPeek { distance: 3, fame_bonus: 1 }),
+        UnitAbilitySlot::free(UnitAbility::MoveWithExtendedExplore { move_value: 2 }),
     ],
 };
 
@@ -597,9 +608,11 @@ static ALTEM_MAGES: UnitDefinition = UnitDefinition {
     recruit_sites: &[RecruitSite::City],
     copies: 2, reversed_reputation: false, restricted_from_free_recruit: false, is_hero: false,
     abilities: &[
-        UnitAbilitySlot::free(other("gain 2 mana")),
-        UnitAbilitySlot::free(other("coldfire 5-9")),
-        UnitAbilitySlot::free(other("attack modifier")),
+        UnitAbilitySlot::free(UnitAbility::GainManaChoose { count: 2 }),
+        UnitAbilitySlot::free(UnitAbility::AltemMagesColdFire {
+            base: 5, blue_value: 7, red_value: 7, both_value: 9,
+        }),
+        UnitAbilitySlot::free(UnitAbility::AltemMagesAttackModifier),
     ],
 };
 
@@ -695,6 +708,8 @@ pub fn is_combat_ability(ability: &UnitAbility) -> bool {
             | UnitAbility::AttackOrBlockWoundSelf { .. }
             | UnitAbility::SelectCombatEnemy(_)
             | UnitAbility::CoordinatedFire { .. }
+            | UnitAbility::AltemMagesColdFire { .. }
+            | UnitAbility::AltemMagesAttackModifier
     )
 }
 
@@ -713,6 +728,9 @@ pub fn is_noncombat_ability(ability: &UnitAbility) -> bool {
             | UnitAbility::ReadyUnit { .. }
             | UnitAbility::GrantAllResistances
             | UnitAbility::MoveWithTerrainReduction { .. }
+            | UnitAbility::GainManaChoose { .. }
+            | UnitAbility::ScoutPeek { .. }
+            | UnitAbility::MoveWithExtendedExplore { .. }
     )
 }
 

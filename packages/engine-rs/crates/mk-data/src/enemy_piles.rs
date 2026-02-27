@@ -146,6 +146,18 @@ pub fn is_site_enemy_revealed(site_type: SiteType) -> bool {
     }
 }
 
+/// Get read-only access to a color's draw pile.
+pub fn get_draw_pile(piles: &EnemyTokenPiles, color: EnemyColor) -> &[EnemyTokenId] {
+    match color {
+        EnemyColor::Green => &piles.green_draw,
+        EnemyColor::Gray => &piles.gray_draw,
+        EnemyColor::Brown => &piles.brown_draw,
+        EnemyColor::Violet => &piles.violet_draw,
+        EnemyColor::White => &piles.white_draw,
+        EnemyColor::Red => &piles.red_draw,
+    }
+}
+
 /// Discard an enemy token to its color's discard pile.
 pub fn discard_enemy_token(piles: &mut EnemyTokenPiles, token_id: &EnemyTokenId, color: EnemyColor) {
     get_discard_pile_mut(piles, color).push(token_id.clone());

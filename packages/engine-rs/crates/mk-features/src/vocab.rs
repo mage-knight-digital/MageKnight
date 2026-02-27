@@ -490,6 +490,7 @@ define_vocab!(SOURCE_VOCAB, "source",
         "pending_choice.card_boost", "pending_choice.ready_unit",
         "pending_choice.compound", "pending_choice.conditional",
         "pending_choice.scaling",
+        "pending_choice.scout_peek_hex", "pending_choice.scout_peek_pile",
         "pending_reward.auto", "pending_reward.card",
         "pending_reward.unit", "pending_reward.unit.disband",
         "source_opening.keep", "source_opening.reroll",
@@ -579,6 +580,7 @@ define_vocab!(SOURCE_VOCAB, "source",
         "pending_choice.noop",
         "pending_choice.ready_unit",
         "pending_choice.scaling",
+        "pending_choice.scout_peek_hex", "pending_choice.scout_peek_pile",
         "pending_reward.auto", "pending_reward.card",
         "pending_reward.unit", "pending_reward.unit.disband",
         "pending_tactic_decision.card",
@@ -754,7 +756,7 @@ mod tests {
     #[test]
     fn source_vocab_size() {
         // Count the ordered entries
-        assert_eq!(SOURCE_VOCAB.size(), 143); // 142 entries + UNK
+        assert_eq!(SOURCE_VOCAB.size(), 145); // 144 entries + UNK
     }
 
     #[test]

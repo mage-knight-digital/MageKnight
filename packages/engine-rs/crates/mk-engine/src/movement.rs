@@ -802,17 +802,18 @@ pub fn calculate_tile_placement(tile_center: HexCoord, direction: HexDirection) 
 ///
 /// The player must be on one of the hexes adjacent to where the new tile's
 /// hexes would connect. Specifically, at least one hex in the new tile placement
-/// must be within distance 1 of the player's position.
+/// must be within `explore_distance` of the player's position.
 pub fn is_player_near_explore_edge(
     player_pos: HexCoord,
     tile_center: HexCoord,
     direction: HexDirection,
+    explore_distance: u32,
 ) -> bool {
     let target_center = calculate_tile_placement(tile_center, direction);
 
     for offset in TILE_HEX_OFFSETS {
         let new_hex = HexCoord::new(target_center.q + offset.q, target_center.r + offset.r);
-        if player_pos.distance(new_hex) <= 1 {
+        if player_pos.distance(new_hex) <= explore_distance {
             return true;
         }
     }
@@ -1011,7 +1012,8 @@ pub fn execute_explore(
     let tile_center = find_tile_center(&state.map, pos).ok_or(ExploreError::NoPosition)?;
 
     // Validate player is on the edge of their tile facing the explore direction
-    if !is_player_near_explore_edge(pos, tile_center, direction) {
+    let explore_distance = if crate::card_play::is_rule_active(state, player_idx, mk_types::modifier::RuleOverride::ExtendedExplore) { 2 } else { 1 };
+    if !is_player_near_explore_edge(pos, tile_center, direction, explore_distance) {
         return Err(ExploreError::NotOnTileEdge);
     }
 

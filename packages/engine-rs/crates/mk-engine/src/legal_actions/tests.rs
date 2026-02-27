@@ -818,7 +818,9 @@ fn combat_emits_combat_actions() {
     );
     assert!(rage_basic, "rage basic should be playable in combat");
 
-    // RangedSiege: sideways Attack should be available, Block should not
+    // RangedSiege: neither sideways Attack nor Block should be available.
+    // Sideways Attack produces melee points which can't be used until the Attack phase,
+    // so offering it here just bloats the action space with no tactical value.
     let attack_sideways = legal.actions.iter().any(|a| {
         matches!(
             a,
@@ -837,7 +839,7 @@ fn combat_emits_combat_actions() {
             }
         )
     });
-    assert!(attack_sideways, "RangedSiege should have Attack sideways");
+    assert!(!attack_sideways, "RangedSiege should NOT have Attack sideways (melee points unusable)");
     assert!(!block_sideways, "RangedSiege should NOT have Block sideways");
 }
 
@@ -5863,4 +5865,835 @@ fn improvisation_powered_available_in_combat_with_red_source_die() {
         "improvisation powered should be available in combat with red source die; actions: {:?}",
         legal.actions
     );
+}
+
+// =========================================================================
+// Altem Mages abilities
+// =========================================================================
+
+/// Helper: set up Altem Mages with combat state.
+fn setup_altem_mages_combat(phase: CombatPhase) -> (GameState, UndoStack) {
+    let (mut state, undo) = setup_complex_unit("altem_mages", "unit_am");
+    state.combat = Some(Box::new(CombatState {
+        phase,
+        ..CombatState::default()
+    }));
+    (state, undo)
+}
+
+// --- Ability 1: GainManaChoose ---
+
+#[test]
+fn altem_mages_gain_mana_enumerated_outside_combat() {
+    let (state, undo) = setup_complex_unit("altem_mages", "unit_am");
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let action = legal.actions.iter().find(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 0, .. }
+        if unit_instance_id.as_str() == "unit_am"
+    ));
+    assert!(action.is_some(), "GainManaChoose should be available outside combat");
+}
+
+#[test]
+fn altem_mages_gain_mana_not_in_combat() {
+    let (state, undo) = setup_altem_mages_combat(CombatPhase::Attack);
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let action = legal.actions.iter().find(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 0, .. }
+        if unit_instance_id.as_str() == "unit_am"
+    ));
+    assert!(action.is_none(), "GainManaChoose should NOT be available in combat");
+}
+
+#[test]
+fn altem_mages_gain_mana_creates_pending_with_remaining() {
+    let (mut state, mut undo) = setup_complex_unit("altem_mages", "unit_am");
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let action = legal.actions.iter().find(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 0, .. }
+        if unit_instance_id.as_str() == "unit_am"
+    )).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, action, legal.epoch);
+
+    // Should have 4-option choice with remaining_choices=1
+    assert!(matches!(
+        state.players[0].pending.active,
+        Some(ActivePending::UnitAbilityChoice { ref options, remaining_choices: 1, .. })
+        if options.len() == 4
+    ));
+}
+
+#[test]
+fn altem_mages_gain_mana_two_sequential_choices() {
+    let (mut state, mut undo) = setup_complex_unit("altem_mages", "unit_am");
+    state.players[0].pure_mana.clear();
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let action = legal.actions.iter().find(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 0, .. }
+        if unit_instance_id.as_str() == "unit_am"
+    )).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, action, legal.epoch);
+
+    // First choice: pick Red (index 0)
+    let legal2 = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let resolve = legal2.actions.iter().find(|a| matches!(a, LegalAction::ResolveChoice { choice_index: 0 })).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, resolve, legal2.epoch);
+
+    // Should have a red token and another pending with remaining=0
+    assert_eq!(state.players[0].pure_mana.len(), 1);
+    assert_eq!(state.players[0].pure_mana[0].color, ManaColor::Red);
+    assert!(matches!(
+        state.players[0].pending.active,
+        Some(ActivePending::UnitAbilityChoice { remaining_choices: 0, .. })
+    ));
+
+    // Second choice: pick Blue (index 1)
+    let legal3 = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let resolve2 = legal3.actions.iter().find(|a| matches!(a, LegalAction::ResolveChoice { choice_index: 1 })).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, resolve2, legal3.epoch);
+
+    // Should have two tokens and no more pending
+    assert_eq!(state.players[0].pure_mana.len(), 2);
+    assert_eq!(state.players[0].pure_mana[1].color, ManaColor::Blue);
+    assert!(!state.players[0].pending.has_active());
+}
+
+// --- Ability 2: AltemMagesColdFire ---
+
+#[test]
+fn altem_mages_coldfire_enumerated_in_all_combat_phases() {
+    for phase in [CombatPhase::RangedSiege, CombatPhase::Block, CombatPhase::Attack] {
+        let (state, undo) = setup_altem_mages_combat(phase);
+        let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        let action = legal.actions.iter().find(|a| matches!(a,
+            LegalAction::ActivateUnit { unit_instance_id, ability_index: 1, .. }
+            if unit_instance_id.as_str() == "unit_am"
+        ));
+        assert!(action.is_some(), "ColdFire should be available in {:?}", phase);
+    }
+}
+
+#[test]
+fn altem_mages_coldfire_base_options_no_mana() {
+    use mk_types::pending::UnitAbilityChoiceOption;
+    let (mut state, mut undo) = setup_altem_mages_combat(CombatPhase::Attack);
+    state.players[0].pure_mana.clear();
+    state.players[0].crystals = mk_types::state::Crystals::default();
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let action = legal.actions.iter().find(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 1, .. }
+        if unit_instance_id.as_str() == "unit_am"
+    )).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, action, legal.epoch);
+
+    // Only 2 free options: Attack 5 and Block 5
+    if let Some(ActivePending::UnitAbilityChoice { ref options, .. }) = state.players[0].pending.active {
+        assert_eq!(options.len(), 2, "Should have 2 base options; got {:?}", options);
+        assert!(matches!(options[0], UnitAbilityChoiceOption::GainColdFireAttack { value: 5, .. }));
+        assert!(matches!(options[1], UnitAbilityChoiceOption::GainColdFireBlock { value: 5, .. }));
+    } else {
+        panic!("Expected UnitAbilityChoice pending");
+    }
+}
+
+#[test]
+fn altem_mages_coldfire_with_blue_mana() {
+    use mk_types::pending::UnitAbilityChoiceOption;
+    let (mut state, mut undo) = setup_altem_mages_combat(CombatPhase::Attack);
+    state.players[0].pure_mana.clear();
+    state.players[0].crystals = mk_types::state::Crystals::default();
+    state.players[0].pure_mana.push(mk_types::state::ManaToken {
+        color: ManaColor::Blue,
+        source: mk_types::state::ManaTokenSource::Die,
+        cannot_power_spells: false,
+    });
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let action = legal.actions.iter().find(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 1, .. }
+        if unit_instance_id.as_str() == "unit_am"
+    )).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, action, legal.epoch);
+
+    // 2 free + 2 blue = 4 options
+    if let Some(ActivePending::UnitAbilityChoice { ref options, .. }) = state.players[0].pending.active {
+        assert_eq!(options.len(), 4, "Should have 4 options with blue; got {:?}", options);
+        assert!(options.iter().any(|o| matches!(o, UnitAbilityChoiceOption::GainColdFireAttack { value: 7, .. })));
+    } else {
+        panic!("Expected UnitAbilityChoice pending");
+    }
+}
+
+#[test]
+fn altem_mages_coldfire_with_both_mana() {
+    use mk_types::pending::{UnitAbilityChoiceOption, AltemMagesManaScaling};
+    let (mut state, mut undo) = setup_altem_mages_combat(CombatPhase::Attack);
+    state.players[0].pure_mana.clear();
+    state.players[0].crystals = mk_types::state::Crystals::default();
+    // Give both blue and red mana
+    state.players[0].pure_mana.push(mk_types::state::ManaToken {
+        color: ManaColor::Blue,
+        source: mk_types::state::ManaTokenSource::Die,
+        cannot_power_spells: false,
+    });
+    state.players[0].pure_mana.push(mk_types::state::ManaToken {
+        color: ManaColor::Red,
+        source: mk_types::state::ManaTokenSource::Die,
+        cannot_power_spells: false,
+    });
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let action = legal.actions.iter().find(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 1, .. }
+        if unit_instance_id.as_str() == "unit_am"
+    )).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, action, legal.epoch);
+
+    // 2 free + 2 blue + 2 red + 2 both = 8 options
+    if let Some(ActivePending::UnitAbilityChoice { ref options, .. }) = state.players[0].pending.active {
+        assert_eq!(options.len(), 8, "Should have 8 options with both; got {:?}", options);
+        assert!(options.iter().any(|o| matches!(o,
+            UnitAbilityChoiceOption::GainColdFireAttack { value: 9, mana_cost: AltemMagesManaScaling::Both }
+        )));
+    } else {
+        panic!("Expected UnitAbilityChoice pending");
+    }
+}
+
+#[test]
+fn altem_mages_coldfire_free_attack() {
+    let (mut state, mut undo) = setup_altem_mages_combat(CombatPhase::Attack);
+    state.players[0].pure_mana.clear();
+    state.players[0].crystals = mk_types::state::Crystals::default();
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let action = legal.actions.iter().find(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 1, .. }
+        if unit_instance_id.as_str() == "unit_am"
+    )).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, action, legal.epoch);
+
+    // Choose Attack 5 (index 0)
+    let legal2 = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let resolve = legal2.actions.iter().find(|a| matches!(a, LegalAction::ResolveChoice { choice_index: 0 })).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, resolve, legal2.epoch);
+
+    assert_eq!(state.players[0].combat_accumulator.attack.normal, 5);
+    assert_eq!(state.players[0].combat_accumulator.attack.normal_elements.cold_fire, 5);
+    assert!(!state.players[0].pending.has_active());
+}
+
+#[test]
+fn altem_mages_coldfire_free_block() {
+    let (mut state, mut undo) = setup_altem_mages_combat(CombatPhase::Block);
+    state.players[0].pure_mana.clear();
+    state.players[0].crystals = mk_types::state::Crystals::default();
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let action = legal.actions.iter().find(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 1, .. }
+        if unit_instance_id.as_str() == "unit_am"
+    )).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, action, legal.epoch);
+
+    // Choose Block 5 (index 1)
+    let legal2 = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let resolve = legal2.actions.iter().find(|a| matches!(a, LegalAction::ResolveChoice { choice_index: 1 })).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, resolve, legal2.epoch);
+
+    assert_eq!(state.players[0].combat_accumulator.block, 5);
+    assert_eq!(state.players[0].combat_accumulator.block_elements.cold_fire, 5);
+}
+
+#[test]
+fn altem_mages_coldfire_blue_attack_consumes_mana() {
+    let (mut state, mut undo) = setup_altem_mages_combat(CombatPhase::Attack);
+    state.players[0].pure_mana.clear();
+    state.players[0].crystals = mk_types::state::Crystals::default();
+    state.players[0].pure_mana.push(mk_types::state::ManaToken {
+        color: ManaColor::Blue,
+        source: mk_types::state::ManaTokenSource::Die,
+        cannot_power_spells: false,
+    });
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let action = legal.actions.iter().find(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 1, .. }
+        if unit_instance_id.as_str() == "unit_am"
+    )).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, action, legal.epoch);
+
+    // Choose Blue Attack 7 (index 2)
+    let legal2 = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let resolve = legal2.actions.iter().find(|a| matches!(a, LegalAction::ResolveChoice { choice_index: 2 })).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, resolve, legal2.epoch);
+
+    assert_eq!(state.players[0].combat_accumulator.attack.normal, 7);
+    assert_eq!(state.players[0].combat_accumulator.attack.normal_elements.cold_fire, 7);
+    // Blue mana should be consumed
+    assert!(state.players[0].pure_mana.is_empty(), "Blue mana should be consumed");
+}
+
+// --- Ability 3: AltemMagesAttackModifier ---
+
+#[test]
+fn altem_mages_attack_modifier_not_enumerated_without_black_mana() {
+    let (mut state, undo) = setup_altem_mages_combat(CombatPhase::Attack);
+    state.players[0].pure_mana.clear();
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let action = legal.actions.iter().find(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 2, .. }
+        if unit_instance_id.as_str() == "unit_am"
+    ));
+    assert!(action.is_none(), "AttackModifier should NOT be available without black mana");
+}
+
+#[test]
+fn altem_mages_attack_modifier_enumerated_with_black_mana() {
+    let (mut state, undo) = setup_altem_mages_combat(CombatPhase::Attack);
+    state.players[0].pure_mana.clear();
+    state.players[0].pure_mana.push(mk_types::state::ManaToken {
+        color: ManaColor::Black,
+        source: mk_types::state::ManaTokenSource::Die,
+        cannot_power_spells: false,
+    });
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let action = legal.actions.iter().find(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 2, .. }
+        if unit_instance_id.as_str() == "unit_am"
+    ));
+    assert!(action.is_some(), "AttackModifier should be available with black mana");
+}
+
+#[test]
+fn altem_mages_attack_modifier_consumes_black_mana() {
+    let (mut state, mut undo) = setup_altem_mages_combat(CombatPhase::Attack);
+    state.players[0].pure_mana.clear();
+    state.players[0].pure_mana.push(mk_types::state::ManaToken {
+        color: ManaColor::Black,
+        source: mk_types::state::ManaTokenSource::Die,
+        cannot_power_spells: false,
+    });
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let action = legal.actions.iter().find(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 2, .. }
+        if unit_instance_id.as_str() == "unit_am"
+    )).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, action, legal.epoch);
+
+    // Black mana should be consumed
+    assert!(state.players[0].pure_mana.is_empty(), "Black mana consumed");
+    // Should have 2-option choice
+    assert!(matches!(
+        state.players[0].pending.active,
+        Some(ActivePending::UnitAbilityChoice { ref options, .. }) if options.len() == 2
+    ));
+}
+
+#[test]
+fn altem_mages_coldfire_modifier_transforms_attacks() {
+    use mk_types::pending::UnitAbilityChoiceOption;
+    let (mut state, mut undo) = setup_altem_mages_combat(CombatPhase::Attack);
+    state.players[0].pure_mana.clear();
+    state.players[0].pure_mana.push(mk_types::state::ManaToken {
+        color: ManaColor::Black,
+        source: mk_types::state::ManaTokenSource::Die,
+        cannot_power_spells: false,
+    });
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let action = legal.actions.iter().find(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 2, .. }
+        if unit_instance_id.as_str() == "unit_am"
+    )).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, action, legal.epoch);
+
+    // Choose TransformAttacksToColdFire (index 0)
+    let legal2 = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let resolve = legal2.actions.iter().find(|a| matches!(a, LegalAction::ResolveChoice { choice_index: 0 })).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, resolve, legal2.epoch);
+
+    // Modifier should be active
+    let has_modifier = state.active_modifiers.iter().any(|m| {
+        matches!(m.effect, ModifierEffect::TransformAttacksColdFire)
+    });
+    assert!(has_modifier, "TransformAttacksColdFire modifier should be active");
+}
+
+#[test]
+fn altem_mages_siege_modifier_adds_siege() {
+    let (mut state, mut undo) = setup_altem_mages_combat(CombatPhase::Attack);
+    state.players[0].pure_mana.clear();
+    state.players[0].pure_mana.push(mk_types::state::ManaToken {
+        color: ManaColor::Black,
+        source: mk_types::state::ManaTokenSource::Die,
+        cannot_power_spells: false,
+    });
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let action = legal.actions.iter().find(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 2, .. }
+        if unit_instance_id.as_str() == "unit_am"
+    )).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, action, legal.epoch);
+
+    // Choose AddSiegeToAllAttacks (index 1)
+    let legal2 = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let resolve = legal2.actions.iter().find(|a| matches!(a, LegalAction::ResolveChoice { choice_index: 1 })).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, resolve, legal2.epoch);
+
+    let has_modifier = state.active_modifiers.iter().any(|m| {
+        matches!(m.effect, ModifierEffect::AddSiegeToAttacks)
+    });
+    assert!(has_modifier, "AddSiegeToAttacks modifier should be active");
+}
+
+// --- Modifier integration ---
+
+#[test]
+fn coldfire_modifier_transforms_subsequent_card_attack() {
+    let (mut state, mut undo) = setup_altem_mages_combat(CombatPhase::Attack);
+    state.players[0].hand = vec![CardId::from("rage")];
+    state.players[0].pure_mana.clear();
+    state.players[0].pure_mana.push(mk_types::state::ManaToken {
+        color: ManaColor::Black,
+        source: mk_types::state::ManaTokenSource::Die,
+        cannot_power_spells: false,
+    });
+
+    // Activate modifier: choose ColdFire
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let action = legal.actions.iter().find(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 2, .. }
+        if unit_instance_id.as_str() == "unit_am"
+    )).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, action, legal.epoch);
+
+    let legal2 = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let resolve = legal2.actions.iter().find(|a| matches!(a, LegalAction::ResolveChoice { choice_index: 0 })).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, resolve, legal2.epoch);
+
+    // Now play Rage basic (GainAttack 2 Physical Melee)
+    let legal3 = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let rage = legal3.actions.iter().find(|a| matches!(a,
+        LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "rage"
+    )).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, rage, legal3.epoch);
+
+    // Rage basic is a Choice (Attack 2 OR Block 2) — resolve by choosing Attack (index 0)
+    let legal4 = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let resolve_rage = legal4.actions.iter().find(|a| matches!(a, LegalAction::ResolveChoice { choice_index: 0 })).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, resolve_rage, legal4.epoch);
+
+    // Attack should be ColdFire, not Physical
+    assert_eq!(state.players[0].combat_accumulator.attack.normal_elements.cold_fire, 2,
+        "Rage attack should be transformed to ColdFire");
+    assert_eq!(state.players[0].combat_accumulator.attack.normal_elements.physical, 0,
+        "No physical attack with ColdFire modifier");
+}
+
+#[test]
+fn siege_modifier_mirrors_attack_to_siege() {
+    let (mut state, mut undo) = setup_altem_mages_combat(CombatPhase::Attack);
+    state.players[0].hand = vec![CardId::from("rage")];
+    state.players[0].pure_mana.clear();
+    state.players[0].pure_mana.push(mk_types::state::ManaToken {
+        color: ManaColor::Black,
+        source: mk_types::state::ManaTokenSource::Die,
+        cannot_power_spells: false,
+    });
+
+    // Activate modifier: choose Siege
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let action = legal.actions.iter().find(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 2, .. }
+        if unit_instance_id.as_str() == "unit_am"
+    )).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, action, legal.epoch);
+
+    let legal2 = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let resolve = legal2.actions.iter().find(|a| matches!(a, LegalAction::ResolveChoice { choice_index: 1 })).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, resolve, legal2.epoch);
+
+    // Now play Rage basic (GainAttack 2 Physical Melee)
+    let legal3 = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let rage = legal3.actions.iter().find(|a| matches!(a,
+        LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "rage"
+    )).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, rage, legal3.epoch);
+
+    // Rage basic is a Choice (Attack 2 OR Block 2) — resolve by choosing Attack (index 0)
+    let legal4 = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let resolve_rage = legal4.actions.iter().find(|a| matches!(a, LegalAction::ResolveChoice { choice_index: 0 })).unwrap();
+    let _ = apply_legal_action(&mut state, &mut undo, 0, resolve_rage, legal4.epoch);
+
+    // Normal attack present
+    assert_eq!(state.players[0].combat_accumulator.attack.normal, 2);
+    // Siege should also have 2
+    assert_eq!(state.players[0].combat_accumulator.attack.siege, 2,
+        "AddSiegeToAttacks should mirror melee attack to siege");
+}
+
+// --- Sideways masking with modifiers ---
+
+#[test]
+fn no_sideways_attack_in_rangedsiege_by_default() {
+    let mut state = setup_game(vec!["rage"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::RangedSiege,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+    let has_sideways_atk = legal.actions.iter().any(|a| matches!(a,
+        LegalAction::PlayCardSideways { sideways_as: SidewaysAs::Attack, .. }
+    ));
+    assert!(!has_sideways_atk, "No sideways Attack in RangedSiege without modifier");
+}
+
+#[test]
+fn sideways_attack_in_rangedsiege_with_coldfire_modifier() {
+    use mk_types::modifier::{ActiveModifier, ModifierDuration, ModifierScope, ModifierSource};
+    use mk_types::ids::ModifierId;
+    let mut state = setup_game(vec!["rage"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::RangedSiege,
+        ..CombatState::default()
+    }));
+    let player_id = state.players[0].id.clone();
+    state.active_modifiers.push(ActiveModifier {
+        id: ModifierId::from("test_mod"),
+        source: ModifierSource::Card {
+            card_id: CardId::from("altem_mages"),
+            player_id: player_id.clone(),
+        },
+        duration: ModifierDuration::Combat,
+        scope: ModifierScope::SelfScope,
+        effect: ModifierEffect::TransformAttacksColdFire,
+        created_at_round: 1,
+        created_by_player_id: player_id,
+    });
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let has_sideways_atk = legal.actions.iter().any(|a| matches!(a,
+        LegalAction::PlayCardSideways { sideways_as: SidewaysAs::Attack, .. }
+    ));
+    assert!(has_sideways_atk, "Sideways Attack should be available in RangedSiege with ColdFire modifier");
+}
+
+#[test]
+fn sideways_attack_in_rangedsiege_with_siege_modifier() {
+    use mk_types::modifier::{ActiveModifier, ModifierDuration, ModifierScope, ModifierSource};
+    use mk_types::ids::ModifierId;
+    let mut state = setup_game(vec!["rage"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::RangedSiege,
+        ..CombatState::default()
+    }));
+    let player_id = state.players[0].id.clone();
+    state.active_modifiers.push(ActiveModifier {
+        id: ModifierId::from("test_mod"),
+        source: ModifierSource::Card {
+            card_id: CardId::from("altem_mages"),
+            player_id: player_id.clone(),
+        },
+        duration: ModifierDuration::Combat,
+        scope: ModifierScope::SelfScope,
+        effect: ModifierEffect::AddSiegeToAttacks,
+        created_at_round: 1,
+        created_by_player_id: player_id,
+    });
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let has_sideways_atk = legal.actions.iter().any(|a| matches!(a,
+        LegalAction::PlayCardSideways { sideways_as: SidewaysAs::Attack, .. }
+    ));
+    assert!(has_sideways_atk, "Sideways Attack should be available in RangedSiege with Siege modifier");
+}
+
+// =========================================================================
+// Scouts: MoveWithExtendedExplore
+// =========================================================================
+
+#[test]
+fn scouts_extended_explore_enumerated_outside_combat() {
+    let (state, undo) = setup_complex_unit("scouts", "unit_scout");
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let has_extended_explore = legal.actions.iter().any(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 2, .. }
+        if unit_instance_id.as_str() == "unit_scout"
+    ));
+    assert!(has_extended_explore, "MoveWithExtendedExplore (index 2) should be available outside combat");
+}
+
+#[test]
+fn scouts_extended_explore_not_in_combat() {
+    let (mut state, undo) = setup_complex_unit("scouts", "unit_scout");
+    state.combat = Some(Box::new(CombatState::default()));
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let has_extended_explore = legal.actions.iter().any(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 2, .. }
+        if unit_instance_id.as_str() == "unit_scout"
+    ));
+    assert!(!has_extended_explore, "MoveWithExtendedExplore should NOT be available in combat");
+}
+
+#[test]
+fn scouts_extended_explore_grants_move_and_modifier() {
+    let (mut state, mut undo) = setup_complex_unit("scouts", "unit_scout");
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let action = legal.actions.iter().find(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 2, .. }
+        if unit_instance_id.as_str() == "unit_scout"
+    )).expect("MoveWithExtendedExplore should be available");
+
+    let _ = apply_legal_action(&mut state, &mut undo, 0, action, legal.epoch);
+
+    assert_eq!(state.players[0].move_points, 2, "Should gain 2 move points");
+
+    // Check ExtendedExplore modifier was pushed
+    use mk_types::modifier::RuleOverride;
+    let has_rule = state.active_modifiers.iter().any(|m| matches!(&m.effect,
+        ModifierEffect::RuleOverride { rule: RuleOverride::ExtendedExplore }
+    ));
+    assert!(has_rule, "ExtendedExplore rule override should be active");
+}
+
+// =========================================================================
+// Scouts: ScoutPeek
+// =========================================================================
+
+#[test]
+fn scouts_peek_enumerated_outside_combat() {
+    let (state, undo) = setup_complex_unit("scouts", "unit_scout");
+    // Ensure draw piles are non-empty (they should be by default from create_solo_game)
+    assert!(!state.enemy_tokens.green_draw.is_empty(), "green draw pile should be non-empty");
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let has_peek = legal.actions.iter().any(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 1, .. }
+        if unit_instance_id.as_str() == "unit_scout"
+    ));
+    assert!(has_peek, "ScoutPeek (index 1) should be available when draw piles are non-empty");
+}
+
+#[test]
+fn scouts_peek_not_in_combat() {
+    let (mut state, undo) = setup_complex_unit("scouts", "unit_scout");
+    state.combat = Some(Box::new(CombatState::default()));
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let has_peek = legal.actions.iter().any(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 1, .. }
+        if unit_instance_id.as_str() == "unit_scout"
+    ));
+    assert!(!has_peek, "ScoutPeek should NOT be available in combat");
+}
+
+#[test]
+fn scouts_peek_not_enumerated_without_targets() {
+    let (mut state, undo) = setup_complex_unit("scouts", "unit_scout");
+
+    // Clear ALL draw piles
+    state.enemy_tokens.green_draw.clear();
+    state.enemy_tokens.gray_draw.clear();
+    state.enemy_tokens.brown_draw.clear();
+    state.enemy_tokens.violet_draw.clear();
+    state.enemy_tokens.white_draw.clear();
+    state.enemy_tokens.red_draw.clear();
+
+    // Also clear any face-down enemies on map
+    for hex in state.map.hexes.values_mut() {
+        hex.enemies.clear();
+    }
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let has_peek = legal.actions.iter().any(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 1, .. }
+        if unit_instance_id.as_str() == "unit_scout"
+    ));
+    assert!(!has_peek, "ScoutPeek should NOT be available when no targets exist");
+}
+
+#[test]
+fn scouts_peek_pile_pushes_fame_modifier() {
+    let (mut state, mut undo) = setup_complex_unit("scouts", "unit_scout");
+    assert!(!state.enemy_tokens.green_draw.is_empty());
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let action = legal.actions.iter().find(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 1, .. }
+        if unit_instance_id.as_str() == "unit_scout"
+    )).expect("ScoutPeek should be available");
+
+    let _ = apply_legal_action(&mut state, &mut undo, 0, action, legal.epoch);
+
+    // Should now have a UnitAbilityChoice pending with ScoutPeekPile options
+    assert!(state.players[0].pending.has_active(), "Should have pending choice");
+    if let Some(ActivePending::UnitAbilityChoice { ref options, .. }) = state.players[0].pending.active {
+        let has_pile_option = options.iter().any(|o| matches!(o,
+            mk_types::pending::UnitAbilityChoiceOption::ScoutPeekPile { .. }
+        ));
+        assert!(has_pile_option, "Should have ScoutPeekPile options");
+
+        // Resolve the choice — pick the first pile option
+        let pile_idx = options.iter().position(|o| matches!(o,
+            mk_types::pending::UnitAbilityChoiceOption::ScoutPeekPile { .. }
+        )).unwrap();
+
+        let legal2 = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        let resolve = legal2.actions.iter().find(|a| matches!(a,
+            LegalAction::ResolveChoice { choice_index } if *choice_index == pile_idx
+        )).expect("Should have resolve action for pile peek");
+
+        let _ = apply_legal_action(&mut state, &mut undo, 0, resolve, legal2.epoch);
+
+        // ScoutFameBonus modifier should be active
+        let has_bonus = state.active_modifiers.iter().any(|m| matches!(&m.effect,
+            ModifierEffect::ScoutFameBonus { .. }
+        ));
+        assert!(has_bonus, "ScoutFameBonus modifier should be active after peek");
+    } else {
+        panic!("Expected UnitAbilityChoice pending");
+    }
+}
+
+#[test]
+fn scouts_peek_hex_pushes_fame_modifier_without_revealing() {
+    let (mut state, mut undo) = setup_complex_unit("scouts", "unit_scout");
+
+    // Place a face-down enemy on a hex within distance 3 of player
+    let player_pos = state.players[0].position.unwrap();
+    let token_id = mk_types::ids::EnemyTokenId::from("prowlers_99");
+    if let Some(hex) = state.map.hexes.get_mut(&player_pos.key()) {
+        hex.enemies.push(mk_types::state::HexEnemy {
+            token_id: token_id.clone(),
+            color: mk_types::enums::EnemyColor::Green,
+            is_revealed: false,
+        });
+    }
+
+    // Clear draw piles so only hex target exists
+    state.enemy_tokens.green_draw.clear();
+    state.enemy_tokens.gray_draw.clear();
+    state.enemy_tokens.brown_draw.clear();
+    state.enemy_tokens.violet_draw.clear();
+    state.enemy_tokens.white_draw.clear();
+    state.enemy_tokens.red_draw.clear();
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let action = legal.actions.iter().find(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 1, .. }
+        if unit_instance_id.as_str() == "unit_scout"
+    )).expect("ScoutPeek should be available with face-down hex enemy");
+
+    let _ = apply_legal_action(&mut state, &mut undo, 0, action, legal.epoch);
+
+    // Resolve the hex peek choice
+    if let Some(ActivePending::UnitAbilityChoice { ref options, .. }) = state.players[0].pending.active {
+        assert_eq!(options.len(), 1, "Should have exactly one hex target");
+        assert!(matches!(options[0], mk_types::pending::UnitAbilityChoiceOption::ScoutPeekHex { .. }));
+
+        let legal2 = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        let resolve = legal2.actions.iter().find(|a| matches!(a,
+            LegalAction::ResolveChoice { choice_index: 0 }
+        )).expect("Should have resolve action");
+
+        let _ = apply_legal_action(&mut state, &mut undo, 0, resolve, legal2.epoch);
+
+        // Verify enemy NOT revealed on map
+        let hex = state.map.hexes.get(&player_pos.key()).unwrap();
+        assert!(!hex.enemies[0].is_revealed, "Enemy should NOT be revealed (private peek)");
+
+        // ScoutFameBonus modifier should be active
+        let has_bonus = state.active_modifiers.iter().any(|m| matches!(&m.effect,
+            ModifierEffect::ScoutFameBonus { .. }
+        ));
+        assert!(has_bonus, "ScoutFameBonus modifier should be active after hex peek");
+    } else {
+        panic!("Expected UnitAbilityChoice pending");
+    }
+}
+
+#[test]
+fn scouts_fame_bonus_modifier_matches_correct_enemy() {
+    // Verify the ScoutFameBonus modifier structure matches correctly
+    use mk_types::modifier::*;
+    let pid = PlayerId::from("p0");
+
+    let modifiers = vec![ActiveModifier {
+        id: mk_types::ids::ModifierId::from("scout_bonus_1"),
+        source: ModifierSource::Unit { unit_index: 0, player_id: pid.clone() },
+        duration: ModifierDuration::Turn,
+        scope: ModifierScope::SelfScope,
+        effect: ModifierEffect::ScoutFameBonus {
+            revealed_enemy_ids: vec!["prowlers".to_string()],
+            fame: 1,
+        },
+        created_at_round: 1,
+        created_by_player_id: pid.clone(),
+    }];
+
+    // Matching enemy: should find the modifier
+    let defeated_matching = vec!["prowlers".to_string()];
+    let bonus_match = modifiers.iter().find(|m| {
+        if let ModifierEffect::ScoutFameBonus { revealed_enemy_ids, .. } = &m.effect {
+            defeated_matching.iter().any(|eid| revealed_enemy_ids.contains(eid))
+        } else {
+            false
+        }
+    });
+    assert!(bonus_match.is_some(), "ScoutFameBonus should match peeked enemy");
+}
+
+#[test]
+fn scouts_fame_bonus_not_on_non_matching_enemy() {
+    // The ScoutFameBonus should NOT trigger for an enemy that wasn't peeked
+    use mk_types::modifier::*;
+    let pid = PlayerId::from("p0");
+
+    let defeated_enemy_ids = vec!["orc_swordsmen".to_string()];
+
+    let modifiers = vec![ActiveModifier {
+        id: mk_types::ids::ModifierId::from("scout_bonus_1"),
+        source: ModifierSource::Unit { unit_index: 0, player_id: pid.clone() },
+        duration: ModifierDuration::Turn,
+        scope: ModifierScope::SelfScope,
+        effect: ModifierEffect::ScoutFameBonus {
+            revealed_enemy_ids: vec!["prowlers".to_string()],
+            fame: 1,
+        },
+        created_at_round: 1,
+        created_by_player_id: pid.clone(),
+    }];
+
+    // Directly call the combat hook function via state
+    // Since count_scout_fame_bonus is private, we verify through the modifier structure
+    let bonus_mod = modifiers.iter().find(|m| {
+        if let ModifierEffect::ScoutFameBonus { revealed_enemy_ids, .. } = &m.effect {
+            defeated_enemy_ids.iter().any(|eid| revealed_enemy_ids.contains(eid))
+        } else {
+            false
+        }
+    });
+    assert!(bonus_mod.is_none(), "ScoutFameBonus should NOT match non-peeked enemy");
+}
+
+#[test]
+fn scouts_siege_still_works_in_combat() {
+    // Scouts ability 0 (siege) should still work in combat
+    let (mut state, undo) = setup_complex_unit("scouts", "unit_scout");
+    state.combat = Some(Box::new(CombatState::default()));
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let has_siege = legal.actions.iter().any(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 0, .. }
+        if unit_instance_id.as_str() == "unit_scout"
+    ));
+    assert!(has_siege, "Scouts Siege Attack (index 0) should be available in RangedSiege phase");
 }

@@ -2808,21 +2808,42 @@ fn apply_gain_attack(
         }
     }
 
+    // Altem Mages modifier hooks (after Bow, before writing)
+    let player_id = &state.players[player_idx].id;
+    let has_coldfire_transform = state.active_modifiers.iter().any(|m| {
+        matches!(&m.effect, ModifierEffect::TransformAttacksColdFire)
+            && m.created_by_player_id == *player_id
+    });
+    let has_siege_add = state.active_modifiers.iter().any(|m| {
+        matches!(&m.effect, ModifierEffect::AddSiegeToAttacks)
+            && m.created_by_player_id == *player_id
+    });
+
+    let effective_element = if has_coldfire_transform { Element::ColdFire } else { element };
+
     let acc = &mut state.players[player_idx].combat_accumulator.attack;
     match combat_type {
         CombatType::Melee => {
             acc.normal += amount;
-            add_to_elemental(&mut acc.normal_elements, element, amount);
+            add_to_elemental(&mut acc.normal_elements, effective_element, amount);
         }
         CombatType::Ranged => {
             acc.ranged += amount;
-            add_to_elemental(&mut acc.ranged_elements, element, amount);
+            add_to_elemental(&mut acc.ranged_elements, effective_element, amount);
         }
         CombatType::Siege => {
             acc.siege += amount;
-            add_to_elemental(&mut acc.siege_elements, element, amount);
+            add_to_elemental(&mut acc.siege_elements, effective_element, amount);
         }
     }
+
+    // AddSiegeToAttacks: also mirror the attack amount as siege
+    if has_siege_add {
+        let acc = &mut state.players[player_idx].combat_accumulator.attack;
+        acc.siege += amount;
+        add_to_elemental(&mut acc.siege_elements, effective_element, amount);
+    }
+
     ResolveResult::Applied
 }
 
@@ -2839,21 +2860,41 @@ fn apply_gain_attack_bow_resolved(
         return ResolveResult::Skipped;
     }
 
+    // Altem Mages modifier hooks
+    let player_id = &state.players[player_idx].id;
+    let has_coldfire_transform = state.active_modifiers.iter().any(|m| {
+        matches!(&m.effect, ModifierEffect::TransformAttacksColdFire)
+            && m.created_by_player_id == *player_id
+    });
+    let has_siege_add = state.active_modifiers.iter().any(|m| {
+        matches!(&m.effect, ModifierEffect::AddSiegeToAttacks)
+            && m.created_by_player_id == *player_id
+    });
+
+    let effective_element = if has_coldfire_transform { Element::ColdFire } else { element };
+
     let acc = &mut state.players[player_idx].combat_accumulator.attack;
     match combat_type {
         CombatType::Melee => {
             acc.normal += amount;
-            add_to_elemental(&mut acc.normal_elements, element, amount);
+            add_to_elemental(&mut acc.normal_elements, effective_element, amount);
         }
         CombatType::Ranged => {
             acc.ranged += amount;
-            add_to_elemental(&mut acc.ranged_elements, element, amount);
+            add_to_elemental(&mut acc.ranged_elements, effective_element, amount);
         }
         CombatType::Siege => {
             acc.siege += amount;
-            add_to_elemental(&mut acc.siege_elements, element, amount);
+            add_to_elemental(&mut acc.siege_elements, effective_element, amount);
         }
     }
+
+    if has_siege_add {
+        let acc = &mut state.players[player_idx].combat_accumulator.attack;
+        acc.siege += amount;
+        add_to_elemental(&mut acc.siege_elements, effective_element, amount);
+    }
+
     ResolveResult::Applied
 }
 

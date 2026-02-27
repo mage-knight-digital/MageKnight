@@ -28,6 +28,7 @@ mod units;
 pub use combat_end::{expire_modifiers_turn_end, expire_modifiers_turn_start, expire_modifiers_round_end};
 pub use sites::try_negate_wound_with_fortitude;
 pub use units::apply_select_enemy_effects_pub;
+pub(crate) use units::apply_attack_with_modifiers;
 pub use skills::{
     apply_power_of_pain_pub, apply_i_dont_give_a_damn_pub,
     apply_who_needs_magic_pub, apply_universal_power_pub,

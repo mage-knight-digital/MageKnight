@@ -574,23 +574,23 @@ fn apply_sideways_effect(
     sideways_as: SidewaysAs,
     value: u32,
 ) {
-    let player = &mut state.players[player_idx];
     match sideways_as {
         SidewaysAs::Move => {
-            player.move_points += value;
+            state.players[player_idx].move_points += value;
         }
         SidewaysAs::Influence => {
-            player.influence_points += value;
+            state.players[player_idx].influence_points += value;
         }
         SidewaysAs::Attack => {
-            // Sideways attack is always physical melee
-            player.combat_accumulator.attack.normal += value;
-            player.combat_accumulator.attack.normal_elements.physical += value;
+            // Sideways attack: physical melee, but modifiers may transform it
+            crate::action_pipeline::apply_attack_with_modifiers(
+                state, player_idx, value, CombatType::Melee, Element::Physical,
+            );
         }
         SidewaysAs::Block => {
             // Sideways block is always physical
-            player.combat_accumulator.block += value;
-            player.combat_accumulator.block_elements.physical += value;
+            state.players[player_idx].combat_accumulator.block += value;
+            state.players[player_idx].combat_accumulator.block_elements.physical += value;
         }
     }
 }

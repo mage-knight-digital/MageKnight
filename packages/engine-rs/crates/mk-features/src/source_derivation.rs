@@ -253,6 +253,13 @@ fn derive_resolve_choice_source(
                 mk_types::pending::UnitAbilityChoiceOption::GainInfluence { .. } => "pending_choice.gain_influence",
                 mk_types::pending::UnitAbilityChoiceOption::GainAttack { .. } => "pending_choice.gain_attack",
                 mk_types::pending::UnitAbilityChoiceOption::GainBlock { .. } => "pending_choice.gain_block",
+                mk_types::pending::UnitAbilityChoiceOption::GainManaToken { .. } => "pending_choice.gain_mana_token",
+                mk_types::pending::UnitAbilityChoiceOption::GainColdFireAttack { .. } => "pending_choice.gain_coldfire_attack",
+                mk_types::pending::UnitAbilityChoiceOption::GainColdFireBlock { .. } => "pending_choice.gain_coldfire_block",
+                mk_types::pending::UnitAbilityChoiceOption::TransformAttacksToColdFire => "pending_choice.transform_attacks_coldfire",
+                mk_types::pending::UnitAbilityChoiceOption::AddSiegeToAllAttacks => "pending_choice.add_siege_to_attacks",
+                mk_types::pending::UnitAbilityChoiceOption::ScoutPeekHex { .. } => "pending_choice.scout_peek_hex",
+                mk_types::pending::UnitAbilityChoiceOption::ScoutPeekPile { .. } => "pending_choice.scout_peek_pile",
             };
         }
     }

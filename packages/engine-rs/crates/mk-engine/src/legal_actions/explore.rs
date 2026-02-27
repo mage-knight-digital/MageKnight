@@ -63,7 +63,8 @@ pub(super) fn enumerate_explores(
             continue;
         }
 
-        if !crate::movement::is_player_near_explore_edge(pos, tile_center, *dir) {
+        let explore_distance = if is_rule_active(state, player_idx, RuleOverride::ExtendedExplore) { 2 } else { 1 };
+        if !crate::movement::is_player_near_explore_edge(pos, tile_center, *dir, explore_distance) {
             continue;
         }
 

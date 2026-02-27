@@ -1392,6 +1392,17 @@ fn unit_ability_str(ability: &mk_data::units::UnitAbility) -> String {
         UnitAbility::MoveWithTerrainReduction { move_value, .. } => {
             format!("Move {} + terrain reduction", move_value)
         }
+        UnitAbility::GainManaChoose { count } => format!("Gain {} mana (choose color)", count),
+        UnitAbility::AltemMagesColdFire { base, both_value, .. } => {
+            format!("ColdFire Attack/Block {}-{}", base, both_value)
+        }
+        UnitAbility::AltemMagesAttackModifier => "Attack modifier (black mana)".into(),
+        UnitAbility::ScoutPeek { distance, fame_bonus } => {
+            format!("Scout Peek (range {}, +{} fame)", distance, fame_bonus)
+        }
+        UnitAbility::MoveWithExtendedExplore { move_value } => {
+            format!("Move {} + extended explore", move_value)
+        }
         UnitAbility::Other { description } => description.to_string(),
     }
 }

@@ -6,6 +6,8 @@ use mk_types::enums::*;
 use mk_types::pending::ActivePending;
 use mk_types::state::*;
 
+use mk_types::modifier::ModifierEffect;
+
 use crate::{combat_resolution, mana};
 
 use super::{ApplyError, ApplyResult};
@@ -134,6 +136,66 @@ pub(super) fn consume_mana_for_unit(
 }
 
 
+/// Check if the player can afford a basic mana color (token > gold > crystal).
+fn can_afford_basic_mana(player: &PlayerState, color: BasicManaColor) -> bool {
+    let target = ManaColor::from(color);
+    if player.pure_mana.iter().any(|t| t.color == target) {
+        return true;
+    }
+    if player.pure_mana.iter().any(|t| t.color == ManaColor::Gold) {
+        return true;
+    }
+    let crystal_count = match color {
+        BasicManaColor::Red => player.crystals.red,
+        BasicManaColor::Blue => player.crystals.blue,
+        BasicManaColor::Green => player.crystals.green,
+        BasicManaColor::White => player.crystals.white,
+    };
+    crystal_count > 0
+}
+
+/// Consume a black mana token (for Altem Mages attack modifier).
+fn consume_black_mana(
+    state: &mut GameState,
+    player_idx: usize,
+) -> Result<(), ApplyError> {
+    let player = &mut state.players[player_idx];
+    if let Some(idx) = player.pure_mana.iter().position(|t| t.color == ManaColor::Black) {
+        player.pure_mana.remove(idx);
+        Ok(())
+    } else {
+        Err(ApplyError::InternalError(
+            "AltemMagesAttackModifier: no black mana available".into(),
+        ))
+    }
+}
+
+/// Check if the player can afford both blue AND red mana simultaneously.
+/// This requires that after consuming one, the other is still available.
+/// We count distinct sources: matching tokens, gold tokens, and crystals.
+fn can_afford_both_blue_red(player: &PlayerState) -> bool {
+    let blue_tokens = player.pure_mana.iter().filter(|t| t.color == ManaColor::Blue).count();
+    let red_tokens = player.pure_mana.iter().filter(|t| t.color == ManaColor::Red).count();
+    let gold_tokens = player.pure_mana.iter().filter(|t| t.color == ManaColor::Gold).count();
+    let blue_crystals = player.crystals.blue as usize;
+    let red_crystals = player.crystals.red as usize;
+
+    // Total sources for blue: blue tokens + gold tokens + blue crystals
+    // Total sources for red: red tokens + gold tokens + red crystals
+    // But gold tokens are shared — we need to verify both can be satisfied simultaneously.
+    let blue_non_gold = blue_tokens + blue_crystals;
+    let red_non_gold = red_tokens + red_crystals;
+
+    // If we can satisfy both without gold, great
+    if blue_non_gold >= 1 && red_non_gold >= 1 {
+        return true;
+    }
+    // If one needs gold, check we have enough gold for the shortfall
+    let blue_need_gold = if blue_non_gold >= 1 { 0 } else { 1 };
+    let red_need_gold = if red_non_gold >= 1 { 0 } else { 1 };
+    gold_tokens >= blue_need_gold + red_need_gold
+}
+
 pub(super) fn apply_activate_unit(
     state: &mut GameState,
     player_idx: usize,
@@ -218,9 +280,7 @@ pub(super) fn apply_activate_unit(
     match slot.ability {
         UnitAbility::Attack { value, element } => {
             let boosted = (value as i32 + unit_attack_bonus).max(0) as u32;
-            let acc = &mut state.players[player_idx].combat_accumulator.attack;
-            acc.normal += boosted;
-            add_to_elemental(&mut acc.normal_elements, element, boosted);
+            apply_attack_with_modifiers(state, player_idx, boosted, CombatType::Melee, element);
         }
         UnitAbility::Block { value, element } => {
             let boosted = (value as i32 + unit_block_bonus + extra_block_bonus).max(0) as u32;
@@ -230,15 +290,11 @@ pub(super) fn apply_activate_unit(
         }
         UnitAbility::RangedAttack { value, element } => {
             let boosted = (value as i32 + unit_attack_bonus).max(0) as u32;
-            let acc = &mut state.players[player_idx].combat_accumulator.attack;
-            acc.ranged += boosted;
-            add_to_elemental(&mut acc.ranged_elements, element, boosted);
+            apply_attack_with_modifiers(state, player_idx, boosted, CombatType::Ranged, element);
         }
         UnitAbility::SiegeAttack { value, element } => {
             let boosted = (value as i32 + unit_attack_bonus).max(0) as u32;
-            let acc = &mut state.players[player_idx].combat_accumulator.attack;
-            acc.siege += boosted;
-            add_to_elemental(&mut acc.siege_elements, element, boosted);
+            apply_attack_with_modifiers(state, player_idx, boosted, CombatType::Siege, element);
         }
         UnitAbility::Move { value } => {
             state.players[player_idx].move_points += value;
@@ -286,9 +342,7 @@ pub(super) fn apply_activate_unit(
         }
         UnitAbility::AttackWithRepCost { value, element, rep_change } => {
             let boosted = (value as i32 + unit_attack_bonus).max(0) as u32;
-            let acc = &mut state.players[player_idx].combat_accumulator.attack;
-            acc.normal += boosted;
-            add_to_elemental(&mut acc.normal_elements, element, boosted);
+            apply_attack_with_modifiers(state, player_idx, boosted, CombatType::Melee, element);
             let new_rep = (state.players[player_idx].reputation as i16 + rep_change as i16)
                 .clamp(-7, 7) as i8;
             state.players[player_idx].reputation = new_rep;
@@ -311,6 +365,7 @@ pub(super) fn apply_activate_unit(
                         UnitAbilityChoiceOption::GainInfluence { value },
                     ],
                     wound_self: false,
+                    remaining_choices: 0,
                 });
             // Return early — unit already marked spent
             return Ok(ApplyResult {
@@ -331,6 +386,7 @@ pub(super) fn apply_activate_unit(
                         UnitAbilityChoiceOption::GainBlock { value, element },
                     ],
                     wound_self: true,
+                    remaining_choices: 0,
                 });
             // Return early — unit already marked spent
             return Ok(ApplyResult {
@@ -386,10 +442,8 @@ pub(super) fn apply_activate_unit(
             );
         }
         UnitAbility::CoordinatedFire { ranged_value, element, unit_attack_bonus } => {
-            // Add ranged attack to accumulator
-            let acc = &mut state.players[player_idx].combat_accumulator.attack;
-            acc.ranged += ranged_value;
-            add_to_elemental(&mut acc.ranged_elements, element, ranged_value);
+            // Add ranged attack to accumulator (respects modifiers)
+            apply_attack_with_modifiers(state, player_idx, ranged_value, CombatType::Ranged, element);
 
             // Add UnitAttackBonus modifier
             use mk_types::modifier::{
@@ -481,6 +535,140 @@ pub(super) fn apply_activate_unit(
                 });
             }
         }
+        UnitAbility::MoveWithExtendedExplore { move_value } => {
+            state.players[player_idx].move_points += move_value;
+            // Push ExtendedExplore rule override modifier for the rest of the turn
+            use mk_types::modifier::{
+                ActiveModifier, ModifierDuration, ModifierEffect, ModifierScope, ModifierSource,
+                RuleOverride,
+            };
+            use mk_types::ids::ModifierId;
+            let player_id = state.players[player_idx].id.clone();
+            let modifier_count = state.active_modifiers.len();
+            let modifier_id = format!(
+                "mod_{}_r{}_t{}",
+                modifier_count, state.round, state.current_player_index
+            );
+            state.active_modifiers.push(ActiveModifier {
+                id: ModifierId::from(modifier_id.as_str()),
+                source: ModifierSource::Unit {
+                    unit_index: unit_idx as u32,
+                    player_id: player_id.clone(),
+                },
+                duration: ModifierDuration::Turn,
+                scope: ModifierScope::SelfScope,
+                effect: ModifierEffect::RuleOverride { rule: RuleOverride::ExtendedExplore },
+                created_at_round: state.round,
+                created_by_player_id: player_id,
+            });
+        }
+        UnitAbility::GainManaChoose { count } => {
+            use mk_types::pending::UnitAbilityChoiceOption;
+            state.players[player_idx].units[unit_idx].state = UnitState::Spent;
+            let options = vec![
+                UnitAbilityChoiceOption::GainManaToken { color: BasicManaColor::Red },
+                UnitAbilityChoiceOption::GainManaToken { color: BasicManaColor::Blue },
+                UnitAbilityChoiceOption::GainManaToken { color: BasicManaColor::Green },
+                UnitAbilityChoiceOption::GainManaToken { color: BasicManaColor::White },
+            ];
+            state.players[player_idx].pending.active =
+                Some(ActivePending::UnitAbilityChoice {
+                    unit_instance_id: unit_instance_id.clone(),
+                    options,
+                    wound_self: false,
+                    remaining_choices: count.saturating_sub(1),
+                });
+            return Ok(ApplyResult {
+                needs_reenumeration: true,
+                game_ended: false,
+                events: Vec::new(),
+            });
+        }
+        UnitAbility::AltemMagesColdFire { base, blue_value, red_value, both_value } => {
+            use mk_types::pending::{UnitAbilityChoiceOption, AltemMagesManaScaling};
+            state.players[player_idx].units[unit_idx].state = UnitState::Spent;
+
+            let player = &state.players[player_idx];
+            let can_blue = can_afford_basic_mana(player, BasicManaColor::Blue);
+            let can_red = can_afford_basic_mana(player, BasicManaColor::Red);
+            // "Both" requires blue AND red available simultaneously.
+            // We need to check that after consuming one, the other is still available.
+            let can_both = can_blue && can_red && can_afford_both_blue_red(player);
+
+            let mut options = vec![
+                UnitAbilityChoiceOption::GainColdFireAttack { value: base, mana_cost: AltemMagesManaScaling::Free },
+                UnitAbilityChoiceOption::GainColdFireBlock { value: base, mana_cost: AltemMagesManaScaling::Free },
+            ];
+            if can_blue {
+                options.push(UnitAbilityChoiceOption::GainColdFireAttack { value: blue_value, mana_cost: AltemMagesManaScaling::Blue });
+                options.push(UnitAbilityChoiceOption::GainColdFireBlock { value: blue_value, mana_cost: AltemMagesManaScaling::Blue });
+            }
+            if can_red {
+                options.push(UnitAbilityChoiceOption::GainColdFireAttack { value: red_value, mana_cost: AltemMagesManaScaling::Red });
+                options.push(UnitAbilityChoiceOption::GainColdFireBlock { value: red_value, mana_cost: AltemMagesManaScaling::Red });
+            }
+            if can_both {
+                options.push(UnitAbilityChoiceOption::GainColdFireAttack { value: both_value, mana_cost: AltemMagesManaScaling::Both });
+                options.push(UnitAbilityChoiceOption::GainColdFireBlock { value: both_value, mana_cost: AltemMagesManaScaling::Both });
+            }
+
+            state.players[player_idx].pending.active =
+                Some(ActivePending::UnitAbilityChoice {
+                    unit_instance_id: unit_instance_id.clone(),
+                    options,
+                    wound_self: false,
+                    remaining_choices: 0,
+                });
+            return Ok(ApplyResult {
+                needs_reenumeration: true,
+                game_ended: false,
+                events: Vec::new(),
+            });
+        }
+        UnitAbility::AltemMagesAttackModifier => {
+            use mk_types::pending::UnitAbilityChoiceOption;
+            // Consume black mana first
+            consume_black_mana(state, player_idx)?;
+            state.players[player_idx].units[unit_idx].state = UnitState::Spent;
+
+            let options = vec![
+                UnitAbilityChoiceOption::TransformAttacksToColdFire,
+                UnitAbilityChoiceOption::AddSiegeToAllAttacks,
+            ];
+            state.players[player_idx].pending.active =
+                Some(ActivePending::UnitAbilityChoice {
+                    unit_instance_id: unit_instance_id.clone(),
+                    options,
+                    wound_self: false,
+                    remaining_choices: 0,
+                });
+            return Ok(ApplyResult {
+                needs_reenumeration: true,
+                game_ended: false,
+                events: Vec::new(),
+            });
+        }
+        UnitAbility::ScoutPeek { distance, fame_bonus } => {
+            state.players[player_idx].units[unit_idx].state = UnitState::Spent;
+            let options = collect_scout_peek_targets(state, player_idx, distance, fame_bonus);
+            if options.is_empty() {
+                return Err(ApplyError::InternalError(
+                    "ActivateUnit: ScoutPeek has no valid targets".into(),
+                ));
+            }
+            state.players[player_idx].pending.active =
+                Some(ActivePending::UnitAbilityChoice {
+                    unit_instance_id: unit_instance_id.clone(),
+                    options,
+                    wound_self: false,
+                    remaining_choices: 0,
+                });
+            return Ok(ApplyResult {
+                needs_reenumeration: true,
+                game_ended: false,
+                events: Vec::new(),
+            });
+        }
         UnitAbility::Other { .. } => {
             return Err(ApplyError::InternalError(
                 "ActivateUnit: Other abilities not executable".into(),
@@ -521,6 +709,7 @@ pub(super) fn apply_resolve_unit_ability_choice(
         unit_instance_id,
         options,
         wound_self,
+        remaining_choices,
     } = pending
     {
         if choice_index >= options.len() {
@@ -543,14 +732,61 @@ pub(super) fn apply_resolve_unit_ability_choice(
                 state.players[player_idx].influence_points += value;
             }
             UnitAbilityChoiceOption::GainAttack { value, element } => {
-                let acc = &mut state.players[player_idx].combat_accumulator.attack;
-                acc.normal += value;
-                add_to_elemental(&mut acc.normal_elements, element, value);
+                apply_attack_with_modifiers(state, player_idx, value, CombatType::Melee, element);
             }
             UnitAbilityChoiceOption::GainBlock { value, element } => {
                 let acc = &mut state.players[player_idx].combat_accumulator;
                 acc.block += value;
                 add_to_elemental(&mut acc.block_elements, element, value);
+            }
+            UnitAbilityChoiceOption::GainManaToken { color } => {
+                state.players[player_idx].pure_mana.push(ManaToken {
+                    color: ManaColor::from(color),
+                    source: ManaTokenSource::Effect,
+                    cannot_power_spells: false,
+                });
+                // If more choices remain, create another mana choice pending
+                if remaining_choices > 0 {
+                    state.players[player_idx].pending.active =
+                        Some(ActivePending::UnitAbilityChoice {
+                            unit_instance_id,
+                            options: vec![
+                                UnitAbilityChoiceOption::GainManaToken { color: BasicManaColor::Red },
+                                UnitAbilityChoiceOption::GainManaToken { color: BasicManaColor::Blue },
+                                UnitAbilityChoiceOption::GainManaToken { color: BasicManaColor::Green },
+                                UnitAbilityChoiceOption::GainManaToken { color: BasicManaColor::White },
+                            ],
+                            wound_self: false,
+                            remaining_choices: remaining_choices - 1,
+                        });
+                    return Ok(ApplyResult {
+                        needs_reenumeration: true,
+                        game_ended: false,
+                        events: Vec::new(),
+                    });
+                }
+            }
+            UnitAbilityChoiceOption::GainColdFireAttack { value, mana_cost } => {
+                consume_altem_mana(state, player_idx, mana_cost)?;
+                apply_attack_with_modifiers(state, player_idx, value, CombatType::Melee, Element::ColdFire);
+            }
+            UnitAbilityChoiceOption::GainColdFireBlock { value, mana_cost } => {
+                consume_altem_mana(state, player_idx, mana_cost)?;
+                let acc = &mut state.players[player_idx].combat_accumulator;
+                acc.block += value;
+                add_to_elemental(&mut acc.block_elements, Element::ColdFire, value);
+            }
+            UnitAbilityChoiceOption::TransformAttacksToColdFire => {
+                push_combat_modifier(state, player_idx, ModifierEffect::TransformAttacksColdFire);
+            }
+            UnitAbilityChoiceOption::AddSiegeToAllAttacks => {
+                push_combat_modifier(state, player_idx, ModifierEffect::AddSiegeToAttacks);
+            }
+            UnitAbilityChoiceOption::ScoutPeekHex { coord, enemy_index, fame_bonus } => {
+                return resolve_scout_peek_hex(state, player_idx, coord, enemy_index, fame_bonus, &unit_instance_id);
+            }
+            UnitAbilityChoiceOption::ScoutPeekPile { color, fame_bonus } => {
+                return resolve_scout_peek_pile(state, player_idx, color, fame_bonus, &unit_instance_id);
             }
         }
 
@@ -1008,6 +1244,107 @@ pub(super) fn apply_select_enemy_effects(
 }
 
 
+/// Consume mana for Altem Mages ColdFire ability based on the scaling tier.
+fn consume_altem_mana(
+    state: &mut GameState,
+    player_idx: usize,
+    scaling: mk_types::pending::AltemMagesManaScaling,
+) -> Result<(), ApplyError> {
+    use mk_types::pending::AltemMagesManaScaling;
+    match scaling {
+        AltemMagesManaScaling::Free => Ok(()),
+        AltemMagesManaScaling::Blue => {
+            consume_mana_for_unit(state, player_idx, BasicManaColor::Blue)?;
+            Ok(())
+        }
+        AltemMagesManaScaling::Red => {
+            consume_mana_for_unit(state, player_idx, BasicManaColor::Red)?;
+            Ok(())
+        }
+        AltemMagesManaScaling::Both => {
+            consume_mana_for_unit(state, player_idx, BasicManaColor::Blue)?;
+            consume_mana_for_unit(state, player_idx, BasicManaColor::Red)?;
+            Ok(())
+        }
+    }
+}
+
+/// Push a Combat-duration modifier for the current player (Altem Mages abilities).
+fn push_combat_modifier(
+    state: &mut GameState,
+    player_idx: usize,
+    effect: mk_types::modifier::ModifierEffect,
+) {
+    use mk_types::modifier::{
+        ActiveModifier, ModifierDuration, ModifierScope, ModifierSource,
+    };
+    use mk_types::ids::ModifierId;
+    let player_id = state.players[player_idx].id.clone();
+    let modifier_count = state.active_modifiers.len();
+    let modifier_id = format!(
+        "mod_{}_r{}_t{}",
+        modifier_count, state.round, state.current_player_index
+    );
+    state.active_modifiers.push(ActiveModifier {
+        id: ModifierId::from(modifier_id.as_str()),
+        source: ModifierSource::Card {
+            card_id: mk_types::ids::CardId::from("altem_mages"),
+            player_id: player_id.clone(),
+        },
+        duration: ModifierDuration::Combat,
+        scope: ModifierScope::SelfScope,
+        effect,
+        created_at_round: state.round,
+        created_by_player_id: player_id,
+    });
+}
+
+/// Apply attack to accumulator, respecting TransformAttacksColdFire and AddSiegeToAttacks modifiers.
+pub(crate) fn apply_attack_with_modifiers(
+    state: &mut GameState,
+    player_idx: usize,
+    amount: u32,
+    combat_type: CombatType,
+    element: Element,
+) {
+    use mk_types::modifier::ModifierEffect;
+    let player_id = &state.players[player_idx].id;
+
+    let has_coldfire_transform = state.active_modifiers.iter().any(|m| {
+        matches!(&m.effect, ModifierEffect::TransformAttacksColdFire)
+            && m.created_by_player_id == *player_id
+    });
+    let has_siege_add = state.active_modifiers.iter().any(|m| {
+        matches!(&m.effect, ModifierEffect::AddSiegeToAttacks)
+            && m.created_by_player_id == *player_id
+    });
+
+    let effective_element = if has_coldfire_transform { Element::ColdFire } else { element };
+
+    let acc = &mut state.players[player_idx].combat_accumulator.attack;
+    match combat_type {
+        CombatType::Melee => {
+            acc.normal += amount;
+            add_to_elemental(&mut acc.normal_elements, effective_element, amount);
+        }
+        CombatType::Ranged => {
+            acc.ranged += amount;
+            add_to_elemental(&mut acc.ranged_elements, effective_element, amount);
+        }
+        CombatType::Siege => {
+            acc.siege += amount;
+            add_to_elemental(&mut acc.siege_elements, effective_element, amount);
+        }
+    }
+
+    // AddSiegeToAttacks: also add same amount to siege pool
+    if has_siege_add {
+        let acc = &mut state.players[player_idx].combat_accumulator.attack;
+        acc.siege += amount;
+        add_to_elemental(&mut acc.siege_elements, effective_element, amount);
+    }
+}
+
 /// Helper to add elemental damage values.
 pub(super) fn add_to_elemental(ev: &mut ElementalValues, element: Element, amount: u32) {
     match element {
@@ -1016,5 +1353,148 @@ pub(super) fn add_to_elemental(ev: &mut ElementalValues, element: Element, amoun
         Element::Ice => ev.ice += amount,
         Element::ColdFire => ev.cold_fire += amount,
     }
+}
+
+// =============================================================================
+// Scout Peek helpers
+// =============================================================================
+
+/// Collect all valid ScoutPeek targets for the given player within distance.
+fn collect_scout_peek_targets(
+    state: &GameState,
+    player_idx: usize,
+    distance: u32,
+    fame_bonus: u32,
+) -> Vec<mk_types::pending::UnitAbilityChoiceOption> {
+    use mk_types::pending::UnitAbilityChoiceOption;
+
+    let player_pos = match state.players[player_idx].position {
+        Some(p) => p,
+        None => return Vec::new(),
+    };
+
+    let mut options = Vec::new();
+
+    // 1. Face-down enemies on map hexes within distance
+    for hex_state in state.map.hexes.values() {
+        if player_pos.distance(hex_state.coord) > distance {
+            continue;
+        }
+        for (enemy_index, hex_enemy) in hex_state.enemies.iter().enumerate() {
+            if !hex_enemy.is_revealed {
+                options.push(UnitAbilityChoiceOption::ScoutPeekHex {
+                    coord: hex_state.coord,
+                    enemy_index,
+                    fame_bonus,
+                });
+            }
+        }
+    }
+
+    // 2. Non-empty enemy draw piles
+    use mk_types::enums::EnemyColor;
+    for &color in &[
+        EnemyColor::Green, EnemyColor::Gray, EnemyColor::Brown,
+        EnemyColor::Violet, EnemyColor::White, EnemyColor::Red,
+    ] {
+        if !mk_data::enemy_piles::get_draw_pile(&state.enemy_tokens, color).is_empty() {
+            options.push(UnitAbilityChoiceOption::ScoutPeekPile { color, fame_bonus });
+        }
+    }
+
+    options
+}
+
+/// Resolve ScoutPeekHex: peek at face-down enemy on map, push ScoutFameBonus modifier.
+fn resolve_scout_peek_hex(
+    state: &mut GameState,
+    player_idx: usize,
+    coord: mk_types::hex::HexCoord,
+    enemy_index: usize,
+    fame_bonus: u32,
+    unit_instance_id: &mk_types::ids::UnitInstanceId,
+) -> Result<ApplyResult, ApplyError> {
+    let hex_state = state.map.hexes.get(&coord.key())
+        .ok_or_else(|| ApplyError::InternalError("ScoutPeekHex: invalid hex".into()))?;
+
+    let hex_enemy = hex_state.enemies.get(enemy_index)
+        .ok_or_else(|| ApplyError::InternalError("ScoutPeekHex: invalid enemy index".into()))?;
+
+    let enemy_id = mk_data::enemy_piles::enemy_id_from_token(&hex_enemy.token_id);
+
+    // Do NOT reveal the token on the map — private peek only
+    push_scout_fame_bonus_modifier(state, player_idx, unit_instance_id, vec![enemy_id], fame_bonus);
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: Vec::new(),
+    })
+}
+
+/// Resolve ScoutPeekPile: peek at top of enemy draw pile, push ScoutFameBonus modifier.
+fn resolve_scout_peek_pile(
+    state: &mut GameState,
+    player_idx: usize,
+    color: mk_types::enums::EnemyColor,
+    fame_bonus: u32,
+    unit_instance_id: &mk_types::ids::UnitInstanceId,
+) -> Result<ApplyResult, ApplyError> {
+    let draw_pile = mk_data::enemy_piles::get_draw_pile(&state.enemy_tokens, color);
+
+    let token_id = draw_pile.first()
+        .ok_or_else(|| ApplyError::InternalError("ScoutPeekPile: empty draw pile".into()))?;
+
+    let enemy_id = mk_data::enemy_piles::enemy_id_from_token(token_id);
+
+    push_scout_fame_bonus_modifier(state, player_idx, unit_instance_id, vec![enemy_id], fame_bonus);
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: Vec::new(),
+    })
+}
+
+/// Push a ScoutFameBonus modifier onto active_modifiers.
+fn push_scout_fame_bonus_modifier(
+    state: &mut GameState,
+    player_idx: usize,
+    unit_instance_id: &mk_types::ids::UnitInstanceId,
+    revealed_enemy_ids: Vec<String>,
+    fame_bonus: u32,
+) {
+    use mk_types::modifier::{
+        ActiveModifier, ModifierDuration, ModifierEffect, ModifierScope, ModifierSource,
+    };
+    use mk_types::ids::ModifierId;
+
+    let player_id = state.players[player_idx].id.clone();
+
+    // Find unit index from instance_id
+    let unit_idx = state.players[player_idx].units.iter()
+        .position(|u| u.instance_id == *unit_instance_id)
+        .unwrap_or(0);
+
+    let modifier_count = state.active_modifiers.len();
+    let modifier_id = format!(
+        "mod_{}_r{}_t{}",
+        modifier_count, state.round, state.current_player_index
+    );
+    state.active_modifiers.push(ActiveModifier {
+        id: ModifierId::from(modifier_id.as_str()),
+        source: ModifierSource::Unit {
+            unit_index: unit_idx as u32,
+            player_id: player_id.clone(),
+        },
+        duration: ModifierDuration::Turn,
+        scope: ModifierScope::SelfScope,
+        effect: ModifierEffect::ScoutFameBonus {
+            revealed_enemy_ids,
+            fame: fame_bonus,
+        },
+        created_at_round: state.round,
+        created_by_player_id: player_id,
+    });
 }
 

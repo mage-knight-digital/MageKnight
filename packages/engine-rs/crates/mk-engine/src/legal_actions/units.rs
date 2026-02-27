@@ -283,6 +283,11 @@ pub(super) fn enumerate_unit_actions(
 // Unit activation enumeration
 // =============================================================================
 
+/// Check if the player has a black mana token (for Altem Mages attack modifier).
+pub(crate) fn can_afford_black_mana(player: &PlayerState) -> bool {
+    player.pure_mana.iter().any(|t| t.color == ManaColor::Black)
+}
+
 /// Check if the player can afford a mana cost (matching token > gold token > crystal).
 pub(crate) fn can_afford_mana(player: &PlayerState, color: BasicManaColor) -> bool {
     let target = ManaColor::from(color);
@@ -337,6 +342,14 @@ fn phase_allows_ability(ability: &UnitAbility, phase: CombatPhase, is_fortified:
         UnitAbility::CoordinatedFire { .. } => {
             // Grants ranged attack — only in RangedSiege phase
             phase == CombatPhase::RangedSiege
+        }
+        UnitAbility::AltemMagesColdFire { .. } => {
+            // ColdFire attack or block — all combat phases
+            matches!(phase, CombatPhase::RangedSiege | CombatPhase::Block | CombatPhase::Attack)
+        }
+        UnitAbility::AltemMagesAttackModifier => {
+            // Modifier applies to future attacks — all combat phases
+            matches!(phase, CombatPhase::RangedSiege | CombatPhase::Block | CombatPhase::Attack)
         }
         _ => false, // Non-combat abilities never allowed in combat
     }
@@ -418,6 +431,20 @@ pub(super) fn enumerate_unit_activations(
                         continue;
                     }
                 }
+
+                // ScoutPeek: skip if no valid targets
+                if let UnitAbility::ScoutPeek { distance, .. } = slot.ability {
+                    if !has_scout_peek_targets(state, player_idx, distance) {
+                        continue;
+                    }
+                }
+            }
+
+            // AltemMagesAttackModifier: requires black mana (not via mana_cost field)
+            if matches!(slot.ability, UnitAbility::AltemMagesAttackModifier)
+                && !can_afford_black_mana(player)
+            {
+                continue;
             }
 
             // Mana cost check
@@ -433,6 +460,38 @@ pub(super) fn enumerate_unit_activations(
             });
         }
     }
+}
+
+/// Check if any valid ScoutPeek targets exist (face-down enemies in range or non-empty draw piles).
+fn has_scout_peek_targets(state: &GameState, player_idx: usize, distance: u32) -> bool {
+    use mk_types::enums::EnemyColor;
+
+    let player_pos = match state.players[player_idx].position {
+        Some(p) => p,
+        None => return false,
+    };
+
+    // Check face-down enemies on map within distance
+    for hex_state in state.map.hexes.values() {
+        if player_pos.distance(hex_state.coord) > distance {
+            continue;
+        }
+        if hex_state.enemies.iter().any(|e| !e.is_revealed) {
+            return true;
+        }
+    }
+
+    // Check non-empty enemy draw piles
+    for &color in &[
+        EnemyColor::Green, EnemyColor::Gray, EnemyColor::Brown,
+        EnemyColor::Violet, EnemyColor::White, EnemyColor::Red,
+    ] {
+        if !mk_data::enemy_piles::get_draw_pile(&state.enemy_tokens, color).is_empty() {
+            return true;
+        }
+    }
+
+    false
 }
 
 // =============================================================================
