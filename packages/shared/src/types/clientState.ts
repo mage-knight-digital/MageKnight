@@ -189,6 +189,7 @@ export interface ClientPlayer {
   readonly manaTokens: readonly ClientManaToken[];
   readonly hasMovedThisTurn: boolean;
   readonly hasTakenActionThisTurn: boolean;
+  readonly hasCombattedThisTurn: boolean;
   readonly usedManaFromSource: boolean;
   readonly playedCardFromHandThisTurn: boolean; // Minimum turn requirement tracking
   readonly isResting: boolean; // True when player has declared rest but not completed it

@@ -498,9 +498,9 @@ fn combat_returns_combat_turn_actions() {
             assert!(rage.is_some(), "Rage should be playable in combat");
             let rage = rage.unwrap();
             assert!(rage.can_play_basic);
-            // Sideways in combat: attack/block, not move/influence
+            // RangedSiege: sideways attack available, block not (wrong phase)
             assert!(rage.sideways_options.contains(&SidewaysAs::Attack));
-            assert!(rage.sideways_options.contains(&SidewaysAs::Block));
+            assert!(!rage.sideways_options.contains(&SidewaysAs::Block));
             assert!(!rage.sideways_options.contains(&SidewaysAs::Move));
         }
         _ => panic!("Expected CombatTurn, got {:?}", va),

@@ -142,6 +142,9 @@ fn to_client_player(player: &PlayerState, is_self: bool) -> ClientPlayer {
         has_taken_action_this_turn: player
             .flags
             .contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN),
+        has_combatted_this_turn: player
+            .flags
+            .contains(PlayerFlags::HAS_COMBATTED_THIS_TURN),
         used_mana_from_source: player.flags.contains(PlayerFlags::USED_MANA_FROM_SOURCE),
         played_card_from_hand_this_turn: player
             .flags

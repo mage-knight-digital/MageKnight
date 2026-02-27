@@ -151,6 +151,7 @@ const minimalClientPlayer = {
   manaTokens: [],
   hasMovedThisTurn: false,
   hasTakenActionThisTurn: false,
+  hasCombattedThisTurn: false,
   usedManaFromSource: false,
   playedCardFromHandThisTurn: false,
   isResting: false,

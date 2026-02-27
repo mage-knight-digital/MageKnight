@@ -818,7 +818,7 @@ fn combat_emits_combat_actions() {
     );
     assert!(rage_basic, "rage basic should be playable in combat");
 
-    // Combat sideways should be Attack and Block
+    // RangedSiege: sideways Attack should be available, Block should not
     let attack_sideways = legal.actions.iter().any(|a| {
         matches!(
             a,
@@ -837,8 +837,8 @@ fn combat_emits_combat_actions() {
             }
         )
     });
-    assert!(attack_sideways, "combat should have Attack sideways");
-    assert!(block_sideways, "combat should have Block sideways");
+    assert!(attack_sideways, "RangedSiege should have Attack sideways");
+    assert!(!block_sideways, "RangedSiege should NOT have Block sideways");
 }
 
 #[test]

@@ -156,7 +156,7 @@ pub fn enumerate_legal_actions_with_undo(
                 actions.push(LegalAction::Undo);
             }
         } else {
-            enumerate_combat_cards(state, player_idx, &mut actions);
+            enumerate_combat_cards(state, player_idx, combat.phase, &mut actions);
             enumerate_unit_activations(state, player_idx, &mut actions);
             enumerate_skill_activations(state, player_idx, &mut actions);
             enumerate_returnable_skills(state, player_idx, &mut actions);

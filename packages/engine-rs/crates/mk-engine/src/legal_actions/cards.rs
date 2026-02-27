@@ -106,6 +106,7 @@ pub(super) fn enumerate_normal_cards(
         // Category 4: PlayCardSideways.
         // While resting: NO sideways at all.
         // After rest: influence only (no move).
+        // After combat: influence only (no move — moving after combat is nearly worthless).
         // Normal: both move and influence.
         // Wounds: only if WoundsPlayableSideways rule active + effective value > 0.
         if !is_resting {
@@ -145,6 +146,8 @@ pub(super) fn enumerate_normal_cards(
                         card_id: card_id.clone(),
                         sideways_as: SidewaysAs::Influence,
                     });
+                } else if player.flags.contains(PlayerFlags::HAS_COMBATTED_THIS_TURN) {
+                    // After combat: skip sideways move (nearly worthless to move 1 after combat).
                 } else {
                     // Not interacting: move only (no influence outside site).
                     sideways_actions.push(LegalAction::PlayCardSideways {
@@ -165,6 +168,7 @@ pub(super) fn enumerate_normal_cards(
 pub(super) fn enumerate_combat_cards(
     state: &GameState,
     player_idx: usize,
+    combat_phase: CombatPhase,
     actions: &mut Vec<LegalAction>,
 ) {
     let player = &state.players[player_idx];
@@ -267,16 +271,20 @@ pub(super) fn enumerate_combat_cards(
                 )
             };
             if eff_value > 0 {
-                sideways_actions.push(LegalAction::PlayCardSideways {
-                    hand_index,
-                    card_id: card_id.clone(),
-                    sideways_as: SidewaysAs::Attack,
-                });
-                sideways_actions.push(LegalAction::PlayCardSideways {
-                    hand_index,
-                    card_id: card_id.clone(),
-                    sideways_as: SidewaysAs::Block,
-                });
+                if matches!(combat_phase, CombatPhase::RangedSiege | CombatPhase::Attack) {
+                    sideways_actions.push(LegalAction::PlayCardSideways {
+                        hand_index,
+                        card_id: card_id.clone(),
+                        sideways_as: SidewaysAs::Attack,
+                    });
+                }
+                if combat_phase == CombatPhase::Block {
+                    sideways_actions.push(LegalAction::PlayCardSideways {
+                        hand_index,
+                        card_id: card_id.clone(),
+                        sideways_as: SidewaysAs::Block,
+                    });
+                }
             }
         }
     }

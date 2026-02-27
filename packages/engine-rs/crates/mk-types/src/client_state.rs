@@ -101,6 +101,7 @@ pub struct ClientPlayer {
     // Flags (subset visible to client)
     pub has_moved_this_turn: bool,
     pub has_taken_action_this_turn: bool,
+    pub has_combatted_this_turn: bool,
     pub used_mana_from_source: bool,
     pub played_card_from_hand_this_turn: bool,
     pub is_resting: bool,

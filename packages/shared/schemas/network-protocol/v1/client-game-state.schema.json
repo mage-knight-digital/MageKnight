@@ -1137,6 +1137,9 @@
         "handLimit": {
           "type": "number"
         },
+        "hasCombattedThisTurn": {
+          "type": "boolean"
+        },
         "hasMovedThisTurn": {
           "type": "boolean"
         },
@@ -1355,6 +1358,7 @@
         "fame",
         "hand",
         "handLimit",
+        "hasCombattedThisTurn",
         "hasMovedThisTurn",
         "hasTakenActionThisTurn",
         "healingPoints",
