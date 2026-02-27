@@ -249,6 +249,234 @@ export function extractChallengeTargets(actions: LegalAction[]): ChallengeOption
 }
 
 // =============================================================================
+// Combat: Block actions
+// =============================================================================
+
+export interface BlockActionOption {
+  enemyInstanceId: string;
+  attackIndex: number;
+  action: LegalAction;
+}
+
+export function extractBlockActions(actions: LegalAction[]): BlockActionOption[] {
+  const result: BlockActionOption[] = [];
+  for (const action of actions) {
+    if (actionType(action) !== "DeclareBlock") continue;
+    const data = actionData(action)!;
+    result.push({
+      enemyInstanceId: data["enemy_instance_id"] as string,
+      attackIndex: data["attack_index"] as number,
+      action,
+    });
+  }
+  return result;
+}
+
+// =============================================================================
+// Combat: Cumbersome actions
+// =============================================================================
+
+export interface CumbersomeActionOption {
+  enemyInstanceId: string;
+  action: LegalAction;
+}
+
+export function extractCumbersomeActions(actions: LegalAction[]): CumbersomeActionOption[] {
+  const result: CumbersomeActionOption[] = [];
+  for (const action of actions) {
+    if (actionType(action) !== "SpendMoveOnCumbersome") continue;
+    const data = actionData(action)!;
+    result.push({
+      enemyInstanceId: data["enemy_instance_id"] as string,
+      action,
+    });
+  }
+  return result;
+}
+
+// =============================================================================
+// Combat: Banner Fear actions
+// =============================================================================
+
+export interface BannerFearActionOption {
+  unitInstanceId: string;
+  enemyInstanceId: string;
+  attackIndex: number;
+  action: LegalAction;
+}
+
+export function extractBannerFearActions(actions: LegalAction[]): BannerFearActionOption[] {
+  const result: BannerFearActionOption[] = [];
+  for (const action of actions) {
+    if (actionType(action) !== "UseBannerFear") continue;
+    const data = actionData(action)!;
+    result.push({
+      unitInstanceId: data["unit_instance_id"] as string,
+      enemyInstanceId: data["enemy_instance_id"] as string,
+      attackIndex: data["attack_index"] as number,
+      action,
+    });
+  }
+  return result;
+}
+
+// =============================================================================
+// Combat: Initiate Attack options
+// =============================================================================
+
+export interface InitiateAttackOption {
+  attackType: string;
+  action: LegalAction;
+}
+
+export function extractInitiateAttackOptions(actions: LegalAction[]): InitiateAttackOption[] {
+  const result: InitiateAttackOption[] = [];
+  for (const action of actions) {
+    if (actionType(action) !== "InitiateAttack") continue;
+    const data = actionData(action)!;
+    result.push({
+      attackType: data["attack_type"] as string,
+      action,
+    });
+  }
+  return result;
+}
+
+// =============================================================================
+// Combat: Subset selection (attack target toggling)
+// =============================================================================
+
+export interface SubsetSelectOption {
+  index: number;
+  action: LegalAction;
+}
+
+export function extractSubsetSelectOptions(actions: LegalAction[]): SubsetSelectOption[] {
+  const result: SubsetSelectOption[] = [];
+  for (const action of actions) {
+    if (actionType(action) !== "SubsetSelect") continue;
+    const data = actionData(action)!;
+    result.push({
+      index: data["index"] as number,
+      action,
+    });
+  }
+  return result;
+}
+
+// =============================================================================
+// Combat: Damage assignment options
+// =============================================================================
+
+export interface DamageToHeroOption {
+  enemyIndex: number;
+  attackIndex: number;
+  action: LegalAction;
+}
+
+export function extractDamageToHeroOptions(actions: LegalAction[]): DamageToHeroOption[] {
+  const result: DamageToHeroOption[] = [];
+  for (const action of actions) {
+    if (actionType(action) !== "AssignDamageToHero") continue;
+    const data = actionData(action)!;
+    result.push({
+      enemyIndex: data["enemy_index"] as number,
+      attackIndex: data["attack_index"] as number,
+      action,
+    });
+  }
+  return result;
+}
+
+export interface DamageToUnitOption {
+  enemyIndex: number;
+  attackIndex: number;
+  unitInstanceId: string;
+  action: LegalAction;
+}
+
+export function extractDamageToUnitOptions(actions: LegalAction[]): DamageToUnitOption[] {
+  const result: DamageToUnitOption[] = [];
+  for (const action of actions) {
+    if (actionType(action) !== "AssignDamageToUnit") continue;
+    const data = actionData(action)!;
+    result.push({
+      enemyIndex: data["enemy_index"] as number,
+      attackIndex: data["attack_index"] as number,
+      unitInstanceId: data["unit_instance_id"] as string,
+      action,
+    });
+  }
+  return result;
+}
+
+// =============================================================================
+// Combat: Convert actions
+// =============================================================================
+
+export interface ConvertMoveToAttackOption {
+  movePoints: number;
+  attackType: string;
+  action: LegalAction;
+}
+
+export function extractConvertMoveToAttack(actions: LegalAction[]): ConvertMoveToAttackOption[] {
+  const result: ConvertMoveToAttackOption[] = [];
+  for (const action of actions) {
+    if (actionType(action) !== "ConvertMoveToAttack") continue;
+    const data = actionData(action)!;
+    result.push({
+      movePoints: data["move_points"] as number,
+      attackType: data["attack_type"] as string,
+      action,
+    });
+  }
+  return result;
+}
+
+export interface ConvertInfluenceToBlockOption {
+  influencePoints: number;
+  element: string | null;
+  action: LegalAction;
+}
+
+export function extractConvertInfluenceToBlock(actions: LegalAction[]): ConvertInfluenceToBlockOption[] {
+  const result: ConvertInfluenceToBlockOption[] = [];
+  for (const action of actions) {
+    if (actionType(action) !== "ConvertInfluenceToBlock") continue;
+    const data = actionData(action)!;
+    result.push({
+      influencePoints: data["influence_points"] as number,
+      element: data["element"] as string | null,
+      action,
+    });
+  }
+  return result;
+}
+
+// =============================================================================
+// Combat: Thugs damage payment
+// =============================================================================
+
+export interface ThugsDamagePaymentOption {
+  unitInstanceId: string;
+  action: LegalAction;
+}
+
+export function extractThugsDamagePayment(actions: LegalAction[]): ThugsDamagePaymentOption[] {
+  const result: ThugsDamagePaymentOption[] = [];
+  for (const action of actions) {
+    if (actionType(action) !== "PayThugsDamageInfluence") continue;
+    const data = actionData(action)!;
+    result.push({
+      unitInstanceId: data["unit_instance_id"] as string,
+      action,
+    });
+  }
+  return result;
+}
+
+// =============================================================================
 // Generic action presence check
 // =============================================================================
 
