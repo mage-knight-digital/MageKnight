@@ -263,6 +263,18 @@ The Lost Legion expansion adds Volkare, an AI-controlled antagonist. When implem
 
 ---
 
+## Red-Green-Refactor for Bug Fixes
+
+**Always use red-green-refactor when fixing bugs:**
+
+1. **RED**: Write a single failing test that reproduces the bug. Run it, confirm it fails.
+2. **GREEN**: Implement the minimal fix. Run the test, confirm it passes.
+3. **REFACTOR**: Clean up if needed. Add additional regression tests for related edge cases.
+
+Do not mix failing and already-passing tests in the RED phase. Tests that confirm existing behavior are regression tests — add them after the fix, not before.
+
+---
+
 ## No Magic Strings Policy
 
 All identifiers use exported constants or const strings. Use constants in comparisons, match arms, struct literals. Never raw strings.

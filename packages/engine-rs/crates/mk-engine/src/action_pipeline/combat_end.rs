@@ -232,6 +232,30 @@ pub(super) fn end_combat(state: &mut GameState, player_idx: usize) {
     // Dueling: award fame bonus if target defeated without unit involvement
     skills_complex::resolve_dueling_fame_bonus(state, player_idx);
 
+    // Failed fortified assault: withdraw player to assault origin.
+    // Must extract data before clearing combat state.
+    let withdraw_to = if let Some(ref combat) = state.combat {
+        let is_fortified = combat.is_at_fortified_site;
+        let assault_origin = combat.assault_origin;
+        let all_required_defeated = combat
+            .enemies
+            .iter()
+            .filter(|e| e.is_required_for_conquest)
+            .all(|e| e.is_defeated);
+        let has_any_required = combat.enemies.iter().any(|e| e.is_required_for_conquest);
+        let all_defeated = combat.enemies.iter().all(|e| e.is_defeated);
+        let site_conquered = (has_any_required && all_required_defeated)
+            || (!has_any_required && all_defeated);
+
+        if is_fortified && !site_conquered {
+            assault_origin
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
     // Expire combat-duration modifiers
     expire_modifiers_combat(&mut state.active_modifiers);
 
@@ -249,6 +273,11 @@ pub(super) fn end_combat(state: &mut GameState, player_idx: usize) {
 
     // Clear combat-scoped skill cooldowns
     player.skill_cooldowns.used_this_combat.clear();
+
+    // Withdraw player to assault origin after failed fortified assault
+    if let Some(origin) = withdraw_to {
+        state.players[player_idx].position = Some(origin);
+    }
 }
 
 

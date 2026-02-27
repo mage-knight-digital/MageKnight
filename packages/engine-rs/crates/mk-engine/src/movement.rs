@@ -419,7 +419,7 @@ fn draw_city_defenders(
 /// Creates combat with `is_fortified=true`, sets `assault_origin`, and marks
 /// site defenders as `is_required_for_conquest=true` while provoked rampaging
 /// enemies get `is_required_for_conquest=false`.
-fn enter_assault_combat(
+pub(crate) fn enter_assault_combat(
     state: &mut GameState,
     player_idx: usize,
     all_token_ids: &[EnemyTokenId],

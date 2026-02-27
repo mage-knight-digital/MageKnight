@@ -5095,3 +5095,253 @@ fn keep_stays_at_plus_one() {
     );
 }
 
+// =========================================================================
+// Failed fortified site assault — withdrawal
+// =========================================================================
+
+/// Helper: set up a fortified site assault where the player attacks from `origin` to `target`.
+/// Places the player at origin, creates a Keep at target with the given garrison enemies,
+/// moves the player into combat.
+fn setup_fortified_assault(
+    hand: Vec<&str>,
+    enemy_ids: &[&str],
+    origin: HexCoord,
+    target: HexCoord,
+) -> (GameState, UndoStack) {
+    let mut state = setup_playing_game(hand);
+    state.players[0].position = Some(origin);
+
+    // Ensure origin hex exists
+    if state.map.hexes.get(&origin.key()).is_none() {
+        state.map.hexes.insert(
+            origin.key(),
+            HexState {
+                coord: origin,
+                terrain: Terrain::Plains,
+                tile_id: TileId::StartingA,
+                site: None,
+                rampaging_enemies: ArrayVec::new(),
+                enemies: ArrayVec::new(),
+                ruins_token: None,
+                shield_tokens: Vec::new(),
+            },
+        );
+    }
+
+    // Build the target hex with a Keep and garrison enemies
+    let mut enemies: ArrayVec<HexEnemy, 8> = ArrayVec::new();
+    for (i, id) in enemy_ids.iter().enumerate() {
+        enemies.push(HexEnemy {
+            token_id: EnemyTokenId::from(format!("{}_{}", id, i)),
+            color: EnemyColor::Green,
+            is_revealed: true,
+        });
+    }
+
+    state.map.hexes.insert(
+        target.key(),
+        HexState {
+            coord: target,
+            terrain: Terrain::Plains,
+            tile_id: TileId::StartingA,
+            site: Some(Site {
+                site_type: SiteType::Keep,
+                owner: None,
+                is_conquered: false,
+                is_burned: false,
+                city_color: None,
+                mine_color: None,
+                deep_mine_colors: None,
+            }),
+            rampaging_enemies: ArrayVec::new(),
+            enemies,
+            ruins_token: None,
+            shield_tokens: Vec::new(),
+        },
+    );
+
+    // Enter assault combat directly
+    let token_ids: Vec<EnemyTokenId> = enemy_ids
+        .iter()
+        .enumerate()
+        .map(|(i, id)| EnemyTokenId::from(format!("{}_{}", id, i)))
+        .collect();
+    let site_defender_count = token_ids.len();
+    crate::movement::enter_assault_combat(
+        &mut state,
+        0,
+        &token_ids,
+        site_defender_count,
+        origin,
+        target,
+        None,
+    )
+    .unwrap();
+
+    // Move player position to the combat hex (as execute_move does)
+    state.players[0].position = Some(target);
+
+    (state, UndoStack::new())
+}
+
+/// Progress combat through all 4 phases without doing anything (no attacks/blocks).
+fn skip_all_combat_phases(state: &mut GameState, undo: &mut UndoStack) {
+    // RangedSiege → Block → AssignDamage → Attack → end
+    for _ in 0..4 {
+        if state.combat.is_none() {
+            break;
+        }
+        let epoch = state.action_epoch;
+        apply_legal_action(state, undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+    }
+}
+
+#[test]
+fn failed_fortified_assault_withdraws_player_to_origin() {
+    let origin = HexCoord { q: 0, r: 0 };
+    let target = HexCoord { q: 1, r: 0 };
+
+    // Guardsman: a basic enemy the player won't defeat (skipping all phases)
+    let (mut state, mut undo) = setup_fortified_assault(
+        vec!["march"],
+        &["prowlers"],
+        origin,
+        target,
+    );
+
+    // Verify player is at the target (combat hex)
+    assert_eq!(state.players[0].position, Some(target));
+    assert!(state.combat.is_some());
+
+    // Skip all phases without defeating the enemy
+    skip_all_combat_phases(&mut state, &mut undo);
+
+    // After failed assault, player should be back at origin
+    assert_eq!(
+        state.players[0].position,
+        Some(origin),
+        "Player should withdraw to assault origin after failed fortified site assault"
+    );
+}
+
+#[test]
+fn successful_fortified_assault_player_stays_at_site() {
+    let origin = HexCoord { q: 0, r: 0 };
+    let target = HexCoord { q: 1, r: 0 };
+
+    let (mut state, mut undo) = setup_fortified_assault(
+        vec!["march"],
+        &["prowlers"],
+        origin,
+        target,
+    );
+
+    // Skip to Attack phase
+    for _ in 0..3 {
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+    }
+    assert_eq!(state.combat.as_ref().unwrap().phase, CombatPhase::Attack);
+
+    // Mark the enemy as defeated (simulating a successful attack)
+    state.combat.as_mut().unwrap().enemies[0].is_defeated = true;
+
+    // End Attack phase → end combat
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+
+    // Player should stay at the conquered site
+    assert_eq!(
+        state.players[0].position,
+        Some(target),
+        "Player should stay at site after successful assault"
+    );
+
+    // Site should be conquered
+    let hex = state.map.hexes.get(&target.key()).unwrap();
+    assert!(
+        hex.site.as_ref().unwrap().is_conquered,
+        "Site should be conquered after defeating all defenders"
+    );
+}
+
+#[test]
+fn failed_fortified_assault_site_not_conquered() {
+    let origin = HexCoord { q: 0, r: 0 };
+    let target = HexCoord { q: 1, r: 0 };
+
+    let (mut state, mut undo) = setup_fortified_assault(
+        vec!["march"],
+        &["prowlers"],
+        origin,
+        target,
+    );
+
+    // Skip all phases without defeating the enemy
+    skip_all_combat_phases(&mut state, &mut undo);
+
+    // Site should NOT be conquered
+    let hex = state.map.hexes.get(&target.key()).unwrap();
+    assert!(
+        !hex.site.as_ref().unwrap().is_conquered,
+        "Site should NOT be conquered after failed assault"
+    );
+}
+
+#[test]
+fn fortified_assault_rampaging_enemy_not_required_for_conquest() {
+    let origin = HexCoord { q: 0, r: 0 };
+    let target = HexCoord { q: 1, r: 0 };
+
+    // Set up assault with one garrison enemy
+    let (mut state, mut undo) = setup_fortified_assault(
+        vec!["march"],
+        &["prowlers"],
+        origin,
+        target,
+    );
+
+    // Manually add a rampaging enemy (is_required_for_conquest=false)
+    let rampaging_instance = CombatInstanceId::from("enemy_1");
+    state.combat.as_mut().unwrap().enemies.push(CombatEnemy {
+        instance_id: rampaging_instance,
+        enemy_id: EnemyId::from("diggers"),
+        is_blocked: false,
+        is_defeated: false,
+        damage_assigned: false,
+        is_required_for_conquest: false,
+        summoned_by_instance_id: None,
+        is_summoner_hidden: false,
+        attacks_blocked: vec![false],
+        attacks_damage_assigned: vec![false],
+        attacks_cancelled: vec![false],
+    });
+
+    // Skip to Attack phase
+    for _ in 0..3 {
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+    }
+
+    // Defeat only the garrison enemy (enemy_0), NOT the rampaging one (enemy_1)
+    state.combat.as_mut().unwrap().enemies[0].is_defeated = true;
+
+    // End Attack phase
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+
+    // Site SHOULD be conquered (only garrison enemies matter)
+    let hex = state.map.hexes.get(&target.key()).unwrap();
+    assert!(
+        hex.site.as_ref().unwrap().is_conquered,
+        "Site should be conquered when all garrison enemies defeated, even if rampaging enemy survives"
+    );
+
+    // Player should stay at the site
+    assert_eq!(
+        state.players[0].position,
+        Some(target),
+        "Player should stay at site after successful assault (rampaging enemy not required)"
+    );
+}
+
