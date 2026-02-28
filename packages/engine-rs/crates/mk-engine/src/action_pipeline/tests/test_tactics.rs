@@ -245,6 +245,99 @@ fn mana_steal_resolution_marks_die() {
 }
 
 #[test]
+fn mana_steal_die_counts_as_mana_source_for_card_playability() {
+    let mut state = create_solo_game(42, Hero::Arythea);
+    let undo = UndoStack::new();
+
+    // Advance past tactics selection to player turns
+    state.round_phase = RoundPhase::PlayerTurns;
+
+    // Clear all mana tokens and crystals so the only mana source is the stolen die
+    state.players[0].pure_mana.clear();
+    state.players[0].crystals = Crystals::default();
+
+    // Ensure march (green-powered, GainMove) is in hand
+    let march_id = CardId::from("march");
+    if !state.players[0].hand.iter().any(|c| *c == march_id) {
+        state.players[0].hand.push(march_id.clone());
+    }
+
+    // Find a die, set it to green, and steal it
+    let die_idx = state
+        .source
+        .dice
+        .iter()
+        .position(|d| !d.is_depleted && d.taken_by_player_id.is_none())
+        .unwrap();
+    state.source.dice[die_idx].color = ManaColor::Green;
+    state.source.dice[die_idx].taken_by_player_id =
+        Some(state.players[0].id.clone());
+    state.players[0].tactic_state.stored_mana_die = Some(StoredManaDie {
+        die_id: state.source.dice[die_idx].id.clone(),
+        color: ManaColor::Green,
+    });
+
+    // Deplete all other dice so stolen die is the only source
+    for (i, die) in state.source.dice.iter_mut().enumerate() {
+        if i != die_idx {
+            die.is_depleted = true;
+        }
+    }
+
+    let action_set = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let has_powered_march = action_set.actions.iter().any(|a| matches!(
+        a,
+        LegalAction::PlayCardPowered { card_id, .. } if *card_id == march_id
+    ));
+    assert!(
+        has_powered_march,
+        "Stolen green die should make PlayCardPowered available for march",
+    );
+}
+
+#[test]
+fn mana_steal_die_appears_in_collect_mana_sources() {
+    let mut state = create_solo_game(42, Hero::Arythea);
+
+    // Clear all mana tokens and crystals
+    state.players[0].pure_mana.clear();
+    state.players[0].crystals = Crystals::default();
+
+    // Find a red die and steal it
+    let die_idx = state
+        .source
+        .dice
+        .iter()
+        .position(|d| !d.is_depleted && d.color == ManaColor::Red && d.taken_by_player_id.is_none())
+        .or_else(|| {
+            // If no red die available, make one
+            state.source.dice.iter().position(|d| !d.is_depleted && d.taken_by_player_id.is_none())
+        })
+        .unwrap();
+
+    state.source.dice[die_idx].color = ManaColor::Red;
+    state.source.dice[die_idx].taken_by_player_id = Some(state.players[0].id.clone());
+    state.players[0].tactic_state.stored_mana_die = Some(StoredManaDie {
+        die_id: state.source.dice[die_idx].id.clone(),
+        color: ManaColor::Red,
+    });
+
+    // Deplete all other dice
+    for (i, die) in state.source.dice.iter_mut().enumerate() {
+        if i != die_idx {
+            die.is_depleted = true;
+        }
+    }
+
+    let sources = crate::card_play::collect_mana_sources(&state, 0, BasicManaColor::Red);
+    let has_die_source = sources.iter().any(|s| s.source_type == ManaSourceType::Die);
+    assert!(
+        has_die_source,
+        "collect_mana_sources should include the stolen mana die as a Die source",
+    );
+}
+
+#[test]
 fn select_preparation_creates_pending_with_deck_snapshot() {
     let mut state = create_solo_game(42, Hero::Arythea);
     let deck_len = state.players[0].deck.len();

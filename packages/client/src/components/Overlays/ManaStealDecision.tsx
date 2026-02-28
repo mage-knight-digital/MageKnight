@@ -1,15 +1,15 @@
 import type { ManaColor } from "@mage-knight/shared";
 import {
-  RESOLVE_TACTIC_DECISION_ACTION,
-  TACTIC_DECISION_MANA_STEAL,
   MANA_RED,
   MANA_BLUE,
   MANA_GREEN,
   MANA_WHITE,
 } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
+import { useMyPlayer } from "../../hooks/useMyPlayer";
+import { extractManaStealOptions } from "../../rust/legalActionUtils";
 
-function getManaColor(color: ManaColor): string {
+function getManaColorHex(color: ManaColor): string {
   switch (color) {
     case MANA_RED:
       return "#e74c3c";
@@ -24,45 +24,37 @@ function getManaColor(color: ManaColor): string {
   }
 }
 
-interface AvailableDie {
-  readonly id: string;
-  readonly color: ManaColor;
+function getManaLabel(color: ManaColor): string {
+  switch (color) {
+    case MANA_RED:
+      return "Red";
+    case MANA_BLUE:
+      return "Blue";
+    case MANA_GREEN:
+      return "Green";
+    case MANA_WHITE:
+      return "White";
+    default:
+      return String(color);
+  }
 }
 
 export function ManaStealDecision() {
-  const { state, sendAction } = useGame();
+  const { state, legalActions, sendAction } = useGame();
+  const player = useMyPlayer();
 
-  // Check if we have a pending Mana Steal decision
-  const pendingDecision =
-    state?.validActions?.mode === "pending_tactic_decision"
-      ? state.validActions.tacticDecision
-      : undefined;
-  if (
-    !pendingDecision ||
-    pendingDecision.type !== TACTIC_DECISION_MANA_STEAL ||
-    !pendingDecision.availableDiceIds
-  ) {
+  // Only show when we have a tactic_decision pending
+  if (!player || player.pending?.kind !== "tactic_decision") {
     return null;
   }
 
-  // Get the dice info from source to display colors
-  const availableDice: AvailableDie[] = [];
-  for (const dieId of pendingDecision.availableDiceIds) {
-    const die = state?.source.dice.find((d) => d.id === dieId);
-    if (die) {
-      availableDice.push({ id: dieId, color: die.color });
-    }
+  const manaStealOptions = extractManaStealOptions(legalActions);
+  if (manaStealOptions.length === 0) {
+    return null;
   }
 
-  const handleSelectDie = (dieId: string) => {
-    sendAction({
-      type: RESOLVE_TACTIC_DECISION_ACTION,
-      decision: {
-        type: TACTIC_DECISION_MANA_STEAL,
-        dieId,
-      },
-    });
-  };
+  // Resolve each option's die color from the source dice array
+  const dice = state?.source.dice ?? [];
 
   return (
     <div className="overlay">
@@ -80,37 +72,49 @@ export function ManaStealDecision() {
             flexWrap: "wrap",
           }}
         >
-          {availableDice.map((die) => (
-            <button
-              key={die.id}
-              className="choice-selection__option"
-              onClick={() => handleSelectDie(die.id)}
-              type="button"
-              style={{
-                padding: "1.5rem 2rem",
-                borderRadius: "8px",
-                background: getManaColor(die.color),
-                color: "#fff",
-                fontWeight: 700,
-                fontSize: "1.25rem",
-                border: "3px solid transparent",
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-                minWidth: "5rem",
-                textTransform: "uppercase",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.border = "3px solid #fff";
-                e.currentTarget.style.transform = "scale(1.05)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.border = "3px solid transparent";
-                e.currentTarget.style.transform = "scale(1)";
-              }}
-            >
-              {die.color}
-            </button>
-          ))}
+          {manaStealOptions.map((opt) => {
+            const die = dice[opt.dieIndex];
+            const color = die?.color;
+            const takenBy = die?.takenByPlayerId;
+            const isSteal = takenBy != null;
+
+            return (
+              <button
+                key={opt.dieIndex}
+                className="choice-selection__option"
+                onClick={() => sendAction(opt.action)}
+                type="button"
+                style={{
+                  padding: "1.5rem 2rem",
+                  borderRadius: "8px",
+                  background: color ? getManaColorHex(color) : "#666",
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: "1.25rem",
+                  border: isSteal ? "3px solid #e74c3c" : "3px solid transparent",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  minWidth: "5rem",
+                  textTransform: "uppercase",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "#fff";
+                  e.currentTarget.style.transform = "scale(1.05)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = isSteal ? "#e74c3c" : "transparent";
+                  e.currentTarget.style.transform = "scale(1)";
+                }}
+              >
+                {color ? getManaLabel(color) : "?"}
+                {isSteal && (
+                  <div style={{ fontSize: "0.7rem", fontWeight: 400, marginTop: "0.25rem" }}>
+                    Steal
+                  </div>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

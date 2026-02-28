@@ -1077,9 +1077,18 @@ fn can_afford_powered(state: &GameState, player_idx: usize, color: BasicManaColo
         .flags
         .contains(PlayerFlags::USED_MANA_FROM_SOURCE)
     {
+        let player_id = &player.id;
+        let stolen_die_id = player
+            .tactic_state
+            .stored_mana_die
+            .as_ref()
+            .map(|s| &s.die_id);
+
         let has_matching_die = state.source.dice.iter().any(|die| {
             crate::card_play::is_die_available_with_overrides(die, state, player_idx)
-                && die.taken_by_player_id.is_none()
+                && (die.taken_by_player_id.is_none()
+                    || (die.taken_by_player_id.as_ref() == Some(player_id)
+                        && stolen_die_id == Some(&die.id)))
                 && (die.color == target || die.color == ManaColor::Gold)
         });
         if has_matching_die {

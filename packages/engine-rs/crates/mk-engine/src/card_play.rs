@@ -264,8 +264,22 @@ pub(crate) fn collect_mana_sources(
         .flags
         .contains(PlayerFlags::USED_MANA_FROM_SOURCE)
     {
+        let player_id = &player.id;
+        let stolen_die_id = player
+            .tactic_state
+            .stored_mana_die
+            .as_ref()
+            .map(|s| &s.die_id);
+
         for die in &state.source.dice {
-            if !is_die_available_with_overrides(die, state, player_idx) || die.taken_by_player_id.is_some() {
+            if !is_die_available_with_overrides(die, state, player_idx) {
+                continue;
+            }
+            // Allow unclaimed dice OR the player's own stolen Mana Steal die
+            let is_available = die.taken_by_player_id.is_none()
+                || (die.taken_by_player_id.as_ref() == Some(player_id)
+                    && stolen_die_id == Some(&die.id));
+            if !is_available {
                 continue;
             }
             if die.color == target_mana || die.color == ManaColor::Gold {
@@ -326,6 +340,13 @@ pub(crate) fn consume_specific_mana_source(
         ManaSourceType::Die => {
             let player_id = state.players[player_idx].id.clone();
             if let Some(ref die_id_str) = source.die_id {
+                // Check if this is the Mana Steal stored die
+                let is_stolen_die = state.players[player_idx]
+                    .tactic_state
+                    .stored_mana_die
+                    .as_ref()
+                    .is_some_and(|s| s.die_id.as_str() == die_id_str.as_str());
+
                 if let Some(die) = state
                     .source
                     .dice
@@ -337,6 +358,9 @@ pub(crate) fn consume_specific_mana_source(
                     let player = &mut state.players[player_idx];
                     player.used_die_ids.push(die_id);
                     player.flags.insert(PlayerFlags::USED_MANA_FROM_SOURCE);
+                    if is_stolen_die {
+                        player.tactic_state.mana_steal_used_this_turn = true;
+                    }
                 }
             }
             source.color

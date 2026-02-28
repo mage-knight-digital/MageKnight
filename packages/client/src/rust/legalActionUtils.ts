@@ -477,6 +477,31 @@ export function extractThugsDamagePayment(actions: LegalAction[]): ThugsDamagePa
 }
 
 // =============================================================================
+// Tactic decisions: Mana Steal
+// =============================================================================
+
+export interface ManaStealOption {
+  dieIndex: number;
+  action: LegalAction;
+}
+
+export function extractManaStealOptions(actions: LegalAction[]): ManaStealOption[] {
+  const result: ManaStealOption[] = [];
+  for (const action of actions) {
+    if (actionType(action) !== "ResolveTacticDecision") continue;
+    const data = actionData(action)!;
+    const td = data["data"] as { type: string; die_index?: number };
+    if (td.type === "mana_steal" && td.die_index != null) {
+      result.push({
+        dieIndex: td.die_index,
+        action,
+      });
+    }
+  }
+  return result;
+}
+
+// =============================================================================
 // Generic action presence check
 // =============================================================================
 
