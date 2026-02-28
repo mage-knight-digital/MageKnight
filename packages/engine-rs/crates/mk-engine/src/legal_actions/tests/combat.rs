@@ -1057,7 +1057,8 @@ fn attack_card_playable_in_attack_phase() {
 }
 
 #[test]
-fn influence_playable_in_attack_with_diplomacy() {
+fn influence_not_playable_in_attack_even_with_diplomacy() {
+    // Diplomacy = influence as block. Irrelevant in Attack phase.
     use mk_types::modifier::{ActiveModifier, ModifierDuration, ModifierScope, ModifierSource};
     use mk_types::ids::ModifierId;
 
@@ -1084,7 +1085,7 @@ fn influence_playable_in_attack_with_diplomacy() {
     let basic = legal.actions.iter().any(
         |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "threaten"),
     );
-    assert!(basic, "threaten should be playable in Attack with Diplomacy active");
+    assert!(!basic, "threaten should NOT be playable in Attack even with Diplomacy (influence as block is Block phase only)");
 }
 
 // =========================================================================

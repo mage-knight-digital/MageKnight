@@ -480,8 +480,8 @@ fn chilling_stare_basic_is_choice() {
 
     // Chilling stare basic: Choice([Influence 3, SelectCombatEnemy { nullify_all_attack_abilities }])
     let (mut state, mut undo) = setup_card_combat("chilling_stare", &["prowlers"]);
-    state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
-    // Enable InfluenceCardsInCombat (Diplomacy) so influence option is not pruned.
+    // Use Block phase with Diplomacy so influence option is not pruned.
+    state.combat.as_mut().unwrap().phase = CombatPhase::Block;
     let player_id = state.players[0].id.clone();
     state.active_modifiers.push(ActiveModifier {
         id: ModifierId::from("test_diplomacy"),

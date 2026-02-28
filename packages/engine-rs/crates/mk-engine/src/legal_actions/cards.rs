@@ -936,8 +936,7 @@ fn has_block_useful_leaf(state: &GameState, player_idx: usize, effect: &CardEffe
 /// Returns true if the effect tree is "dominated" in the Attack phase — i.e., it contains
 /// no leaf that provides tactical value during Attack. Useful leaves include all attack types,
 /// ManaBolt, PureMagic, DiscardForAttack, mana/crystal/draw/boost, modifiers, targeting,
-/// and Disease. Block, move, healing, and cure are useless. Influence is only useful with
-/// InfluenceCardsInCombat rule override (Diplomacy).
+/// and Disease. Block, move, influence, healing, and cure are all useless.
 pub(super) fn is_dominated_in_attack(
     state: &GameState,
     player_idx: usize,
@@ -982,14 +981,10 @@ fn has_attack_useful_leaf(state: &GameState, player_idx: usize, effect: &CardEff
         CardEffect::GainBlock { .. } | CardEffect::GainBlockElement { .. } => false,
 
         // Move — NOT useful in Attack phase (no cumbersome spending, no purpose)
-        CardEffect::GainMove { .. } | CardEffect::SongOfWindPowered => {
-            is_rule_active(state, player_idx, RuleOverride::MoveCardsInCombat)
-        }
+        CardEffect::GainMove { .. } | CardEffect::SongOfWindPowered => false,
 
-        // Influence — useful only with InfluenceCardsInCombat rule (Diplomacy)
-        CardEffect::GainInfluence { .. } | CardEffect::PeacefulMomentAction { .. } => {
-            is_rule_active(state, player_idx, RuleOverride::InfluenceCardsInCombat)
-        }
+        // Influence — NOT useful in Attack phase (Diplomacy = influence as block, Block phase only)
+        CardEffect::GainInfluence { .. } | CardEffect::PeacefulMomentAction { .. } => false,
 
         // Healing — useless in combat
         CardEffect::GainHealing { .. } => false,
