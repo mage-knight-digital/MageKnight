@@ -7,6 +7,7 @@ use mk_types::modifier::{ModifierEffect, RuleOverride};
 use mk_types::state::{GameState, PlayerFlags};
 
 use crate::card_play::{get_effective_sideways_value, is_rule_active};
+use crate::combat_resolution;
 use crate::effect_queue::is_resolvable;
 
 use super::utils::WOUND_CARD_ID;
@@ -201,13 +202,31 @@ pub(super) fn enumerate_combat_cards(
 
         // Wounds have no basic/powered effect — skip to sideways.
         if !is_wound {
+            // Healing cards cannot be played face-up in any combat phase (MK rules).
+            let basic_healing = contains_healing_effect(&card_def.basic_effect);
+            let powered_healing = contains_healing_effect(&card_def.powered_effect);
+
+            // Prune cards dominated in the current combat phase.
+            let basic_dominated = basic_healing
+                || (combat_phase == CombatPhase::RangedSiege
+                    && is_dominated_in_ranged_siege(state, player_idx, &card_def.basic_effect))
+                || (combat_phase == CombatPhase::Block
+                    && is_dominated_in_block(state, player_idx, &card_def.basic_effect));
+            let powered_dominated = powered_healing
+                || (combat_phase == CombatPhase::RangedSiege
+                    && is_dominated_in_ranged_siege(state, player_idx, &card_def.powered_effect))
+                || (combat_phase == CombatPhase::Block
+                    && is_dominated_in_block(state, player_idx, &card_def.powered_effect));
+
             // Category 2: PlayCardBasic.
-            if is_effect_playable_for_enumeration(
-                state,
-                player_idx,
-                hand_index,
-                &card_def.basic_effect,
-            ) {
+            if !basic_dominated
+                && is_effect_playable_for_enumeration(
+                    state,
+                    player_idx,
+                    hand_index,
+                    &card_def.basic_effect,
+                )
+            {
                 basic_actions.push(LegalAction::PlayCardBasic {
                     hand_index,
                     card_id: card_id.clone(),
@@ -218,45 +237,47 @@ pub(super) fn enumerate_combat_cards(
             // Time Bending chain prevention: cannot play Space Bending powered during a time-bent turn.
             let time_bending_blocked = player.flags.contains(PlayerFlags::IS_TIME_BENT_TURN)
                 && card_id.as_str() == "space_bending";
-            match card_def.powered_by {
-                PoweredBy::Single(color) => {
-                    if !time_bending_blocked
-                        && is_effect_playable_for_enumeration(
-                            state,
-                            player_idx,
-                            hand_index,
-                            &card_def.powered_effect,
-                        )
-                        && can_afford_powered(state, player_idx, color)
-                    {
-                        powered_actions.push(LegalAction::PlayCardPowered {
-                            hand_index,
-                            card_id: card_id.clone(),
-                            mana_color: color,
-                        });
+            if !powered_dominated {
+                match card_def.powered_by {
+                    PoweredBy::Single(color) => {
+                        if !time_bending_blocked
+                            && is_effect_playable_for_enumeration(
+                                state,
+                                player_idx,
+                                hand_index,
+                                &card_def.powered_effect,
+                            )
+                            && can_afford_powered(state, player_idx, color)
+                        {
+                            powered_actions.push(LegalAction::PlayCardPowered {
+                                hand_index,
+                                card_id: card_id.clone(),
+                                mana_color: color,
+                            });
+                        }
                     }
-                }
-                PoweredBy::AnyBasic => {
-                    if !time_bending_blocked
-                        && is_effect_playable_for_enumeration(
-                            state,
-                            player_idx,
-                            hand_index,
-                            &card_def.powered_effect,
-                        )
-                    {
-                        for &color in &ALL_BASIC_MANA_COLORS {
-                            if can_afford_powered(state, player_idx, color) {
-                                powered_actions.push(LegalAction::PlayCardPowered {
-                                    hand_index,
-                                    card_id: card_id.clone(),
-                                    mana_color: color,
-                                });
+                    PoweredBy::AnyBasic => {
+                        if !time_bending_blocked
+                            && is_effect_playable_for_enumeration(
+                                state,
+                                player_idx,
+                                hand_index,
+                                &card_def.powered_effect,
+                            )
+                        {
+                            for &color in &ALL_BASIC_MANA_COLORS {
+                                if can_afford_powered(state, player_idx, color) {
+                                    powered_actions.push(LegalAction::PlayCardPowered {
+                                        hand_index,
+                                        card_id: card_id.clone(),
+                                        mana_color: color,
+                                    });
+                                }
                             }
                         }
                     }
+                    PoweredBy::None => {}
                 }
-                PoweredBy::None => {}
             }
         }
 
@@ -615,6 +636,287 @@ fn no_non_move_value(effect: &CardEffect) -> bool {
 
         // Complex / unknown → conservative false (don't gate)
         _ => false,
+    }
+}
+
+/// Returns true if the effect tree contains `GainHealing` as a primary component.
+/// Cards with healing effects cannot be played face-up in combat (MK rules: healing icon).
+/// Checks top-level effects and direct Choice/Compound children only — does not flag cards
+/// where healing is deeply nested in a Conditional/Scaling subtree.
+fn contains_healing_effect(effect: &CardEffect) -> bool {
+    match effect {
+        CardEffect::GainHealing { .. } => true,
+        CardEffect::Choice { options } => options.iter().any(|o| matches!(o, CardEffect::GainHealing { .. })),
+        CardEffect::Compound { effects } => effects.iter().any(|e| matches!(e, CardEffect::GainHealing { .. })),
+        _ => false,
+    }
+}
+
+/// Returns true if the effect tree is "dominated" in the RangedSiege phase — i.e., it contains
+/// no leaf that provides tactical value during RangedSiege. Useful leaves include ranged/siege
+/// attack, mana gain, crystal operations, card draw, and resource modifiers. Move, influence,
+/// block, healing, and melee (without conversion modifiers) are all useless in RangedSiege.
+///
+/// This is an *enumeration-level* filter — once a card is played, the effect queue resolves
+/// normally (no filtering at drain time).
+pub(super) fn is_dominated_in_ranged_siege(
+    state: &GameState,
+    player_idx: usize,
+    effect: &CardEffect,
+) -> bool {
+    !has_ranged_siege_useful_leaf(state, player_idx, effect)
+}
+
+/// Returns true if the effect tree contains at least one leaf that provides value during
+/// the RangedSiege combat phase. Follows the same recursive structure as `has_influence_leaf`
+/// / `has_move_leaf`.
+fn has_ranged_siege_useful_leaf(
+    state: &GameState,
+    player_idx: usize,
+    effect: &CardEffect,
+) -> bool {
+    match effect {
+        // Ranged/Siege attack — always useful
+        CardEffect::GainAttack { combat_type, .. }
+        | CardEffect::AttackWithDefeatBonus { combat_type, .. }
+        | CardEffect::GainAttackBowResolved { combat_type, .. } => match combat_type {
+            CombatType::Ranged | CombatType::Siege => true,
+            CombatType::Melee => has_attack_conversion_modifier(state, player_idx),
+        },
+
+        // Resource management — always useful (can set up for later)
+        CardEffect::GainMana { .. }
+        | CardEffect::GainCrystal { .. }
+        | CardEffect::ConvertManaToCrystal
+        | CardEffect::DrawCards { .. }
+        | CardEffect::CardBoost { .. } => true,
+
+        // Ranged-producing spells/effects — always useful
+        CardEffect::ManaBolt { .. } | CardEffect::PureMagic { .. } => true,
+
+        // Combat targeting — always useful
+        CardEffect::SelectCombatEnemy { .. } => true,
+
+        // Discard for attack — check if any color option produces useful attack
+        CardEffect::DiscardForAttack { attacks_by_color } => attacks_by_color
+            .iter()
+            .any(|(_, effect)| has_ranged_siege_useful_leaf(state, player_idx, effect)),
+
+        // Modifiers can set up conversions, durations, etc. — always useful
+        CardEffect::ApplyModifier { .. } => true,
+
+        // Move — useful only with MoveCardsInCombat rule override
+        CardEffect::GainMove { .. } | CardEffect::SongOfWindPowered => {
+            is_rule_active(state, player_idx, RuleOverride::MoveCardsInCombat)
+        }
+
+        // Influence — useful only with InfluenceCardsInCombat rule override
+        CardEffect::GainInfluence { .. } | CardEffect::PeacefulMomentAction { .. } => {
+            is_rule_active(state, player_idx, RuleOverride::InfluenceCardsInCombat)
+        }
+
+        // Block — useless in RangedSiege (block phase hasn't started)
+        CardEffect::GainBlock { .. } | CardEffect::GainBlockElement { .. } => false,
+
+        // Healing — useless in combat
+        CardEffect::GainHealing { .. } => false,
+
+        // Cure/Disease — not useful in RangedSiege
+        CardEffect::Cure { .. } | CardEffect::Disease => false,
+
+        // Neutral effects — don't count as useful, don't block
+        CardEffect::TakeWound
+        | CardEffect::Noop
+        | CardEffect::ChangeReputation { .. }
+        | CardEffect::GainFame { .. }
+        | CardEffect::GrantWoundImmunity
+        | CardEffect::RushOfAdrenaline { .. }
+        | CardEffect::EnergyFlow { .. }
+        | CardEffect::FamePerEnemyDefeated { .. }
+        | CardEffect::HandLimitBonus { .. }
+        | CardEffect::ReadyUnit { .. }
+        | CardEffect::HealUnit { .. }
+        | CardEffect::ReadyAllUnits
+        | CardEffect::HealAllUnits
+        | CardEffect::ActivateBannerProtection
+        | CardEffect::ReadyUnitsBudget { .. }
+        | CardEffect::SelectUnitForModifier { .. } => false,
+
+        // Structural — recurse into children
+        CardEffect::Choice { options } => options
+            .iter()
+            .any(|o| has_ranged_siege_useful_leaf(state, player_idx, o)),
+        CardEffect::Compound { effects } => effects
+            .iter()
+            .any(|e| has_ranged_siege_useful_leaf(state, player_idx, e)),
+        CardEffect::Conditional {
+            then_effect,
+            else_effect,
+            ..
+        } => {
+            has_ranged_siege_useful_leaf(state, player_idx, then_effect)
+                || else_effect
+                    .as_ref()
+                    .is_some_and(|e| has_ranged_siege_useful_leaf(state, player_idx, e))
+        }
+        CardEffect::Scaling { base_effect, .. } => {
+            has_ranged_siege_useful_leaf(state, player_idx, base_effect)
+        }
+        CardEffect::DiscardCost { then_effect, .. } => {
+            has_ranged_siege_useful_leaf(state, player_idx, then_effect)
+        }
+        CardEffect::DiscardForBonus {
+            choice_options, ..
+        } => choice_options
+            .iter()
+            .any(|o| has_ranged_siege_useful_leaf(state, player_idx, o)),
+
+        // Conservative catch-all — don't prune unknown effects
+        _ => true,
+    }
+}
+
+/// Check if the combat has any undefeated cumbersome enemy (native or modifier-granted).
+fn has_cumbersome_enemy(state: &GameState) -> bool {
+    let combat = match &state.combat {
+        Some(c) => c,
+        None => return false,
+    };
+    combat.enemies.iter().any(|enemy| {
+        if enemy.is_defeated {
+            return false;
+        }
+        let def = match mk_data::enemies::get_enemy(enemy.enemy_id.as_str()) {
+            Some(d) => d,
+            None => return false,
+        };
+        if combat_resolution::has_ability(def, EnemyAbilityType::Cumbersome) {
+            return true;
+        }
+        // Check for granted cumbersome via modifier
+        state.active_modifiers.iter().any(|m| {
+            matches!(&m.effect, ModifierEffect::GrantEnemyAbility { ability }
+                if *ability == EnemyAbilityType::Cumbersome)
+                && matches!(&m.scope, mk_types::modifier::ModifierScope::OneEnemy { enemy_id }
+                    if enemy_id == enemy.instance_id.as_str())
+        })
+    })
+}
+
+/// Returns true if the effect tree is "dominated" in the Block phase — i.e., it contains
+/// no leaf that provides tactical value during Block. Useful leaves include block, move
+/// (cumbersome spending), mana/crystal/draw/boost, and modifiers. Attack (all types),
+/// ManaBolt, PureMagic, DiscardForAttack, healing, and cure/disease are all useless.
+/// Influence is only useful with InfluenceCardsInCombat rule override (Diplomacy).
+pub(super) fn is_dominated_in_block(
+    state: &GameState,
+    player_idx: usize,
+    effect: &CardEffect,
+) -> bool {
+    !has_block_useful_leaf(state, player_idx, effect)
+}
+
+/// Returns true if the effect tree contains at least one leaf that provides value during
+/// the Block combat phase.
+fn has_block_useful_leaf(state: &GameState, player_idx: usize, effect: &CardEffect) -> bool {
+    match effect {
+        // Block — always useful in Block phase
+        CardEffect::GainBlock { .. } | CardEffect::GainBlockElement { .. } => true,
+
+        // Resource management — always useful
+        CardEffect::GainMana { .. }
+        | CardEffect::GainCrystal { .. }
+        | CardEffect::ConvertManaToCrystal
+        | CardEffect::DrawCards { .. }
+        | CardEffect::CardBoost { .. } => true,
+
+        // Move — useful in Block phase only if cumbersome enemies present or MoveCardsInCombat
+        CardEffect::GainMove { .. } | CardEffect::SongOfWindPowered => {
+            has_cumbersome_enemy(state)
+                || is_rule_active(state, player_idx, RuleOverride::MoveCardsInCombat)
+        }
+
+        // Modifiers — always useful (could set up block bonuses, etc.)
+        CardEffect::ApplyModifier { .. } => true,
+
+        // Combat targeting — useful
+        CardEffect::SelectCombatEnemy { .. } => true,
+
+        // Attack — NOT useful in Block phase
+        CardEffect::GainAttack { .. }
+        | CardEffect::AttackWithDefeatBonus { .. }
+        | CardEffect::GainAttackBowResolved { .. }
+        | CardEffect::ManaBolt { .. }
+        | CardEffect::PureMagic { .. } => false,
+
+        // Discard for attack — recurse into inner effects (all attack → false)
+        CardEffect::DiscardForAttack { attacks_by_color } => attacks_by_color
+            .iter()
+            .any(|(_, effect)| has_block_useful_leaf(state, player_idx, effect)),
+
+        // Influence — useful only with InfluenceCardsInCombat rule (Diplomacy)
+        CardEffect::GainInfluence { .. } | CardEffect::PeacefulMomentAction { .. } => {
+            is_rule_active(state, player_idx, RuleOverride::InfluenceCardsInCombat)
+        }
+
+        // Healing — useless in combat
+        CardEffect::GainHealing { .. } => false,
+
+        // Disease — useful in Block (sets blocked enemies' armor to 1)
+        CardEffect::Disease => true,
+
+        // Cure — not useful in Block (healing-adjacent, no tactical value)
+        CardEffect::Cure { .. } => false,
+
+        // Neutral effects — don't count as useful, don't block
+        CardEffect::TakeWound
+        | CardEffect::Noop
+        | CardEffect::ChangeReputation { .. }
+        | CardEffect::GainFame { .. }
+        | CardEffect::GrantWoundImmunity
+        | CardEffect::RushOfAdrenaline { .. }
+        | CardEffect::EnergyFlow { .. }
+        | CardEffect::FamePerEnemyDefeated { .. }
+        | CardEffect::HandLimitBonus { .. }
+        | CardEffect::ReadyUnit { .. }
+        | CardEffect::HealUnit { .. }
+        | CardEffect::ReadyAllUnits
+        | CardEffect::HealAllUnits
+        | CardEffect::ActivateBannerProtection
+        | CardEffect::ReadyUnitsBudget { .. }
+        | CardEffect::SelectUnitForModifier { .. } => false,
+
+        // Structural — recurse into children
+        CardEffect::Choice { options } => options
+            .iter()
+            .any(|o| has_block_useful_leaf(state, player_idx, o)),
+        CardEffect::Compound { effects } => effects
+            .iter()
+            .any(|e| has_block_useful_leaf(state, player_idx, e)),
+        CardEffect::Conditional {
+            then_effect,
+            else_effect,
+            ..
+        } => {
+            has_block_useful_leaf(state, player_idx, then_effect)
+                || else_effect
+                    .as_ref()
+                    .is_some_and(|e| has_block_useful_leaf(state, player_idx, e))
+        }
+        CardEffect::Scaling { base_effect, .. } => {
+            has_block_useful_leaf(state, player_idx, base_effect)
+        }
+        CardEffect::DiscardCost { then_effect, .. } => {
+            has_block_useful_leaf(state, player_idx, then_effect)
+        }
+        CardEffect::DiscardForBonus {
+            choice_options, ..
+        } => choice_options
+            .iter()
+            .any(|o| has_block_useful_leaf(state, player_idx, o)),
+
+        // Conservative catch-all — don't prune unknown effects
+        _ => true,
     }
 }
 

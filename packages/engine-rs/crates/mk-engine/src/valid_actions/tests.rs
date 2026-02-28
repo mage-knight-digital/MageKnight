@@ -478,7 +478,7 @@ fn after_playing_card_updated_valid_actions() {
 
 #[test]
 fn combat_returns_combat_turn_actions() {
-    let mut state = setup_game(vec!["march", "rage"]);
+    let mut state = setup_game(vec!["march", "swift_bolt"]);
     // Put player into combat
     state.combat = Some(Box::new(CombatState {
         phase: CombatPhase::RangedSiege,
@@ -490,18 +490,18 @@ fn combat_returns_combat_turn_actions() {
         ValidActions::CombatTurn(actions) => {
             assert_eq!(actions.combat_phase, CombatPhase::RangedSiege);
             assert!(actions.can_end_phase);
-            // rage has GainAttack/GainBlock in combat — should be playable
-            let rage = actions
+            // swift_bolt has GainAttack{Ranged} — should be playable in RangedSiege
+            let swift_bolt = actions
                 .playable_cards
                 .iter()
-                .find(|c| c.card_id.as_str() == "rage");
-            assert!(rage.is_some(), "Rage should be playable in combat");
-            let rage = rage.unwrap();
-            assert!(rage.can_play_basic);
+                .find(|c| c.card_id.as_str() == "swift_bolt");
+            assert!(swift_bolt.is_some(), "swift_bolt should be playable in RangedSiege");
+            let swift_bolt = swift_bolt.unwrap();
+            assert!(swift_bolt.can_play_basic);
             // RangedSiege: no sideways options (attack=melee, unusable; block=wrong phase)
-            assert!(!rage.sideways_options.contains(&SidewaysAs::Attack));
-            assert!(!rage.sideways_options.contains(&SidewaysAs::Block));
-            assert!(!rage.sideways_options.contains(&SidewaysAs::Move));
+            assert!(!swift_bolt.sideways_options.contains(&SidewaysAs::Attack));
+            assert!(!swift_bolt.sideways_options.contains(&SidewaysAs::Block));
+            assert!(!swift_bolt.sideways_options.contains(&SidewaysAs::Move));
         }
         _ => panic!("Expected CombatTurn, got {:?}", va),
     }

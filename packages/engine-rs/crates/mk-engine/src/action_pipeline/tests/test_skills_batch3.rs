@@ -403,13 +403,15 @@ fn master_of_chaos_gold_gives_choice() {
     let (mut state, mut undo) = setup_two_player_combat_with_skill(
         Hero::Krang, "krang_master_of_chaos", &["prowlers"],
     );
+    // Use Attack phase so melee option is resolvable
+    state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
     // Set position to Red so rotating lands on Gold
     state.players[0].master_of_chaos_state = Some(MasterOfChaosState {
         position: ManaColor::Red,
         free_rotate_available: false,
     });
     activate_skill(&mut state, &mut undo, "krang_master_of_chaos");
-    // In combat, all 5 options are resolvable → choice with 5 options
+    // In combat (Attack phase), all 5 options are resolvable → choice with 5 options
     match &state.players[0].pending.active {
         Some(mk_types::pending::ActivePending::Choice(c)) => {
             assert_eq!(c.options.len(), 5);

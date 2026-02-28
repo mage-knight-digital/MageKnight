@@ -10,7 +10,10 @@ fn battle_frenzy_attack2_no_flip() {
     state.round_phase = RoundPhase::PlayerTurns;
     state.phase = GamePhase::Round;
     state.players[0].skills.push(SkillId::from("krang_battle_frenzy"));
-    state.combat = Some(Box::new(CombatState::default()));
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Attack,
+        ..CombatState::default()
+    }));
 
     let mut undo = UndoStack::new();
     let epoch = state.action_epoch;
@@ -46,7 +49,10 @@ fn battle_frenzy_attack4_flips() {
     state.round_phase = RoundPhase::PlayerTurns;
     state.phase = GamePhase::Round;
     state.players[0].skills.push(SkillId::from("krang_battle_frenzy"));
-    state.combat = Some(Box::new(CombatState::default()));
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Attack,
+        ..CombatState::default()
+    }));
 
     let mut undo = UndoStack::new();
     let epoch = state.action_epoch;

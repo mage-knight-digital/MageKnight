@@ -9,7 +9,7 @@ use crate::legal_actions::combat::{
 
 #[test]
 fn combat_emits_combat_actions() {
-    let mut state = setup_game(vec!["march", "rage"]);
+    let mut state = setup_game(vec!["march", "swift_bolt"]);
     state.combat = Some(Box::new(CombatState {
         phase: CombatPhase::RangedSiege,
         ..CombatState::default()
@@ -23,15 +23,13 @@ fn combat_emits_combat_actions() {
         .any(|a| matches!(a, LegalAction::EndCombatPhase));
     assert!(has_end_phase, "EndCombatPhase should be present in combat");
 
-    // Rage should have basic in combat (GainAttack is resolvable)
-    let rage_basic = legal.actions.iter().any(
-        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "rage"),
+    // swift_bolt should be playable (ranged attack)
+    let swift_bolt_basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "swift_bolt"),
     );
-    assert!(rage_basic, "rage basic should be playable in combat");
+    assert!(swift_bolt_basic, "swift_bolt basic should be playable in combat (ranged attack)");
 
     // RangedSiege: neither sideways Attack nor Block should be available.
-    // Sideways Attack produces melee points which can't be used until the Attack phase,
-    // so offering it here just bloats the action space with no tactical value.
     let attack_sideways = legal.actions.iter().any(|a| {
         matches!(
             a,
@@ -432,6 +430,560 @@ fn banner_fear_multiple_units_multiple_enemies() {
     let fear_count = legal.actions.iter().filter(|a| matches!(a, LegalAction::UseBannerFear { .. })).count();
     // 2 units × 2 enemies × 1 attack each = 4
     assert_eq!(fear_count, 4, "2 units × 2 enemies = 4 UseBannerFear actions");
+}
+
+// =========================================================================
+// Melee card filtering in RangedSiege phase
+// =========================================================================
+
+#[test]
+fn blood_rage_not_playable_in_ranged_siege() {
+    let mut state = setup_game(vec!["blood_rage"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::RangedSiege,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "blood_rage"),
+    );
+    let powered = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "blood_rage"),
+    );
+    assert!(!basic, "blood_rage basic (all-melee Choice) should not be playable in RangedSiege");
+    assert!(!powered, "blood_rage powered (all-melee Choice) should not be playable in RangedSiege");
+}
+
+#[test]
+fn counterattack_not_playable_in_ranged_siege() {
+    let mut state = setup_game(vec!["counterattack"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::RangedSiege,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "counterattack"),
+    );
+    let powered = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "counterattack"),
+    );
+    assert!(!basic, "counterattack basic (Scaling melee) should not be playable in RangedSiege");
+    assert!(!powered, "counterattack powered (Scaling melee) should not be playable in RangedSiege");
+}
+
+#[test]
+fn chivalry_not_playable_in_ranged_siege() {
+    let mut state = setup_game(vec!["chivalry"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::RangedSiege,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "chivalry"),
+    );
+    let powered = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "chivalry"),
+    );
+    assert!(!basic, "chivalry basic (all-melee Choice) should not be playable in RangedSiege");
+    assert!(!powered, "chivalry powered (all-melee Choice) should not be playable in RangedSiege");
+}
+
+#[test]
+fn rage_basic_not_playable_in_ranged_siege() {
+    // rage basic is Choice(Melee | Block) — both options dominated in RangedSiege
+    let mut state = setup_game(vec!["rage"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::RangedSiege,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "rage"),
+    );
+    assert!(!basic, "rage basic (Choice(Melee|Block)) should not be playable in RangedSiege — both options dominated");
+}
+
+#[test]
+fn rage_powered_not_playable_in_ranged_siege() {
+    // rage powered is GainAttack{Melee 4} — pure melee, should be filtered
+    let mut state = setup_game(vec!["rage"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::RangedSiege,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let powered = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "rage"),
+    );
+    assert!(!powered, "rage powered (pure melee) should not be playable in RangedSiege");
+}
+
+#[test]
+fn melee_cards_playable_in_ranged_siege_with_altem_mages_modifier() {
+    use mk_types::modifier::{ActiveModifier, ModifierDuration, ModifierScope, ModifierSource};
+    use mk_types::ids::ModifierId;
+
+    let mut state = setup_game(vec!["blood_rage"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::RangedSiege,
+        ..CombatState::default()
+    }));
+    let player_id = state.players[0].id.clone();
+    state.active_modifiers.push(ActiveModifier {
+        id: ModifierId::from("test_mod"),
+        source: ModifierSource::Card {
+            card_id: CardId::from("altem_mages"),
+            player_id: player_id.clone(),
+        },
+        duration: ModifierDuration::Combat,
+        scope: ModifierScope::SelfScope,
+        effect: ModifierEffect::TransformAttacksColdFire,
+        created_at_round: 1,
+        created_by_player_id: player_id,
+    });
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "blood_rage"),
+    );
+    assert!(basic, "blood_rage should be playable in RangedSiege with TransformAttacksColdFire modifier");
+}
+
+#[test]
+fn melee_cards_playable_in_attack_phase() {
+    let mut state = setup_game(vec!["blood_rage"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Attack,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "blood_rage"),
+    );
+    assert!(basic, "blood_rage should be playable in Attack phase");
+}
+
+#[test]
+fn move_card_not_playable_in_ranged_siege() {
+    let mut state = setup_game(vec!["stamina"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::RangedSiege,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "stamina"),
+    );
+    assert!(!basic, "stamina (GainMove) should not be playable in RangedSiege");
+}
+
+#[test]
+fn influence_card_not_playable_in_ranged_siege() {
+    let mut state = setup_game(vec!["threaten"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::RangedSiege,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "threaten"),
+    );
+    assert!(!basic, "threaten (GainInfluence) should not be playable in RangedSiege");
+}
+
+#[test]
+fn block_card_not_playable_in_ranged_siege() {
+    // determination basic = Choice(Melee|Block) — both dominated
+    let mut state = setup_game(vec!["determination"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::RangedSiege,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "determination"),
+    );
+    assert!(!basic, "determination basic (Choice(Melee|Block)) should not be playable in RangedSiege");
+}
+
+#[test]
+fn improvisation_not_playable_in_ranged_siege() {
+    // improvisation basic = Choice(Move|Influence|Melee|Block) — all dominated
+    let mut state = setup_game(vec!["improvisation"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::RangedSiege,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "improvisation"),
+    );
+    assert!(!basic, "improvisation basic (all 4 options dominated) should not be playable in RangedSiege");
+}
+
+#[test]
+fn ranged_card_playable_in_ranged_siege() {
+    let mut state = setup_game(vec!["swift_bolt"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::RangedSiege,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "swift_bolt"),
+    );
+    assert!(basic, "swift_bolt (ranged attack) should be playable in RangedSiege");
+}
+
+#[test]
+fn mana_card_playable_in_ranged_siege() {
+    let mut state = setup_game(vec!["concentration"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::RangedSiege,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "concentration"),
+    );
+    assert!(basic, "concentration (mana gain) should be playable in RangedSiege");
+}
+
+#[test]
+fn move_playable_with_move_in_combat_rule() {
+    use mk_types::modifier::{ActiveModifier, ModifierDuration, ModifierScope, ModifierSource};
+    use mk_types::ids::ModifierId;
+
+    let mut state = setup_game(vec!["stamina"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::RangedSiege,
+        ..CombatState::default()
+    }));
+    let player_id = state.players[0].id.clone();
+    state.active_modifiers.push(ActiveModifier {
+        id: ModifierId::from("test_mod"),
+        source: ModifierSource::Card {
+            card_id: CardId::from("agility"),
+            player_id: player_id.clone(),
+        },
+        duration: ModifierDuration::Combat,
+        scope: ModifierScope::SelfScope,
+        effect: ModifierEffect::RuleOverride { rule: mk_types::modifier::RuleOverride::MoveCardsInCombat },
+        created_at_round: 1,
+        created_by_player_id: player_id,
+    });
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "stamina"),
+    );
+    assert!(basic, "stamina should be playable in RangedSiege with MoveCardsInCombat rule active");
+}
+
+#[test]
+fn influence_playable_with_influence_in_combat_rule() {
+    use mk_types::modifier::{ActiveModifier, ModifierDuration, ModifierScope, ModifierSource};
+    use mk_types::ids::ModifierId;
+
+    let mut state = setup_game(vec!["threaten"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::RangedSiege,
+        ..CombatState::default()
+    }));
+    let player_id = state.players[0].id.clone();
+    state.active_modifiers.push(ActiveModifier {
+        id: ModifierId::from("test_mod"),
+        source: ModifierSource::Card {
+            card_id: CardId::from("diplomacy"),
+            player_id: player_id.clone(),
+        },
+        duration: ModifierDuration::Combat,
+        scope: ModifierScope::SelfScope,
+        effect: ModifierEffect::RuleOverride { rule: mk_types::modifier::RuleOverride::InfluenceCardsInCombat },
+        created_at_round: 1,
+        created_by_player_id: player_id,
+    });
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "threaten"),
+    );
+    assert!(basic, "threaten should be playable in RangedSiege with InfluenceCardsInCombat rule active");
+}
+
+#[test]
+fn tranquility_not_playable_in_ranged_siege() {
+    // tranquility basic = Choice(GainHealing | DrawCards) — healing icon means
+    // the card is not playable in any combat phase (MK rules).
+    let mut state = setup_game(vec!["tranquility", "wound"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::RangedSiege,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "tranquility"),
+    );
+    assert!(!basic, "tranquility should not be playable in RangedSiege (healing card)");
+}
+
+#[test]
+fn tranquility_not_playable_in_attack_phase() {
+    // Healing cards are not playable in any combat phase, including Attack.
+    let mut state = setup_game(vec!["tranquility", "wound"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Attack,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "tranquility"),
+    );
+    assert!(!basic, "tranquility should not be playable in Attack phase (healing card)");
+}
+
+#[test]
+fn tranquility_not_playable_in_block_phase() {
+    let mut state = setup_game(vec!["tranquility", "wound"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Block,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "tranquility"),
+    );
+    assert!(!basic, "tranquility should not be playable in Block phase (healing card)");
+}
+
+// =========================================================================
+// Card filtering in Block phase
+// =========================================================================
+
+#[test]
+fn attack_card_not_playable_in_block_phase() {
+    // swift_bolt powered = GainAttack{Ranged} — attack useless in Block
+    let mut state = setup_game(vec!["swift_bolt"]);
+    state.players[0].pure_mana.push(ManaToken {
+        color: ManaColor::White,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Block,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    // swift_bolt basic = GainCrystal(White) — useful, should be playable
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "swift_bolt"),
+    );
+    assert!(basic, "swift_bolt basic (GainCrystal) should be playable in Block phase");
+
+    // swift_bolt powered = GainAttack{Ranged} — useless in Block
+    let powered = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "swift_bolt"),
+    );
+    assert!(!powered, "swift_bolt powered (ranged attack) should not be playable in Block phase");
+}
+
+#[test]
+fn blood_rage_not_playable_in_block_phase() {
+    // blood_rage: both basic options are melee attack — useless in Block
+    let mut state = setup_game(vec!["blood_rage"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Block,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "blood_rage"),
+    );
+    let powered = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "blood_rage"),
+    );
+    assert!(!basic, "blood_rage basic (all-melee) should not be playable in Block phase");
+    assert!(!powered, "blood_rage powered (melee) should not be playable in Block phase");
+}
+
+#[test]
+fn rage_basic_playable_in_block_phase() {
+    // rage basic = Choice(Melee|Block) — block option IS useful in Block phase
+    let mut state = setup_game(vec!["rage"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Block,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "rage"),
+    );
+    assert!(basic, "rage basic (Choice(Melee|Block)) should be playable in Block — block option is useful");
+}
+
+#[test]
+fn rage_powered_not_playable_in_block_phase() {
+    // rage powered = GainAttack{Melee 4} — pure melee attack, useless in Block
+    let mut state = setup_game(vec!["rage"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Block,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let powered = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "rage"),
+    );
+    assert!(!powered, "rage powered (pure melee) should not be playable in Block phase");
+}
+
+#[test]
+fn block_card_playable_in_block_phase() {
+    // determination powered = GainBlock(3, Physical) — useful in Block
+    let mut state = setup_game(vec!["determination"]);
+    state.players[0].pure_mana.push(ManaToken {
+        color: ManaColor::Blue,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Block,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let powered = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "determination"),
+    );
+    assert!(powered, "determination powered (GainBlock) should be playable in Block phase");
+}
+
+#[test]
+fn mana_card_playable_in_block_phase() {
+    let mut state = setup_game(vec!["concentration"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Block,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "concentration"),
+    );
+    assert!(basic, "concentration (mana gain) should be playable in Block phase");
+}
+
+#[test]
+fn move_card_not_playable_in_block_without_cumbersome() {
+    // No cumbersome enemies → move has no value in Block phase
+    let mut state = setup_game(vec!["stamina"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Block,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "stamina"),
+    );
+    assert!(!basic, "stamina (GainMove) should not be playable in Block without cumbersome enemies");
+}
+
+#[test]
+fn move_card_playable_in_block_with_cumbersome() {
+    // Cumbersome enemies present → move IS useful (spend on cumbersome)
+    let mut state = setup_combat_game(&["orc_stonethrowers"]); // Cumbersome enemy
+    state.combat.as_mut().unwrap().phase = CombatPhase::Block;
+    state.players[0].hand.push(CardId::from("stamina"));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "stamina"),
+    );
+    assert!(basic, "stamina (GainMove) should be playable in Block with cumbersome enemies");
+}
+
+#[test]
+fn influence_not_playable_in_block_without_diplomacy() {
+    let mut state = setup_game(vec!["threaten"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Block,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "threaten"),
+    );
+    assert!(!basic, "threaten (GainInfluence) should not be playable in Block without Diplomacy");
+}
+
+#[test]
+fn influence_playable_in_block_with_diplomacy() {
+    use mk_types::modifier::{ActiveModifier, ModifierDuration, ModifierScope, ModifierSource};
+    use mk_types::ids::ModifierId;
+
+    let mut state = setup_game(vec!["threaten"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Block,
+        ..CombatState::default()
+    }));
+    let player_id = state.players[0].id.clone();
+    state.active_modifiers.push(ActiveModifier {
+        id: ModifierId::from("test_mod"),
+        source: ModifierSource::Card {
+            card_id: CardId::from("diplomacy"),
+            player_id: player_id.clone(),
+        },
+        duration: ModifierDuration::Combat,
+        scope: ModifierScope::SelfScope,
+        effect: ModifierEffect::RuleOverride { rule: mk_types::modifier::RuleOverride::InfluenceCardsInCombat },
+        created_at_round: 1,
+        created_by_player_id: player_id,
+    });
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "threaten"),
+    );
+    assert!(basic, "threaten should be playable in Block with InfluenceCardsInCombat (Diplomacy) active");
+}
+
+#[test]
+fn counterattack_not_playable_in_block_phase() {
+    // counterattack basic = Scaling(PerEnemyBlocked, base=GainAttack{Melee})
+    // Even though it scales by blocked enemies, the base effect is attack — not useful in Block
+    let mut state = setup_game(vec!["counterattack"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Block,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "counterattack"),
+    );
+    assert!(!basic, "counterattack (Scaling melee attack) should not be playable in Block phase");
 }
 
 // =========================================================================

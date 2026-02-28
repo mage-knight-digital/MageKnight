@@ -477,6 +477,8 @@ fn expose_basic_multi_enemy_pending_then_continuation() {
 fn chilling_stare_basic_is_choice() {
     // Chilling stare basic: Choice([Influence 3, SelectCombatEnemy { nullify_all_attack_abilities }])
     let (mut state, mut undo) = setup_card_combat("chilling_stare", &["prowlers"]);
+    // Use Attack phase so influence option is not pruned by RangedSiege/Block domination filters.
+    state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
 
     let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
     let action = legal.actions.iter().find(|a| matches!(a,
@@ -814,6 +816,8 @@ fn disease_powered_sets_armor_to_1_for_blocked_enemies() {
 #[test]
 fn disease_skipped_when_no_enemies_blocked() {
     let (mut state, _undo) = setup_card_combat("cure", &["prowlers"]);
+    // Disease is dominated in RangedSiege; use Attack phase for this test.
+    state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
     state.players[0].pure_mana.push(ManaToken {
         color: ManaColor::White,
         source: ManaTokenSource::Effect,

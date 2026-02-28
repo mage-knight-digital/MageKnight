@@ -5933,10 +5933,11 @@ pub(crate) fn is_resolvable(state: &GameState, player_idx: usize, effect: &CardE
         | CardEffect::GainBlockElement { .. }
         | CardEffect::AttackWithDefeatBonus { .. } => state.combat.is_some(),
 
-        // Need wounds in hand
+        // Need wounds in hand; healing is not usable during combat (MK rules).
         CardEffect::GainHealing { .. } => {
-            player.hand.iter().any(|c| c.as_str() == WOUND_CARD_ID)
-                || player.units.iter().any(|u| u.wounded)
+            state.combat.is_none()
+                && (player.hand.iter().any(|c| c.as_str() == WOUND_CARD_ID)
+                    || player.units.iter().any(|u| u.wounded))
         }
 
         // Need cards in deck
@@ -5952,8 +5953,11 @@ pub(crate) fn is_resolvable(state: &GameState, player_idx: usize, effect: &CardE
             options.iter().any(|o| is_resolvable(state, player_idx, o))
         }
 
-        // Conditional/Scaling: always resolvable (condition/factor evaluated at resolve time)
-        CardEffect::Conditional { .. } | CardEffect::Scaling { .. } => true,
+        // Conditional: always resolvable (condition evaluated at resolve time)
+        CardEffect::Conditional { .. } => true,
+
+        // Scaling: resolvable if base effect is resolvable
+        CardEffect::Scaling { base_effect, .. } => is_resolvable(state, player_idx, base_effect),
 
         // Multi-step effects: resolvable by default (will be filtered at resolve time)
         CardEffect::ConvertManaToCrystal
@@ -7870,6 +7874,7 @@ mod tests {
     fn attack_with_defeat_bonus_in_choice() {
         // Chivalry pattern: Choice(GainAttack(3), AttackWithDefeatBonus(2))
         let mut state = combat_state();
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
         let mut queue = EffectQueue::new();
         queue.push(
             CardEffect::Choice {
@@ -7912,7 +7917,8 @@ mod tests {
 
     #[test]
     fn attack_with_defeat_bonus_resolvable_in_combat() {
-        let state = combat_state();
+        let mut state = combat_state();
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
         let effect = CardEffect::AttackWithDefeatBonus {
             amount: 2,
             combat_type: CombatType::Melee,

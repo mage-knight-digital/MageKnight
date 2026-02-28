@@ -1609,9 +1609,10 @@ mod tests {
 
     #[test]
     fn rage_basic_in_combat_presents_choice() {
-        // Rage basic: Choice(Attack 2 melee, Block 2) — both resolvable in combat
+        // Rage basic: Choice(Attack 2 melee, Block 2) — both resolvable in Attack phase
         let mut state = setup_game(vec!["rage"]);
         setup_combat_with_enemies(&mut state, &["prowlers"]);
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
         let result = play_card(&mut state, 0, 0, false, None).unwrap();
         assert!(matches!(result, CardPlayResult::PendingChoice));
         if let Some(ActivePending::Choice(ref choice)) = state.players[0].pending.active {

@@ -549,7 +549,10 @@ fn maximal_choice_card_creates_pending() {
     let mut state = setup_playing_game(vec!["maximal_effect", "rage"]);
     state.offers.advanced_actions = vec![];
     state.decks.advanced_action_deck = vec![];
-    state.combat = Some(Box::new(CombatState::default()));
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Attack,
+        ..CombatState::default()
+    }));
     let mut undo = UndoStack::new();
     let epoch = state.action_epoch;
     apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
