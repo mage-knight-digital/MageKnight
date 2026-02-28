@@ -208,15 +208,13 @@ pub(super) fn enumerate_combat_cards(
 
             // Prune cards dominated in the current combat phase.
             let basic_dominated = basic_healing
-                || (combat_phase == CombatPhase::RangedSiege
-                    && is_dominated_in_ranged_siege(state, player_idx, &card_def.basic_effect))
-                || (combat_phase == CombatPhase::Block
-                    && is_dominated_in_block(state, player_idx, &card_def.basic_effect));
+                || is_dominated_in_combat_phase(
+                    state, player_idx, combat_phase, &card_def.basic_effect,
+                );
             let powered_dominated = powered_healing
-                || (combat_phase == CombatPhase::RangedSiege
-                    && is_dominated_in_ranged_siege(state, player_idx, &card_def.powered_effect))
-                || (combat_phase == CombatPhase::Block
-                    && is_dominated_in_block(state, player_idx, &card_def.powered_effect));
+                || is_dominated_in_combat_phase(
+                    state, player_idx, combat_phase, &card_def.powered_effect,
+                );
 
             // Category 2: PlayCardBasic.
             if !basic_dominated
@@ -652,6 +650,21 @@ fn contains_healing_effect(effect: &CardEffect) -> bool {
     }
 }
 
+/// Dispatch domination check to the appropriate phase-specific function.
+fn is_dominated_in_combat_phase(
+    state: &GameState,
+    player_idx: usize,
+    phase: CombatPhase,
+    effect: &CardEffect,
+) -> bool {
+    match phase {
+        CombatPhase::RangedSiege => is_dominated_in_ranged_siege(state, player_idx, effect),
+        CombatPhase::Block => is_dominated_in_block(state, player_idx, effect),
+        CombatPhase::Attack => is_dominated_in_attack(state, player_idx, effect),
+        _ => false,
+    }
+}
+
 /// Returns true if the effect tree is "dominated" in the RangedSiege phase — i.e., it contains
 /// no leaf that provides tactical value during RangedSiege. Useful leaves include ranged/siege
 /// attack, mana gain, crystal operations, card draw, and resource modifiers. Move, influence,
@@ -914,6 +927,122 @@ fn has_block_useful_leaf(state: &GameState, player_idx: usize, effect: &CardEffe
         } => choice_options
             .iter()
             .any(|o| has_block_useful_leaf(state, player_idx, o)),
+
+        // Conservative catch-all — don't prune unknown effects
+        _ => true,
+    }
+}
+
+/// Returns true if the effect tree is "dominated" in the Attack phase — i.e., it contains
+/// no leaf that provides tactical value during Attack. Useful leaves include all attack types,
+/// ManaBolt, PureMagic, DiscardForAttack, mana/crystal/draw/boost, modifiers, targeting,
+/// and Disease. Block, move, healing, and cure are useless. Influence is only useful with
+/// InfluenceCardsInCombat rule override (Diplomacy).
+pub(super) fn is_dominated_in_attack(
+    state: &GameState,
+    player_idx: usize,
+    effect: &CardEffect,
+) -> bool {
+    !has_attack_useful_leaf(state, player_idx, effect)
+}
+
+/// Returns true if the effect tree contains at least one leaf that provides value during
+/// the Attack combat phase.
+fn has_attack_useful_leaf(state: &GameState, player_idx: usize, effect: &CardEffect) -> bool {
+    match effect {
+        // Attack — always useful in Attack phase
+        CardEffect::GainAttack { .. }
+        | CardEffect::AttackWithDefeatBonus { .. }
+        | CardEffect::GainAttackBowResolved { .. }
+        | CardEffect::ManaBolt { .. }
+        | CardEffect::PureMagic { .. } => true,
+
+        // Resource management — always useful
+        CardEffect::GainMana { .. }
+        | CardEffect::GainCrystal { .. }
+        | CardEffect::ConvertManaToCrystal
+        | CardEffect::DrawCards { .. }
+        | CardEffect::CardBoost { .. } => true,
+
+        // Modifiers — always useful (attack bonuses, etc.)
+        CardEffect::ApplyModifier { .. } => true,
+
+        // Combat targeting — useful for attack target selection
+        CardEffect::SelectCombatEnemy { .. } => true,
+
+        // Discard for attack — recurse into inner effects
+        CardEffect::DiscardForAttack { attacks_by_color } => attacks_by_color
+            .iter()
+            .any(|(_, effect)| has_attack_useful_leaf(state, player_idx, effect)),
+
+        // Disease — useful (weakens enemies before attacking)
+        CardEffect::Disease => true,
+
+        // Block — NOT useful in Attack phase (wrong phase)
+        CardEffect::GainBlock { .. } | CardEffect::GainBlockElement { .. } => false,
+
+        // Move — NOT useful in Attack phase (no cumbersome spending, no purpose)
+        CardEffect::GainMove { .. } | CardEffect::SongOfWindPowered => {
+            is_rule_active(state, player_idx, RuleOverride::MoveCardsInCombat)
+        }
+
+        // Influence — useful only with InfluenceCardsInCombat rule (Diplomacy)
+        CardEffect::GainInfluence { .. } | CardEffect::PeacefulMomentAction { .. } => {
+            is_rule_active(state, player_idx, RuleOverride::InfluenceCardsInCombat)
+        }
+
+        // Healing — useless in combat
+        CardEffect::GainHealing { .. } => false,
+
+        // Cure — not useful in Attack
+        CardEffect::Cure { .. } => false,
+
+        // Neutral effects — don't count as useful
+        CardEffect::TakeWound
+        | CardEffect::Noop
+        | CardEffect::ChangeReputation { .. }
+        | CardEffect::GainFame { .. }
+        | CardEffect::GrantWoundImmunity
+        | CardEffect::RushOfAdrenaline { .. }
+        | CardEffect::EnergyFlow { .. }
+        | CardEffect::FamePerEnemyDefeated { .. }
+        | CardEffect::HandLimitBonus { .. }
+        | CardEffect::ReadyUnit { .. }
+        | CardEffect::HealUnit { .. }
+        | CardEffect::ReadyAllUnits
+        | CardEffect::HealAllUnits
+        | CardEffect::ActivateBannerProtection
+        | CardEffect::ReadyUnitsBudget { .. }
+        | CardEffect::SelectUnitForModifier { .. } => false,
+
+        // Structural — recurse into children
+        CardEffect::Choice { options } => options
+            .iter()
+            .any(|o| has_attack_useful_leaf(state, player_idx, o)),
+        CardEffect::Compound { effects } => effects
+            .iter()
+            .any(|e| has_attack_useful_leaf(state, player_idx, e)),
+        CardEffect::Conditional {
+            then_effect,
+            else_effect,
+            ..
+        } => {
+            has_attack_useful_leaf(state, player_idx, then_effect)
+                || else_effect
+                    .as_ref()
+                    .is_some_and(|e| has_attack_useful_leaf(state, player_idx, e))
+        }
+        CardEffect::Scaling { base_effect, .. } => {
+            has_attack_useful_leaf(state, player_idx, base_effect)
+        }
+        CardEffect::DiscardCost { then_effect, .. } => {
+            has_attack_useful_leaf(state, player_idx, then_effect)
+        }
+        CardEffect::DiscardForBonus {
+            choice_options, ..
+        } => choice_options
+            .iter()
+            .any(|o| has_attack_useful_leaf(state, player_idx, o)),
 
         // Conservative catch-all — don't prune unknown effects
         _ => true,

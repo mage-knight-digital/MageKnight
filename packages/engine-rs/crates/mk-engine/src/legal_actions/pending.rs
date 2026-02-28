@@ -6,7 +6,7 @@ use mk_types::state::PlayerFlags;
 use crate::effect_queue::{is_resolvable, WOUND_CARD_ID};
 use crate::undo::UndoStack;
 
-use super::cards::{is_dominated_in_block, is_dominated_in_ranged_siege, is_influence_only, is_move_only};
+use super::cards::{is_dominated_in_attack, is_dominated_in_block, is_dominated_in_ranged_siege, is_influence_only, is_move_only};
 
 pub(super) fn enumerate_pending(
     active: &ActivePending,
@@ -22,8 +22,6 @@ pub(super) fn enumerate_pending(
             let is_interacting = player.flags.contains(PlayerFlags::IS_INTERACTING);
             let in_combat = state.combat.is_some();
             let combat_phase = state.combat.as_ref().map(|c| c.phase);
-            let in_ranged_siege = combat_phase == Some(CombatPhase::RangedSiege);
-            let in_block = combat_phase == Some(CombatPhase::Block);
             let pre_filter_len = actions.len();
 
             for (i, option) in choice.options.iter().enumerate() {
@@ -35,15 +33,23 @@ pub(super) fn enumerate_pending(
                 if !in_combat && is_interacting && is_move_only(option) {
                     continue;
                 }
-                // Prune options dominated in RangedSiege phase.
-                if in_ranged_siege
-                    && is_dominated_in_ranged_siege(state, player_idx, option)
-                {
-                    continue;
-                }
-                // Prune options dominated in Block phase.
-                if in_block && is_dominated_in_block(state, player_idx, option) {
-                    continue;
+                // Prune options dominated in the current combat phase.
+                if let Some(phase) = combat_phase {
+                    let dominated = match phase {
+                        CombatPhase::RangedSiege => {
+                            is_dominated_in_ranged_siege(state, player_idx, option)
+                        }
+                        CombatPhase::Block => {
+                            is_dominated_in_block(state, player_idx, option)
+                        }
+                        CombatPhase::Attack => {
+                            is_dominated_in_attack(state, player_idx, option)
+                        }
+                        _ => false,
+                    };
+                    if dominated {
+                        continue;
+                    }
                 }
                 actions.push(LegalAction::ResolveChoice { choice_index: i });
             }
@@ -64,8 +70,6 @@ pub(super) fn enumerate_pending(
             let is_interacting = player.flags.contains(PlayerFlags::IS_INTERACTING);
             let in_combat = state.combat.is_some();
             let combat_phase = state.combat.as_ref().map(|c| c.phase);
-            let in_ranged_siege = combat_phase == Some(CombatPhase::RangedSiege);
-            let in_block = combat_phase == Some(CombatPhase::Block);
             let eligible_count = count_eligible_for_discard(
                 &player.hand,
                 dfb.discard_filter,
@@ -85,15 +89,23 @@ pub(super) fn enumerate_pending(
                 if !in_combat && is_interacting && is_move_only(opt) {
                     continue;
                 }
-                // Prune options dominated in RangedSiege phase.
-                if in_ranged_siege
-                    && is_dominated_in_ranged_siege(state, player_idx, opt)
-                {
-                    continue;
-                }
-                // Prune options dominated in Block phase.
-                if in_block && is_dominated_in_block(state, player_idx, opt) {
-                    continue;
+                // Prune options dominated in the current combat phase.
+                if let Some(phase) = combat_phase {
+                    let dominated = match phase {
+                        CombatPhase::RangedSiege => {
+                            is_dominated_in_ranged_siege(state, player_idx, opt)
+                        }
+                        CombatPhase::Block => {
+                            is_dominated_in_block(state, player_idx, opt)
+                        }
+                        CombatPhase::Attack => {
+                            is_dominated_in_attack(state, player_idx, opt)
+                        }
+                        _ => false,
+                    };
+                    if dominated {
+                        continue;
+                    }
                 }
                 for dc in 0..=actual_max {
                     actions.push(LegalAction::ResolveDiscardForBonus {

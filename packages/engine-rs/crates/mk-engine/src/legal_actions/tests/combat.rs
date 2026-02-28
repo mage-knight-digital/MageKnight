@@ -987,6 +987,107 @@ fn counterattack_not_playable_in_block_phase() {
 }
 
 // =========================================================================
+// Card filtering in Attack phase
+// =========================================================================
+
+#[test]
+fn influence_not_playable_in_attack_phase() {
+    let mut state = setup_game(vec!["threaten"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Attack,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "threaten"),
+    );
+    assert!(!basic, "threaten (GainInfluence) should not be playable in Attack phase");
+}
+
+#[test]
+fn block_card_not_playable_in_attack_phase() {
+    // determination powered = GainBlock — useless in Attack
+    let mut state = setup_game(vec!["determination"]);
+    state.players[0].pure_mana.push(ManaToken {
+        color: ManaColor::Blue,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Attack,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let powered = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "determination"),
+    );
+    assert!(!powered, "determination powered (GainBlock) should not be playable in Attack phase");
+}
+
+#[test]
+fn move_card_not_playable_in_attack_phase() {
+    let mut state = setup_game(vec!["stamina"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Attack,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "stamina"),
+    );
+    assert!(!basic, "stamina (GainMove) should not be playable in Attack phase");
+}
+
+#[test]
+fn attack_card_playable_in_attack_phase() {
+    let mut state = setup_game(vec!["blood_rage"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Attack,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "blood_rage"),
+    );
+    assert!(basic, "blood_rage (melee attack) should be playable in Attack phase");
+}
+
+#[test]
+fn influence_playable_in_attack_with_diplomacy() {
+    use mk_types::modifier::{ActiveModifier, ModifierDuration, ModifierScope, ModifierSource};
+    use mk_types::ids::ModifierId;
+
+    let mut state = setup_game(vec!["threaten"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Attack,
+        ..CombatState::default()
+    }));
+    let player_id = state.players[0].id.clone();
+    state.active_modifiers.push(ActiveModifier {
+        id: ModifierId::from("test_mod"),
+        source: ModifierSource::Card {
+            card_id: CardId::from("diplomacy"),
+            player_id: player_id.clone(),
+        },
+        duration: ModifierDuration::Combat,
+        scope: ModifierScope::SelfScope,
+        effect: ModifierEffect::RuleOverride { rule: mk_types::modifier::RuleOverride::InfluenceCardsInCombat },
+        created_at_round: 1,
+        created_by_player_id: player_id,
+    });
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "threaten"),
+    );
+    assert!(basic, "threaten should be playable in Attack with Diplomacy active");
+}
+
+// =========================================================================
 // Sideways masking with modifiers
 // =========================================================================
 

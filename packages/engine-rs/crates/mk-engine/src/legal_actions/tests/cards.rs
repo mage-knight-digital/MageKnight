@@ -475,10 +475,28 @@ fn expose_basic_multi_enemy_pending_then_continuation() {
 
 #[test]
 fn chilling_stare_basic_is_choice() {
+    use mk_types::modifier::{ActiveModifier, ModifierDuration, ModifierScope, ModifierSource};
+    use mk_types::ids::ModifierId;
+
     // Chilling stare basic: Choice([Influence 3, SelectCombatEnemy { nullify_all_attack_abilities }])
     let (mut state, mut undo) = setup_card_combat("chilling_stare", &["prowlers"]);
-    // Use Attack phase so influence option is not pruned by RangedSiege/Block domination filters.
     state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+    // Enable InfluenceCardsInCombat (Diplomacy) so influence option is not pruned.
+    let player_id = state.players[0].id.clone();
+    state.active_modifiers.push(ActiveModifier {
+        id: ModifierId::from("test_diplomacy"),
+        source: ModifierSource::Card {
+            card_id: CardId::from("diplomacy"),
+            player_id: player_id.clone(),
+        },
+        duration: ModifierDuration::Combat,
+        scope: ModifierScope::SelfScope,
+        effect: ModifierEffect::RuleOverride {
+            rule: mk_types::modifier::RuleOverride::InfluenceCardsInCombat,
+        },
+        created_at_round: 1,
+        created_by_player_id: player_id,
+    });
 
     let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
     let action = legal.actions.iter().find(|a| matches!(a,
