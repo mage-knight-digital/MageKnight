@@ -16,11 +16,14 @@
    - ColdFire: Dusty Purple #6a4a8a
    ============================================================================ */
 
-/* Combat Scene - full screen combat arena */
+/* Combat Scene - full screen combat arena
+ * z-index 200: must be above the PixiJS canvas (.hex-grid = 150 during combat)
+ * so that action buttons (Attack, Confirm Targets, etc.) are clickable.
+ * pointer-events: none lets clicks pass through to the canvas for hand cards. */
 .combat-scene {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: 200;
   display: flex;
   flex-direction: column;
   pointer-events: none;
@@ -463,6 +466,57 @@
 }
 
 /* ============================================================================
+   Initiate Attack Buttons (pre-target-selection)
+   ============================================================================ */
+
+.combat-scene__initiate-attacks {
+  position: fixed;
+  bottom: clamp(190px, 26vh, 290px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.5rem;
+  z-index: 160;
+  pointer-events: auto;
+}
+
+.combat-scene__initiate-attack-btn {
+  padding: 0.6rem 1.5rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: #fff;
+  background: linear-gradient(135deg, #a06030, #8b4513);
+  border: 2px solid rgba(184, 115, 51, 0.8);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.combat-scene__initiate-attack-btn:hover {
+  background: linear-gradient(135deg, #b87040, #9b5523);
+  box-shadow:
+    0 4px 20px rgba(184, 115, 51, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.combat-scene__initiate-attack-btn--convert {
+  font-size: 0.7rem;
+  padding: 0.4rem 1rem;
+  background: linear-gradient(135deg, #4a5060, #3a3a48);
+  border-color: rgba(160, 165, 180, 0.5);
+}
+
+.combat-scene__initiate-attack-btn--convert:hover {
+  background: linear-gradient(135deg, #5a6070, #4a4a58);
+  border-color: rgba(160, 165, 180, 0.7);
+}
+
+/* ============================================================================
    Target-First Combat Action Buttons
    ============================================================================ */
 
@@ -536,5 +590,45 @@
 @keyframes combat-btn-pulse {
   0%, 100% { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
   50% { box-shadow: 0 4px 24px rgba(255, 255, 255, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.15); }
+}
+
+/* ============================================================================
+   Declaration Banner — prompt after confirming targets
+   ============================================================================ */
+
+.combat-scene__declaration-banner {
+  position: fixed;
+  bottom: clamp(220px, 28vh, 320px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.4rem 1.2rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(212, 165, 116, 0.9);
+  background: linear-gradient(
+    135deg,
+    rgba(26, 29, 46, 0.88) 0%,
+    rgba(15, 15, 25, 0.92) 100%
+  );
+  border: 1px solid rgba(212, 165, 116, 0.35);
+  border-radius: 6px;
+  z-index: 150;
+  pointer-events: none;
+  white-space: nowrap;
+  animation: declaration-banner-pulse 2s ease-in-out infinite;
+}
+
+@keyframes declaration-banner-pulse {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
+}
+
+/* Attack progress separator in accumulator */
+.combat-hud__progress-separator {
+  font-size: 0.8em;
+  color: rgba(212, 165, 116, 0.6);
+  margin: 0 0.15em;
 }
 

@@ -289,6 +289,28 @@ pub(super) fn apply_shield_bash_on_block(
 }
 
 
+/// Resolve a declared attack: read declared targets/type, clear them, delegate to inner.
+pub(super) fn apply_resolve_attack(
+    state: &mut GameState,
+    player_idx: usize,
+) -> Result<ApplyResult, ApplyError> {
+    let combat = state
+        .combat
+        .as_mut()
+        .ok_or_else(|| ApplyError::InternalError("ResolveAttack with no combat".into()))?;
+
+    let target_ids = combat
+        .declared_attack_targets
+        .take()
+        .ok_or_else(|| ApplyError::InternalError("ResolveAttack: no declared targets".into()))?;
+    let attack_type = combat
+        .declared_attack_type
+        .take()
+        .ok_or_else(|| ApplyError::InternalError("ResolveAttack: no declared attack type".into()))?;
+
+    apply_declare_attack_inner(state, player_idx, &target_ids, attack_type)
+}
+
 pub(super) fn apply_declare_attack_inner(
     state: &mut GameState,
     player_idx: usize,
@@ -327,24 +349,42 @@ pub(super) fn apply_declare_attack_inner(
             target_pairs.push((enemy.clone(), def));
         }
 
-        // Get available attack for this type
+        // Phase-based pool selection: in RangedSiege, combine ranged+siege pools
+        // (ranged only if no target is fortified). In Attack phase, use declared type.
         let accumulator = &state.players[player_idx].combat_accumulator;
-        let (total_elements, assigned_elements) = match attack_type {
-            CombatType::Melee => (
-                &accumulator.attack.normal_elements,
-                &accumulator.assigned_attack.normal_elements,
-            ),
-            CombatType::Ranged => (
-                &accumulator.attack.ranged_elements,
-                &accumulator.assigned_attack.ranged_elements,
-            ),
-            CombatType::Siege => (
+        let mut available = if combat.phase == CombatPhase::RangedSiege {
+            let siege_available = combat_resolution::subtract_elements(
                 &accumulator.attack.siege_elements,
                 &accumulator.assigned_attack.siege_elements,
-            ),
+            );
+            if crate::legal_actions::combat::any_target_fortified(combat, target_instance_ids, &state.active_modifiers) {
+                // Fortified targets → siege only
+                siege_available
+            } else {
+                // No fortified targets → combine ranged + siege
+                let ranged_available = combat_resolution::subtract_elements(
+                    &accumulator.attack.ranged_elements,
+                    &accumulator.assigned_attack.ranged_elements,
+                );
+                combat_resolution::add_elements(&siege_available, &ranged_available)
+            }
+        } else {
+            let (total_elements, assigned_elements) = match attack_type {
+                CombatType::Melee => (
+                    &accumulator.attack.normal_elements,
+                    &accumulator.assigned_attack.normal_elements,
+                ),
+                CombatType::Ranged => (
+                    &accumulator.attack.ranged_elements,
+                    &accumulator.assigned_attack.ranged_elements,
+                ),
+                CombatType::Siege => (
+                    &accumulator.attack.siege_elements,
+                    &accumulator.assigned_attack.siege_elements,
+                ),
+            };
+            combat_resolution::subtract_elements(total_elements, assigned_elements)
         };
-
-        let mut available = combat_resolution::subtract_elements(total_elements, assigned_elements);
 
         // Hook: DoublePhysicalAttacks (Sword of Justice powered)
         let player_id = &state.players[player_idx].id;
@@ -543,13 +583,31 @@ pub(super) fn apply_declare_attack_inner(
     }
 
     // Mark used attack as assigned (consumed whether success or failure)
+    // In RangedSiege phase, consume from both ranged and siege pools.
     let accumulator = &mut state.players[player_idx].combat_accumulator;
-    let assigned = match attack_type {
-        CombatType::Melee => &mut accumulator.assigned_attack.normal_elements,
-        CombatType::Ranged => &mut accumulator.assigned_attack.ranged_elements,
-        CombatType::Siege => &mut accumulator.assigned_attack.siege_elements,
-    };
-    *assigned = combat_resolution::add_elements(assigned, &available);
+    if state.combat.as_ref().map_or(false, |c| c.phase == CombatPhase::RangedSiege) {
+        // Consume all available from both siege and ranged pools
+        let siege_avail = combat_resolution::subtract_elements(
+            &accumulator.attack.siege_elements,
+            &accumulator.assigned_attack.siege_elements,
+        );
+        accumulator.assigned_attack.siege_elements =
+            combat_resolution::add_elements(&accumulator.assigned_attack.siege_elements, &siege_avail);
+
+        let ranged_avail = combat_resolution::subtract_elements(
+            &accumulator.attack.ranged_elements,
+            &accumulator.assigned_attack.ranged_elements,
+        );
+        accumulator.assigned_attack.ranged_elements =
+            combat_resolution::add_elements(&accumulator.assigned_attack.ranged_elements, &ranged_avail);
+    } else {
+        let assigned = match attack_type {
+            CombatType::Melee => &mut accumulator.assigned_attack.normal_elements,
+            CombatType::Ranged => &mut accumulator.assigned_attack.ranged_elements,
+            CombatType::Siege => &mut accumulator.assigned_attack.siege_elements,
+        };
+        *assigned = combat_resolution::add_elements(assigned, &available);
+    }
 
     Ok(ApplyResult {
         needs_reenumeration: true,
@@ -781,6 +839,10 @@ pub(super) fn apply_end_combat_phase(
         .combat
         .as_mut()
         .ok_or_else(|| ApplyError::InternalError("EndCombatPhase with no combat".into()))?;
+
+    // Safety: clear any lingering attack declaration (should already be None due to gating)
+    combat.declared_attack_targets = None;
+    combat.declared_attack_type = None;
 
     match combat.phase {
         CombatPhase::RangedSiege => {

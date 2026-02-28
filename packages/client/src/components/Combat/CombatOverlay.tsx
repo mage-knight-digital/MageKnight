@@ -130,11 +130,13 @@ function CombatManaDisplay() {
 function AccumulatorDisplay() {
   const player = useMyPlayer();
   const { state } = useGame();
+  const combatActionsForAccum = useCombatActions();
 
   if (!player || !state?.combat) return null;
 
   const phase = state.combat.phase;
   const acc = player.combatAccumulator;
+  const { hasDeclaredAttack, declaredAttackArmorNeeded } = combatActionsForAccum;
 
   // Show attack accumulator in ranged/siege phase or attack phase
   if (phase === COMBAT_PHASE_RANGED_SIEGE || phase === COMBAT_PHASE_ATTACK) {
@@ -149,7 +151,8 @@ function AccumulatorDisplay() {
       ? totalRanged + totalSiege
       : totalNormal + totalRanged + totalSiege;
 
-    if (relevantAttack === 0) return null;
+    // When a declared attack is active, always show the accumulator (even at 0)
+    if (relevantAttack === 0 && !hasDeclaredAttack) return null;
 
     // Check if any living enemies are fortified (need siege to hit in ranged phase)
     const combat = state.combat;
@@ -220,10 +223,23 @@ function AccumulatorDisplay() {
     // Standard single-value display (attack phase or no fortified enemies)
     return (
       <div className="combat-hud__accumulator combat-hud__accumulator--attack">
-        <span className="combat-hud__accumulator-value">{relevantAttack}</span>
-        <span className="combat-hud__accumulator-label">
-          {isRangedSiege ? "Ranged" : "Attack"}
-        </span>
+        {hasDeclaredAttack ? (
+          <>
+            <span className="combat-hud__accumulator-value">
+              {relevantAttack} <span className="combat-hud__progress-separator">/</span> {declaredAttackArmorNeeded}
+            </span>
+            <span className="combat-hud__accumulator-label">
+              {isRangedSiege ? "Ranged" : "Attack"} vs Armor
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="combat-hud__accumulator-value">{relevantAttack}</span>
+            <span className="combat-hud__accumulator-label">
+              {isRangedSiege ? "Ranged" : "Attack"}
+            </span>
+          </>
+        )}
 
         {/* Elemental breakdown */}
         {showElementBreakdown && (
@@ -447,6 +463,9 @@ function CombatOverlayInner({ combat }: CombatOverlayProps) {
 
         // canDefeat: no longer sent from TS options, use enemy.isDefeated as proxy
         canDefeat: false,
+
+        isTargeted: combatActions.hasDeclaredAttack
+          && combatActions.declaredAttackTargets.includes(enemy.instanceId),
       };
     });
   }, [enemies, combatActions, isBlockPhase, isDamagePhase, isAttackPhase, isRangedSiegePhase]);
@@ -491,6 +510,8 @@ function CombatOverlayInner({ combat }: CombatOverlayProps) {
         enemies={enemies.map((enemy) => ({
           enemy,
           canDefeat: false,
+          isTargeted: combatActions.hasDeclaredAttack
+            && combatActions.declaredAttackTargets.includes(enemy.instanceId),
         }))}
       />
 
@@ -529,8 +550,12 @@ function CombatOverlayInner({ combat }: CombatOverlayProps) {
 
           {/* Enemies - layout placeholder for positioning */}
           <div className="combat-scene__enemies" />
+        </div>
+      </div>
 
-          {/* Initiate Attack buttons (pre-target-selection) */}
+      {/* === Action buttons — outside layout to avoid z-index stacking context === */}
+
+      {/* Initiate Attack buttons (pre-target-selection) */}
           {combatActions.initiateAttackOptions.length > 0 && !combatActions.isSelectingTargets && (
             <div className="combat-scene__initiate-attacks">
               {combatActions.initiateAttackOptions.map((opt) => (
@@ -543,8 +568,7 @@ function CombatOverlayInner({ combat }: CombatOverlayProps) {
                   }}
                   type="button"
                 >
-                  {opt.attackType === "ranged" ? "Ranged Attack" :
-                   opt.attackType === "siege" ? "Siege Attack" : "Attack"}
+                  Select Targets
                 </button>
               ))}
               {combatActions.convertMoveToAttack.map((opt, i) => (
@@ -564,13 +588,31 @@ function CombatOverlayInner({ combat }: CombatOverlayProps) {
           {combatActions.isSelectingTargets && combatActions.subsetConfirmAction && (
             <button
               className="combat-scene__declare-targets"
+              onClick={() => sendAction(combatActions.subsetConfirmAction!)}
+              type="button"
+            >
+              Confirm Targets
+            </button>
+          )}
+
+          {/* Declaration banner — prompt to play cards after confirming targets */}
+          {combatActions.hasDeclaredAttack && !combatActions.resolveAttackAction && (
+            <div className="combat-scene__declaration-banner">
+              Play cards to build attack power
+            </div>
+          )}
+
+          {/* Resolve Attack button (targets declared, attack sufficient) */}
+          {combatActions.resolveAttackAction && (
+            <button
+              className="combat-scene__declare-targets"
               onClick={() => {
                 triggerEffect("attack");
-                sendAction(combatActions.subsetConfirmAction!);
+                sendAction(combatActions.resolveAttackAction!);
               }}
               type="button"
             >
-              Confirm Attack
+              Resolve Attack
             </button>
           )}
 
@@ -601,10 +643,8 @@ function CombatOverlayInner({ combat }: CombatOverlayProps) {
             </button>
           )}
 
-          {/* Accumulated power display */}
-          <AccumulatorDisplay />
-        </div>
-      </div>
+      {/* Accumulated power display */}
+      <AccumulatorDisplay />
 
       {/* Enemy Detail Panel - full rulebook details */}
       {selectedEnemy && (

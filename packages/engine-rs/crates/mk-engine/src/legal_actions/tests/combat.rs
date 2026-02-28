@@ -1,6 +1,7 @@
 use super::*;
 use crate::legal_actions::combat::{
     enumerate_attack_declarations, enumerate_block_declarations, enumerate_cumbersome_actions,
+    enumerate_resolve_attack,
 };
 
 // =========================================================================
@@ -1272,21 +1273,43 @@ fn attack_enumerated_for_feasible_targets() {
 }
 
 #[test]
-fn attack_not_enumerated_when_no_attack() {
+fn initiate_attack_available_without_accumulated_attack() {
     let mut state = setup_combat_game(&["prowlers"]); // armor 3
     state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
-    // No attack accumulated (all zeros)
+    // No attack accumulated (all zeros) — InitiateAttack should still appear (declare-first flow)
 
     let mut actions = Vec::new();
     enumerate_attack_declarations(&state, 0, &mut actions);
 
-    assert!(actions.is_empty());
+    assert!(
+        !actions.is_empty(),
+        "InitiateAttack should be available even without accumulated attack"
+    );
 }
 
 #[test]
-fn fortified_excluded_from_ranged() {
-    let mut state = setup_combat_game(&["diggers"]); // Fortified, armor 3
-    // RangedSiege phase
+fn resolve_attack_not_available_without_sufficient_attack() {
+    let mut state = setup_combat_game(&["prowlers"]); // armor 3
+    state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+    // Declare targets but don't accumulate enough attack
+    let combat = state.combat.as_mut().unwrap();
+    combat.declared_attack_targets = Some(vec![combat.enemies[0].instance_id.clone()]);
+    combat.declared_attack_type = Some(CombatType::Melee);
+
+    let mut actions = Vec::new();
+    enumerate_resolve_attack(&state, 0, &mut actions);
+
+    assert!(
+        actions.is_empty(),
+        "ResolveAttack should not be available when attack is insufficient"
+    );
+}
+
+#[test]
+fn rangedsiege_emits_single_initiate_attack() {
+    // In RangedSiege, only one InitiateAttack (Siege) should be emitted
+    // regardless of whether enemies are fortified.
+    let mut state = setup_combat_game(&["prowlers"]); // non-fortified
     state.players[0].combat_accumulator.attack.ranged_elements = ElementalValues {
         physical: 10,
         fire: 0,
@@ -1297,32 +1320,108 @@ fn fortified_excluded_from_ranged() {
     let mut actions = Vec::new();
     enumerate_attack_declarations(&state, 0, &mut actions);
 
-    // Should have no Ranged actions (Fortified excluded) but Siege actions should work
-    let ranged = actions
-        .iter()
-        .filter(|a| matches!(a, LegalAction::InitiateAttack { attack_type: CombatType::Ranged }))
-        .count();
-    assert_eq!(ranged, 0, "Fortified enemy should not be targetable by ranged");
+    assert_eq!(actions.len(), 1, "RangedSiege should emit exactly one InitiateAttack");
+    assert!(matches!(
+        &actions[0],
+        LegalAction::InitiateAttack { attack_type: CombatType::Siege }
+    ));
 }
 
 #[test]
-fn fortified_allowed_for_siege() {
-    let mut state = setup_combat_game(&["diggers"]); // Fortified, armor 3
+fn rangedsiege_fortified_emits_single_initiate_attack() {
+    let state = setup_combat_game(&["diggers"]); // Fortified, armor 3
+
+    let mut actions = Vec::new();
+    enumerate_attack_declarations(&state, 0, &mut actions);
+
+    assert_eq!(actions.len(), 1, "RangedSiege should emit exactly one InitiateAttack for fortified enemies");
+    assert!(matches!(
+        &actions[0],
+        LegalAction::InitiateAttack { attack_type: CombatType::Siege }
+    ));
+}
+
+// ---- Combined ranged+siege pool tests ----
+
+#[test]
+fn rangedsiege_combined_pools_sufficient() {
+    // Prowlers: armor 3. 2 siege + 2 ranged = 4 total → sufficient
+    let mut state = setup_combat_game(&["prowlers"]);
     state.players[0].combat_accumulator.attack.siege_elements = ElementalValues {
+        physical: 2,
+        fire: 0,
+        ice: 0,
+        cold_fire: 0,
+    };
+    state.players[0].combat_accumulator.attack.ranged_elements = ElementalValues {
+        physical: 2,
+        fire: 0,
+        ice: 0,
+        cold_fire: 0,
+    };
+
+    // Declare targets
+    let combat = state.combat.as_mut().unwrap();
+    let target_id = combat.enemies[0].instance_id.clone();
+    combat.declared_attack_targets = Some(vec![target_id.clone()]);
+    combat.declared_attack_type = Some(CombatType::Siege);
+
+    let mut actions = Vec::new();
+    enumerate_resolve_attack(&state, 0, &mut actions);
+
+    assert_eq!(actions.len(), 1, "Combined ranged+siege (4) should be sufficient vs armor 3");
+}
+
+#[test]
+fn rangedsiege_siege_only_when_fortified() {
+    // Diggers: Fortified, armor 3. 2 siege + 10 ranged → only 2 siege counts → insufficient
+    let mut state = setup_combat_game(&["diggers"]);
+    state.players[0].combat_accumulator.attack.siege_elements = ElementalValues {
+        physical: 2,
+        fire: 0,
+        ice: 0,
+        cold_fire: 0,
+    };
+    state.players[0].combat_accumulator.attack.ranged_elements = ElementalValues {
         physical: 10,
         fire: 0,
         ice: 0,
         cold_fire: 0,
     };
 
-    let mut actions = Vec::new();
-    enumerate_attack_declarations(&state, 0, &mut actions);
+    // Declare targets
+    let combat = state.combat.as_mut().unwrap();
+    let target_id = combat.enemies[0].instance_id.clone();
+    combat.declared_attack_targets = Some(vec![target_id.clone()]);
+    combat.declared_attack_type = Some(CombatType::Siege);
 
-    let siege = actions
-        .iter()
-        .filter(|a| matches!(a, LegalAction::InitiateAttack { attack_type: CombatType::Siege }))
-        .count();
-    assert!(siege > 0, "Fortified enemy should be targetable by siege");
+    let mut actions = Vec::new();
+    enumerate_resolve_attack(&state, 0, &mut actions);
+
+    assert!(actions.is_empty(), "Only siege (2) should count vs fortified armor 3 — ranged wasted");
+}
+
+#[test]
+fn rangedsiege_siege_sufficient_when_fortified() {
+    // Diggers: Fortified, armor 3. 5 siege → sufficient even with fortification
+    let mut state = setup_combat_game(&["diggers"]);
+    state.players[0].combat_accumulator.attack.siege_elements = ElementalValues {
+        physical: 5,
+        fire: 0,
+        ice: 0,
+        cold_fire: 0,
+    };
+
+    // Declare targets
+    let combat = state.combat.as_mut().unwrap();
+    let target_id = combat.enemies[0].instance_id.clone();
+    combat.declared_attack_targets = Some(vec![target_id.clone()]);
+    combat.declared_attack_type = Some(CombatType::Siege);
+
+    let mut actions = Vec::new();
+    enumerate_resolve_attack(&state, 0, &mut actions);
+
+    assert_eq!(actions.len(), 1, "Siege (5) should be sufficient vs fortified armor 3");
 }
 
 // ---- Cumbersome enumeration ----

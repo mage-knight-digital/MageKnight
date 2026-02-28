@@ -188,9 +188,8 @@ pub(super) fn enumerate_cumbersome_actions(
 
 /// Enumerate InitiateAttack actions for RangedSiege and Attack phases.
 ///
-/// For each attack type with available attack and eligible enemies, emit a single
-/// `InitiateAttack { attack_type }` action. The player then picks targets one at a
-/// time via SubsetSelection.
+/// Only available when no attack declaration is active (`declared_attack_targets` is None).
+/// Does not require accumulated attack — the player declares targets first, then plays cards.
 pub(super) fn enumerate_attack_declarations(
     state: &GameState,
     player_idx: usize,
@@ -201,21 +200,25 @@ pub(super) fn enumerate_attack_declarations(
         None => return,
     };
 
-    let player = &state.players[player_idx];
-    let player_id = player.id.as_str();
+    // Only allow new declarations when no active declaration exists
+    if combat.declared_attack_targets.is_some() {
+        return;
+    }
+
+    let player_id = state.players[player_idx].id.as_str();
     let modifiers = &state.active_modifiers;
 
     match combat.phase {
         CombatPhase::RangedSiege => {
-            if has_available_attack_and_targets(combat, &player.combat_accumulator, CombatType::Ranged, true, modifiers, player_id) {
-                actions.push(LegalAction::InitiateAttack { attack_type: CombatType::Ranged });
-            }
-            if has_available_attack_and_targets(combat, &player.combat_accumulator, CombatType::Siege, false, modifiers, player_id) {
+            // Single action — all non-defeated enemies are eligible targets.
+            // Pool combination (ranged+siege vs siege-only) determined at resolution
+            // based on whether any target is fortified.
+            if has_eligible_targets(combat, CombatType::Siege, false, modifiers, player_id) {
                 actions.push(LegalAction::InitiateAttack { attack_type: CombatType::Siege });
             }
         }
         CombatPhase::Attack => {
-            if has_available_attack_and_targets(combat, &player.combat_accumulator, CombatType::Melee, false, modifiers, player_id) {
+            if has_eligible_targets(combat, CombatType::Melee, false, modifiers, player_id) {
                 actions.push(LegalAction::InitiateAttack { attack_type: CombatType::Melee });
             }
         }
@@ -223,41 +226,42 @@ pub(super) fn enumerate_attack_declarations(
     }
 }
 
-/// Check if there is available attack of the given type AND eligible enemies to target.
-fn has_available_attack_and_targets(
+/// Enumerate ResolveAttack when a declaration is active and attack is sufficient.
+pub(super) fn enumerate_resolve_attack(
+    state: &GameState,
+    player_idx: usize,
+    actions: &mut Vec<LegalAction>,
+) {
+    let combat = match state.combat.as_ref() {
+        Some(c) => c,
+        None => return,
+    };
+
+    let (target_ids, attack_type) = match (
+        &combat.declared_attack_targets,
+        combat.declared_attack_type,
+    ) {
+        (Some(targets), Some(at)) => (targets, at),
+        _ => return,
+    };
+
+    if is_declared_attack_sufficient(state, player_idx, target_ids, attack_type) {
+        actions.push(LegalAction::ResolveAttack);
+    }
+}
+
+/// Check if there are eligible enemy targets for an attack type (ignores accumulator).
+fn has_eligible_targets(
     combat: &CombatState,
-    accumulator: &CombatAccumulator,
-    attack_type: CombatType,
+    _attack_type: CombatType,
     exclude_fortified: bool,
     modifiers: &[mk_types::modifier::ActiveModifier],
     player_id: &str,
 ) -> bool {
-    let (total_elements, assigned_elements) = match attack_type {
-        CombatType::Melee => (
-            &accumulator.attack.normal_elements,
-            &accumulator.assigned_attack.normal_elements,
-        ),
-        CombatType::Ranged => (
-            &accumulator.attack.ranged_elements,
-            &accumulator.assigned_attack.ranged_elements,
-        ),
-        CombatType::Siege => (
-            &accumulator.attack.siege_elements,
-            &accumulator.assigned_attack.siege_elements,
-        ),
-    };
-
-    let available = subtract_elements(total_elements, assigned_elements);
-    if available.total() == 0 {
-        return false;
-    }
-
-    // At least one eligible (undefeated, assigned, non-fortified-if-ranged) enemy
     combat.enemies.iter().any(|enemy| {
         if enemy.is_defeated {
             return false;
         }
-        // Filter by cooperative assault assignments
         if !crate::cooperative_assault::is_enemy_assigned_to_player(
             &combat.enemy_assignments,
             player_id,
@@ -279,8 +283,175 @@ fn has_available_attack_and_targets(
         {
             return false;
         }
+        // Exclude already-declared targets (AttackTargets currently held)
+        if let Some(ref declared) = combat.declared_attack_targets {
+            if declared.contains(&enemy.instance_id) {
+                return false;
+            }
+        }
         true
     })
+}
+
+/// Check if accumulated attack is sufficient to defeat the declared targets.
+///
+/// Reuses the same logic as `is_attack_subset_sufficient` but takes target IDs directly.
+pub(crate) fn is_declared_attack_sufficient(
+    state: &GameState,
+    player_idx: usize,
+    target_ids: &[mk_types::ids::CombatInstanceId],
+    attack_type: CombatType,
+) -> bool {
+    let combat = match state.combat.as_ref() {
+        Some(c) => c,
+        None => return false,
+    };
+
+    let accumulator = &state.players[player_idx].combat_accumulator;
+    let modifiers = &state.active_modifiers;
+
+    // Phase-based pool selection: in RangedSiege, combine ranged+siege pools
+    // (ranged only if no target is fortified). In Attack phase, use normal pool.
+    let mut available = if combat.phase == CombatPhase::RangedSiege {
+        let siege_available = subtract_elements(
+            &accumulator.attack.siege_elements,
+            &accumulator.assigned_attack.siege_elements,
+        );
+        if any_target_fortified(combat, target_ids, modifiers) {
+            // Fortified targets → siege only
+            siege_available
+        } else {
+            // No fortified targets → combine ranged + siege
+            let ranged_available = subtract_elements(
+                &accumulator.attack.ranged_elements,
+                &accumulator.assigned_attack.ranged_elements,
+            );
+            crate::combat_resolution::add_elements(&siege_available, &ranged_available)
+        }
+    } else {
+        let (total_elements, assigned_elements) = match attack_type {
+            CombatType::Melee => (
+                &accumulator.attack.normal_elements,
+                &accumulator.assigned_attack.normal_elements,
+            ),
+            CombatType::Ranged => (
+                &accumulator.attack.ranged_elements,
+                &accumulator.assigned_attack.ranged_elements,
+            ),
+            CombatType::Siege => (
+                &accumulator.attack.siege_elements,
+                &accumulator.assigned_attack.siege_elements,
+            ),
+        };
+        subtract_elements(total_elements, assigned_elements)
+    };
+
+    // Hook: DoublePhysicalAttacks (Sword of Justice powered)
+    let player_id = &state.players[player_idx].id;
+    if state.active_modifiers.iter().any(|m| {
+        matches!(&m.effect, mk_types::modifier::ModifierEffect::DoublePhysicalAttacks)
+            && matches!(&m.source, mk_types::modifier::ModifierSource::Card { player_id: pid, .. }
+                | mk_types::modifier::ModifierSource::Skill { player_id: pid, .. }
+                if pid == player_id)
+    }) {
+        available.physical *= 2;
+    }
+
+    let mut targets: Vec<(&CombatEnemy, &mk_data::enemies::EnemyDefinition)> = Vec::new();
+    for target_id in target_ids {
+        let enemy = match combat.enemies.iter().find(|e| e.instance_id == *target_id) {
+            Some(e) => e,
+            None => return false,
+        };
+        let def = match get_enemy(enemy.enemy_id.as_str()) {
+            Some(d) => d,
+            None => return false,
+        };
+        targets.push((enemy, def));
+    }
+
+    // Combine resistances (accounting for RemoveResistances modifier)
+    let combined_resistances = {
+        let mut combined = Vec::new();
+        for (enemy, def) in &targets {
+            if crate::combat_resolution::are_resistances_removed(
+                modifiers,
+                enemy.instance_id.as_str(),
+            ) {
+                continue;
+            }
+            for &res in def.resistances {
+                if !combined.contains(&res) {
+                    combined.push(res);
+                }
+            }
+        }
+        combined
+    };
+    let effective_attack = calculate_effective_attack(&available, &combined_resistances);
+
+    // Compute defend assignments
+    let defend_assignments = auto_assign_defend(
+        &combat.enemies,
+        target_ids,
+        &combat.used_defend,
+        &combat.defend_bonuses,
+    );
+
+    let total_armor = compute_total_target_armor(combat, target_ids, modifiers, Some(&defend_assignments));
+
+    effective_attack >= total_armor
+}
+
+/// Compute total effective armor for a set of declared attack targets.
+///
+/// Sums each target's armor (base + vampiric + defend + city bonuses + modifiers).
+/// If `extra_defend` is provided, those assignments are added on top of stored defend bonuses.
+pub(crate) fn compute_total_target_armor(
+    combat: &CombatState,
+    target_ids: &[mk_types::ids::CombatInstanceId],
+    modifiers: &[mk_types::modifier::ActiveModifier],
+    extra_defend: Option<&std::collections::BTreeMap<String, u32>>,
+) -> u32 {
+    target_ids
+        .iter()
+        .filter_map(|id| {
+            let enemy = combat.enemies.iter().find(|e| e.instance_id == *id)?;
+            let def = get_enemy(enemy.enemy_id.as_str())?;
+            let vampiric = combat
+                .vampiric_armor_bonus
+                .get(enemy.instance_id.as_str())
+                .copied()
+                .unwrap_or(0);
+            let new_defend = extra_defend
+                .and_then(|m| m.get(enemy.instance_id.as_str()).copied())
+                .unwrap_or(0);
+            let stored_defend = combat
+                .defend_bonuses
+                .get(enemy.instance_id.as_str())
+                .copied()
+                .unwrap_or(0);
+            let defend = new_defend + stored_defend;
+            let enemy_city_color = effective_city_color_for_enemy(combat, enemy);
+            let base = crate::combat_resolution::get_effective_armor_with_city(
+                def,
+                combat.phase,
+                vampiric,
+                defend,
+                enemy_city_color,
+            );
+            let (armor_change, armor_min) =
+                crate::combat_resolution::get_enemy_armor_modifier(
+                    modifiers,
+                    enemy.instance_id.as_str(),
+                );
+            if armor_change != 0 {
+                Some((base as i32 + armor_change).max(armor_min as i32) as u32)
+            } else {
+                Some(base)
+            }
+        })
+        .sum()
 }
 
 /// Compute eligible enemy instance IDs for an attack type.
@@ -330,63 +501,17 @@ pub(crate) fn eligible_attack_targets(
         .collect()
 }
 
-/// Check if the currently selected subset of enemies can be defeated with available attack.
+/// Check if any of the given target enemies are effectively fortified.
 ///
-/// Used by pending.rs to gate SubsetConfirm for AttackTargets.
-pub(crate) fn is_attack_subset_sufficient(
-    state: &GameState,
-    player_idx: usize,
-    ss: &mk_types::pending::SubsetSelectionState,
-    eligible_instance_ids: &[mk_types::ids::CombatInstanceId],
-    attack_type: CombatType,
+/// Used during RangedSiege to determine whether ranged attacks can contribute:
+/// if any target is fortified, only siege counts.
+pub(crate) fn any_target_fortified(
+    combat: &CombatState,
+    target_ids: &[mk_types::ids::CombatInstanceId],
+    modifiers: &[mk_types::modifier::ActiveModifier],
 ) -> bool {
-    let combat = match state.combat.as_ref() {
-        Some(c) => c,
-        None => return false,
-    };
-
-    let accumulator = &state.players[player_idx].combat_accumulator;
-    let modifiers = &state.active_modifiers;
-
-    // Get available attack for this type
-    let (total_elements, assigned_elements) = match attack_type {
-        CombatType::Melee => (
-            &accumulator.attack.normal_elements,
-            &accumulator.assigned_attack.normal_elements,
-        ),
-        CombatType::Ranged => (
-            &accumulator.attack.ranged_elements,
-            &accumulator.assigned_attack.ranged_elements,
-        ),
-        CombatType::Siege => (
-            &accumulator.attack.siege_elements,
-            &accumulator.assigned_attack.siege_elements,
-        ),
-    };
-
-    let mut available = subtract_elements(total_elements, assigned_elements);
-
-    // Hook: DoublePhysicalAttacks (Sword of Justice powered) — must match apply_declare_attack_inner
-    let player_id = &state.players[player_idx].id;
-    if state.active_modifiers.iter().any(|m| {
-        matches!(&m.effect, mk_types::modifier::ModifierEffect::DoublePhysicalAttacks)
-            && matches!(&m.source, mk_types::modifier::ModifierSource::Card { player_id: pid, .. }
-                | mk_types::modifier::ModifierSource::Skill { player_id: pid, .. }
-                if pid == player_id)
-    }) {
-        available.physical *= 2;
-    }
-
-    // Resolve selected pool indices → actual instance IDs
-    let mut target_ids: Vec<mk_types::ids::CombatInstanceId> = Vec::new();
-    let mut targets: Vec<(&CombatEnemy, &mk_data::enemies::EnemyDefinition)> = Vec::new();
-
-    for &pool_idx in ss.selected.iter() {
-        let instance_id = match eligible_instance_ids.get(pool_idx) {
-            Some(id) => id,
-            None => return false,
-        };
-        let enemy = match combat.enemies.iter().find(|e| e.instance_id == *instance_id) {
+    target_ids.iter().any(|id| {
+        let enemy = match combat.enemies.iter().find(|e| e.instance_id == *id) {
             Some(e) => e,
             None => return false,
         };
@@ -394,74 +519,13 @@ pub(crate) fn is_attack_subset_sufficient(
             Some(d) => d,
             None => return false,
         };
-        target_ids.push(instance_id.clone());
-        targets.push((enemy, def));
-    }
-
-    // Combine resistances (accounting for RemoveResistances modifier)
-    let combined_resistances = {
-        let mut combined = Vec::new();
-        for (enemy, def) in &targets {
-            if crate::combat_resolution::are_resistances_removed(
-                modifiers,
-                enemy.instance_id.as_str(),
-            ) {
-                continue;
-            }
-            for &res in def.resistances {
-                if !combined.contains(&res) {
-                    combined.push(res);
-                }
-            }
-        }
-        combined
-    };
-    let effective_attack = calculate_effective_attack(&available, &combined_resistances);
-
-    // Compute defend assignments for this target subset
-    let defend_assignments = auto_assign_defend(
-        &combat.enemies,
-        &target_ids,
-        &combat.used_defend,
-        &combat.defend_bonuses,
-    );
-
-    let total_armor: u32 = targets
-        .iter()
-        .map(|(enemy, def)| {
-            let vampiric = combat
-                .vampiric_armor_bonus
-                .get(enemy.instance_id.as_str())
-                .copied()
-                .unwrap_or(0);
-            // New defend from this attack's auto-assignment
-            let new_defend = defend_assignments
-                .get(enemy.instance_id.as_str())
-                .copied()
-                .unwrap_or(0);
-            // Persisted defend from a previous attack (FAQ S29)
-            let stored_defend = combat
-                .defend_bonuses
-                .get(enemy.instance_id.as_str())
-                .copied()
-                .unwrap_or(0);
-            let defend = new_defend + stored_defend;
-            let enemy_city_color = effective_city_color_for_enemy(combat, enemy);
-            let base = crate::combat_resolution::get_effective_armor_with_city(def, combat.phase, vampiric, defend, enemy_city_color);
-            let (armor_change, armor_min) =
-                crate::combat_resolution::get_enemy_armor_modifier(
-                    modifiers,
-                    enemy.instance_id.as_str(),
-                );
-            if armor_change != 0 {
-                (base as i32 + armor_change).max(armor_min as i32) as u32
-            } else {
-                base
-            }
-        })
-        .sum();
-
-    effective_attack >= total_armor
+        crate::combat_resolution::is_effectively_fortified(
+            def,
+            enemy.instance_id.as_str(),
+            combat.is_at_fortified_site,
+            modifiers,
+        )
+    })
 }
 
 // =============================================================================
