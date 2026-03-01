@@ -30,6 +30,7 @@ class VecTransition:
     state_ids: np.ndarray              # (3,) int32
     hand_card_ids: np.ndarray          # (H,) int32 (trimmed to actual count)
     unit_ids: np.ndarray               # (U,) int32
+    unit_scalars: np.ndarray           # (U, UNIT_SCALAR_DIM) float32
     combat_enemy_ids: np.ndarray       # (CE,) int32
     combat_enemy_scalars: np.ndarray   # (CE, COMBAT_ENEMY_SCALAR_DIM) float32
     skill_ids: np.ndarray              # (S,) int32
@@ -68,11 +69,15 @@ def _extract_vec_transition(
     ac = int(batch_dict["action_counts"][i])
 
     n = batch_dict["state_scalars"].shape[0]
+    max_u = batch_dict["unit_ids"].shape[1]
     max_ce = batch_dict["combat_enemy_ids"].shape[1]
     max_vs = batch_dict["visible_site_ids"].shape[1]
     max_me = batch_dict["map_enemy_ids"].shape[1]
 
     # Reshape 3D arrays that come as (N*max, dim) → index by env
+    u_scalars_raw = batch_dict["unit_scalars"]
+    u_scalars_3d = u_scalars_raw.reshape(n, max_u, -1)
+
     ce_scalars_raw = batch_dict["combat_enemy_scalars"]
     ce_scalars_3d = ce_scalars_raw.reshape(n, max_ce, -1)
 
@@ -92,6 +97,7 @@ def _extract_vec_transition(
         state_ids=batch_dict["state_ids"][i].copy(),
         hand_card_ids=batch_dict["hand_card_ids"][i, :hc].copy(),
         unit_ids=batch_dict["unit_ids"][i, :uc].copy(),
+        unit_scalars=u_scalars_3d[i, :uc].copy(),
         combat_enemy_ids=batch_dict["combat_enemy_ids"][i, :cec].copy(),
         combat_enemy_scalars=ce_scalars_3d[i, :cec].copy(),
         skill_ids=batch_dict["skill_ids"][i, :sc].copy(),
@@ -115,6 +121,7 @@ def vec_transition_to_transition(vt: VecTransition) -> Transition:
         mode_id=int(vt.state_ids[0]),
         hand_card_ids=vt.hand_card_ids.tolist(),
         unit_ids=vt.unit_ids.tolist(),
+        unit_scalars=vt.unit_scalars.tolist(),
         current_terrain_id=int(vt.state_ids[1]),
         current_site_type_id=int(vt.state_ids[2]),
         combat_enemy_ids=vt.combat_enemy_ids.tolist(),
