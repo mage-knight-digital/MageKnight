@@ -289,7 +289,7 @@ define_vocab!(ENEMY_VOCAB, "enemy",
 );
 
 // =============================================================================
-// Action Type Vocabulary (79 entries)
+// Action Type Vocabulary (88 entries)
 // =============================================================================
 
 define_vocab!(ACTION_TYPE_VOCAB, "action_type",
@@ -332,11 +332,19 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
         "SELECT_ARTIFACT", "SELECT_REWARD", "SELECT_TACTIC",
         "SPEND_MOVE_ON_CUMBERSOME", "UNASSIGN_ATTACK", "UNASSIGN_BLOCK",
         "UNDO", "USE_BANNER_FEAR", "USE_SKILL",
+        // Added: emitted by derive_action_type() but previously missing
+        "ADD_ELITE_TO_OFFER", "BUY_ARTIFACT",
+        "BUY_CITY_ADVANCED_ACTION", "BUY_CITY_ADVANCED_ACTION_FROM_DECK",
+        "RESOLVE_CIRCLET_OF_PROFICIENCY", "RESOLVE_TOME_OF_ALL_SPELLS",
+        "USE_BANNER_COURAGE",
     ],
     sorted: [
-        "ACTIVATE_TACTIC", "ACTIVATE_UNIT", "ALTAR_TRIBUTE",
+        "ACTIVATE_TACTIC", "ACTIVATE_UNIT", "ADD_ELITE_TO_OFFER",
+        "ALTAR_TRIBUTE",
         "ANNOUNCE_END_OF_ROUND", "ASSIGN_ATTACK", "ASSIGN_BANNER",
-        "ASSIGN_BLOCK", "ASSIGN_DAMAGE", "BEGIN_INTERACTION", "BURN_MONASTERY",
+        "ASSIGN_BLOCK", "ASSIGN_DAMAGE", "BEGIN_INTERACTION",
+        "BURN_MONASTERY", "BUY_ARTIFACT",
+        "BUY_CITY_ADVANCED_ACTION", "BUY_CITY_ADVANCED_ACTION_FROM_DECK",
         "BUY_SPELL",
         "CANCEL_COOPERATIVE_PROPOSAL", "CHALLENGE_RAMPAGING",
         "CHOOSE_LEVEL_UP_REWARDS", "COMPLETE_REST",
@@ -359,6 +367,7 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
         "RESOLVE_ATTACK",
         "RESOLVE_BANNER_PROTECTION",
         "RESOLVE_BOOK_OF_WISDOM", "RESOLVE_CHOICE",
+        "RESOLVE_CIRCLET_OF_PROFICIENCY",
         "RESOLVE_CRYSTAL_JOY_RECLAIM", "RESOLVE_CRYSTAL_ROLL_COLOR",
         "RESOLVE_DECOMPOSE",
         "RESOLVE_DEEP_MINE", "RESOLVE_DISCARD",
@@ -367,14 +376,16 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
         "RESOLVE_HEX_COST_REDUCTION", "RESOLVE_MAXIMAL_EFFECT",
         "RESOLVE_MEDITATION", "RESOLVE_SOURCE_OPENING_REROLL",
         "RESOLVE_STEADY_TEMPO", "RESOLVE_TACTIC_DECISION",
-        "RESOLVE_TERRAIN_COST_REDUCTION", "RESOLVE_TRAINING",
+        "RESOLVE_TERRAIN_COST_REDUCTION",
+        "RESOLVE_TOME_OF_ALL_SPELLS",
+        "RESOLVE_TRAINING",
         "RESOLVE_UNIT_MAINTENANCE",
         "RESPOND_TO_COOPERATIVE_PROPOSAL",
         "REST", "RETURN_INTERACTIVE_SKILL",
         "SELECT_ARTIFACT", "SELECT_REWARD", "SELECT_TACTIC",
         "SPEND_MOVE_ON_CUMBERSOME",
         "UNASSIGN_ATTACK", "UNASSIGN_BLOCK",
-        "UNDO", "USE_BANNER_FEAR", "USE_SKILL",
+        "UNDO", "USE_BANNER_COURAGE", "USE_BANNER_FEAR", "USE_SKILL",
     ],
 );
 
@@ -424,7 +435,7 @@ define_vocab!(MODE_VOCAB, "mode",
 );
 
 // =============================================================================
-// Source Vocabulary (116 entries)
+// Source Vocabulary (150 entries)
 // =============================================================================
 
 define_vocab!(SOURCE_VOCAB, "source",
@@ -510,6 +521,12 @@ define_vocab!(SOURCE_VOCAB, "source",
         "turn.end_turn", "turn.undo",
         "unit_maintenance.disband", "unit_maintenance.keep",
         "unit_reward.disband", "unit_reward.forfeit",
+        // Added: emitted by source_derivation for unit ability choices
+        "pending_choice.add_siege_to_attacks",
+        "pending_choice.gain_coldfire_attack",
+        "pending_choice.gain_coldfire_block",
+        "pending_choice.gain_mana_token",
+        "pending_choice.transform_attacks_coldfire",
     ],
     sorted: [
         "artifact_crystal_color", "artifact_selection.card",
@@ -566,6 +583,7 @@ define_vocab!(SOURCE_VOCAB, "source",
         "normal.turn.declare_rest", "normal.turn.end_turn", "normal.turn.forfeit",
         "normal.units.activate", "normal.units.recruit", "normal.units.recruit.disband",
         "pending.select_artifact",
+        "pending_choice.add_siege_to_attacks",
         "pending_choice.apply_modifier",
         "pending_choice.card_boost",
         "pending_choice.change_reputation",
@@ -574,17 +592,21 @@ define_vocab!(SOURCE_VOCAB, "source",
         "pending_choice.draw_cards",
         "pending_choice.gain_attack",
         "pending_choice.gain_block",
+        "pending_choice.gain_coldfire_attack",
+        "pending_choice.gain_coldfire_block",
         "pending_choice.gain_crystal",
         "pending_choice.gain_fame",
         "pending_choice.gain_healing",
         "pending_choice.gain_influence",
         "pending_choice.gain_mana",
+        "pending_choice.gain_mana_token",
         "pending_choice.gain_move",
         "pending_choice.index",
         "pending_choice.noop",
         "pending_choice.ready_unit",
         "pending_choice.scaling",
         "pending_choice.scout_peek_hex", "pending_choice.scout_peek_pile",
+        "pending_choice.transform_attacks_coldfire",
         "pending_reward.auto", "pending_reward.card",
         "pending_reward.unit", "pending_reward.unit.disband",
         "pending_tactic_decision.card",
@@ -749,7 +771,7 @@ mod tests {
 
     #[test]
     fn action_type_vocab_size() {
-        assert_eq!(ACTION_TYPE_VOCAB.size(), 82); // 81 entries + UNK
+        assert_eq!(ACTION_TYPE_VOCAB.size(), 89); // 88 entries + UNK
     }
 
     #[test]
@@ -760,7 +782,7 @@ mod tests {
     #[test]
     fn source_vocab_size() {
         // Count the ordered entries
-        assert_eq!(SOURCE_VOCAB.size(), 146); // 145 entries + UNK
+        assert_eq!(SOURCE_VOCAB.size(), 151); // 150 entries + UNK
     }
 
     #[test]
@@ -904,5 +926,86 @@ mod tests {
         check_same_entries(&SITE_VOCAB);
         check_same_entries(&TERRAIN_VOCAB);
         check_same_entries(&SKILL_VOCAB);
+    }
+
+    /// Every string emitted by `derive_action_type()` in action_encoder.rs must
+    /// resolve to a non-UNK index. This catches new action types added to the
+    /// encoder but not to the vocab.
+    #[test]
+    fn action_type_vocab_covers_all_encoder_strings() {
+        let encoder_strings = [
+            "ACTIVATE_TACTIC", "ACTIVATE_UNIT", "ADD_ELITE_TO_OFFER",
+            "ALTAR_TRIBUTE", "ANNOUNCE_END_OF_ROUND", "ASSIGN_BANNER",
+            "ASSIGN_DAMAGE", "BEGIN_INTERACTION", "BURN_MONASTERY",
+            "BUY_ARTIFACT", "BUY_CITY_ADVANCED_ACTION",
+            "BUY_CITY_ADVANCED_ACTION_FROM_DECK", "BUY_SPELL",
+            "CANCEL_COOPERATIVE_PROPOSAL", "CHALLENGE_RAMPAGING",
+            "CHOOSE_LEVEL_UP_REWARDS", "COMPLETE_REST",
+            "CONVERT_INFLUENCE_TO_BLOCK", "CONVERT_MOVE_TO_ATTACK",
+            "DECLARE_ATTACK", "DECLARE_ATTACK_TARGETS", "DECLARE_BLOCK",
+            "DECLARE_REST", "DECLINE_PLUNDER",
+            "DISBAND_UNIT_FOR_REWARD",
+            "END_COMBAT_PHASE", "END_TURN",
+            "ENTER_SITE", "EXPLORE",
+            "FINALIZE_ATTACK", "FINALIZE_BLOCK",
+            "FORFEIT_TURN", "FORFEIT_UNIT_REWARD",
+            "INTERACT",
+            "LEARN_ADVANCED_ACTION", "MOVE",
+            "PAY_HEROES_ASSAULT_INFLUENCE", "PAY_THUGS_DAMAGE_INFLUENCE",
+            "PLAY_CARD", "PLAY_CARD_SIDEWAYS", "PLUNDER_VILLAGE",
+            "PROPOSE_COOPERATIVE_ASSAULT",
+            "RECRUIT_UNIT", "REROLL_SOURCE_DICE",
+            "RESOLVE_ATTACK", "RESOLVE_BANNER_PROTECTION",
+            "RESOLVE_BOOK_OF_WISDOM", "RESOLVE_CHOICE",
+            "RESOLVE_CIRCLET_OF_PROFICIENCY",
+            "RESOLVE_CRYSTAL_JOY_RECLAIM", "RESOLVE_CRYSTAL_ROLL_COLOR",
+            "RESOLVE_DECOMPOSE", "RESOLVE_DISCARD_FOR_BONUS",
+            "RESOLVE_DISCARD_FOR_CRYSTAL", "RESOLVE_GLADE_WOUND",
+            "RESOLVE_HEX_COST_REDUCTION", "RESOLVE_MAXIMAL_EFFECT",
+            "RESOLVE_MEDITATION", "RESOLVE_SOURCE_OPENING_REROLL",
+            "RESOLVE_STEADY_TEMPO", "RESOLVE_TACTIC_DECISION",
+            "RESOLVE_TERRAIN_COST_REDUCTION",
+            "RESOLVE_TOME_OF_ALL_SPELLS",
+            "RESOLVE_TRAINING", "RESOLVE_UNIT_MAINTENANCE",
+            "RESPOND_TO_COOPERATIVE_PROPOSAL",
+            "SELECT_ARTIFACT", "SELECT_REWARD", "SELECT_TACTIC",
+            "SPEND_MOVE_ON_CUMBERSOME",
+            "UNDO", "USE_BANNER_COURAGE", "USE_BANNER_FEAR", "USE_SKILL",
+            "RETURN_INTERACTIVE_SKILL",
+        ];
+        for s in &encoder_strings {
+            assert!(
+                ACTION_TYPE_VOCAB.encode(s) > 0,
+                "derive_action_type() emits '{}' but it maps to UNK (index 0) in ACTION_TYPE_VOCAB",
+                s,
+            );
+        }
+    }
+
+    /// Every source string emitted by source_derivation.rs must resolve to a
+    /// non-UNK index. This catches new sources added to the derivation logic
+    /// but not to the vocab.
+    #[test]
+    fn source_vocab_covers_all_derivation_strings() {
+        let derivation_strings = [
+            // Unit ability choice sources
+            "pending_choice.gain_mana_token",
+            "pending_choice.gain_coldfire_attack",
+            "pending_choice.gain_coldfire_block",
+            "pending_choice.transform_attacks_coldfire",
+            "pending_choice.add_siege_to_attacks",
+            // Scout peek sources
+            "pending_choice.scout_peek_hex",
+            "pending_choice.scout_peek_pile",
+            // Combat resolve attack
+            "combat.resolve_attack",
+        ];
+        for s in &derivation_strings {
+            assert!(
+                SOURCE_VOCAB.encode(s) > 0,
+                "source_derivation emits '{}' but it maps to UNK (index 0) in SOURCE_VOCAB",
+                s,
+            );
+        }
     }
 }

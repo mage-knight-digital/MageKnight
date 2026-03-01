@@ -3,6 +3,7 @@ dist/
 *.log
 *.pid
 .DS_Store
+.claude/worktrees/
 .backups/*
 # Local working files (copyrighted PDFs, asset staging)
 _local/
@@ -41,3 +42,10 @@ packages/engine-rs/target/
 
 # Simulation artifacts (large binary data, training checkpoints)
 sim-artifacts/
+
+# Viewer cache (converted replay artifacts)
+.viewer-cache/
+*.json.ndjson
+*.json.ndjson.idx
+*.json.states.ndjson
+*.json.states.ndjson.idx

@@ -129,6 +129,49 @@ class SkillVocabTest(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# Cross-validation: Python vocab sizes must match Rust vocab sizes
+# ---------------------------------------------------------------------------
+
+# These sizes come from the Rust vocab.rs tests. When the Rust side changes,
+# update these values to keep the two in sync.
+_RUST_VOCAB_SIZES = {
+    "card": 123,
+    "unit": 32,
+    "enemy": 73,
+    "action_type": 89,
+    "mode": 29,
+    "source": 151,
+    "site": 19,
+    "terrain": 10,
+    "skill": 71,
+}
+
+
+class VocabSyncWithRustTest(unittest.TestCase):
+    """Ensure Python vocabulary sizes match the Rust encoder's vocab sizes."""
+
+    def test_all_vocab_sizes_match_rust(self) -> None:
+        python_vocabs = {
+            "card": CARD_VOCAB,
+            "unit": UNIT_VOCAB,
+            "enemy": ENEMY_VOCAB,
+            "action_type": ACTION_TYPE_VOCAB,
+            "mode": MODE_VOCAB,
+            "source": SOURCE_VOCAB,
+            "site": SITE_VOCAB,
+            "terrain": TERRAIN_VOCAB,
+            "skill": SKILL_VOCAB,
+        }
+        for name, rust_size in _RUST_VOCAB_SIZES.items():
+            py_vocab = python_vocabs[name]
+            self.assertEqual(
+                py_vocab.size,
+                rust_size,
+                f"{name} vocab: Python size {py_vocab.size} != Rust size {rust_size}",
+            )
+
+
+# ---------------------------------------------------------------------------
 # Dimension constants
 # ---------------------------------------------------------------------------
 

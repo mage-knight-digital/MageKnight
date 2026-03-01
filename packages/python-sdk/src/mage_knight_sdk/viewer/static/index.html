@@ -475,13 +475,21 @@
 
     function formatArtifactLabel(name, total) {
       const runSeed = name.match(/run_(\d+)_seed_(\d+)_/);
-      const runSeedStr = runSeed ? `Run ${runSeed[1]}, seed ${runSeed[2]}` : name;
+      const replaySeed = name.match(/^seed_(\d+)\.json$/);
+      let label;
+      if (runSeed) {
+        label = `Run ${runSeed[1]}, seed ${runSeed[2]}`;
+      } else if (replaySeed) {
+        label = `Replay seed ${replaySeed[1]}`;
+      } else {
+        label = name;
+      }
       const date = parseArtifactTimestamp(name);
       const dateStr = date
         ? date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
         : '';
       const stepStr = total != null ? ` · ${total.toLocaleString()} steps` : '';
-      return dateStr ? `${runSeedStr} — ${dateStr}${stepStr}` : `${name}${stepStr}`;
+      return dateStr ? `${label} — ${dateStr}${stepStr}` : `${label}${stepStr}`;
     }
 
     async function loadArtifacts() {
@@ -569,7 +577,7 @@
       cache.clear();
       document.getElementById('empty').style.display = 'none';
       document.getElementById('summary').style.display = 'block';
-      document.getElementById('summary').textContent = `Artifact: ${artifactName} · ${total.toLocaleString()} action trace entries. Scroll to load. Click a row to view game state after that step.`;
+      document.getElementById('summary').textContent = `Artifact: ${artifactName} · ${total.toLocaleString()} entries. Scroll to load. Click a row to view game state after that step.`;
       document.getElementById('list-container').style.display = 'block';
       document.getElementById('rebuild-states-btn').style.display = '';
       listInner = document.getElementById('list-inner');

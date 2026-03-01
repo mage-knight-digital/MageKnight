@@ -9,8 +9,13 @@ from flask import Flask, jsonify, request, send_from_directory
 
 from .ndjson_index import (
     build_ndjson_and_index,
+    build_ndjson_from_message_log,
     count_entries,
     read_slice,
+)
+from .replay_converter import (
+    convert_replay_to_artifact,
+    detect_format,
 )
 from .states_index import (
     build_states_ndjson,
@@ -23,9 +28,15 @@ VIEWER_DIR = Path(__file__).resolve().parent
 PKG_ROOT = VIEWER_DIR.parent.parent.parent
 ARTIFACTS_DIR = PKG_ROOT / "sim-artifacts"
 
+VIEWER_CACHE_DIR = ".viewer-cache"
+
 # In-progress build state: artifact name -> "building" | total_count
 _build_status: dict[str, str | int] = {}
 _build_lock = threading.Lock()
+
+# Maps replay filename -> converted artifact path (so states are built from
+# the full artifact, not the lightweight replay).
+_effective_json: dict[str, Path] = {}
 
 
 def create_app(artifacts_dir: Path | None = None) -> Flask:
@@ -41,7 +52,11 @@ def create_app(artifacts_dir: Path | None = None) -> Flask:
         if not root.exists():
             return jsonify({"artifacts": []})
         files = sorted(
-            p for p in root.iterdir() if p.suffix == ".json" and p.name != "fuzz-analysis-details.json"
+            p for p in root.iterdir()
+            if p.suffix == ".json"
+            and p.name != "fuzz-analysis-details.json"
+            and not p.name.endswith(".artifact.json")
+            and p.parent.name != VIEWER_CACHE_DIR
         )
         artifacts = []
         for p in files:
@@ -71,11 +86,16 @@ def create_app(artifacts_dir: Path | None = None) -> Flask:
         states_index_path = json_path.with_suffix(json_path.suffix + ".states.ndjson.idx")
         rebuild_states = request.args.get("rebuild_states", "").lower() in ("1", "true", "yes")
 
+        def _resolve_effective_json() -> Path:
+            """Return the artifact path to use for state building (may differ from json_path for replays)."""
+            return _effective_json.get(name, json_path)
+
         def do_build_states_only():
             try:
+                effective = _resolve_effective_json()
                 total_for_states = count_entries(index_path)
                 build_states_ndjson(
-                    json_path, states_path, states_index_path,
+                    effective, states_path, states_index_path,
                     action_trace_total=total_for_states,
                 )
             except Exception:
@@ -105,11 +125,44 @@ def create_app(artifacts_dir: Path | None = None) -> Flask:
             try:
                 with _build_lock:
                     _build_status[name] = "building"
-                total = build_ndjson_and_index(json_path, ndjson_path, index_path)
-                build_states_ndjson(
-                    json_path, states_path, states_index_path,
-                    action_trace_total=total,
-                )
+
+                fmt = detect_format(json_path)
+
+                if fmt == "replay":
+                    # Convert replay to full artifact first
+                    cache_dir = root / VIEWER_CACHE_DIR
+                    artifact_path = cache_dir / name
+                    if not artifact_path.is_file():
+                        ok = convert_replay_to_artifact(json_path, artifact_path)
+                        if not ok:
+                            with _build_lock:
+                                _build_status[name] = "error"
+                            return
+                    _effective_json[name] = artifact_path
+                    # Build step index from artifact's messageLog
+                    total = build_ndjson_from_message_log(artifact_path, ndjson_path, index_path)
+                    # Build state index from the artifact
+                    build_states_ndjson(
+                        artifact_path, states_path, states_index_path,
+                        action_trace_total=total,
+                    )
+
+                elif fmt == "artifact_no_trace":
+                    # Artifact with messageLog but no actionTrace
+                    total = build_ndjson_from_message_log(json_path, ndjson_path, index_path)
+                    build_states_ndjson(
+                        json_path, states_path, states_index_path,
+                        action_trace_total=total,
+                    )
+
+                else:
+                    # Old-style artifact with actionTrace
+                    total = build_ndjson_and_index(json_path, ndjson_path, index_path)
+                    build_states_ndjson(
+                        json_path, states_path, states_index_path,
+                        action_trace_total=total,
+                    )
+
                 with _build_lock:
                     _build_status[name] = total
             except Exception:
@@ -166,6 +219,7 @@ def create_app(artifacts_dir: Path | None = None) -> Flask:
     def state_at_step(name: str):
         name = name.split("/")[-1].split("\\")[-1]
         json_path = root / name
+        effective = _effective_json.get(name, json_path)
         states_path = json_path.with_suffix(json_path.suffix + ".states.ndjson")
         states_index_path = json_path.with_suffix(json_path.suffix + ".states.ndjson.idx")
         if not states_path.exists():

@@ -185,6 +185,7 @@ _ACTION_TYPE_IDS: tuple[str, ...] = (
     "PLAY_CARD", "PLAY_CARD_SIDEWAYS", "PLUNDER_VILLAGE",
     "PROPOSE_COOPERATIVE_ASSAULT", "RECRUIT_UNIT",
     "REROLL_SOURCE_DICE",
+    "RESOLVE_ATTACK",
     "RESOLVE_BANNER_PROTECTION",
     "RESOLVE_BOOK_OF_WISDOM", "RESOLVE_CHOICE",
     "RESOLVE_CRYSTAL_JOY_RECLAIM", "RESOLVE_CRYSTAL_ROLL_COLOR",
@@ -202,6 +203,11 @@ _ACTION_TYPE_IDS: tuple[str, ...] = (
     "SELECT_ARTIFACT", "SELECT_REWARD", "SELECT_TACTIC",
     "SPEND_MOVE_ON_CUMBERSOME", "UNASSIGN_ATTACK", "UNASSIGN_BLOCK",
     "UNDO", "USE_BANNER_FEAR", "USE_SKILL",
+    # Added to match Rust encoder action type strings
+    "ADD_ELITE_TO_OFFER", "BUY_ARTIFACT",
+    "BUY_CITY_ADVANCED_ACTION", "BUY_CITY_ADVANCED_ACTION_FROM_DECK",
+    "RESOLVE_CIRCLET_OF_PROFICIENCY", "RESOLVE_TOME_OF_ALL_SPELLS",
+    "USE_BANNER_COURAGE",
 )
 
 ACTION_TYPE_VOCAB: Vocabulary = _build_vocab("action_type", _ACTION_TYPE_IDS)
@@ -309,6 +315,7 @@ _SOURCE_IDS: tuple[str, ...] = (
     "unit_reward.disband", "unit_reward.forfeit",
     # Added to match Rust encoder source strings
     "circlet_of_proficiency.card",
+    "combat.resolve_attack",
     "combat.use_banner_courage",
     "cooperative.cancel", "cooperative.propose", "cooperative.respond",
     "meditation.done",
@@ -317,6 +324,13 @@ _SOURCE_IDS: tuple[str, ...] = (
     "normal.site.buy_artifact", "normal.site.buy_city_aa",
     "normal.site.buy_city_aa_deck",
     "pending.select_artifact",
+    "pending_choice.add_siege_to_attacks",
+    "pending_choice.gain_coldfire_attack",
+    "pending_choice.gain_coldfire_block",
+    "pending_choice.gain_mana_token",
+    "pending_choice.scout_peek_hex",
+    "pending_choice.scout_peek_pile",
+    "pending_choice.transform_attacks_coldfire",
     "tome_of_all_spells.card",
 )
 

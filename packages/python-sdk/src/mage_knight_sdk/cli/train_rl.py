@@ -80,6 +80,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Train a policy-gradient agent using the native Rust engine")
     parser.add_argument("--episodes", type=int, default=100, help="Number of episodes to train")
     parser.add_argument("--seed", type=int, default=1, help="Base seed for game creation")
+    parser.add_argument("--fixed-seed", action="store_true", help="Use the same seed every episode (for memorization tests)")
     parser.add_argument("--max-steps", type=int, default=10000, help="Max steps per episode")
     parser.add_argument("--hero", default="random", help="Hero to play, or 'random' for seeded rotation (default: random)")
 
@@ -165,7 +166,8 @@ def main() -> int:
 
     algo = "PPO" if args.ppo else "REINFORCE"
     hero_display = args.hero if args.hero.lower() != "random" else "random (seeded rotation)"
-    print(f"Training episodes={args.episodes} seed={args.seed} max_steps={args.max_steps} algorithm={algo} hero={hero_display}")
+    seed_display = f"{args.seed} (FIXED)" if args.fixed_seed else str(args.seed)
+    print(f"Training episodes={args.episodes} seed={seed_display} max_steps={args.max_steps} algorithm={algo} hero={hero_display}")
     print(
         "Rewards: "
         f"fame_delta_scale={args.fame_delta_scale} "
@@ -222,7 +224,7 @@ def _train_native_sequential(
 
     for episode in range(args.episodes):
         global_ep = resume_episode_offset + episode + 1
-        seed = args.seed + resume_episode_offset + episode
+        seed = args.seed if args.fixed_seed else args.seed + resume_episode_offset + episode
         hero = resolve_hero(args.hero, seed)
 
         result, stats = run_native_rl_game(
@@ -311,7 +313,7 @@ def _train_ppo_native(
         batch_fames: list[int] = []
 
         for i in range(batch_size):
-            seed = args.seed + resume_episode_offset + episode_num + i
+            seed = args.seed if args.fixed_seed else args.seed + resume_episode_offset + episode_num + i
             hero = resolve_hero(args.hero, seed)
 
             result, transitions, terminated = run_native_rl_game_ppo(
@@ -376,7 +378,7 @@ def _train_ppo_native(
         # Log each episode in the batch
         for i, stats in enumerate(batch_stats):
             global_ep = resume_episode_offset + episode_num + i + 1
-            seed = args.seed + resume_episode_offset + episode_num + i
+            seed = args.seed if args.fixed_seed else args.seed + resume_episode_offset + episode_num + i
 
             logged_stats = _with_opt(stats, opt_stats)
             _append_metrics_log(
