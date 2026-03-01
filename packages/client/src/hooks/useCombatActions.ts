@@ -57,6 +57,15 @@ export interface CombatActions {
   subsetSelectOptions: SubsetSelectOption[];
   subsetConfirmAction: LegalAction | undefined;
 
+  // Attack phase — resolve declared attack
+  resolveAttackAction: LegalAction | undefined;
+
+  // Attack phase — declared attack info
+  hasDeclaredAttack: boolean;
+  declaredAttackTargets: readonly string[];
+  declaredAttackType: string | null;
+  declaredAttackArmorNeeded: number;
+
   // Damage phase
   damageToHeroOptions: DamageToHeroOption[];
   damageToUnitOptions: DamageToUnitOption[];
@@ -64,13 +73,17 @@ export interface CombatActions {
 }
 
 export function useCombatActions(): CombatActions {
-  const { legalActions } = useGame();
+  const { legalActions, state } = useGame();
 
   return useMemo(() => {
     const turnOpts = extractTurnOptions(legalActions);
 
     const subsetSelectOptions = extractSubsetSelectOptions(legalActions);
     const subsetConfirmAction = findAction(legalActions, "SubsetConfirm");
+
+    const combat = state?.combat;
+    const declaredTargets = combat?.declaredAttackTargets ?? null;
+    const hasDeclaredAttack = declaredTargets != null && declaredTargets.length > 0;
 
     return {
       canEndPhase: turnOpts.canEndCombatPhase,
@@ -91,9 +104,16 @@ export function useCombatActions(): CombatActions {
       subsetSelectOptions,
       subsetConfirmAction,
 
+      resolveAttackAction: findAction(legalActions, "ResolveAttack"),
+
+      hasDeclaredAttack,
+      declaredAttackTargets: declaredTargets ?? [],
+      declaredAttackType: combat?.declaredAttackType ?? null,
+      declaredAttackArmorNeeded: combat?.declaredAttackArmorNeeded ?? 0,
+
       damageToHeroOptions: extractDamageToHeroOptions(legalActions),
       damageToUnitOptions: extractDamageToUnitOptions(legalActions),
       thugsDamagePayment: extractThugsDamagePayment(legalActions),
     };
-  }, [legalActions]);
+  }, [legalActions, state?.combat]);
 }

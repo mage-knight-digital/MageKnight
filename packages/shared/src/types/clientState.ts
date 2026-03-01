@@ -421,4 +421,10 @@ export interface ClientCombatState {
   readonly woundsThisCombat: number;
   readonly fameGained: number;
   readonly isAtFortifiedSite: boolean;
+  /** Instance IDs of enemies targeted by the current attack declaration. */
+  readonly declaredAttackTargets: readonly string[] | null;
+  /** The attack type (Melee/Ranged/Siege) of the current declaration. */
+  readonly declaredAttackType: string | null;
+  /** Total armor the player needs to overcome for the declared targets. */
+  readonly declaredAttackArmorNeeded: number | null;
 }

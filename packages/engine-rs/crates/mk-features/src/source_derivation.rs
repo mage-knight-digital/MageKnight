@@ -41,6 +41,7 @@ pub fn derive_source_str(action: &LegalAction, state: &GameState, player_idx: us
         // === Combat-specific ===
         LegalAction::DeclareBlock { .. } => "combat.declare_block",
         LegalAction::InitiateAttack { .. } => "combat.declare_targets",
+        LegalAction::ResolveAttack => "combat.resolve_attack",
         LegalAction::EndCombatPhase => "combat.end_phase",
         LegalAction::SpendMoveOnCumbersome { .. } => "combat.cumbersome",
         LegalAction::AssignDamageToHero { .. } => "combat.assign_damage",

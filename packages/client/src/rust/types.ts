@@ -105,6 +105,7 @@ export type LegalAction =
   | "EnterSite"
   | "PlunderSite"
   | "DeclinePlunder"
+  | "ResolveAttack"
   | "EndCombatPhase"
   | "Undo"
   | "AnnounceEndOfRound"

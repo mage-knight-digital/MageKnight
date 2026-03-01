@@ -65,6 +65,7 @@ fn derive_action_type(action: &LegalAction) -> u16 {
         LegalAction::ChallengeRampaging { .. } => "CHALLENGE_RAMPAGING",
         LegalAction::DeclareBlock { .. } => "DECLARE_BLOCK",
         LegalAction::InitiateAttack { .. } => "DECLARE_ATTACK",
+        LegalAction::ResolveAttack => "RESOLVE_ATTACK",
         LegalAction::SpendMoveOnCumbersome { .. } => "SPEND_MOVE_ON_CUMBERSOME",
         LegalAction::ResolveTacticDecision { .. } => "RESOLVE_TACTIC_DECISION",
         LegalAction::ActivateTactic => "ACTIVATE_TACTIC",
@@ -357,6 +358,18 @@ fn extract_action_scalars(
                 CombatType::Melee => scalars[20] = 1.0,
                 CombatType::Ranged => scalars[21] = 1.0,
                 CombatType::Siege => scalars[22] = 1.0,
+            }
+        }
+        LegalAction::ResolveAttack => {
+            // Similar to InitiateAttack, encode attack type from declared state
+            if let Some(ref combat) = state.combat {
+                if let Some(attack_type) = combat.declared_attack_type {
+                    match attack_type {
+                        CombatType::Melee => scalars[20] = 1.0,
+                        CombatType::Ranged => scalars[21] = 1.0,
+                        CombatType::Siege => scalars[22] = 1.0,
+                    }
+                }
             }
         }
         LegalAction::EndTurn | LegalAction::EndCombatPhase => {

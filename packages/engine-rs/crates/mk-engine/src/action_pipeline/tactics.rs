@@ -14,7 +14,6 @@ use crate::mana;
 
 use super::{ApplyError, ApplyResult};
 use super::turn_flow;
-use super::combat_actions;
 
 
 // =============================================================================
@@ -419,14 +418,22 @@ pub(super) fn finalize_subset_selection(
             attack_type,
             eligible_instance_ids,
         } => {
-            // Map selected pool indices → actual instance IDs
+            // Map selected pool indices → actual instance IDs and store on CombatState.
+            // Resolution happens later via ResolveAttack (rules: declare first, then play cards).
             let target_ids: Vec<CombatInstanceId> = ss
                 .selected
                 .iter()
                 .map(|&pool_idx| eligible_instance_ids[pool_idx].clone())
                 .collect();
 
-            return combat_actions::apply_declare_attack_inner(state, player_idx, &target_ids, attack_type);
+            let combat = state
+                .combat
+                .as_mut()
+                .ok_or_else(|| super::ApplyError::InternalError(
+                    "AttackTargets: no combat".into(),
+                ))?;
+            combat.declared_attack_targets = Some(target_ids);
+            combat.declared_attack_type = Some(attack_type);
         }
         SubsetSelectionKind::RestWoundDiscard { wound_hand_indices } => {
             // Discard selected wounds (reverse order to preserve indices).

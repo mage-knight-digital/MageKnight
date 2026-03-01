@@ -712,33 +712,41 @@ fn vampiric_bonus_affects_attack_enumeration() {
         "InitiateAttack should be available with 6 attack"
     );
 
-    // But after initiating and selecting the enemy, SubsetConfirm should NOT be offered
+    // After initiating, selecting, and confirming targets, ResolveAttack should NOT be offered
     let mut undo = UndoStack::new();
     let epoch = state.action_epoch;
     apply_legal_action(&mut state, &mut undo, 0, &LegalAction::InitiateAttack { attack_type: CombatType::Melee }, epoch).unwrap();
     let epoch = state.action_epoch;
     apply_legal_action(&mut state, &mut undo, 0, &LegalAction::SubsetSelect { index: 0 }, epoch).unwrap();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::SubsetConfirm, epoch).unwrap();
     let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
     assert!(
-        !legal.actions.contains(&LegalAction::SubsetConfirm),
-        "6 attack should not be sufficient to confirm against armor 7"
+        !legal.actions.contains(&LegalAction::ResolveAttack),
+        "6 attack should not be sufficient to resolve against armor 7"
     );
 
-    // Undo back to combat
+    // Undo SubsetConfirm (restores pre-confirm snapshot), then InitiateAttack.
+    // SubsetSelect doesn't save a snapshot — it only mutates pending.active.selected.
     let epoch = state.action_epoch;
     apply_legal_action(&mut state, &mut undo, 0, &LegalAction::Undo, epoch).unwrap();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::Undo, epoch).unwrap();
+    assert!(state.players[0].pending.active.is_none(), "Should be back to base combat state");
 
-    // Give 7 attack — now confirm should be available
+    // Give 7 attack — now ResolveAttack should be available after declaring
     state.players[0].combat_accumulator.attack.normal_elements.physical = 7;
     let mut undo = UndoStack::new();
     let epoch = state.action_epoch;
     apply_legal_action(&mut state, &mut undo, 0, &LegalAction::InitiateAttack { attack_type: CombatType::Melee }, epoch).unwrap();
     let epoch = state.action_epoch;
     apply_legal_action(&mut state, &mut undo, 0, &LegalAction::SubsetSelect { index: 0 }, epoch).unwrap();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::SubsetConfirm, epoch).unwrap();
     let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
     assert!(
-        legal.actions.contains(&LegalAction::SubsetConfirm),
-        "7 attack should be sufficient to confirm against armor 7"
+        legal.actions.contains(&LegalAction::ResolveAttack),
+        "7 attack should be sufficient to resolve against armor 7"
     );
 }
 
@@ -1623,10 +1631,15 @@ fn defend_protects_other_enemy() {
     apply_legal_action(&mut state, &mut undo, 0,
         &LegalAction::SubsetSelect { index: 1 }, epoch).unwrap();
 
-    // SubsetConfirm should NOT be available — 3 < 4 (3 armor + 1 defend)
+    // SubsetConfirm stores targets (always available), then check ResolveAttack
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0,
+        &LegalAction::SubsetConfirm, epoch).unwrap();
+
+    // ResolveAttack should NOT be available — 3 < 4 (3 armor + 1 defend)
     let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
     assert!(
-        !legal.actions.contains(&LegalAction::SubsetConfirm),
+        !legal.actions.contains(&LegalAction::ResolveAttack),
         "3 attack should not be enough against prowlers defended by corrupted_priests (need 4)"
     );
 }
@@ -1649,10 +1662,13 @@ fn defend_protects_other_enemy_sufficient_attack() {
     let epoch = state.action_epoch;
     apply_legal_action(&mut state, &mut undo, 0,
         &LegalAction::SubsetSelect { index: 1 }, epoch).unwrap();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0,
+        &LegalAction::SubsetConfirm, epoch).unwrap();
 
     let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
     assert!(
-        legal.actions.contains(&LegalAction::SubsetConfirm),
+        legal.actions.contains(&LegalAction::ResolveAttack),
         "4 attack should be enough against prowlers defended by corrupted_priests"
     );
 }
@@ -1679,6 +1695,9 @@ fn defend_used_once_per_combat() {
     let epoch = state.action_epoch;
     apply_legal_action(&mut state, &mut undo, 0,
         &LegalAction::SubsetConfirm, epoch).unwrap();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0,
+        &LegalAction::ResolveAttack, epoch).unwrap();
 
     assert!(state.combat.as_ref().unwrap().enemies[1].is_defeated, "First prowlers defeated");
     assert!(!state.combat.as_ref().unwrap().used_defend.is_empty(), "Defend used");
@@ -1698,10 +1717,13 @@ fn defend_used_once_per_combat() {
     // enemy_2 is now index 1 (enemy_0=corrupted_priests, enemy_2=prowlers — enemy_1 defeated)
     apply_legal_action(&mut state, &mut undo, 0,
         &LegalAction::SubsetSelect { index: 1 }, epoch).unwrap();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0,
+        &LegalAction::SubsetConfirm, epoch).unwrap();
 
     let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
     assert!(
-        legal.actions.contains(&LegalAction::SubsetConfirm),
+        legal.actions.contains(&LegalAction::ResolveAttack),
         "3 attack should be enough for second prowlers (defend already used)"
     );
 }
@@ -1739,6 +1761,9 @@ fn defend_bonus_persists_after_defender_killed() {
     let epoch = state.action_epoch;
     apply_legal_action(&mut state, &mut undo, 0,
         &LegalAction::SubsetConfirm, epoch).unwrap();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0,
+        &LegalAction::ResolveAttack, epoch).unwrap();
 
     assert!(state.combat.as_ref().unwrap().enemies[1].is_defeated);
     // Defend bonus persisted for enemy_1
@@ -1762,6 +1787,9 @@ fn defend_bonus_persists_after_defender_killed() {
     let epoch = state.action_epoch;
     apply_legal_action(&mut state, &mut undo, 0,
         &LegalAction::SubsetConfirm, epoch).unwrap();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0,
+        &LegalAction::ResolveAttack, epoch).unwrap();
 
     assert!(state.combat.as_ref().unwrap().enemies[0].is_defeated, "Corrupted Priests defeated");
 
@@ -1791,10 +1819,13 @@ fn defend_self_adds_armor() {
     let epoch = state.action_epoch;
     apply_legal_action(&mut state, &mut undo, 0,
         &LegalAction::SubsetSelect { index: 0 }, epoch).unwrap();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0,
+        &LegalAction::SubsetConfirm, epoch).unwrap();
 
     let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
     assert!(
-        !legal.actions.contains(&LegalAction::SubsetConfirm),
+        !legal.actions.contains(&LegalAction::ResolveAttack),
         "5 attack should not defeat corrupted_priests (needs 6 with self-defend)"
     );
 }
@@ -2443,5 +2474,61 @@ fn enemy_stat_armor_applied_in_attack_resolution() {
         "EnemyStat(Armor, -2) should reduce prowlers armor from 3 to 1"
     );
     assert_eq!(state.players[0].fame, state.players[0].fame, "Should gain fame");
+}
+
+// =========================================================================
+// Declared attack + EndCombatPhase interaction
+// =========================================================================
+
+#[test]
+fn end_combat_phase_available_with_insufficient_declared_attack() {
+    // Regression: when attack targets are declared but attack power is insufficient,
+    // EndCombatPhase must still be legal (abandons the declaration).
+    // Previously this produced 0 legal actions → crash in RL training.
+    let mut state = setup_combat_game(&["prowlers"]);
+    state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+
+    // Simulate a declared attack with 0 accumulated attack power (insufficient).
+    let combat = state.combat.as_mut().unwrap();
+    combat.declared_attack_targets = Some(vec![
+        mk_types::ids::CombatInstanceId::from("enemy_0"),
+    ]);
+    combat.declared_attack_type = Some(CombatType::Melee);
+
+    let undo = UndoStack::new();
+    let las = enumerate_legal_actions_with_undo(&state, 0, &undo);
+
+    assert!(
+        las.actions.iter().any(|a| matches!(a, LegalAction::EndCombatPhase)),
+        "EndCombatPhase must be available even with an active (insufficient) attack declaration"
+    );
+    assert!(
+        !las.actions.is_empty(),
+        "Legal actions must never be empty"
+    );
+}
+
+#[test]
+fn end_combat_phase_clears_declared_attack() {
+    // EndCombatPhase should clear declared_attack_targets and declared_attack_type.
+    let mut state = setup_combat_game(&["prowlers"]);
+    state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+
+    let combat = state.combat.as_mut().unwrap();
+    combat.declared_attack_targets = Some(vec![
+        mk_types::ids::CombatInstanceId::from("enemy_0"),
+    ]);
+    combat.declared_attack_type = Some(CombatType::Melee);
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+
+    let combat = state.combat.as_ref();
+    // Combat should be over (Attack was last phase) or declaration cleared
+    if let Some(c) = combat {
+        assert!(c.declared_attack_targets.is_none());
+        assert!(c.declared_attack_type.is_none());
+    }
 }
 

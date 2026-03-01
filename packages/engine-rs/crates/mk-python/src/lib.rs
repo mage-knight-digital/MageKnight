@@ -271,10 +271,12 @@ impl GameEngine {
     ///     ValueError: If the index is out of range or the action fails.
     fn apply_action(&mut self, action_index: usize) -> PyResult<bool> {
         if action_index >= self.action_set.actions.len() {
+            let diag = self.debug_empty_actions();
             return Err(PyValueError::new_err(format!(
-                "Action index {} out of range (0..{})",
+                "Action index {} out of range (0..{}) | {}",
                 action_index,
-                self.action_set.actions.len()
+                self.action_set.actions.len(),
+                diag,
             )));
         }
 
@@ -500,6 +502,32 @@ impl GameEngine {
             p.hand, p.position,
             p.units.len(),
             p.move_points, p.influence_points,
+        )
+    }
+}
+
+impl GameEngine {
+    /// Diagnostic string for empty-action-set errors.
+    fn debug_empty_actions(&self) -> String {
+        let s = &self.state;
+        let p = &s.players[self.player_idx];
+        let combat_info = match s.combat.as_ref() {
+            Some(c) => format!(
+                "combat(phase={:?} enemies={} declared_targets={:?} declared_type={:?})",
+                c.phase,
+                c.enemies.iter().filter(|e| !e.is_defeated).count(),
+                c.declared_attack_targets.as_ref().map(|t| t.len()),
+                c.declared_attack_type,
+            ),
+            None => "no_combat".to_string(),
+        };
+        format!(
+            "phase={:?} round_phase={:?} ended={} pending={:?} deferred={} flags={:?} hand={} {} undo={}",
+            s.phase, s.round_phase, s.game_ended,
+            p.pending.active, p.pending.deferred.len(),
+            p.flags, p.hand.len(),
+            combat_info,
+            self.undo_stack.can_undo(),
         )
     }
 }

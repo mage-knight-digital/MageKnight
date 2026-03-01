@@ -916,6 +916,7 @@ fn format_action(action: &LegalAction, state: &GameState, player_idx: usize) -> 
             }
         }
         LegalAction::SubsetConfirm => "Confirm selection".into(),
+        LegalAction::ResolveAttack => "Resolve attack".into(),
         LegalAction::EndCombatPhase => "End combat phase".into(),
         LegalAction::AssignDamageToHero { enemy_index, attack_index } => {
             let enemy_name = state.combat.as_ref()

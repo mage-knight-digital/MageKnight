@@ -314,6 +314,7 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
         "PLAY_CARD", "PLAY_CARD_SIDEWAYS", "PLUNDER_VILLAGE",
         "PROPOSE_COOPERATIVE_ASSAULT", "RECRUIT_UNIT",
         "REROLL_SOURCE_DICE",
+        "RESOLVE_ATTACK",
         "RESOLVE_BANNER_PROTECTION",
         "RESOLVE_BOOK_OF_WISDOM", "RESOLVE_CHOICE",
         "RESOLVE_CRYSTAL_JOY_RECLAIM", "RESOLVE_CRYSTAL_ROLL_COLOR",
@@ -355,6 +356,7 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
         "PROPOSE_COOPERATIVE_ASSAULT",
         "RECRUIT_UNIT",
         "REROLL_SOURCE_DICE",
+        "RESOLVE_ATTACK",
         "RESOLVE_BANNER_PROTECTION",
         "RESOLVE_BOOK_OF_WISDOM", "RESOLVE_CHOICE",
         "RESOLVE_CRYSTAL_JOY_RECLAIM", "RESOLVE_CRYSTAL_ROLL_COLOR",
@@ -442,6 +444,7 @@ define_vocab!(SOURCE_VOCAB, "source",
         "combat.play_card.basic", "combat.play_card.powered", "combat.play_card.sideways",
         "combat.play_card.sideways.move", "combat.play_card.sideways.influence",
         "combat.play_card.sideways.attack", "combat.play_card.sideways.block",
+        "combat.resolve_attack",
         "combat.skills.activate", "combat.units.activate",
         "combat.thugs_payment",
         "combat.use_banner_courage",
@@ -524,6 +527,7 @@ define_vocab!(SOURCE_VOCAB, "source",
         "combat.play_card.basic", "combat.play_card.powered", "combat.play_card.sideways",
         "combat.play_card.sideways.attack", "combat.play_card.sideways.block",
         "combat.play_card.sideways.influence", "combat.play_card.sideways.move",
+        "combat.resolve_attack",
         "combat.skills.activate",
         "combat.thugs_payment",
         "combat.units.activate",
@@ -745,7 +749,7 @@ mod tests {
 
     #[test]
     fn action_type_vocab_size() {
-        assert_eq!(ACTION_TYPE_VOCAB.size(), 81); // 80 entries + UNK
+        assert_eq!(ACTION_TYPE_VOCAB.size(), 82); // 81 entries + UNK
     }
 
     #[test]
@@ -756,7 +760,7 @@ mod tests {
     #[test]
     fn source_vocab_size() {
         // Count the ordered entries
-        assert_eq!(SOURCE_VOCAB.size(), 145); // 144 entries + UNK
+        assert_eq!(SOURCE_VOCAB.size(), 146); // 145 entries + UNK
     }
 
     #[test]

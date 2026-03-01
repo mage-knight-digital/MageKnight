@@ -6665,6 +6665,7 @@ mod tests {
             enemy_assignments: None,
             paid_heroes_assault_influence: false,
             declared_attack_targets: None,
+            declared_attack_type: None,
             declared_block_target: None,
             declared_block_attack_index: None,
             ..Default::default()

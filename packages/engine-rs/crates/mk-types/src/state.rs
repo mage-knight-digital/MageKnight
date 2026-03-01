@@ -428,6 +428,7 @@ pub struct CombatState {
 
     // Target declarations
     pub declared_attack_targets: Option<Vec<CombatInstanceId>>,
+    pub declared_attack_type: Option<CombatType>,
     pub declared_block_target: Option<CombatInstanceId>,
     pub declared_block_attack_index: Option<u32>,
 
@@ -470,6 +471,7 @@ impl Default for CombatState {
             enemy_assignments: None,
             paid_heroes_assault_influence: false,
             declared_attack_targets: None,
+            declared_attack_type: None,
             declared_block_target: None,
             declared_block_attack_index: None,
             has_paralyze_damage_to_hero: false,

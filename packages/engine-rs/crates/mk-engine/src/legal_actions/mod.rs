@@ -45,7 +45,7 @@ use self::combat::{
     all_damage_assigned, enumerate_attack_declarations, enumerate_banner_fear,
     enumerate_block_declarations, enumerate_conversion_actions, enumerate_cumbersome_actions,
     enumerate_damage_assignments, enumerate_heroes_assault_payment,
-    enumerate_thugs_damage_payment,
+    enumerate_resolve_attack, enumerate_thugs_damage_payment,
 };
 use self::explore::enumerate_explores;
 use self::movement::{enumerate_challenges, enumerate_moves};
@@ -166,12 +166,13 @@ pub fn enumerate_legal_actions_with_undo(
             enumerate_cumbersome_actions(state, player_idx, &mut actions);
             enumerate_conversion_actions(state, player_idx, &mut actions);
             enumerate_attack_declarations(state, player_idx, &mut actions);
+            enumerate_resolve_attack(state, player_idx, &mut actions);
             enumerate_heroes_assault_payment(state, player_idx, &mut actions);
             // ActivateTactic (The Right Moment can be used during combat).
             if can_activate_tactic_in_combat(state, player_idx) {
                 actions.push(LegalAction::ActivateTactic);
             }
-            // EndCombatPhase (category 8).
+            // EndCombatPhase: always available (abandons any pending attack declaration).
             actions.push(LegalAction::EndCombatPhase);
             // Undo (category 12).
             if undo.can_undo() {

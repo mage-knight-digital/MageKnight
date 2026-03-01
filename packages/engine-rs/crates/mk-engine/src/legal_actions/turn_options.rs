@@ -44,13 +44,14 @@ pub(super) fn enumerate_turn_options(
         enumerate_banner_courage(state, player_idx, actions);
     }
 
-    // Category 9: EndTurn — only if played a card or rested.
+    // Category 9: EndTurn — available after playing a card, resting, or completing combat.
     if !is_resting
         && !player.pending.has_active()
         && (player
             .flags
             .contains(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN)
-            || player.flags.contains(PlayerFlags::HAS_RESTED_THIS_TURN))
+            || player.flags.contains(PlayerFlags::HAS_RESTED_THIS_TURN)
+            || player.flags.contains(PlayerFlags::HAS_COMBATTED_THIS_TURN))
     {
         actions.push(LegalAction::EndTurn);
     }

@@ -840,7 +840,7 @@ pub(super) fn apply_end_combat_phase(
         .as_mut()
         .ok_or_else(|| ApplyError::InternalError("EndCombatPhase with no combat".into()))?;
 
-    // Safety: clear any lingering attack declaration (should already be None due to gating)
+    // Clear any active attack declaration (player chose to end phase, abandoning the attack)
     combat.declared_attack_targets = None;
     combat.declared_attack_type = None;
 

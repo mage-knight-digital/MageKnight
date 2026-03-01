@@ -160,18 +160,10 @@ pub(super) fn enumerate_pending(
             }
             // Kind-specific confirm gating
             let can_confirm = match &ss.kind {
-                mk_types::pending::SubsetSelectionKind::AttackTargets {
-                    eligible_instance_ids,
-                    attack_type,
-                } => {
+                mk_types::pending::SubsetSelectionKind::AttackTargets { .. } => {
+                    // Just require at least one target selected.
+                    // Sufficiency is checked when ResolveAttack is enumerated.
                     !ss.selected.is_empty()
-                        && crate::legal_actions::combat::is_attack_subset_sufficient(
-                            state,
-                            player_idx,
-                            ss,
-                            eligible_instance_ids,
-                            *attack_type,
-                        )
                 }
                 _ => ss.selected.len() >= ss.min_selections,
             };

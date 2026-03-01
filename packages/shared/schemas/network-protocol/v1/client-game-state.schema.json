@@ -727,6 +727,34 @@
       "additionalProperties": false,
       "description": "Combat state visible to clients.",
       "properties": {
+        "declaredAttackArmorNeeded": {
+          "description": "Total armor the player needs to overcome for the declared targets.",
+          "type": [
+            "null",
+            "number"
+          ]
+        },
+        "declaredAttackTargets": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Instance IDs of enemies targeted by the current attack declaration."
+        },
+        "declaredAttackType": {
+          "description": "The attack type (Melee/Ranged/Siege) of the current declaration.",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
         "enemies": {
           "items": {
             "$ref": "#/definitions/ClientCombatEnemy"
@@ -747,6 +775,9 @@
         }
       },
       "required": [
+        "declaredAttackArmorNeeded",
+        "declaredAttackTargets",
+        "declaredAttackType",
         "enemies",
         "fameGained",
         "isAtFortifiedSite",

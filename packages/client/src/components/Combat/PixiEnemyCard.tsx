@@ -50,6 +50,8 @@ const COLORS = {
   BADGE_DEFEATED_TEXT: 0x888888,
   BADGE_BLOCKED_BG: 0x2e6b5a,
   BADGE_BLOCKED_TEXT: 0xe8e0d0,
+  BADGE_TARGETED_BG: 0xd4a574, // Antique gold
+  BADGE_TARGETED_TEXT: 0x2a2010,
 
   // Buttons
   BTN_READY_BG: 0x3a6a58,
@@ -102,6 +104,7 @@ export interface EnemyCardData {
   subsetSelectAction?: SubsetSelectOption;
 
   canDefeat?: boolean;
+  isTargeted?: boolean;
 }
 
 interface PixiEnemyCardProps {
@@ -321,6 +324,29 @@ export function PixiEnemyCard({
             fontSize: 11,
             fontWeight: "700",
             fill: COLORS.BADGE_BLOCKED_TEXT,
+            letterSpacing: 1,
+          },
+        });
+        text.anchor.set(0.5);
+        text.position.set(40, BADGE_HEIGHT / 2);
+        badge.addChild(text);
+        container.addChild(badge);
+      } else if (data.isTargeted) {
+        const badge = new Container();
+        badge.label = "targeted-badge";
+        badge.layout = enemyCardBadgeLayout();
+
+        const bg = new Graphics();
+        createRoundedRect(bg, 0, 0, 80, BADGE_HEIGHT, 4, COLORS.BADGE_TARGETED_BG, 0.9);
+        badge.addChild(bg);
+
+        const text = new Text({
+          text: "TARGETED",
+          style: {
+            fontFamily: "Arial, sans-serif",
+            fontSize: 11,
+            fontWeight: "700",
+            fill: COLORS.BADGE_TARGETED_TEXT,
             letterSpacing: 1,
           },
         });

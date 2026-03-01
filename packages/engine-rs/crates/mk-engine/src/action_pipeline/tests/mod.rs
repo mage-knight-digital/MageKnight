@@ -70,6 +70,14 @@ pub(super) fn execute_attack(
             epoch,
         ).unwrap();
     }
+
+    // Resolve the declared attack
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        state, undo, 0,
+        &LegalAction::ResolveAttack,
+        epoch,
+    ).unwrap();
 }
 
 pub(super) fn setup_with_skill(hero: Hero, skill_id: &str) -> (GameState, UndoStack) {

@@ -35,7 +35,7 @@ pub fn to_client_state(state: &GameState, for_player_id: &PlayerId) -> ClientGam
         source: to_client_source(&state.source, &state.players),
         offers: to_client_offers(&state.offers),
         deck_counts: to_client_deck_counts(&state.decks),
-        combat: state.combat.as_ref().map(|c| to_client_combat(c)),
+        combat: state.combat.as_ref().map(|c| to_client_combat(c, state)),
 
         wound_pile_count: state.wound_pile_count,
         scenario_end_triggered: state.scenario_end_triggered,
@@ -437,7 +437,19 @@ fn to_client_deck_counts(decks: &GameDecks) -> ClientDeckCounts {
 // Combat filtering
 // =============================================================================
 
-fn to_client_combat(combat: &CombatState) -> ClientCombatState {
+fn to_client_combat(
+    combat: &CombatState,
+    state: &GameState,
+) -> ClientCombatState {
+    let declared_attack_armor_needed = combat.declared_attack_targets.as_ref().map(|targets| {
+        crate::legal_actions::combat::compute_total_target_armor(
+            combat,
+            targets,
+            &state.active_modifiers,
+            None,
+        )
+    });
+
     ClientCombatState {
         phase: combat.phase,
         enemies: combat
@@ -449,6 +461,9 @@ fn to_client_combat(combat: &CombatState) -> ClientCombatState {
         wounds_this_combat: combat.wounds_this_combat,
         fame_gained: combat.fame_gained,
         is_at_fortified_site: combat.is_at_fortified_site,
+        declared_attack_targets: combat.declared_attack_targets.clone(),
+        declared_attack_type: combat.declared_attack_type,
+        declared_attack_armor_needed,
     }
 }
 

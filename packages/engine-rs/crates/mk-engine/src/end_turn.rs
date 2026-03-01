@@ -88,6 +88,7 @@ pub fn end_turn(state: &mut GameState, player_idx: usize) -> Result<EndTurnResul
             .flags
             .contains(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN)
             && !player.flags.contains(PlayerFlags::HAS_RESTED_THIS_TURN)
+            && !player.flags.contains(PlayerFlags::HAS_COMBATTED_THIS_TURN)
         {
             return Err(EndTurnError::MinimumTurnRequirementNotMet);
         }

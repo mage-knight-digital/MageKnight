@@ -25,12 +25,14 @@ import { PIXI_Z_INDEX } from "../../utils/pixiLayers";
 const COLORS = {
   BORDER_DEFAULT: 0x333333,
   BORDER_CAN_DEFEAT: 0x5a8a70, // Verdigris
+  BORDER_TARGETED: 0xd4a574, // Antique gold
   BORDER_BLOCKED: 0x2e6b5a,
   OVERLAY_DEFEATED: 0x000000,
   OVERLAY_BLOCKED: 0x2e6b5a,
   HEALTH_BG: 0x1a1d2e,
   HEALTH_FILL: 0xb87333, // Bronze
   CAN_DEFEAT_GLOW: 0x5a8a70,
+  TARGETED_GLOW: 0xd4a574, // Antique gold
   DROP_HIGHLIGHT: 0xffd700, // Gold for drop target
 };
 
@@ -42,6 +44,7 @@ function getEnemyImageUrl(enemyId: EnemyId): string {
 interface EnemyTokenData {
   enemy: ClientCombatEnemy;
   canDefeat?: boolean;
+  isTargeted?: boolean;
 }
 
 interface PixiEnemyTokensProps {
@@ -151,7 +154,7 @@ export function PixiEnemyTokens({ enemies, onEnemyClick }: PixiEnemyTokensProps)
 
     // Create each enemy token
     enemies.forEach((data, index) => {
-      const { enemy, canDefeat } = data;
+      const { enemy, canDefeat, isTargeted } = data;
       const pos = positions[index];
       if (!pos) return;
 
@@ -171,17 +174,49 @@ export function PixiEnemyTokens({ enemies, onEnemyClick }: PixiEnemyTokensProps)
       const border = new Graphics();
       const borderColor = enemy.isBlocked
         ? COLORS.BORDER_BLOCKED
-        : canDefeat && !enemy.isDefeated
-          ? COLORS.BORDER_CAN_DEFEAT
-          : COLORS.BORDER_DEFAULT;
+        : isTargeted && !enemy.isDefeated
+          ? COLORS.BORDER_TARGETED
+          : canDefeat && !enemy.isDefeated
+            ? COLORS.BORDER_CAN_DEFEAT
+            : COLORS.BORDER_DEFAULT;
       border.circle(0, 0, radius + 3);
       border.fill({ color: 0x000000, alpha: 0.4 });
       border.stroke({ color: borderColor, width: 4 });
       border.zIndex = 0;
       tokenContainer.addChild(border);
 
+      // Targeted glow effect
+      if (isTargeted && !enemy.isDefeated) {
+        const glow = new Graphics();
+        glow.circle(0, 0, radius + 8);
+        glow.fill({ color: COLORS.TARGETED_GLOW, alpha: 0.3 });
+        glow.zIndex = -1;
+        tokenContainer.addChild(glow);
+
+        const pulseGlow = () => {
+          if (isDestroyedRef.current || !glow.parent) return;
+          animManager.animate(`targeted-pulse-${enemy.instanceId}`, glow, {
+            endScale: 1.15,
+            endAlpha: 0.15,
+            duration: 800,
+            easing: Easing.easeInOutQuad,
+            onComplete: () => {
+              if (isDestroyedRef.current || !glow.parent) return;
+              animManager.animate(`targeted-pulse-back-${enemy.instanceId}`, glow, {
+                endScale: 1,
+                endAlpha: 0.3,
+                duration: 800,
+                easing: Easing.easeInOutQuad,
+                onComplete: pulseGlow,
+              });
+            },
+          });
+        };
+        pulseGlow();
+      }
+
       // Can defeat glow effect
-      if (canDefeat && !enemy.isDefeated) {
+      if (canDefeat && !enemy.isDefeated && !isTargeted) {
         const glow = new Graphics();
         glow.circle(0, 0, radius + 8);
         glow.fill({ color: COLORS.CAN_DEFEAT_GLOW, alpha: 0.3 });

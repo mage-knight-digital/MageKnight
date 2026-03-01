@@ -198,6 +198,8 @@ pub enum LegalAction {
     },
     /// Meditation: done selecting cards (transition to PlaceCards phase).
     MeditationDoneSelecting,
+    /// Resolve a declared attack — applies accumulated attack against declared targets.
+    ResolveAttack,
     EndCombatPhase,
     /// Voluntarily announce end of round (multiplayer). Other players get one final turn each.
     AnnounceEndOfRound,

@@ -251,6 +251,12 @@ pub struct ClientCombatState {
     pub wounds_this_combat: u32,
     pub fame_gained: u32,
     pub is_at_fortified_site: bool,
+    /// Instance IDs of enemies targeted by the current attack declaration.
+    pub declared_attack_targets: Option<Vec<CombatInstanceId>>,
+    /// The attack type (Melee/Ranged/Siege) of the current declaration.
+    pub declared_attack_type: Option<CombatType>,
+    /// Total armor the player needs to overcome for the declared targets.
+    pub declared_attack_armor_needed: Option<u32>,
 }
 
 /// Combat enemy with hydrated definition fields.

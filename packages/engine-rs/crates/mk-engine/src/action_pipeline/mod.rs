@@ -412,6 +412,12 @@ pub fn apply_legal_action(
             turn_flow::apply_complete_rest(state, player_idx, *discard_hand_index)?
         }
 
+        LegalAction::ResolveAttack => {
+            // Irreversible: attack resolution (defeats enemies, triggers abilities)
+            undo_stack.set_checkpoint();
+            combat_actions::apply_resolve_attack(state, player_idx)?
+        }
+
         LegalAction::EndCombatPhase => {
             // Irreversible: set checkpoint
             undo_stack.set_checkpoint();
@@ -436,8 +442,18 @@ pub fn apply_legal_action(
         }
 
         LegalAction::SubsetConfirm => {
-            // Irreversible: RNG consumed by shuffle
-            undo_stack.set_checkpoint();
+            // AttackTargets: reversible (just stores targets, no RNG).
+            // Others (Rethink, ManaSearch, RestWoundDiscard): irreversible (RNG shuffle).
+            let is_attack_targets = matches!(
+                &state.players[player_idx].pending.active,
+                Some(mk_types::pending::ActivePending::SubsetSelection(ss))
+                    if matches!(ss.kind, mk_types::pending::SubsetSelectionKind::AttackTargets { .. })
+            );
+            if is_attack_targets {
+                undo_stack.save(state);
+            } else {
+                undo_stack.set_checkpoint();
+            }
             tactics::apply_subset_confirm(state, player_idx)?
         }
 
