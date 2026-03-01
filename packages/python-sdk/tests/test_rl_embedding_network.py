@@ -13,6 +13,7 @@ from mage_knight_sdk.sim.rl.features import (
     MAP_ENEMY_SCALAR_DIM,
     SITE_SCALAR_DIM,
     STATE_SCALAR_DIM,
+    UNIT_SCALAR_DIM,
     ActionFeatures,
     EncodedStep,
     StateFeatures,
@@ -31,6 +32,7 @@ def _make_state_features() -> StateFeatures:
         mode_id=1,
         hand_card_ids=[1, 2, 3],
         unit_ids=[1],
+        unit_scalars=[[1.0, 0.0]],
         current_terrain_id=1,
         current_site_type_id=0,
         combat_enemy_ids=[],
@@ -107,7 +109,8 @@ class EmbeddingNetworkForwardTest(unittest.TestCase):
         emb_dim = 8
         expected_dim = (
             STATE_SCALAR_DIM
-            + 6 * emb_dim
+            + 5 * emb_dim
+            + (emb_dim + UNIT_SCALAR_DIM)
             + (emb_dim + COMBAT_ENEMY_SCALAR_DIM)
             + (emb_dim + SITE_SCALAR_DIM)
             + (emb_dim + MAP_ENEMY_SCALAR_DIM)
@@ -132,7 +135,7 @@ class EmbeddingNetworkForwardTest(unittest.TestCase):
 
     def test_empty_units_doesnt_crash(self) -> None:
         sf = _make_state_features()
-        sf = StateFeatures(**{**sf.__dict__, "unit_ids": []})
+        sf = StateFeatures(**{**sf.__dict__, "unit_ids": [], "unit_scalars": []})
         step = EncodedStep(state=sf, actions=_make_actions())
         net = _EmbeddingActionScoringNetwork(hidden_size=64, emb_dim=8)
         logits, value = net(step, torch.device("cpu"))
@@ -275,7 +278,8 @@ class EmbeddingNetworkForwardTest(unittest.TestCase):
         hidden = 64
         expected_dim = (
             STATE_SCALAR_DIM
-            + 6 * emb_dim
+            + 5 * emb_dim
+            + (emb_dim + UNIT_SCALAR_DIM)
             + (emb_dim + COMBAT_ENEMY_SCALAR_DIM)
             + (emb_dim + SITE_SCALAR_DIM)
             + (emb_dim + MAP_ENEMY_SCALAR_DIM)

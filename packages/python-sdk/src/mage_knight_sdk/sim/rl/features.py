@@ -29,7 +29,7 @@ UNIT_SCALAR_DIM = 2  # per-unit scalars [is_ready, is_wounded]
 class StateFeatures:
     """State features computed once per step (shared across all candidates)."""
 
-    scalars: list[float]                    # STATE_SCALAR_DIM floats (83)
+    scalars: list[float]                    # STATE_SCALAR_DIM floats (84)
     mode_id: int                            # MODE_VOCAB index
     hand_card_ids: list[int]                # variable-length CARD_VOCAB indices
     unit_ids: list[int]                     # variable-length UNIT_VOCAB indices

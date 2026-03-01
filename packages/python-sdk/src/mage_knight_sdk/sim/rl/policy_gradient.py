@@ -88,6 +88,7 @@ class TensorizedTransition:
     state_mode_id: int
     state_hand_card_ids: np.ndarray      # (H,) int32
     state_unit_ids: np.ndarray           # (U,) int32
+    state_unit_scalars: np.ndarray       # (U, UNIT_SCALAR_DIM) float32
     state_terrain_id: int
     state_site_type_id: int
     state_combat_enemy_ids: np.ndarray   # (CE,) int32
@@ -121,6 +122,7 @@ def tensorize_transition(t: Transition) -> TensorizedTransition:
         state_mode_id=sf.mode_id,
         state_hand_card_ids=np.array(sf.hand_card_ids, dtype=np.int32),
         state_unit_ids=np.array(sf.unit_ids, dtype=np.int32),
+        state_unit_scalars=np.array(sf.unit_scalars, dtype=np.float32).reshape(-1, UNIT_SCALAR_DIM) if sf.unit_scalars else np.empty((0, UNIT_SCALAR_DIM), dtype=np.float32),
         state_terrain_id=sf.current_terrain_id,
         state_site_type_id=sf.current_site_type_id,
         state_combat_enemy_ids=np.array(sf.combat_enemy_ids, dtype=np.int32),
@@ -154,6 +156,7 @@ def detensorize_transition(tt: TensorizedTransition) -> Transition:
         mode_id=tt.state_mode_id,
         hand_card_ids=tt.state_hand_card_ids.tolist(),
         unit_ids=tt.state_unit_ids.tolist(),
+        unit_scalars=tt.state_unit_scalars.tolist(),
         current_terrain_id=tt.state_terrain_id,
         current_site_type_id=tt.state_site_type_id,
         combat_enemy_ids=tt.state_combat_enemy_ids.tolist(),
@@ -237,7 +240,7 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         self.map_site_emb = nn.Embedding(SITE_VOCAB.size, emb_dim)  # separate weights for map sites
 
         # State encoder:
-        # scalars(83) + 5×emb (mode, hand, terrain, site, skills)
+        # scalars(84) + 5×emb (mode, hand, terrain, site, skills)
         # + unit pool (emb + UNIT_SCALAR_DIM)
         # + combat enemy pool (emb + COMBAT_ENEMY_SCALAR_DIM)
         # + visible sites pool (emb + SITE_SCALAR_DIM)
@@ -610,7 +613,7 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         max_m = int(action_counts.max())
 
         # ── State encoding ────────────────────────────────────────────
-        scalars_t = torch.tensor(batch_dict["state_scalars"], dtype=torch.float32, device=device)  # (N, 76)
+        scalars_t = torch.tensor(batch_dict["state_scalars"], dtype=torch.float32, device=device)  # (N, STATE_SCALAR_DIM)
         state_ids_t = torch.tensor(batch_dict["state_ids"], dtype=torch.long, device=device)  # (N, 3)
 
         mode_vec = self.mode_emb(state_ids_t[:, 0])        # (N, emb)
@@ -627,13 +630,17 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         hand_embs_masked = hand_embs * hand_mask.unsqueeze(-1).float()
         hand_pool = hand_embs_masked.sum(dim=1) / hand_counts_t.clamp(min=1).unsqueeze(-1).float()  # (N, emb)
 
-        # Mean-pool unit embeddings per env
+        # Mean-pool unit embeddings + scalars per env
         unit_ids_t = torch.tensor(batch_dict["unit_ids"], dtype=torch.long, device=device)  # (N, max_U)
         unit_counts_t = torch.tensor(batch_dict["unit_counts"], dtype=torch.long, device=device)  # (N,)
+        max_u = unit_ids_t.shape[1]
         unit_embs = self.unit_emb(unit_ids_t)  # (N, max_U, emb)
-        unit_mask = torch.arange(unit_ids_t.shape[1], device=device).unsqueeze(0) < unit_counts_t.unsqueeze(1)
-        unit_embs_masked = unit_embs * unit_mask.unsqueeze(-1).float()
-        unit_pool = unit_embs_masked.sum(dim=1) / unit_counts_t.clamp(min=1).unsqueeze(-1).float()
+        unit_scalars_flat = torch.tensor(batch_dict["unit_scalars"], dtype=torch.float32, device=device)  # (N*max_U, UNIT_SCALAR_DIM)
+        unit_scalars_t = unit_scalars_flat.view(n, max_u, -1)  # (N, max_U, UNIT_SCALAR_DIM)
+        unit_combined = torch.cat([unit_embs, unit_scalars_t], dim=-1)  # (N, max_U, emb+UNIT_SCALAR_DIM)
+        unit_mask = torch.arange(max_u, device=device).unsqueeze(0) < unit_counts_t.unsqueeze(1)
+        unit_masked = unit_combined * unit_mask.unsqueeze(-1).float()
+        unit_pool = unit_masked.sum(dim=1) / unit_counts_t.clamp(min=1).unsqueeze(-1).float()
 
         # Mean-pool combat enemy embeddings + scalars
         ce_ids_t = torch.tensor(batch_dict["combat_enemy_ids"], dtype=torch.long, device=device)  # (N, max_CE)
