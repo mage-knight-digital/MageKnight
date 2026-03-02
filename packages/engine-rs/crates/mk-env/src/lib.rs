@@ -82,6 +82,17 @@ impl SingleEnv {
         self.state.players[0].fame
     }
 
+    fn position(&self) -> (i32, i32) {
+        match self.state.players[0].position {
+            Some(pos) => (pos.q, pos.r),
+            None => (0, 0),
+        }
+    }
+
+    fn tile_count(&self) -> usize {
+        self.state.map.tiles.len()
+    }
+
     fn is_done(&self) -> bool {
         self.state.game_ended || self.step_count >= self.max_steps
     }
@@ -171,6 +182,10 @@ pub struct StepResult {
     pub truncated: Vec<bool>,
     /// (N,) — whether scenario end condition was triggered
     pub scenario_end_triggered: Vec<bool>,
+    /// (N,) — whether each env's player position changed this step
+    pub position_changed: Vec<bool>,
+    /// (N,) — change in tile count this step (new tiles explored)
+    pub tile_deltas: Vec<i32>,
 }
 
 // =============================================================================
@@ -227,8 +242,10 @@ impl VecEnv {
         let n = self.envs.len();
         assert_eq!(actions.len(), n, "actions length must match num_envs");
 
-        // Capture fames before stepping
+        // Capture state before stepping
         let fames_before: Vec<i32> = self.envs.iter().map(|e| e.fame() as i32).collect();
+        let positions_before: Vec<(i32, i32)> = self.envs.iter().map(|e| e.position()).collect();
+        let tiles_before: Vec<i32> = self.envs.iter().map(|e| e.tile_count() as i32).collect();
 
         // Step all envs in parallel
         let results: Vec<(bool, bool)> = self
@@ -252,6 +269,8 @@ impl VecEnv {
         let mut panicked = Vec::with_capacity(n);
         let mut truncated = Vec::with_capacity(n);
         let mut scenario_end_triggered = Vec::with_capacity(n);
+        let mut position_changed = Vec::with_capacity(n);
+        let mut tile_deltas = Vec::with_capacity(n);
 
         for (i, (game_ended, did_panic)) in results.iter().enumerate() {
             let env = &self.envs[i];
@@ -264,6 +283,8 @@ impl VecEnv {
             // Truncated = done due to max_steps, not natural game end
             truncated.push(done && !env.state.game_ended);
             scenario_end_triggered.push(env.state.scenario_end_triggered);
+            position_changed.push(env.position() != positions_before[i]);
+            tile_deltas.push(env.tile_count() as i32 - tiles_before[i]);
         }
 
         // Auto-reset finished environments
@@ -282,6 +303,8 @@ impl VecEnv {
             panicked,
             truncated,
             scenario_end_triggered,
+            position_changed,
+            tile_deltas,
         }
     }
 

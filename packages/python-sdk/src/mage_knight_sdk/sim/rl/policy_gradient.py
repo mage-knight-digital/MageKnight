@@ -1199,6 +1199,7 @@ def compute_gae(
     gamma: float,
     gae_lambda: float,
     terminated: list[bool] | None = None,
+    bootstrap_values: list[float] | None = None,
 ) -> tuple[list[Transition], list[float], list[float]]:
     """Compute GAE advantages and target returns for collected episodes.
 
@@ -1209,6 +1210,10 @@ def compute_gae(
         terminated: per-episode flag, True if episode ended naturally,
                     False if truncated (hit max_steps). If None, all episodes
                     are assumed to be terminated (backwards compatible).
+        bootstrap_values: per-episode V(s_{T+1}) for truncated episodes.
+                    Used as the bootstrap value for the last timestep of
+                    non-terminated episodes. If None, falls back to 0.0
+                    for all episodes.
 
     Returns (flat_transitions, advantages, returns) — all aligned lists.
     """
@@ -1223,15 +1228,23 @@ def compute_gae(
         rewards = [t.reward for t in episode]
         n = len(episode)
 
-        # For truncated episodes, bootstrap from critic's last value estimate
-        # instead of assuming 0.0 (which systematically undervalues long episodes)
         ep_terminated = True if terminated is None else terminated[ep_idx]
+
+        # Bootstrap value for last timestep: V(s_{T+1})
+        # - Terminated: future value is 0 (episode is truly over)
+        # - Truncated: use provided V(s_{T+1}), or fall back to V(s_T) as approximation
+        if ep_terminated:
+            last_next_value = 0.0
+        elif bootstrap_values is not None:
+            last_next_value = bootstrap_values[ep_idx]
+        else:
+            last_next_value = values[n - 1]
 
         advantages = [0.0] * n
         gae = 0.0
         for t in reversed(range(n)):
             if t == n - 1:
-                next_value = 0.0 if ep_terminated else values[t]
+                next_value = last_next_value
             else:
                 next_value = values[t + 1]
             delta = rewards[t] + gamma * next_value - values[t]

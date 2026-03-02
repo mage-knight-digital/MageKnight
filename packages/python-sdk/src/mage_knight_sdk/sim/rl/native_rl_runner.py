@@ -129,6 +129,8 @@ def run_native_rl_game(
             encoded_step = py_encoded_to_encoded_step(py_encoded)
 
             fame_before = engine.fame()
+            pos_before = engine.player_position()
+            tiles_before = engine.tile_count()
 
             # Policy forward pass (takes EncodedStep directly)
             action_index = policy.choose_action_from_encoded(encoded_step, rng)
@@ -141,6 +143,16 @@ def run_native_rl_game(
             # Compute reward
             fame_delta = float(fame_after - fame_before)
             reward = reward_config.fame_delta_scale * fame_delta + reward_config.step_penalty
+
+            # Dense reward shaping: movement and exploration
+            pos_after = engine.player_position()
+            if pos_after != pos_before:
+                reward += reward_config.movement_bonus
+            tiles_after = engine.tile_count()
+            tile_delta = tiles_after - tiles_before
+            if tile_delta > 0:
+                reward += reward_config.exploration_bonus * tile_delta
+
             policy.record_step_reward(reward)
             episode_total_reward += reward
 
@@ -197,11 +209,13 @@ def run_native_rl_game_ppo(
     reward_config: RewardConfig | None = None,
     max_steps: int = 10000,
     rng: random.Random | None = None,
-) -> tuple[NativeRunResult, list[Transition], bool]:
+) -> tuple[NativeRunResult, list[Transition], bool, float]:
     """Run a single game, collecting PPO transitions instead of optimizing.
 
-    Returns (result, transitions, terminated). terminated is True if the episode
-    ended naturally (game over), False if truncated (hit max_steps) or errored.
+    Returns (result, transitions, terminated, bootstrap_value).
+    terminated is True if the episode ended naturally (game over), False if
+    truncated (hit max_steps) or errored.
+    bootstrap_value is V(s_{T+1}) for truncated episodes (0.0 for terminated).
     """
     if reward_config is None:
         reward_config = RewardConfig()
@@ -222,6 +236,8 @@ def run_native_rl_game_ppo(
             encoded_step = py_encoded_to_encoded_step(py_encoded)
 
             fame_before = engine.fame()
+            pos_before = engine.player_position()
+            tiles_before = engine.tile_count()
 
             action_index = policy.choose_action_from_encoded(encoded_step, rng)
             step_info = policy.last_step_info
@@ -231,6 +247,15 @@ def run_native_rl_game_ppo(
             fame_after = engine.fame()
             fame_delta = float(fame_after - fame_before)
             reward = reward_config.fame_delta_scale * fame_delta + reward_config.step_penalty
+
+            # Dense reward shaping: movement and exploration
+            pos_after = engine.player_position()
+            if pos_after != pos_before:
+                reward += reward_config.movement_bonus
+            tiles_after = engine.tile_count()
+            tile_delta = tiles_after - tiles_before
+            if tile_delta > 0:
+                reward += reward_config.exploration_bonus * tile_delta
 
             if step_info is not None:
                 transitions.append(Transition(
@@ -280,6 +305,19 @@ def run_native_rl_game_ppo(
                 reward=last.reward + reward_config.terminal_failure_penalty,
             )
 
+    # For truncated episodes, compute V(s_{T+1}) for proper GAE bootstrap
+    bootstrap_value = 0.0
+    if outcome != "ended" and not engine.is_game_ended():
+        import torch
+        try:
+            py_encoded = engine.encode_step()
+            encoded_step = py_encoded_to_encoded_step(py_encoded)
+            with torch.no_grad():
+                _, value = policy._network(encoded_step, policy._device)
+            bootstrap_value = float(value.cpu().item())
+        except Exception:
+            pass  # Fall back to 0.0
+
     # Reset policy buffers (PPO doesn't optimize per-episode)
     policy._reset_episode_buffers()
 
@@ -294,4 +332,4 @@ def run_native_rl_game_ppo(
         scenario_end_triggered=engine.scenario_end_triggered(),
         reason=reason,
     )
-    return result, transitions, terminated
+    return result, transitions, terminated, bootstrap_value

@@ -58,10 +58,10 @@ class _TBWriter:
         if self._writer is None:
             return
         self._write_metric_guide()
-        fame = max(0, stats.total_reward - 1.0)
-        self._max_fame = max(self._max_fame, fame)
         self._writer.add_scalar("reward/total", stats.total_reward, episode)
-        self._writer.add_scalar("reward/fame", fame, episode)
+        fame = getattr(stats, "achievement_bonus", 0.0)
+        self._max_fame = max(self._max_fame, stats.total_reward)
+        self._writer.add_scalar("reward/fame", stats.total_reward, episode)
         self._writer.add_scalar("reward/fame_max", self._max_fame, episode)
         self._writer.add_scalar("episode/steps", stats.steps, episode)
         self._writer.add_scalar("episode/fame_binary", 1.0 if stats.total_reward > 1.5 else 0.0, episode)
@@ -94,10 +94,12 @@ def main() -> int:
     parser.add_argument("--num-hidden-layers", type=int, default=1, help="Number of hidden layers in state/action encoders (default: 1)")
 
     parser.add_argument("--fame-delta-scale", type=float, default=1.0, help="Reward multiplier for fame deltas")
-    parser.add_argument("--step-penalty", type=float, default=-0.001, help="Per-step reward penalty")
-    parser.add_argument("--terminal-end-bonus", type=float, default=1.0, help="Bonus when game ends normally")
+    parser.add_argument("--step-penalty", type=float, default=0.0, help="Per-step reward penalty")
+    parser.add_argument("--terminal-end-bonus", type=float, default=0.0, help="Bonus when game ends normally")
     parser.add_argument("--terminal-max-steps-penalty", type=float, default=-0.5, help="Penalty when episode hits max steps")
     parser.add_argument("--terminal-failure-penalty", type=float, default=-1.0, help="Penalty for engine failures")
+    parser.add_argument("--movement-bonus", type=float, default=0.02, help="Reward for changing position (dense shaping)")
+    parser.add_argument("--exploration-bonus", type=float, default=0.5, help="Reward per new tile explored (dense shaping)")
 
     parser.add_argument("--checkpoint-dir", default=None, help="Run directory for checkpoints + logs (default: auto-generated under training/runs/)")
     parser.add_argument("--checkpoint-every", type=int, default=25, help="Save checkpoint every N episodes")
@@ -153,6 +155,8 @@ def main() -> int:
         terminal_end_bonus=args.terminal_end_bonus,
         terminal_max_steps_penalty=args.terminal_max_steps_penalty,
         terminal_failure_penalty=args.terminal_failure_penalty,
+        movement_bonus=args.movement_bonus,
+        exploration_bonus=args.exploration_bonus,
     )
 
     run_dir = _resolve_run_dir(args.checkpoint_dir, args.resume)
@@ -174,7 +178,9 @@ def main() -> int:
         f"step_penalty={args.step_penalty} "
         f"end_bonus={args.terminal_end_bonus} "
         f"max_steps_penalty={args.terminal_max_steps_penalty} "
-        f"failure_penalty={args.terminal_failure_penalty}"
+        f"failure_penalty={args.terminal_failure_penalty} "
+        f"movement_bonus={args.movement_bonus} "
+        f"exploration_bonus={args.exploration_bonus}"
     )
 
     if args.ppo:
@@ -309,6 +315,7 @@ def _train_ppo_native(
         # Collect batch_size episodes
         episodes_data: list[list[Any]] = []
         batch_terminated: list[bool] = []
+        batch_bootstrap_values: list[float] = []
         batch_stats: list[EpisodeTrainingStats] = []
         batch_fames: list[int] = []
 
@@ -316,7 +323,7 @@ def _train_ppo_native(
             seed = args.seed if args.fixed_seed else args.seed + resume_episode_offset + episode_num + i
             hero = resolve_hero(args.hero, seed)
 
-            result, transitions, terminated = run_native_rl_game_ppo(
+            result, transitions, terminated, bootstrap_value = run_native_rl_game_ppo(
                 seed=seed,
                 hero=hero,
                 policy=policy,
@@ -343,6 +350,7 @@ def _train_ppo_native(
             episode_total_reward = sum(t.reward for t in transitions)
             episodes_data.append(transitions)
             batch_terminated.append(terminated)
+            batch_bootstrap_values.append(bootstrap_value)
             batch_stats.append(EpisodeTrainingStats(
                 outcome=result.outcome,
                 steps=result.steps,
@@ -361,6 +369,7 @@ def _train_ppo_native(
             transitions_flat, advantages, returns = compute_gae(
                 episodes_data, args.gamma, args.gae_lambda,
                 terminated=batch_terminated,
+                bootstrap_values=batch_bootstrap_values,
             )
             opt_stats = policy.optimize_ppo(
                 transitions_flat, advantages, returns,
@@ -481,6 +490,8 @@ def _write_run_manifest(
             "terminal_end_bonus": reward_config.terminal_end_bonus,
             "terminal_max_steps_penalty": reward_config.terminal_max_steps_penalty,
             "terminal_failure_penalty": reward_config.terminal_failure_penalty,
+            "movement_bonus": reward_config.movement_bonus,
+            "exploration_bonus": reward_config.exploration_bonus,
         },
         "cli": vars(args),
     }

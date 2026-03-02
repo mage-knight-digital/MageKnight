@@ -363,6 +363,19 @@ impl GameEngine {
         self.step_count
     }
 
+    /// Player's current hex position as (q, r). Returns (0, 0) if no position set.
+    fn player_position(&self) -> (i32, i32) {
+        match self.state.players[self.player_idx].position {
+            Some(pos) => (pos.q, pos.r),
+            None => (0, 0),
+        }
+    }
+
+    /// Number of tiles placed on the map (includes starting tiles).
+    fn tile_count(&self) -> usize {
+        self.state.map.tiles.len()
+    }
+
     /// Undo the last reversible action.
     ///
     /// Returns True if undo succeeded, False if nothing to undo.
@@ -671,6 +684,8 @@ impl PyVecEnv {
         dict.set_item("panicked", vec_bool_to_numpy(py, &np, &result.panicked)?)?;
         dict.set_item("truncated", vec_bool_to_numpy(py, &np, &result.truncated)?)?;
         dict.set_item("scenario_end_triggered", vec_bool_to_numpy(py, &np, &result.scenario_end_triggered)?)?;
+        dict.set_item("position_changed", vec_bool_to_numpy(py, &np, &result.position_changed)?)?;
+        dict.set_item("tile_deltas", vec_i32_to_numpy(py, &np, &result.tile_deltas, &[n])?)?;
 
         Ok(dict.to_object(py))
     }

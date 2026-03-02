@@ -252,11 +252,20 @@ def collect_vecenv_rollout(
         panicked = step_result["panicked"]
         truncated_flags = step_result["truncated"]
         scenario_flags = step_result["scenario_end_triggered"]
+        position_changed_flags = step_result["position_changed"]
+        tile_deltas = step_result["tile_deltas"]
 
         # 4. Process each env
         for i in range(num_envs):
             fame_delta = float(fame_deltas[i])
             reward = reward_config.fame_delta_scale * fame_delta + reward_config.step_penalty
+
+            # Dense reward shaping: movement and exploration
+            if position_changed_flags[i]:
+                reward += reward_config.movement_bonus
+            td = int(tile_deltas[i])
+            if td > 0:
+                reward += reward_config.exploration_bonus * td
 
             action_idx = int(actions[i])
             episode_buffers.action_indices[i].append(action_idx)
