@@ -23,6 +23,16 @@ pub struct BatchOutput {
     pub hand_counts: Vec<i32>,
     pub max_hand: usize,
 
+    /// (N, max_D) i32 — deck card IDs, 0-padded
+    pub deck_card_ids: Vec<i32>,
+    pub deck_counts: Vec<i32>,
+    pub max_deck: usize,
+
+    /// (N, max_DC) i32 — discard card IDs, 0-padded
+    pub discard_card_ids: Vec<i32>,
+    pub discard_counts: Vec<i32>,
+    pub max_discard: usize,
+
     /// (N, max_U) i32 — unit IDs, 0-padded
     pub unit_ids: Vec<i32>,
     pub unit_counts: Vec<i32>,
@@ -82,6 +92,8 @@ impl BatchOutput {
 
         // ── Pass 1: compute per-batch max sizes ────────────────────
         let mut max_hand = 0usize;
+        let mut max_deck = 0usize;
+        let mut max_discard = 0usize;
         let mut max_units = 0usize;
         let mut max_combat_enemies = 0usize;
         let mut max_skills = 0usize;
@@ -92,6 +104,8 @@ impl BatchOutput {
         for step in steps {
             let s = &step.state;
             max_hand = max_hand.max(s.hand_card_ids.len());
+            max_deck = max_deck.max(s.deck_card_ids.len());
+            max_discard = max_discard.max(s.discard_card_ids.len());
             max_units = max_units.max(s.unit_ids.len());
             max_combat_enemies = max_combat_enemies.max(s.combat_enemy_ids.len());
             max_skills = max_skills.max(s.skill_ids.len());
@@ -102,6 +116,8 @@ impl BatchOutput {
 
         // Ensure at least 1 for padding dimensions to avoid 0-size arrays
         let max_hand = max_hand.max(1);
+        let max_deck = max_deck.max(1);
+        let max_discard = max_discard.max(1);
         let max_units = max_units.max(1);
         let max_combat_enemies = max_combat_enemies.max(1);
         let max_skills = max_skills.max(1);
@@ -117,6 +133,12 @@ impl BatchOutput {
 
         let mut hand_card_ids_buf = vec![0i32; n * max_hand];
         let mut hand_counts = Vec::with_capacity(n);
+
+        let mut deck_card_ids_buf = vec![0i32; n * max_deck];
+        let mut deck_counts = Vec::with_capacity(n);
+
+        let mut discard_card_ids_buf = vec![0i32; n * max_discard];
+        let mut discard_counts = Vec::with_capacity(n);
 
         let mut unit_ids_buf = vec![0i32; n * max_units];
         let mut unit_counts = Vec::with_capacity(n);
@@ -166,6 +188,22 @@ impl BatchOutput {
             let h_off = i * max_hand;
             for (j, &id) in s.hand_card_ids.iter().enumerate() {
                 hand_card_ids_buf[h_off + j] = id as i32;
+            }
+
+            // Deck cards
+            let dc = s.deck_card_ids.len();
+            deck_counts.push(dc as i32);
+            let d_off = i * max_deck;
+            for (j, &id) in s.deck_card_ids.iter().enumerate() {
+                deck_card_ids_buf[d_off + j] = id as i32;
+            }
+
+            // Discard cards
+            let dcc = s.discard_card_ids.len();
+            discard_counts.push(dcc as i32);
+            let dc_off = i * max_discard;
+            for (j, &id) in s.discard_card_ids.iter().enumerate() {
+                discard_card_ids_buf[dc_off + j] = id as i32;
             }
 
             // Units
@@ -274,6 +312,12 @@ impl BatchOutput {
             hand_card_ids: hand_card_ids_buf,
             hand_counts,
             max_hand,
+            deck_card_ids: deck_card_ids_buf,
+            deck_counts,
+            max_deck,
+            discard_card_ids: discard_card_ids_buf,
+            discard_counts,
+            max_discard,
             unit_ids: unit_ids_buf,
             unit_counts,
             max_units,

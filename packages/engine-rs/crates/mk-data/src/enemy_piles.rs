@@ -1,6 +1,6 @@
 //! Enemy token pile creation and drawing helpers.
 //!
-//! One token per enemy definition. Token IDs use the format `"{enemy_id}_{counter}"`.
+//! Multiple tokens per enemy definition based on `copies` count. Token IDs use the format `"{enemy_id}_{counter}"`.
 //! Drawing takes from the top (index 0) of the draw pile. If empty, reshuffles discard.
 
 use mk_types::enums::{EnemyColor, RampagingEnemyType, SiteType};
@@ -8,14 +8,14 @@ use mk_types::ids::EnemyTokenId;
 use mk_types::rng::RngState;
 use mk_types::state::EnemyTokenPiles;
 
-use crate::enemies::all_enemy_ids_for_color;
+use crate::enemies::{all_enemy_ids_for_color, get_enemy};
 
 // =============================================================================
 // Pile creation
 // =============================================================================
 
 /// Create shuffled enemy token piles for a game.
-/// One token per enemy definition, shuffled per color.
+/// Multiple tokens per enemy definition based on `copies` count, shuffled per color.
 pub fn create_enemy_token_piles(rng: &mut RngState) -> EnemyTokenPiles {
     let mut piles = EnemyTokenPiles::default();
 
@@ -26,10 +26,14 @@ pub fn create_enemy_token_piles(rng: &mut RngState) -> EnemyTokenPiles {
         EnemyColor::Violet, EnemyColor::White, EnemyColor::Red,
     ] {
         let ids = all_enemy_ids_for_color(color);
-        let mut tokens: Vec<EnemyTokenId> = ids.iter().map(|&id| {
-            counter += 1;
-            EnemyTokenId::from(format!("{}_{}", id, counter))
-        }).collect();
+        let mut tokens: Vec<EnemyTokenId> = Vec::new();
+        for &id in ids {
+            let copies = get_enemy(id).map(|e| e.copies).unwrap_or(2);
+            for _ in 0..copies {
+                counter += 1;
+                tokens.push(EnemyTokenId::from(format!("{}_{}", id, counter)));
+            }
+        }
         rng.shuffle(&mut tokens);
 
         let draw = get_draw_pile_mut(&mut piles, color);
@@ -201,12 +205,12 @@ mod tests {
     fn create_piles_has_correct_sizes() {
         let mut rng = RngState::new(42);
         let piles = create_enemy_token_piles(&mut rng);
-        assert_eq!(piles.green_draw.len(), 20);
-        assert_eq!(piles.gray_draw.len(), 7);
-        assert_eq!(piles.brown_draw.len(), 16);
-        assert_eq!(piles.violet_draw.len(), 8);
-        assert_eq!(piles.white_draw.len(), 10);
-        assert_eq!(piles.red_draw.len(), 11);
+        assert_eq!(piles.green_draw.len(), 40);
+        assert_eq!(piles.gray_draw.len(), 15);
+        assert_eq!(piles.brown_draw.len(), 32);
+        assert_eq!(piles.violet_draw.len(), 14);
+        assert_eq!(piles.white_draw.len(), 20);
+        assert_eq!(piles.red_draw.len(), 22);
     }
 
     #[test]
@@ -245,7 +249,7 @@ mod tests {
         let mut piles = create_enemy_token_piles(&mut rng);
         let token = draw_enemy_token(&mut piles, EnemyColor::Green, &mut rng);
         assert!(token.is_some());
-        assert_eq!(piles.green_draw.len(), 19);
+        assert_eq!(piles.green_draw.len(), 39);
     }
 
     #[test]
@@ -253,7 +257,7 @@ mod tests {
         let mut rng = RngState::new(42);
         let mut piles = create_enemy_token_piles(&mut rng);
         // Draw all green tokens
-        for _ in 0..20 {
+        for _ in 0..40 {
             let token = draw_enemy_token(&mut piles, EnemyColor::Green, &mut rng);
             assert!(token.is_some());
         }
@@ -271,7 +275,7 @@ mod tests {
         // Put it in discard
         piles.green_discard.push(token.clone());
         // Draw all remaining
-        for _ in 0..19 {
+        for _ in 0..39 {
             draw_enemy_token(&mut piles, EnemyColor::Green, &mut rng).unwrap();
         }
         // Draw pile now empty, discard has 1 token

@@ -39,14 +39,15 @@ DEFAULT_FLAGS=(
     --episodes 100000
     --seed 1
     --ppo
+    --curriculum default
     --hidden-size 512
     --embedding-dim 16
     --num-hidden-layers 2
+    --d-model 64
     --mini-batch-size 256
     --checkpoint-every 10000
-    --step-penalty 0
-    --learning-rate 3e-3
-    --entropy-coef 0.05
+    --learning-rate 3e-4
+    --entropy-coef 0.01
 )
 
 # --- Helpers ---
@@ -186,6 +187,11 @@ cmd_start() {
     local log_file="$run_dir/train.log"
 
     mkdir -p "$run_dir" "$tb_dir"
+
+    # Record start timestamp for new runs
+    if [ ! -f "$run_dir/.started" ]; then
+        date -u +"%Y-%m-%dT%H:%M:%SZ" > "$run_dir/.started"
+    fi
 
     local python_bin
     python_bin=$(_python_bin)
@@ -365,10 +371,23 @@ from datetime import datetime, timezone
 
 runs_dir = '$RUNS_DIR'
 rows = []
-for name in sorted(os.listdir(runs_dir)):
+for name in os.listdir(runs_dir):
     run_dir = os.path.join(runs_dir, name)
     if not os.path.isdir(run_dir) or name.startswith('.'):
         continue
+
+    # Read start timestamp
+    started_file = os.path.join(run_dir, '.started')
+    started_dt = None
+    if os.path.exists(started_file):
+        with open(started_file) as f:
+            try:
+                started_dt = datetime.fromisoformat(f.read().strip().replace('Z', '+00:00'))
+            except ValueError:
+                pass
+    # Fallback: directory creation time
+    if started_dt is None:
+        started_dt = datetime.fromtimestamp(os.path.getctime(run_dir), tz=timezone.utc)
 
     # Episode count
     ndjson = os.path.join(run_dir, 'training_log.ndjson')
@@ -416,19 +435,41 @@ for name in sorted(os.listdir(runs_dir)):
         parts.append(f'{algo} h={h} emb={emb} layers={layers} lr={lr}')
         config_summary = ' '.join(parts)
 
-    rows.append((name, eps, avg_r, max_r, gps, config_summary))
+    rows.append((name, started_dt, eps, avg_r, max_r, gps, config_summary))
 
 if not rows:
     print('No runs yet. Start one with: ./scripts/train start <name>')
     sys.exit(0)
 
-print('Runs:')
-print(f'  {\"Name\":<20} {\"Episodes\":>8}  {\"Avg(100)\":>8}  {\"Max\":>6}  {\"g/s\":>5}  Config')
-print(f'  {\"-\"*20} {\"-\"*8}  {\"-\"*8}  {\"-\"*6}  {\"-\"*5}  {\"-\"*40}')
-for name, eps, avg_r, max_r, gps, cfg in rows:
+# Sort by start time (newest first)
+rows.sort(key=lambda r: r[1], reverse=True)
+
+# Format timestamp relative to now
+now = datetime.now(tz=timezone.utc)
+def fmt_age(dt):
+    delta = now - dt
+    secs = int(delta.total_seconds())
+    if secs < 60:
+        return 'just now'
+    mins = secs // 60
+    if mins < 60:
+        return f'{mins}m ago'
+    hours = mins // 60
+    if hours < 24:
+        return f'{hours}h ago'
+    days = hours // 24
+    if days < 30:
+        return f'{days}d ago'
+    return dt.strftime('%Y-%m-%d')
+
+print('Runs (newest first):')
+print(f'  {\"Name\":<20} {\"Started\":>12} {\"Episodes\":>8}  {\"Avg(100)\":>8}  {\"Max\":>6}  {\"g/s\":>5}  Config')
+print(f'  {\"-\"*20} {\"-\"*12} {\"-\"*8}  {\"-\"*8}  {\"-\"*6}  {\"-\"*5}  {\"-\"*40}')
+for name, started_dt, eps, avg_r, max_r, gps, cfg in rows:
+    age = fmt_age(started_dt)
     stats = f'{avg_r:>8.1f}  {max_r:>6.1f}' if eps > 0 else f'{\"—\":>8}  {\"—\":>6}'
     gps_str = f'{gps:>5.1f}' if gps is not None else f'{\"—\":>5}'
-    print(f'  {name:<20} {eps:>8}  {stats}  {gps_str}  {cfg}')
+    print(f'  {name:<20} {age:>12} {eps:>8}  {stats}  {gps_str}  {cfg}')
 
 print()
 print(f'Compare in TensorBoard: tensorboard --logdir {runs_dir}')

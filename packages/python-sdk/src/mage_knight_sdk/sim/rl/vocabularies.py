@@ -100,6 +100,10 @@ _CARD_IDS: tuple[str, ...] = (
     "heroic_tale", "diplomacy", "song_of_wind", "learning", "agility",
     # Advanced actions - dual (2)
     "chilling_stare", "rush_of_adrenaline",
+    # Tactics - day (6)
+    "early_bird", "rethink", "mana_steal", "planning", "great_start", "the_right_moment",
+    # Tactics - night (6)
+    "from_the_dusk", "long_night", "mana_search", "midnight_meditation", "preparation", "sparing_power",
 )
 
 CARD_VOCAB: Vocabulary = _build_vocab("card", _CARD_IDS)

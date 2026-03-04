@@ -43,6 +43,8 @@ pub fn encode_state(state: &GameState, player_idx: usize) -> StateFeatures {
 
     let mode_id = derive_mode(state, player_idx);
     let hand_card_ids = extract_hand_card_ids(player);
+    let deck_card_ids = extract_deck_card_ids(player);
+    let discard_card_ids = extract_discard_card_ids(player);
     let (unit_ids, unit_scalars) = extract_units(player);
     let skill_ids = extract_skill_ids(player);
     let (visible_site_ids, visible_site_scalars) = extract_visible_sites(state, pos);
@@ -52,6 +54,8 @@ pub fn encode_state(state: &GameState, player_idx: usize) -> StateFeatures {
         scalars,
         mode_id,
         hand_card_ids,
+        deck_card_ids,
+        discard_card_ids,
         unit_ids,
         unit_scalars,
         current_terrain_id,
@@ -479,6 +483,14 @@ fn extract_mana_source(state: &GameState) -> [f32; 7] {
 
 fn extract_hand_card_ids(player: &PlayerState) -> Vec<u16> {
     player.hand.iter().map(|c| CARD_VOCAB.encode(c.as_str())).collect()
+}
+
+fn extract_deck_card_ids(player: &PlayerState) -> Vec<u16> {
+    player.deck.iter().map(|c| CARD_VOCAB.encode(c.as_str())).collect()
+}
+
+fn extract_discard_card_ids(player: &PlayerState) -> Vec<u16> {
+    player.discard.iter().map(|c| CARD_VOCAB.encode(c.as_str())).collect()
 }
 
 fn extract_units(player: &PlayerState) -> (Vec<u16>, Vec<Vec<f32>>) {

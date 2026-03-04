@@ -32,6 +32,7 @@ pub(crate) use units::apply_attack_with_modifiers;
 pub use skills::{
     apply_power_of_pain_pub, apply_i_dont_give_a_damn_pub,
     apply_who_needs_magic_pub, apply_universal_power_pub,
+    push_passive_skill_modifiers,
 };
 pub use skills_interactive::place_skill_in_center_pub;
 

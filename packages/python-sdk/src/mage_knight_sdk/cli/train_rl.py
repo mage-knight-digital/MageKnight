@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -54,7 +55,7 @@ class _TBWriter:
         md = f"| Metric | Description |\n|--------|-------------|\n{rows}"
         self._writer.add_text("metric_guide", md, 0)
 
-    def log_episode(self, episode: int, stats: Any) -> None:
+    def log_episode(self, episode: int, stats: Any, reward_breakdown: Any = None) -> None:
         if self._writer is None:
             return
         self._write_metric_guide()
@@ -70,6 +71,14 @@ class _TBWriter:
         self._writer.add_scalar("optimization/entropy", stats.optimization.entropy, episode)
         self._writer.add_scalar("optimization/critic_loss", stats.optimization.critic_loss, episode)
         self._writer.add_scalar("optimization/action_count", stats.optimization.action_count, episode)
+        if reward_breakdown is not None:
+            self._writer.add_scalar("reward_breakdown/fame", reward_breakdown.fame, episode)
+            self._writer.add_scalar("reward_breakdown/wound_penalty", reward_breakdown.wound_penalty, episode)
+            self._writer.add_scalar("reward_breakdown/cards_remaining", reward_breakdown.cards_remaining_bonus, episode)
+            self._writer.add_scalar("reward_breakdown/new_hex", reward_breakdown.new_hex_bonus, episode)
+            self._writer.add_scalar("reward_breakdown/step_penalty", reward_breakdown.step_penalty, episode)
+            self._writer.add_scalar("reward_breakdown/terminal", reward_breakdown.terminal_bonus, episode)
+            self._writer.add_scalar("reward_breakdown/scenario_trigger", reward_breakdown.scenario_trigger_bonus, episode)
 
     def close(self) -> None:
         if self._writer is not None:
@@ -92,12 +101,16 @@ def main() -> int:
     parser.add_argument("--device", default="auto", help="Torch device (auto, cpu, cuda, mps)")
     parser.add_argument("--embedding-dim", type=int, default=16, help="Embedding dimension for entity IDs (default: 16)")
     parser.add_argument("--num-hidden-layers", type=int, default=1, help="Number of hidden layers in state/action encoders (default: 1)")
+    parser.add_argument("--d-model", type=int, default=64, help="Attention dimension for entity pool encoders (default: 64)")
 
     parser.add_argument("--fame-delta-scale", type=float, default=1.0, help="Reward multiplier for fame deltas")
     parser.add_argument("--step-penalty", type=float, default=0.0, help="Per-step reward penalty")
     parser.add_argument("--terminal-end-bonus", type=float, default=0.0, help="Bonus when game ends normally")
     parser.add_argument("--terminal-max-steps-penalty", type=float, default=-0.5, help="Penalty when episode hits max steps")
     parser.add_argument("--terminal-failure-penalty", type=float, default=-1.0, help="Penalty for engine failures")
+    parser.add_argument("--new-hex-bonus", type=float, default=0.0, help="One-time bonus for each new hex visited")
+    parser.add_argument("--wound-penalty", type=float, default=0.0, help="Penalty per wound gained (negative = penalty, e.g. -0.5)")
+    parser.add_argument("--cards-remaining-bonus", type=float, default=0.0, help="Terminal bonus per non-wound card remaining in hand")
 
     parser.add_argument("--checkpoint-dir", default=None, help="Run directory for checkpoints + logs (default: auto-generated under training/runs/)")
     parser.add_argument("--checkpoint-every", type=int, default=25, help="Save checkpoint every N episodes")
@@ -112,6 +125,9 @@ def main() -> int:
     parser.add_argument("--gae-lambda", type=float, default=0.95, help="GAE lambda (default: 0.95)")
     parser.add_argument("--max-grad-norm", type=float, default=0.5, help="Gradient clipping max norm (default: 0.5)")
     parser.add_argument("--mini-batch-size", type=int, default=256, help="PPO mini-batch size (default: 256)")
+
+    # Curriculum learning
+    parser.add_argument("--curriculum", default=None, help="Curriculum schedule name (e.g. 'default'). Overrides --episodes, reward args, and --max-steps with per-phase values.")
 
     args = parser.parse_args()
     if args.episodes < 1:
@@ -144,6 +160,7 @@ def main() -> int:
             device=args.device,
             embedding_dim=args.embedding_dim,
             num_hidden_layers=args.num_hidden_layers,
+            d_model=args.d_model,
         )
         policy = ReinforcePolicy(policy_config)
 
@@ -153,6 +170,9 @@ def main() -> int:
         terminal_end_bonus=args.terminal_end_bonus,
         terminal_max_steps_penalty=args.terminal_max_steps_penalty,
         terminal_failure_penalty=args.terminal_failure_penalty,
+        new_hex_bonus=args.new_hex_bonus,
+        wound_penalty=args.wound_penalty,
+        cards_remaining_bonus=args.cards_remaining_bonus,
     )
 
     run_dir = _resolve_run_dir(args.checkpoint_dir, args.resume)
@@ -162,7 +182,8 @@ def main() -> int:
     metrics_path = run_dir / "training_log.ndjson"
 
     if not args.resume:
-        _write_run_manifest(run_dir, args, policy, reward_config)
+        _write_run_manifest(run_dir, args, policy, reward_config,
+                            curriculum_name=args.curriculum)
 
     algo = "PPO" if args.ppo else "REINFORCE"
     hero_display = args.hero if args.hero.lower() != "random" else "random (seeded rotation)"
@@ -179,6 +200,18 @@ def main() -> int:
 
     if args.ppo:
         print(f"PPO: batch_episodes={args.batch_episodes} ppo_epochs={args.ppo_epochs} clip={args.clip_epsilon} gae_lambda={args.gae_lambda}")
+
+    if args.curriculum:
+        from mage_knight_sdk.sim.rl.curriculum import CURRICULA
+        schedule = CURRICULA.get(args.curriculum)
+        if schedule is None:
+            print(f"Unknown curriculum: {args.curriculum!r}. Available: {', '.join(CURRICULA)}", file=sys.stderr)
+            return 2
+        schedule = schedule()
+        total_episodes = sum(p.episodes for p in schedule.phases)
+        phase_names = [p.name for p in schedule.phases]
+        print(f"Curriculum: {args.curriculum} ({len(schedule.phases)} phases, {total_episodes} total episodes)")
+        print(f"  Phases: {' → '.join(phase_names)}")
 
     # Recover running max fame from existing NDJSON so fame_max doesn't reset on resume.
     initial_max_fame = 0.0
@@ -198,6 +231,8 @@ def main() -> int:
     print("-" * 88)
 
     try:
+        if args.curriculum:
+            return _train_curriculum(args, policy, checkpoint_dir, metrics_path, tb, resume_episode_offset)
         if args.ppo:
             return _train_ppo_native(args, policy, reward_config, checkpoint_dir, metrics_path, tb, resume_episode_offset)
         return _train_native_sequential(args, policy, reward_config, checkpoint_dir, metrics_path, tb, resume_episode_offset)
@@ -244,12 +279,13 @@ def _train_native_sequential(
             episode=global_ep - 1,
             seed=seed,
             stats=stats,
+            fame=result.fame,
         )
 
         print(
-            f"ep={global_ep:04d} seed={seed} outcome={result.outcome:<17} "
-            f"steps={result.steps:<6} fame={result.fame:<4} reward={stats.total_reward:>8.3f} "
-            f"loss={stats.optimization.loss:>9.4f} entropy={stats.optimization.entropy:>7.4f}"
+            f"ep={global_ep:04d} steps={result.steps:<4} "
+            f"R={stats.total_reward:>7.1f}  fame={result.fame:<3} "
+            f"ent={stats.optimization.entropy:.2f}"
         )
 
         if tb is not None:
@@ -383,13 +419,13 @@ def _train_ppo_native(
             logged_stats = _with_opt(stats, opt_stats)
             _append_metrics_log(
                 path=metrics_path, episode=global_ep - 1, seed=seed,
-                stats=logged_stats,
+                stats=logged_stats, fame=batch_fames[i],
             )
 
             print(
-                f"ep={global_ep:04d} seed={seed} outcome={stats.outcome:<17} "
-                f"steps={stats.steps:<6} fame={batch_fames[i]:<4} reward={stats.total_reward:>8.3f} "
-                f"loss={opt_stats.loss:>9.4f} entropy={opt_stats.entropy:>7.4f}"
+                f"ep={global_ep:04d} steps={stats.steps:<4} "
+                f"R={stats.total_reward:>7.1f}  fame={batch_fames[i]:<3} "
+                f"ent={opt_stats.entropy:.2f}"
             )
 
             if tb is not None:
@@ -421,6 +457,161 @@ def _train_ppo_native(
                 "timestamp": datetime.now(UTC).isoformat(),
             },
         )
+        print(f"Final checkpoint: {final_path}")
+
+    print(f"Metrics log: {metrics_path}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Curriculum training loop (VecEnv-based PPO)
+# ---------------------------------------------------------------------------
+
+
+def _train_curriculum(
+    args: argparse.Namespace,
+    policy: Any,
+    checkpoint_dir: Path,
+    metrics_path: Path,
+    tb: _TBWriter | None = None,
+    resume_episode_offset: int = 0,
+) -> int:
+    """Train with curriculum learning: iterate phases, each with its own scenario + rewards."""
+    from mk_python import PyVecEnv
+
+    from mage_knight_sdk.sim.rl.curriculum import CURRICULA
+    from mage_knight_sdk.sim.rl.native_rl_runner import EpisodeTrainingStats
+    from mage_knight_sdk.sim.rl.policy_gradient import OptimizationStats, compute_gae
+    from mage_knight_sdk.sim.rl.vec_env_runner import (
+        EpisodeBuffers,
+        collect_vecenv_rollout,
+        vec_transition_to_transition,
+    )
+
+    schedule = CURRICULA[args.curriculum]()
+    global_ep = resume_episode_offset
+    hero = args.hero if args.hero.lower() != "random" else "arythea"
+
+    for phase_idx, phase in enumerate(schedule.phases):
+        print(f"\n{'=' * 88}")
+        print(f"Phase {phase_idx + 1}/{len(schedule.phases)}: {phase.name}")
+        print(f"  Scenario: {phase.scenario.kind} | Episodes: {phase.episodes} | Max steps: {phase.max_steps}")
+        print(f"  Rewards: fame_scale={phase.reward_config.fame_delta_scale} step_penalty={phase.reward_config.step_penalty} end_bonus={phase.reward_config.terminal_end_bonus}")
+        print(f"{'=' * 88}")
+
+        scenario_json = phase.scenario.to_rust_json()
+        num_envs = args.batch_episodes
+        vec_env = PyVecEnv(
+            num_envs=num_envs,
+            base_seed=args.seed + global_ep,
+            hero=hero,
+            max_steps=phase.max_steps,
+            scenario=scenario_json,
+        )
+
+        episode_buffers = EpisodeBuffers()
+        phase_episodes_done = 0
+        # Target steps per collection ≈ batch_episodes * max_steps (collect ~1 batch worth)
+        steps_per_collect = num_envs * phase.max_steps
+
+        while phase_episodes_done < phase.episodes:
+            # Collect rollout
+            result = collect_vecenv_rollout(
+                vec_env, policy, phase.reward_config,
+                total_steps=steps_per_collect,
+                episode_buffers=episode_buffers,
+            )
+
+            if not result.episodes:
+                continue
+
+            # Convert VecTransitions → standard Transitions for PPO
+            episodes_data = []
+            terminated_flags = []
+            for ep_transitions, meta in zip(result.episodes, result.episode_metas):
+                standard = [vec_transition_to_transition(vt) for vt in ep_transitions]
+                episodes_data.append(standard)
+                terminated_flags.append(not meta.truncated)
+
+            # PPO optimization
+            if episodes_data:
+                transitions_flat, advantages, returns = compute_gae(
+                    episodes_data, args.gamma, args.gae_lambda,
+                    terminated=terminated_flags,
+                )
+                opt_stats = policy.optimize_ppo(
+                    transitions_flat, advantages, returns,
+                    clip_epsilon=args.clip_epsilon,
+                    ppo_epochs=args.ppo_epochs,
+                    max_grad_norm=args.max_grad_norm,
+                    mini_batch_size=args.mini_batch_size,
+                )
+            else:
+                opt_stats = OptimizationStats(
+                    loss=0.0, total_reward=0.0, mean_reward=0.0,
+                    entropy=0.0, action_count=0,
+                )
+
+            # Log each completed episode
+            for ep_transitions, meta in zip(result.episodes, result.episode_metas):
+                global_ep += 1
+                phase_episodes_done += 1
+                total_reward = sum(vt.reward for vt in ep_transitions)
+                steps = len(ep_transitions)
+
+                stats = EpisodeTrainingStats(
+                    outcome="ended" if not meta.truncated else "max_steps",
+                    steps=steps,
+                    total_reward=total_reward,
+                    optimization=opt_stats,
+                    scenario_triggered=meta.scenario_end_triggered,
+                )
+
+                _append_metrics_log(
+                    path=metrics_path, episode=global_ep - 1,
+                    seed=meta.seed, stats=stats, fame=meta.total_fame_delta,
+                    phase_name=phase.name, phase_index=phase_idx,
+                    reward_breakdown=meta.reward_breakdown,
+                )
+
+                if tb is not None:
+                    tb.log_episode(global_ep, stats, reward_breakdown=meta.reward_breakdown)
+
+                bd = meta.reward_breakdown
+                print(
+                    f"ep={global_ep:04d} [{phase.name}] steps={steps:<4} "
+                    f"R={total_reward:>7.1f}  "
+                    f"fame={bd.fame:>5.1f}  wounds={bd.wound_penalty:>5.1f}  "
+                    f"cards={bd.cards_remaining_bonus:>4.1f}  "
+                    f"ent={opt_stats.entropy:.2f}"
+                )
+
+            # Checkpoint at interval
+            if args.checkpoint_every > 0 and global_ep % args.checkpoint_every < len(result.episodes):
+                cp_path = checkpoint_dir / f"policy_ep_{global_ep:06d}.pt"
+                policy.save_checkpoint(cp_path, metadata={
+                    "episode": global_ep,
+                    "phase": phase.name,
+                    "phase_index": phase_idx,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                })
+
+        # Phase boundary checkpoint
+        cp_path = checkpoint_dir / f"policy_phase_{phase_idx}_{phase.name}.pt"
+        policy.save_checkpoint(cp_path, metadata={
+            "episode": global_ep,
+            "phase": phase.name,
+            "phase_index": phase_idx,
+            "timestamp": datetime.now(UTC).isoformat(),
+        })
+        print(f"Phase checkpoint: {cp_path}")
+
+    if not args.no_final_checkpoint:
+        final_path = checkpoint_dir / "policy_final.pt"
+        policy.save_checkpoint(final_path, metadata={
+            "episode": global_ep,
+            "timestamp": datetime.now(UTC).isoformat(),
+        })
         print(f"Final checkpoint: {final_path}")
 
     print(f"Metrics log: {metrics_path}")
@@ -465,15 +656,41 @@ def _resolve_run_dir(explicit_dir: str | None, resume_path: str | None) -> Path:
     return Path(f"./training/runs/run-{stamp}")
 
 
+def _get_git_info() -> dict[str, Any]:
+    """Capture git commit, dirty status, and uncommitted file list for reproducibility."""
+    info: dict[str, Any] = {}
+    try:
+        info["commit"] = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], text=True, stderr=subprocess.DEVNULL,
+        ).strip()
+        info["branch"] = subprocess.check_output(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+        dirty = subprocess.check_output(
+            ["git", "status", "--porcelain"], text=True, stderr=subprocess.DEVNULL,
+        ).strip()
+        info["dirty"] = bool(dirty)
+        if dirty:
+            info["dirty_files"] = dirty.splitlines()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        info["commit"] = "unknown"
+        info["dirty"] = False
+    return info
+
+
 def _write_run_manifest(
     checkpoint_dir: Path,
     args: argparse.Namespace,
     policy: Any,
     reward_config: Any,
+    curriculum_name: str | None = None,
 ) -> None:
     """Write run_config.json with policy/reward config and CLI args for reproducibility."""
-    manifest = {
+    manifest: dict[str, Any] = {
         "started_at": datetime.now(UTC).isoformat(),
+        "git": _get_git_info(),
         "policy_config": asdict(policy.config),
         "reward": {
             "fame_delta_scale": reward_config.fame_delta_scale,
@@ -481,9 +698,30 @@ def _write_run_manifest(
             "terminal_end_bonus": reward_config.terminal_end_bonus,
             "terminal_max_steps_penalty": reward_config.terminal_max_steps_penalty,
             "terminal_failure_penalty": reward_config.terminal_failure_penalty,
+            "new_hex_bonus": reward_config.new_hex_bonus,
+            "wound_penalty": reward_config.wound_penalty,
+            "cards_remaining_bonus": reward_config.cards_remaining_bonus,
         },
         "cli": vars(args),
     }
+    if curriculum_name:
+        from mage_knight_sdk.sim.rl.curriculum import CURRICULA
+        schedule_fn = CURRICULA.get(curriculum_name)
+        if schedule_fn:
+            schedule = schedule_fn()
+            manifest["curriculum"] = {
+                "name": curriculum_name,
+                "phases": [
+                    {
+                        "name": p.name,
+                        "scenario": {"kind": p.scenario.kind, **p.scenario.params},
+                        "episodes": p.episodes,
+                        "max_steps": p.max_steps,
+                        "reward_config": asdict(p.reward_config),
+                    }
+                    for p in schedule.phases
+                ],
+            }
     path = checkpoint_dir / "run_config.json"
     path.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
 
@@ -517,11 +755,16 @@ def _append_metrics_log(
     episode: int,
     seed: int,
     stats: Any,
+    fame: int = 0,
+    phase_name: str | None = None,
+    phase_index: int | None = None,
+    reward_breakdown: Any = None,
 ) -> None:
     """Write metrics from EpisodeTrainingStats."""
-    record = {
+    record: dict[str, Any] = {
         "episode": episode + 1,
         "seed": seed,
+        "fame": fame,
         "outcome": stats.outcome,
         "steps": stats.steps,
         "reason": None,
@@ -537,6 +780,19 @@ def _append_metrics_log(
             "critic_loss": stats.optimization.critic_loss,
         },
     }
+    if phase_name is not None:
+        record["phase"] = phase_name
+        record["phase_index"] = phase_index
+    if reward_breakdown is not None:
+        record["reward_breakdown"] = {
+            "fame": reward_breakdown.fame,
+            "wound_penalty": reward_breakdown.wound_penalty,
+            "cards_remaining": reward_breakdown.cards_remaining_bonus,
+            "new_hex": reward_breakdown.new_hex_bonus,
+            "step_penalty": reward_breakdown.step_penalty,
+            "terminal": reward_breakdown.terminal_bonus,
+            "scenario_trigger": reward_breakdown.scenario_trigger_bonus,
+        }
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(record, sort_keys=True) + "\n")
 

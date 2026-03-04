@@ -29,7 +29,10 @@ class VecTransition:
     state_scalars: np.ndarray          # (STATE_SCALAR_DIM,) float32
     state_ids: np.ndarray              # (3,) int32
     hand_card_ids: np.ndarray          # (H,) int32 (trimmed to actual count)
+    deck_card_ids: np.ndarray          # (D,) int32
+    discard_card_ids: np.ndarray       # (DC,) int32
     unit_ids: np.ndarray               # (U,) int32
+    unit_scalars: np.ndarray           # (U, UNIT_SCALAR_DIM) float32
     combat_enemy_ids: np.ndarray       # (CE,) int32
     combat_enemy_scalars: np.ndarray   # (CE, COMBAT_ENEMY_SCALAR_DIM) float32
     skill_ids: np.ndarray              # (S,) int32
@@ -60,6 +63,8 @@ def _extract_vec_transition(
     """Extract a single env's state/action data from the batch dict."""
     i = env_idx
     hc = int(batch_dict["hand_counts"][i])
+    dc = int(batch_dict["deck_counts"][i])
+    dcc = int(batch_dict["discard_counts"][i])
     uc = int(batch_dict["unit_counts"][i])
     cec = int(batch_dict["combat_enemy_counts"][i])
     sc = int(batch_dict["skill_counts"][i])
@@ -68,11 +73,15 @@ def _extract_vec_transition(
     ac = int(batch_dict["action_counts"][i])
 
     n = batch_dict["state_scalars"].shape[0]
+    max_u = batch_dict["unit_ids"].shape[1]
     max_ce = batch_dict["combat_enemy_ids"].shape[1]
     max_vs = batch_dict["visible_site_ids"].shape[1]
     max_me = batch_dict["map_enemy_ids"].shape[1]
 
     # Reshape 3D arrays that come as (N*max, dim) → index by env
+    u_scalars_raw = batch_dict["unit_scalars"]
+    u_scalars_3d = u_scalars_raw.reshape(n, max_u, -1)
+
     ce_scalars_raw = batch_dict["combat_enemy_scalars"]
     ce_scalars_3d = ce_scalars_raw.reshape(n, max_ce, -1)
 
@@ -91,7 +100,10 @@ def _extract_vec_transition(
         state_scalars=batch_dict["state_scalars"][i].copy(),
         state_ids=batch_dict["state_ids"][i].copy(),
         hand_card_ids=batch_dict["hand_card_ids"][i, :hc].copy(),
+        deck_card_ids=batch_dict["deck_card_ids"][i, :dc].copy(),
+        discard_card_ids=batch_dict["discard_card_ids"][i, :dcc].copy(),
         unit_ids=batch_dict["unit_ids"][i, :uc].copy(),
+        unit_scalars=u_scalars_3d[i, :uc].copy(),
         combat_enemy_ids=batch_dict["combat_enemy_ids"][i, :cec].copy(),
         combat_enemy_scalars=ce_scalars_3d[i, :cec].copy(),
         skill_ids=batch_dict["skill_ids"][i, :sc].copy(),
@@ -114,7 +126,10 @@ def vec_transition_to_transition(vt: VecTransition) -> Transition:
         scalars=vt.state_scalars.tolist(),
         mode_id=int(vt.state_ids[0]),
         hand_card_ids=vt.hand_card_ids.tolist(),
+        deck_card_ids=vt.deck_card_ids.tolist(),
+        discard_card_ids=vt.discard_card_ids.tolist(),
         unit_ids=vt.unit_ids.tolist(),
+        unit_scalars=vt.unit_scalars.tolist(),
         current_terrain_id=int(vt.state_ids[1]),
         current_site_type_id=int(vt.state_ids[2]),
         combat_enemy_ids=vt.combat_enemy_ids.tolist(),
@@ -150,12 +165,26 @@ def vec_transition_to_transition(vt: VecTransition) -> Transition:
 
 
 @dataclass(frozen=True)
+class RewardBreakdown:
+    """Per-component reward totals for a completed episode."""
+    fame: float = 0.0
+    wound_penalty: float = 0.0
+    cards_remaining_bonus: float = 0.0
+    new_hex_bonus: float = 0.0
+    step_penalty: float = 0.0
+    terminal_bonus: float = 0.0
+    scenario_trigger_bonus: float = 0.0
+
+
+@dataclass(frozen=True)
 class CompletedEpisodeMeta:
     """Metadata for a completed episode: seed and action indices for replay."""
     seed: int
     action_indices: list[int]
     truncated: bool = False  # True if episode hit max_steps (not natural game end)
     scenario_end_triggered: bool = False  # True if scenario end condition was met (e.g. city revealed)
+    total_fame_delta: int = 0  # Cumulative fame gained during the episode
+    reward_breakdown: RewardBreakdown = field(default_factory=RewardBreakdown)
 
 
 @dataclass
@@ -165,6 +194,15 @@ class EpisodeBuffers:
     seeds: list[int] = field(default_factory=list)
     action_indices: list[list[int]] = field(default_factory=list)
     scenario_end_triggered: list[bool] = field(default_factory=list)
+    fame_deltas: list[int] = field(default_factory=list)
+    # Per-component reward accumulators
+    reward_fame: list[float] = field(default_factory=list)
+    reward_wound_penalty: list[float] = field(default_factory=list)
+    reward_cards_remaining: list[float] = field(default_factory=list)
+    reward_new_hex: list[float] = field(default_factory=list)
+    reward_step_penalty: list[float] = field(default_factory=list)
+    reward_terminal: list[float] = field(default_factory=list)
+    reward_scenario_trigger: list[float] = field(default_factory=list)
 
     def ensure_size(self, num_envs: int) -> None:
         while len(self.buffers) < num_envs:
@@ -175,6 +213,14 @@ class EpisodeBuffers:
             self.action_indices.append([])
         while len(self.scenario_end_triggered) < num_envs:
             self.scenario_end_triggered.append(False)
+        while len(self.fame_deltas) < num_envs:
+            self.fame_deltas.append(0)
+        for lst in (self.reward_fame, self.reward_wound_penalty,
+                    self.reward_cards_remaining, self.reward_new_hex,
+                    self.reward_step_penalty, self.reward_terminal,
+                    self.reward_scenario_trigger):
+            while len(lst) < num_envs:
+                lst.append(0.0)
 
 
 @dataclass
@@ -230,6 +276,7 @@ def collect_vecenv_rollout(
             episode_buffers.seeds[i] = int(current_seeds[i])
             episode_buffers.action_indices[i] = []
             episode_buffers.scenario_end_triggered[i] = False
+            episode_buffers.fame_deltas[i] = 0
 
     while steps_collected < total_steps:
         # 1. Encode all envs → batched numpy dict
@@ -245,11 +292,32 @@ def collect_vecenv_rollout(
         panicked = step_result["panicked"]
         truncated_flags = step_result["truncated"]
         scenario_flags = step_result["scenario_end_triggered"]
+        new_hexes = step_result["new_hexes"]
+        wound_deltas = step_result["wound_deltas"]
+        non_wound_hand_sizes = step_result["non_wound_hand_sizes"]
 
         # 4. Process each env
         for i in range(num_envs):
             fame_delta = float(fame_deltas[i])
-            reward = reward_config.fame_delta_scale * fame_delta + reward_config.step_penalty
+            fame_reward = reward_config.fame_delta_scale * fame_delta
+            reward = fame_reward + reward_config.step_penalty
+
+            episode_buffers.reward_fame[i] += fame_reward
+            episode_buffers.reward_step_penalty[i] += reward_config.step_penalty
+
+            # Exploration bonus for visiting new hexes
+            if new_hexes[i] > 0 and reward_config.new_hex_bonus != 0.0:
+                hex_bonus = reward_config.new_hex_bonus * float(new_hexes[i])
+                reward += hex_bonus
+                episode_buffers.reward_new_hex[i] += hex_bonus
+
+            # Wound penalty for gaining wounds
+            if wound_deltas[i] > 0 and reward_config.wound_penalty != 0.0:
+                wound_pen = reward_config.wound_penalty * float(wound_deltas[i])
+                reward += wound_pen
+                episode_buffers.reward_wound_penalty[i] += wound_pen
+
+            episode_buffers.fame_deltas[i] += int(fame_deltas[i])
 
             action_idx = int(actions[i])
             episode_buffers.action_indices[i].append(action_idx)
@@ -257,6 +325,7 @@ def collect_vecenv_rollout(
             # One-time scenario trigger bonus (on first detection)
             if scenario_flags[i] and not episode_buffers.scenario_end_triggered[i]:
                 reward += reward_config.scenario_trigger_bonus
+                episode_buffers.reward_scenario_trigger[i] += reward_config.scenario_trigger_bonus
                 episode_buffers.scenario_end_triggered[i] = True
 
             vt = _extract_vec_transition(
@@ -277,6 +346,14 @@ def collect_vecenv_rollout(
                     episode_buffers.buffers[i] = bufs[i]
                     episode_buffers.action_indices[i] = []
                     episode_buffers.scenario_end_triggered[i] = False
+                    episode_buffers.fame_deltas[i] = 0
+                    episode_buffers.reward_fame[i] = 0.0
+                    episode_buffers.reward_wound_penalty[i] = 0.0
+                    episode_buffers.reward_cards_remaining[i] = 0.0
+                    episode_buffers.reward_new_hex[i] = 0.0
+                    episode_buffers.reward_step_penalty[i] = 0.0
+                    episode_buffers.reward_terminal[i] = 0.0
+                    episode_buffers.reward_scenario_trigger[i] = 0.0
                     # Snapshot seed for the new (reset) episode
                     new_seeds = vec_env.seeds()
                     episode_buffers.seeds[i] = int(new_seeds[i])
@@ -285,12 +362,21 @@ def collect_vecenv_rollout(
                 # Normal completion — add terminal reward
                 episode = bufs[i]
                 terminal = reward_config.terminal_end_bonus
+                cards_bonus = 0.0
+                if reward_config.cards_remaining_bonus != 0.0:
+                    cards_bonus = reward_config.cards_remaining_bonus * float(non_wound_hand_sizes[i])
+                    terminal += cards_bonus
+                episode_buffers.reward_terminal[i] += reward_config.terminal_end_bonus
+                episode_buffers.reward_cards_remaining[i] += cards_bonus
                 last = episode[-1]
                 episode[-1] = VecTransition(
                     state_scalars=last.state_scalars,
                     state_ids=last.state_ids,
                     hand_card_ids=last.hand_card_ids,
+                    deck_card_ids=last.deck_card_ids,
+                    discard_card_ids=last.discard_card_ids,
                     unit_ids=last.unit_ids,
+                    unit_scalars=last.unit_scalars,
                     combat_enemy_ids=last.combat_enemy_ids,
                     combat_enemy_scalars=last.combat_enemy_scalars,
                     skill_ids=last.skill_ids,
@@ -305,17 +391,36 @@ def collect_vecenv_rollout(
                     value=last.value,
                     reward=last.reward + terminal,
                 )
+                breakdown = RewardBreakdown(
+                    fame=episode_buffers.reward_fame[i],
+                    wound_penalty=episode_buffers.reward_wound_penalty[i],
+                    cards_remaining_bonus=episode_buffers.reward_cards_remaining[i],
+                    new_hex_bonus=episode_buffers.reward_new_hex[i],
+                    step_penalty=episode_buffers.reward_step_penalty[i],
+                    terminal_bonus=episode_buffers.reward_terminal[i],
+                    scenario_trigger_bonus=episode_buffers.reward_scenario_trigger[i],
+                )
                 completed_episodes.append(episode)
                 completed_metas.append(CompletedEpisodeMeta(
                     seed=episode_buffers.seeds[i],
                     action_indices=list(episode_buffers.action_indices[i]),
                     truncated=bool(truncated_flags[i]),
                     scenario_end_triggered=episode_buffers.scenario_end_triggered[i],
+                    total_fame_delta=episode_buffers.fame_deltas[i],
+                    reward_breakdown=breakdown,
                 ))
                 bufs[i] = []
                 episode_buffers.buffers[i] = bufs[i]
                 episode_buffers.action_indices[i] = []
                 episode_buffers.scenario_end_triggered[i] = False
+                episode_buffers.fame_deltas[i] = 0
+                episode_buffers.reward_fame[i] = 0.0
+                episode_buffers.reward_wound_penalty[i] = 0.0
+                episode_buffers.reward_cards_remaining[i] = 0.0
+                episode_buffers.reward_new_hex[i] = 0.0
+                episode_buffers.reward_step_penalty[i] = 0.0
+                episode_buffers.reward_terminal[i] = 0.0
+                episode_buffers.reward_scenario_trigger[i] = 0.0
                 # Snapshot seed for the new (reset) episode
                 new_seeds = vec_env.seeds()
                 episode_buffers.seeds[i] = int(new_seeds[i])

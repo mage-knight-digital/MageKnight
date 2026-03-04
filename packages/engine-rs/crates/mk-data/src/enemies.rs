@@ -37,6 +37,8 @@ pub struct EnemyDefinition {
     pub armor_elusive: Option<u32>,
     /// Defend bonus value.
     pub defend: Option<u32>,
+    /// Number of physical tokens in the enemy bag (typically 2).
+    pub copies: u32,
 }
 
 // =============================================================================
@@ -48,7 +50,7 @@ static DIGGERS: EnemyDefinition = EnemyDefinition {
     attack: 3, attack_element: Element::Physical, armor: 3, fame: 2,
     resistances: &[], abilities: &[EnemyAbilityType::Fortified],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static PROWLERS: EnemyDefinition = EnemyDefinition {
@@ -56,7 +58,7 @@ static PROWLERS: EnemyDefinition = EnemyDefinition {
     attack: 4, attack_element: Element::Physical, armor: 3, fame: 2,
     resistances: &[], abilities: &[],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static CURSED_HAGS: EnemyDefinition = EnemyDefinition {
@@ -64,7 +66,7 @@ static CURSED_HAGS: EnemyDefinition = EnemyDefinition {
     attack: 3, attack_element: Element::Physical, armor: 5, fame: 3,
     resistances: &[], abilities: &[EnemyAbilityType::Poison],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static WOLF_RIDERS: EnemyDefinition = EnemyDefinition {
@@ -72,7 +74,7 @@ static WOLF_RIDERS: EnemyDefinition = EnemyDefinition {
     attack: 3, attack_element: Element::Physical, armor: 4, fame: 3,
     resistances: &[], abilities: &[EnemyAbilityType::Swift],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static IRONCLADS: EnemyDefinition = EnemyDefinition {
@@ -80,7 +82,7 @@ static IRONCLADS: EnemyDefinition = EnemyDefinition {
     attack: 4, attack_element: Element::Physical, armor: 3, fame: 4,
     resistances: &[ResistanceElement::Physical], abilities: &[EnemyAbilityType::Brutal],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static ORC_SUMMONERS: EnemyDefinition = EnemyDefinition {
@@ -88,7 +90,7 @@ static ORC_SUMMONERS: EnemyDefinition = EnemyDefinition {
     attack: 0, attack_element: Element::Physical, armor: 4, fame: 4,
     resistances: &[], abilities: &[EnemyAbilityType::Summon],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static CENTAUR_OUTRIDERS: EnemyDefinition = EnemyDefinition {
@@ -96,7 +98,7 @@ static CENTAUR_OUTRIDERS: EnemyDefinition = EnemyDefinition {
     attack: 3, attack_element: Element::Physical, armor: 5, fame: 2,
     resistances: &[], abilities: &[EnemyAbilityType::Swift],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static ORC_SKIRMISHERS_ATTACKS: [EnemyAttack; 2] = [
@@ -110,7 +112,7 @@ static ORC_SKIRMISHERS: EnemyDefinition = EnemyDefinition {
     resistances: &[], abilities: &[],
     attacks: Some(&ORC_SKIRMISHERS_ATTACKS),
     reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static ORC_WAR_BEASTS: EnemyDefinition = EnemyDefinition {
@@ -119,7 +121,7 @@ static ORC_WAR_BEASTS: EnemyDefinition = EnemyDefinition {
     resistances: &[ResistanceElement::Fire, ResistanceElement::Ice],
     abilities: &[EnemyAbilityType::Unfortified, EnemyAbilityType::Brutal],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static ORC_STONETHROWERS: EnemyDefinition = EnemyDefinition {
@@ -128,7 +130,7 @@ static ORC_STONETHROWERS: EnemyDefinition = EnemyDefinition {
     resistances: &[ResistanceElement::Physical],
     abilities: &[EnemyAbilityType::Fortified, EnemyAbilityType::Cumbersome],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static ORC_TRACKER: EnemyDefinition = EnemyDefinition {
@@ -137,7 +139,7 @@ static ORC_TRACKER: EnemyDefinition = EnemyDefinition {
     resistances: &[],
     abilities: &[EnemyAbilityType::Elusive, EnemyAbilityType::Assassination],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: Some(6), defend: None,
+    armor_elusive: Some(6), defend: None, copies: 2,
 };
 
 static SKELETAL_WARRIORS: EnemyDefinition = EnemyDefinition {
@@ -145,7 +147,7 @@ static SKELETAL_WARRIORS: EnemyDefinition = EnemyDefinition {
     attack: 3, attack_element: Element::Physical, armor: 4, fame: 1,
     resistances: &[ResistanceElement::Fire], abilities: &[],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static SHROUDED_NECROMANCERS: EnemyDefinition = EnemyDefinition {
@@ -154,7 +156,7 @@ static SHROUDED_NECROMANCERS: EnemyDefinition = EnemyDefinition {
     resistances: &[],
     abilities: &[EnemyAbilityType::Fortified, EnemyAbilityType::SummonGreen],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static CORRUPTED_PRIESTS: EnemyDefinition = EnemyDefinition {
@@ -162,7 +164,7 @@ static CORRUPTED_PRIESTS: EnemyDefinition = EnemyDefinition {
     attack: 4, attack_element: Element::ColdFire, armor: 5, fame: 3,
     resistances: &[], abilities: &[EnemyAbilityType::Defend],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: Some(1),
+    armor_elusive: None, defend: Some(1), copies: 2,
 };
 
 static GIBBERING_GHOULS: EnemyDefinition = EnemyDefinition {
@@ -170,7 +172,7 @@ static GIBBERING_GHOULS: EnemyDefinition = EnemyDefinition {
     attack: 4, attack_element: Element::Physical, armor: 4, fame: 2,
     resistances: &[], abilities: &[EnemyAbilityType::Vampiric],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static ELEMENTAL_PRIESTS_ATTACKS: [EnemyAttack; 2] = [
@@ -184,7 +186,7 @@ static ELEMENTAL_PRIESTS: EnemyDefinition = EnemyDefinition {
     resistances: &[ResistanceElement::Fire, ResistanceElement::Ice], abilities: &[],
     attacks: Some(&ELEMENTAL_PRIESTS_ATTACKS),
     reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static ELVEN_PROTECTORS: EnemyDefinition = EnemyDefinition {
@@ -192,7 +194,7 @@ static ELVEN_PROTECTORS: EnemyDefinition = EnemyDefinition {
     attack: 3, attack_element: Element::Physical, armor: 4, fame: 2,
     resistances: &[ResistanceElement::Fire], abilities: &[EnemyAbilityType::Defend],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: Some(2),
+    armor_elusive: None, defend: Some(2), copies: 2,
 };
 
 static CLOUD_GRIFFONS: EnemyDefinition = EnemyDefinition {
@@ -201,7 +203,7 @@ static CLOUD_GRIFFONS: EnemyDefinition = EnemyDefinition {
     resistances: &[],
     abilities: &[EnemyAbilityType::Unfortified, EnemyAbilityType::Swift, EnemyAbilityType::Elusive],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static CRYSTAL_SPRITES_ATTACKS: [EnemyAttack; 2] = [
@@ -216,7 +218,7 @@ static CRYSTAL_SPRITES: EnemyDefinition = EnemyDefinition {
     abilities: &[EnemyAbilityType::Elusive, EnemyAbilityType::Defend],
     attacks: Some(&CRYSTAL_SPRITES_ATTACKS),
     reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: Some(2), defend: Some(1),
+    armor_elusive: Some(2), defend: Some(1), copies: 2,
 };
 
 static ZOMBIE_HORDE_ATTACKS: [EnemyAttack; 3] = [
@@ -231,7 +233,7 @@ static ZOMBIE_HORDE: EnemyDefinition = EnemyDefinition {
     resistances: &[ResistanceElement::Ice], abilities: &[EnemyAbilityType::Cumbersome],
     attacks: Some(&ZOMBIE_HORDE_ATTACKS),
     reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 // =============================================================================
@@ -243,7 +245,7 @@ static CROSSBOWMEN: EnemyDefinition = EnemyDefinition {
     attack: 4, attack_element: Element::Physical, armor: 4, fame: 3,
     resistances: &[], abilities: &[EnemyAbilityType::Swift],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 3,
 };
 
 static GUARDSMEN: EnemyDefinition = EnemyDefinition {
@@ -251,7 +253,7 @@ static GUARDSMEN: EnemyDefinition = EnemyDefinition {
     attack: 3, attack_element: Element::Physical, armor: 7, fame: 3,
     resistances: &[], abilities: &[EnemyAbilityType::Fortified],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 3,
 };
 
 static SWORDSMEN: EnemyDefinition = EnemyDefinition {
@@ -259,7 +261,7 @@ static SWORDSMEN: EnemyDefinition = EnemyDefinition {
     attack: 6, attack_element: Element::Physical, armor: 5, fame: 4,
     resistances: &[], abilities: &[],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static GOLEMS: EnemyDefinition = EnemyDefinition {
@@ -267,7 +269,7 @@ static GOLEMS: EnemyDefinition = EnemyDefinition {
     attack: 2, attack_element: Element::Physical, armor: 5, fame: 4,
     resistances: &[ResistanceElement::Physical], abilities: &[],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static HEROES_ATTACKS: [EnemyAttack; 2] = [
@@ -281,7 +283,7 @@ static HEROES_ENEMY: EnemyDefinition = EnemyDefinition {
     resistances: &[], abilities: &[EnemyAbilityType::Fortified],
     attacks: Some(&HEROES_ATTACKS),
     reputation_penalty: Some(1), reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 1,
 };
 
 static THUGS_GRAY: EnemyDefinition = EnemyDefinition {
@@ -289,7 +291,7 @@ static THUGS_GRAY: EnemyDefinition = EnemyDefinition {
     attack: 3, attack_element: Element::Physical, armor: 5, fame: 2,
     resistances: &[], abilities: &[EnemyAbilityType::Brutal],
     attacks: None, reputation_penalty: None, reputation_bonus: Some(1),
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static SHOCKTROOPS_GRAY: EnemyDefinition = EnemyDefinition {
@@ -298,7 +300,7 @@ static SHOCKTROOPS_GRAY: EnemyDefinition = EnemyDefinition {
     resistances: &[],
     abilities: &[EnemyAbilityType::Unfortified, EnemyAbilityType::Elusive],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: Some(6), defend: None,
+    armor_elusive: Some(6), defend: None, copies: 2,
 };
 
 // =============================================================================
@@ -311,7 +313,7 @@ static AIR_ELEMENTAL: EnemyDefinition = EnemyDefinition {
     resistances: &[ResistanceElement::Fire, ResistanceElement::Ice],
     abilities: &[EnemyAbilityType::Swift, EnemyAbilityType::Elusive],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: Some(8), defend: None,
+    armor_elusive: Some(8), defend: None, copies: 2,
 };
 
 static MINOTAUR: EnemyDefinition = EnemyDefinition {
@@ -319,7 +321,7 @@ static MINOTAUR: EnemyDefinition = EnemyDefinition {
     attack: 5, attack_element: Element::Physical, armor: 5, fame: 4,
     resistances: &[], abilities: &[EnemyAbilityType::Brutal],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static GARGOYLE: EnemyDefinition = EnemyDefinition {
@@ -327,7 +329,7 @@ static GARGOYLE: EnemyDefinition = EnemyDefinition {
     attack: 5, attack_element: Element::Physical, armor: 4, fame: 4,
     resistances: &[ResistanceElement::Physical], abilities: &[],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static MEDUSA: EnemyDefinition = EnemyDefinition {
@@ -335,7 +337,7 @@ static MEDUSA: EnemyDefinition = EnemyDefinition {
     attack: 6, attack_element: Element::Physical, armor: 4, fame: 5,
     resistances: &[], abilities: &[EnemyAbilityType::Paralyze],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static CRYPT_WORM: EnemyDefinition = EnemyDefinition {
@@ -343,7 +345,7 @@ static CRYPT_WORM: EnemyDefinition = EnemyDefinition {
     attack: 6, attack_element: Element::Physical, armor: 6, fame: 5,
     resistances: &[], abilities: &[EnemyAbilityType::Fortified],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static WEREWOLF: EnemyDefinition = EnemyDefinition {
@@ -351,7 +353,7 @@ static WEREWOLF: EnemyDefinition = EnemyDefinition {
     attack: 7, attack_element: Element::Physical, armor: 5, fame: 5,
     resistances: &[], abilities: &[EnemyAbilityType::Swift],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static SHADOW: EnemyDefinition = EnemyDefinition {
@@ -360,7 +362,7 @@ static SHADOW: EnemyDefinition = EnemyDefinition {
     resistances: &[],
     abilities: &[EnemyAbilityType::Elusive, EnemyAbilityType::ArcaneImmunity],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: Some(8), defend: None,
+    armor_elusive: Some(8), defend: None, copies: 2,
 };
 
 static FIRE_ELEMENTAL: EnemyDefinition = EnemyDefinition {
@@ -368,7 +370,7 @@ static FIRE_ELEMENTAL: EnemyDefinition = EnemyDefinition {
     attack: 7, attack_element: Element::Physical, armor: 6, fame: 4,
     resistances: &[ResistanceElement::Fire], abilities: &[],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static EARTH_ELEMENTAL: EnemyDefinition = EnemyDefinition {
@@ -377,7 +379,7 @@ static EARTH_ELEMENTAL: EnemyDefinition = EnemyDefinition {
     resistances: &[ResistanceElement::Physical],
     abilities: &[EnemyAbilityType::Fortified, EnemyAbilityType::Cumbersome, EnemyAbilityType::Brutal],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static MUMMY: EnemyDefinition = EnemyDefinition {
@@ -386,7 +388,7 @@ static MUMMY: EnemyDefinition = EnemyDefinition {
     resistances: &[ResistanceElement::Ice, ResistanceElement::Physical],
     abilities: &[EnemyAbilityType::Poison],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static HYDRA_ATTACKS: [EnemyAttack; 3] = [
@@ -401,7 +403,7 @@ static HYDRA: EnemyDefinition = EnemyDefinition {
     resistances: &[ResistanceElement::Ice], abilities: &[],
     attacks: Some(&HYDRA_ATTACKS),
     reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static MANTICORE: EnemyDefinition = EnemyDefinition {
@@ -410,7 +412,7 @@ static MANTICORE: EnemyDefinition = EnemyDefinition {
     resistances: &[ResistanceElement::Fire],
     abilities: &[EnemyAbilityType::Swift, EnemyAbilityType::Assassination, EnemyAbilityType::Poison],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static WATER_ELEMENTAL: EnemyDefinition = EnemyDefinition {
@@ -418,7 +420,7 @@ static WATER_ELEMENTAL: EnemyDefinition = EnemyDefinition {
     attack: 6, attack_element: Element::Physical, armor: 7, fame: 4,
     resistances: &[ResistanceElement::Ice], abilities: &[],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static VAMPIRE: EnemyDefinition = EnemyDefinition {
@@ -427,7 +429,7 @@ static VAMPIRE: EnemyDefinition = EnemyDefinition {
     resistances: &[],
     abilities: &[EnemyAbilityType::Elusive, EnemyAbilityType::Vampiric],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: Some(10), defend: None,
+    armor_elusive: Some(10), defend: None, copies: 2,
 };
 
 static BLOOD_DEMON: EnemyDefinition = EnemyDefinition {
@@ -436,7 +438,7 @@ static BLOOD_DEMON: EnemyDefinition = EnemyDefinition {
     resistances: &[ResistanceElement::Fire],
     abilities: &[EnemyAbilityType::Brutal, EnemyAbilityType::Assassination, EnemyAbilityType::ArcaneImmunity],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static PAIN_WRAITH: EnemyDefinition = EnemyDefinition {
@@ -445,7 +447,7 @@ static PAIN_WRAITH: EnemyDefinition = EnemyDefinition {
     resistances: &[],
     abilities: &[EnemyAbilityType::Elusive, EnemyAbilityType::Paralyze],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: Some(8), defend: None,
+    armor_elusive: Some(8), defend: None, copies: 2,
 };
 
 // =============================================================================
@@ -457,7 +459,7 @@ static MONKS: EnemyDefinition = EnemyDefinition {
     attack: 5, attack_element: Element::Physical, armor: 5, fame: 4,
     resistances: &[], abilities: &[EnemyAbilityType::Poison],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static ILLUSIONISTS: EnemyDefinition = EnemyDefinition {
@@ -465,7 +467,7 @@ static ILLUSIONISTS: EnemyDefinition = EnemyDefinition {
     attack: 0, attack_element: Element::Physical, armor: 3, fame: 4,
     resistances: &[ResistanceElement::Physical], abilities: &[EnemyAbilityType::Summon],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static ICE_MAGES: EnemyDefinition = EnemyDefinition {
@@ -473,7 +475,7 @@ static ICE_MAGES: EnemyDefinition = EnemyDefinition {
     attack: 5, attack_element: Element::Ice, armor: 6, fame: 5,
     resistances: &[ResistanceElement::Ice], abilities: &[],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static FIRE_MAGES: EnemyDefinition = EnemyDefinition {
@@ -481,7 +483,7 @@ static FIRE_MAGES: EnemyDefinition = EnemyDefinition {
     attack: 6, attack_element: Element::Fire, armor: 5, fame: 5,
     resistances: &[ResistanceElement::Fire], abilities: &[],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static ICE_GOLEMS: EnemyDefinition = EnemyDefinition {
@@ -490,7 +492,7 @@ static ICE_GOLEMS: EnemyDefinition = EnemyDefinition {
     resistances: &[ResistanceElement::Ice, ResistanceElement::Physical],
     abilities: &[EnemyAbilityType::Paralyze],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 1,
 };
 
 static FIRE_GOLEMS: EnemyDefinition = EnemyDefinition {
@@ -499,7 +501,7 @@ static FIRE_GOLEMS: EnemyDefinition = EnemyDefinition {
     resistances: &[ResistanceElement::Fire, ResistanceElement::Physical],
     abilities: &[EnemyAbilityType::Brutal],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 1,
 };
 
 static SORCERERS: EnemyDefinition = EnemyDefinition {
@@ -508,7 +510,7 @@ static SORCERERS: EnemyDefinition = EnemyDefinition {
     resistances: &[],
     abilities: &[EnemyAbilityType::Assassination, EnemyAbilityType::Poison, EnemyAbilityType::ArcaneImmunity],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static MAGIC_FAMILIARS_ATTACKS: [EnemyAttack; 2] = [
@@ -523,7 +525,7 @@ static MAGIC_FAMILIARS: EnemyDefinition = EnemyDefinition {
     abilities: &[EnemyAbilityType::Unfortified, EnemyAbilityType::Brutal],
     attacks: Some(&MAGIC_FAMILIARS_ATTACKS),
     reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 // =============================================================================
@@ -535,7 +537,7 @@ static THUGS: EnemyDefinition = EnemyDefinition {
     attack: 6, attack_element: Element::Physical, armor: 5, fame: 5,
     resistances: &[], abilities: &[],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static SHOCKTROOPS: EnemyDefinition = EnemyDefinition {
@@ -543,7 +545,7 @@ static SHOCKTROOPS: EnemyDefinition = EnemyDefinition {
     attack: 5, attack_element: Element::Physical, armor: 5, fame: 5,
     resistances: &[], abilities: &[EnemyAbilityType::Swift, EnemyAbilityType::Brutal],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static FREEZERS: EnemyDefinition = EnemyDefinition {
@@ -552,7 +554,7 @@ static FREEZERS: EnemyDefinition = EnemyDefinition {
     resistances: &[ResistanceElement::Fire],
     abilities: &[EnemyAbilityType::Paralyze, EnemyAbilityType::Swift],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 3,
 };
 
 static GUNNERS: EnemyDefinition = EnemyDefinition {
@@ -560,7 +562,7 @@ static GUNNERS: EnemyDefinition = EnemyDefinition {
     attack: 6, attack_element: Element::Fire, armor: 6, fame: 7,
     resistances: &[ResistanceElement::Ice], abilities: &[EnemyAbilityType::Brutal],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 3,
 };
 
 static FIRE_CATAPULT: EnemyDefinition = EnemyDefinition {
@@ -569,7 +571,7 @@ static FIRE_CATAPULT: EnemyDefinition = EnemyDefinition {
     resistances: &[],
     abilities: &[EnemyAbilityType::Fortified, EnemyAbilityType::Cumbersome],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 1,
 };
 
 static ICE_CATAPULT: EnemyDefinition = EnemyDefinition {
@@ -578,7 +580,7 @@ static ICE_CATAPULT: EnemyDefinition = EnemyDefinition {
     resistances: &[],
     abilities: &[EnemyAbilityType::Fortified, EnemyAbilityType::Cumbersome],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 1,
 };
 
 static ALTEM_GUARDSMEN: EnemyDefinition = EnemyDefinition {
@@ -587,7 +589,7 @@ static ALTEM_GUARDSMEN: EnemyDefinition = EnemyDefinition {
     resistances: &[ResistanceElement::Physical, ResistanceElement::Fire, ResistanceElement::Ice],
     abilities: &[EnemyAbilityType::Fortified],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static ALTEM_MAGES: EnemyDefinition = EnemyDefinition {
@@ -596,7 +598,7 @@ static ALTEM_MAGES: EnemyDefinition = EnemyDefinition {
     resistances: &[ResistanceElement::Physical],
     abilities: &[EnemyAbilityType::Brutal, EnemyAbilityType::Poison],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static DELPHANA_MASTERS: EnemyDefinition = EnemyDefinition {
@@ -605,7 +607,7 @@ static DELPHANA_MASTERS: EnemyDefinition = EnemyDefinition {
     resistances: &[ResistanceElement::Fire, ResistanceElement::Ice],
     abilities: &[EnemyAbilityType::Assassination, EnemyAbilityType::Paralyze],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static GRIM_LEGIONNARIES: EnemyDefinition = EnemyDefinition {
@@ -614,7 +616,7 @@ static GRIM_LEGIONNARIES: EnemyDefinition = EnemyDefinition {
     resistances: &[],
     abilities: &[EnemyAbilityType::Unfortified, EnemyAbilityType::ArcaneImmunity],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 // =============================================================================
@@ -626,7 +628,7 @@ static SWAMP_DRAGON: EnemyDefinition = EnemyDefinition {
     attack: 5, attack_element: Element::Physical, armor: 9, fame: 7,
     resistances: &[], abilities: &[EnemyAbilityType::Swift, EnemyAbilityType::Paralyze],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static FIRE_DRAGON: EnemyDefinition = EnemyDefinition {
@@ -635,7 +637,7 @@ static FIRE_DRAGON: EnemyDefinition = EnemyDefinition {
     resistances: &[ResistanceElement::Physical, ResistanceElement::Fire],
     abilities: &[],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static ICE_DRAGON: EnemyDefinition = EnemyDefinition {
@@ -644,7 +646,7 @@ static ICE_DRAGON: EnemyDefinition = EnemyDefinition {
     resistances: &[ResistanceElement::Physical, ResistanceElement::Ice],
     abilities: &[EnemyAbilityType::Paralyze],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static HIGH_DRAGON: EnemyDefinition = EnemyDefinition {
@@ -653,7 +655,7 @@ static HIGH_DRAGON: EnemyDefinition = EnemyDefinition {
     resistances: &[ResistanceElement::Fire, ResistanceElement::Ice],
     abilities: &[EnemyAbilityType::Brutal],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static DEATH_DRAGON: EnemyDefinition = EnemyDefinition {
@@ -662,7 +664,7 @@ static DEATH_DRAGON: EnemyDefinition = EnemyDefinition {
     resistances: &[],
     abilities: &[EnemyAbilityType::Assassination, EnemyAbilityType::Paralyze],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static LAVA_DRAGON: EnemyDefinition = EnemyDefinition {
@@ -671,7 +673,7 @@ static LAVA_DRAGON: EnemyDefinition = EnemyDefinition {
     resistances: &[ResistanceElement::Fire],
     abilities: &[EnemyAbilityType::Fortified, EnemyAbilityType::Brutal],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static SAVAGE_DRAGON: EnemyDefinition = EnemyDefinition {
@@ -679,7 +681,7 @@ static SAVAGE_DRAGON: EnemyDefinition = EnemyDefinition {
     attack: 5, attack_element: Element::Physical, armor: 7, fame: 6,
     resistances: &[ResistanceElement::Physical], abilities: &[EnemyAbilityType::Brutal],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static DRAGON_SUMMONER_ATTACKS: [EnemyAttack; 2] = [
@@ -694,7 +696,7 @@ static DRAGON_SUMMONER: EnemyDefinition = EnemyDefinition {
     abilities: &[EnemyAbilityType::ArcaneImmunity],
     attacks: Some(&DRAGON_SUMMONER_ATTACKS),
     reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None,
+    armor_elusive: None, defend: None, copies: 2,
 };
 
 static LIGHTNING_DRAGON: EnemyDefinition = EnemyDefinition {
@@ -703,7 +705,7 @@ static LIGHTNING_DRAGON: EnemyDefinition = EnemyDefinition {
     resistances: &[ResistanceElement::Fire, ResistanceElement::Ice],
     abilities: &[EnemyAbilityType::Elusive],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: Some(14), defend: None,
+    armor_elusive: Some(14), defend: None, copies: 2,
 };
 
 static VAMPIRE_DRAGON: EnemyDefinition = EnemyDefinition {
@@ -712,7 +714,7 @@ static VAMPIRE_DRAGON: EnemyDefinition = EnemyDefinition {
     resistances: &[],
     abilities: &[EnemyAbilityType::Elusive, EnemyAbilityType::Vampiric],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: Some(16), defend: None,
+    armor_elusive: Some(16), defend: None, copies: 2,
 };
 
 static STORM_DRAGON: EnemyDefinition = EnemyDefinition {
@@ -721,7 +723,7 @@ static STORM_DRAGON: EnemyDefinition = EnemyDefinition {
     resistances: &[ResistanceElement::Ice],
     abilities: &[EnemyAbilityType::Elusive, EnemyAbilityType::Swift],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: Some(14), defend: None,
+    armor_elusive: Some(14), defend: None, copies: 2,
 };
 
 // =============================================================================

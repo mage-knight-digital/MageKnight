@@ -41,6 +41,10 @@ pub struct StateFeatures {
     pub mode_id: u16,
     /// Variable-length CARD_VOCAB indices for cards in hand.
     pub hand_card_ids: Vec<u16>,
+    /// Variable-length CARD_VOCAB indices for cards in the draw pile.
+    pub deck_card_ids: Vec<u16>,
+    /// Variable-length CARD_VOCAB indices for cards in the discard pile.
+    pub discard_card_ids: Vec<u16>,
     /// Variable-length UNIT_VOCAB indices for player units.
     pub unit_ids: Vec<u16>,
     /// UNIT_SCALAR_DIM floats per unit [is_ready, is_wounded].

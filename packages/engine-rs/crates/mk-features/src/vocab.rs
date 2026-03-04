@@ -141,6 +141,10 @@ define_vocab!(CARD_VOCAB, "card",
         "heroic_tale", "diplomacy", "song_of_wind", "learning", "agility",
         // Advanced actions - dual (2)
         "chilling_stare", "rush_of_adrenaline",
+        // Tactics - day (6)
+        "early_bird", "rethink", "mana_steal", "planning", "great_start", "the_right_moment",
+        // Tactics - night (6)
+        "from_the_dusk", "long_night", "mana_search", "midnight_meditation", "preparation", "sparing_power",
     ],
     sorted: [
         "agility", "ambush", "amulet_of_darkness", "amulet_of_the_sun",
@@ -155,31 +159,34 @@ define_vocab!(CARD_VOCAB, "card",
         "crushing_bolt", "crystal_mastery", "crystallize", "cure",
         "decompose", "demolish", "determination", "diamond_ring", "diplomacy",
         "dodge_and_weave", "druidic_staff",
+        "early_bird",
         "emerald_ring", "endless_bag_of_gold", "endless_gem_pouch",
         "energy_flow", "explosive_bolt", "expose",
         "fire_bolt", "fireball", "flame_wall", "force_of_nature",
-        "frost_bridge",
+        "from_the_dusk", "frost_bridge",
         "golden_grail", "goldyx_crystal_joy", "goldyx_will_focus",
+        "great_start",
         "heroic_tale", "horn_of_wrath",
         "ice_bolt", "ice_shield", "improvisation", "in_need",
         "intimidate", "into_the_heat",
         "krang_battle_rage", "krang_ruthless_coercion", "krang_savage_harvesting",
-        "learning",
+        "learning", "long_night",
         "magic_talent", "mana_bolt", "mana_claim", "mana_draw",
-        "mana_meltdown", "mana_storm", "march", "maximal_effect",
-        "meditation", "mind_read", "mist_form", "mountain_lore",
+        "mana_meltdown", "mana_search", "mana_steal", "mana_storm",
+        "march", "maximal_effect",
+        "meditation", "midnight_meditation", "mind_read", "mist_form", "mountain_lore",
         "mysterious_box",
         "norowas_noble_manners", "norowas_rejuvenate",
         "offering",
-        "path_finding", "peaceful_moment", "power_of_crystals",
-        "promise", "pure_magic",
-        "rage", "refreshing_walk", "regeneration", "restoration",
+        "path_finding", "peaceful_moment", "planning", "power_of_crystals",
+        "preparation", "promise", "pure_magic",
+        "rage", "refreshing_walk", "regeneration", "restoration", "rethink",
         "ritual_attack", "ruby_ring", "rush_of_adrenaline",
         "sapphire_ring", "shield_bash", "shield_of_the_fallen_kings",
         "snowstorm", "song_of_wind", "soul_harvester", "space_bending",
-        "spell_forge", "stamina", "steady_tempo", "stout_resolve",
+        "sparing_power", "spell_forge", "stamina", "steady_tempo", "stout_resolve",
         "swift_bolt", "swiftness", "sword_of_justice",
-        "temporal_portal", "threaten", "tome_of_all_spells",
+        "temporal_portal", "the_right_moment", "threaten", "tome_of_all_spells",
         "tovak_cold_toughness", "tovak_instinct", "training",
         "tranquility", "tremor",
         "underground_travel",
@@ -756,7 +763,7 @@ mod tests {
 
     #[test]
     fn card_vocab_size() {
-        assert_eq!(CARD_VOCAB.size(), 123); // 122 entries + UNK
+        assert_eq!(CARD_VOCAB.size(), 135); // 134 entries + UNK
     }
 
     #[test]

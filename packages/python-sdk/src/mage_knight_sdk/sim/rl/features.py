@@ -32,6 +32,8 @@ class StateFeatures:
     scalars: list[float]                    # STATE_SCALAR_DIM floats (83)
     mode_id: int                            # MODE_VOCAB index
     hand_card_ids: list[int]                # variable-length CARD_VOCAB indices
+    deck_card_ids: list[int]                # CARD_VOCAB indices (draw pile)
+    discard_card_ids: list[int]             # CARD_VOCAB indices (discard pile)
     unit_ids: list[int]                     # variable-length UNIT_VOCAB indices
     unit_scalars: list[list[float]]         # UNIT_SCALAR_DIM per unit [is_ready, is_wounded]
     current_terrain_id: int                 # TERRAIN_VOCAB index

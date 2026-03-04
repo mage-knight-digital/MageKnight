@@ -42,6 +42,7 @@ class PolicyGradientConfig:
     device: str = "auto"
     embedding_dim: int = 16
     num_hidden_layers: int = 1
+    d_model: int = 64
 
 
 @dataclass(frozen=True)
@@ -87,6 +88,8 @@ class TensorizedTransition:
     state_scalars: np.ndarray            # (STATE_SCALAR_DIM,) float32
     state_mode_id: int
     state_hand_card_ids: np.ndarray      # (H,) int32
+    state_deck_card_ids: np.ndarray     # (D,) int32
+    state_discard_card_ids: np.ndarray  # (DC,) int32
     state_unit_ids: np.ndarray           # (U,) int32
     state_terrain_id: int
     state_site_type_id: int
@@ -120,6 +123,8 @@ def tensorize_transition(t: Transition) -> TensorizedTransition:
         state_scalars=np.array(sf.scalars, dtype=np.float32),
         state_mode_id=sf.mode_id,
         state_hand_card_ids=np.array(sf.hand_card_ids, dtype=np.int32),
+        state_deck_card_ids=np.array(sf.deck_card_ids, dtype=np.int32),
+        state_discard_card_ids=np.array(sf.discard_card_ids, dtype=np.int32),
         state_unit_ids=np.array(sf.unit_ids, dtype=np.int32),
         state_terrain_id=sf.current_terrain_id,
         state_site_type_id=sf.current_site_type_id,
@@ -153,6 +158,8 @@ def detensorize_transition(tt: TensorizedTransition) -> Transition:
         scalars=tt.state_scalars.tolist(),
         mode_id=tt.state_mode_id,
         hand_card_ids=tt.state_hand_card_ids.tolist(),
+        deck_card_ids=tt.state_deck_card_ids.tolist(),
+        discard_card_ids=tt.state_discard_card_ids.tolist(),
         unit_ids=tt.state_unit_ids.tolist(),
         current_terrain_id=tt.state_terrain_id,
         current_site_type_id=tt.state_site_type_id,
@@ -217,14 +224,141 @@ def _build_encoder(input_dim: int, hidden_size: int, num_layers: int) -> nn.Sequ
     return nn.Sequential(*layers)
 
 
-class _EmbeddingActionScoringNetwork(nn.Module):
-    """Network that uses learned embeddings for entity IDs."""
+class EntityPoolEncoder(nn.Module):
+    """Self-attention over variable-length entity pools with PMA summary.
 
-    def __init__(self, hidden_size: int, emb_dim: int, num_hidden_layers: int = 1) -> None:
+    Each pool (hand cards, units, enemies, etc.) gets its own instance.
+    Replaces mean-pooling with learned attention-based aggregation.
+    """
+
+    def __init__(self, input_dim: int, d_model: int, n_heads: int = 2) -> None:
+        super().__init__()
+        self.d_model = d_model
+        self.input_proj = nn.Linear(input_dim, d_model)
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=d_model, nhead=n_heads, dim_feedforward=d_model * 2,
+            activation="gelu", dropout=0.0, batch_first=True,
+        )
+        self.self_attn = nn.TransformerEncoder(encoder_layer, num_layers=1)
+        # Pooling by Multi-head Attention (PMA): learned query → summary
+        self.pma_query = nn.Parameter(torch.randn(1, 1, d_model) * 0.02)
+        self.pma_attn = nn.MultiheadAttention(d_model, n_heads, batch_first=True)
+        self.pma_norm = nn.LayerNorm(d_model)
+
+    def forward(
+        self, x: torch.Tensor, mask: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Process entity pool with self-attention and PMA.
+
+        Args:
+            x: (B, L, input_dim) entity features (padded)
+            mask: (B, L) bool, True = valid entity
+
+        Returns:
+            summary: (B, d_model) pool summary vector
+            per_entity: (B, L, d_model) per-entity embeddings
+        """
+        B, L, _ = x.shape
+        if L == 0:
+            z = torch.zeros(B, self.d_model, device=x.device)
+            return z, x.new_zeros(B, 0, self.d_model)
+
+        h = self.input_proj(x)  # (B, L, d_model)
+        any_valid = mask.any(dim=1)  # (B,)
+
+        # Ensure at least one position is always "valid" for attention.
+        # This prevents NaN attention weights (softmax of all -inf) which
+        # cause NaN gradients during backward even with nan_to_num.
+        # For empty-pool samples, position 0 (padding embed) is attended
+        # but the summary is zeroed by any_valid masking.
+        safe_pad_mask = (~mask).clone()
+        safe_pad_mask[:, 0] = False  # position 0 always valid for attention
+
+        h = self.self_attn(h, src_key_padding_mask=safe_pad_mask)
+
+        # PMA: single learned query attends to all entities
+        query = self.pma_query.expand(B, -1, -1)  # (B, 1, d_model)
+        summary, _ = self.pma_attn(query, h, h, key_padding_mask=safe_pad_mask)
+        summary = self.pma_norm(summary.squeeze(1))  # (B, d_model)
+        # Zero out summaries for samples with no real entities
+        summary = summary * any_valid.unsqueeze(-1).float()
+
+        # Zero out padded positions in per-entity embeddings
+        h = h * mask.unsqueeze(-1).float()
+        return summary, h
+
+
+class CrossAttentionScorer(nn.Module):
+    """Score candidate actions by cross-attending to state entities.
+
+    Each action query attends to individual state entities (cards, units,
+    enemies, etc.) — no information bottleneck from mean-pooling.
+    """
+
+    def __init__(self, hidden_size: int, d_model: int, n_heads: int = 2) -> None:
+        super().__init__()
+        self.d_model = d_model
+        self.action_proj = nn.Linear(hidden_size, d_model)
+        self.cross_attn = nn.MultiheadAttention(d_model, n_heads, batch_first=True)
+        self.cross_norm = nn.LayerNorm(d_model)
+        self.scoring_mlp = nn.Sequential(
+            nn.Linear(hidden_size + d_model, hidden_size),
+            nn.Tanh(),
+            nn.Linear(hidden_size, 1),
+        )
+
+    def forward(
+        self,
+        state_repr: torch.Tensor,
+        action_reprs: torch.Tensor,
+        entity_seq: torch.Tensor,
+        entity_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        """Score candidate actions via cross-attention to entities.
+
+        Args:
+            state_repr: (B, hidden) state representation
+            action_reprs: (B, A, hidden) action representations
+            entity_seq: (B, E, d_model) unified entity sequence
+            entity_mask: (B, E) bool, True = valid entity
+
+        Returns:
+            logits: (B, A) raw scores
+        """
+        B, A, _ = action_reprs.shape
+        queries = self.action_proj(action_reprs)  # (B, A, d_model)
+
+        E = entity_seq.shape[1]
+        if E == 0:
+            enriched = torch.zeros(B, A, self.d_model, device=state_repr.device)
+        else:
+            # Ensure at least one key position is valid to prevent NaN
+            # attention weights (and NaN gradients during backward).
+            safe_pad_mask = (~entity_mask).clone()
+            safe_pad_mask[:, 0] = False
+            enriched, _ = self.cross_attn(
+                queries, entity_seq, entity_seq, key_padding_mask=safe_pad_mask,
+            )
+        enriched = self.cross_norm(enriched)  # (B, A, d_model)
+
+        state_expanded = state_repr.unsqueeze(1).expand(-1, A, -1)  # (B, A, hidden)
+        combined = torch.cat([state_expanded, enriched], dim=-1)  # (B, A, hidden+d_model)
+        logits = self.scoring_mlp(combined).squeeze(-1)  # (B, A)
+        return logits
+
+
+class _EmbeddingActionScoringNetwork(nn.Module):
+    """Network with attention-based entity pools and cross-attention scoring."""
+
+    def __init__(
+        self, hidden_size: int, emb_dim: int,
+        num_hidden_layers: int = 1, d_model: int = 64,
+    ) -> None:
         super().__init__()
         self.emb_dim = emb_dim
+        self.d_model = d_model
 
-        # Embedding tables
+        # Embedding tables (unchanged)
         self.card_emb = nn.Embedding(CARD_VOCAB.size, emb_dim)
         self.unit_emb = nn.Embedding(UNIT_VOCAB.size, emb_dim)
         self.enemy_emb = nn.Embedding(ENEMY_VOCAB.size, emb_dim)
@@ -236,111 +370,161 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         self.skill_emb = nn.Embedding(SKILL_VOCAB.size, emb_dim)
         self.map_site_emb = nn.Embedding(SITE_VOCAB.size, emb_dim)  # separate weights for map sites
 
-        # State encoder:
-        # scalars(83) + 5×emb (mode, hand, terrain, site, skills)
-        # + unit pool (emb + UNIT_SCALAR_DIM)
-        # + combat enemy pool (emb + COMBAT_ENEMY_SCALAR_DIM)
-        # + visible sites pool (emb + SITE_SCALAR_DIM)
-        # + map enemy pool (emb + MAP_ENEMY_SCALAR_DIM)
-        state_input_dim = (
-            STATE_SCALAR_DIM
-            + 5 * emb_dim
-            + (emb_dim + UNIT_SCALAR_DIM)
-            + (emb_dim + COMBAT_ENEMY_SCALAR_DIM)
-            + (emb_dim + SITE_SCALAR_DIM)
-            + (emb_dim + MAP_ENEMY_SCALAR_DIM)
-        )
+        # Entity pool encoders (self-attention + PMA, replaces mean-pooling)
+        self.hand_pool_enc = EntityPoolEncoder(emb_dim, d_model)
+        self.unit_pool_enc = EntityPoolEncoder(emb_dim + UNIT_SCALAR_DIM, d_model)
+        self.combat_enemy_pool_enc = EntityPoolEncoder(emb_dim + COMBAT_ENEMY_SCALAR_DIM, d_model)
+        self.skill_pool_enc = EntityPoolEncoder(emb_dim, d_model)
+        self.visible_site_pool_enc = EntityPoolEncoder(emb_dim + SITE_SCALAR_DIM, d_model)
+        self.map_enemy_pool_enc = EntityPoolEncoder(emb_dim + MAP_ENEMY_SCALAR_DIM, d_model)
+        self.deck_pool_enc = EntityPoolEncoder(emb_dim, d_model)
+        self.discard_pool_enc = EntityPoolEncoder(emb_dim, d_model)
+
+        # Entity type embeddings (added to per-entity vectors for cross-attention)
+        self.entity_type_emb = nn.Embedding(8, d_model)
+
+        # State encoder: scalars + 3 fixed embs (mode, terrain, site) + 8 pool summaries
+        state_input_dim = STATE_SCALAR_DIM + 3 * emb_dim + 8 * d_model
         self.state_encoder = _build_encoder(state_input_dim, hidden_size, num_hidden_layers)
 
-        # Action encoder: action_type_emb + source_emb + card_emb + unit_emb + enemy_emb + skill_emb
-        #                 + target_enemy_pool(emb_dim) + scalars
+        # Action encoder (unchanged)
         action_input_dim = 7 * emb_dim + ACTION_SCALAR_DIM
         self.action_encoder = _build_encoder(action_input_dim, hidden_size, num_hidden_layers)
 
-        # Score: concat state_repr + action_repr → hidden → 1
-        self.scoring_head = nn.Sequential(
-            nn.Linear(2 * hidden_size, hidden_size),
-            nn.Tanh(),
-            nn.Linear(hidden_size, 1),
-        )
+        # Cross-attention scorer (replaces MLP scoring_head)
+        self.cross_attn_scorer = CrossAttentionScorer(hidden_size, d_model)
 
         # Value head: state_repr → scalar V(s)
         self.value_head = nn.Linear(hidden_size, 1)
 
-        # Pre-allocated zero vectors to avoid repeated torch.zeros calls
-        self.register_buffer("_zero_emb", torch.zeros(emb_dim))
-        self.register_buffer("_zero_unit_pool", torch.zeros(emb_dim + UNIT_SCALAR_DIM))
-        self.register_buffer("_zero_combat_enemy_pool", torch.zeros(emb_dim + COMBAT_ENEMY_SCALAR_DIM))
-        self.register_buffer("_zero_site_pool", torch.zeros(emb_dim + SITE_SCALAR_DIM))
-        self.register_buffer("_zero_map_enemy_pool", torch.zeros(emb_dim + MAP_ENEMY_SCALAR_DIM))
+    def _encode_state_input(
+        self, sf: StateFeatures, device: torch.device,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Build state input vector and entity sequence for a single state.
 
-    def _encode_state_input(self, sf: StateFeatures, device: torch.device) -> torch.Tensor:
-        """Build raw state input vector (before state_encoder) for a single state."""
+        Returns:
+            state_input: (state_input_dim,) raw vector for state_encoder
+            entity_seq: (1, E, d_model) unified entity sequence for cross-attention
+            entity_mask: (1, E) bool mask (True = valid)
+        """
         scalars = torch.tensor(sf.scalars, dtype=torch.float32, device=device)
-
-        # Standard single-lookup embeddings
         mode_vec = self.mode_emb(torch.tensor(sf.mode_id, device=device))
         terrain_vec = self.terrain_emb(torch.tensor(sf.current_terrain_id, device=device))
         site_vec = self.site_emb(torch.tensor(sf.current_site_type_id, device=device))
 
-        # Mean-pool hand card embeddings
+        summaries: list[torch.Tensor] = []
+        entity_parts: list[torch.Tensor] = []
+        mask_parts: list[torch.Tensor] = []
+
+        def _run_pool(
+            pool_enc: EntityPoolEncoder, x: torch.Tensor,
+            m: torch.Tensor, type_idx: int,
+        ) -> None:
+            s, ent = pool_enc(x, m)
+            summaries.append(s.squeeze(0))
+            entity_parts.append(ent.squeeze(0) + self.entity_type_emb.weight[type_idx])
+            mask_parts.append(m.squeeze(0))
+
+        emb = self.emb_dim
+
+        # Pool 0: hand cards
         if sf.hand_card_ids:
-            hand_ids = torch.tensor(sf.hand_card_ids, dtype=torch.long, device=device)
-            hand_pool = self.card_emb(hand_ids).mean(dim=0)
+            h_ids = torch.tensor(sf.hand_card_ids, dtype=torch.long, device=device)
+            h_x = self.card_emb(h_ids).unsqueeze(0)
+            h_m = torch.ones(1, len(sf.hand_card_ids), dtype=torch.bool, device=device)
         else:
-            hand_pool = self._zero_emb
+            h_x = torch.zeros(1, 0, emb, device=device)
+            h_m = torch.zeros(1, 0, dtype=torch.bool, device=device)
+        _run_pool(self.hand_pool_enc, h_x, h_m, 0)
 
-        # Mean-pool unit embeddings + per-unit scalars
+        # Pool 1: units (embedding + scalars)
         if sf.unit_ids:
-            unit_ids_t = torch.tensor(sf.unit_ids, dtype=torch.long, device=device)
-            unit_embs = self.unit_emb(unit_ids_t)  # (N, emb_dim)
-            unit_scalar_t = torch.tensor(sf.unit_scalars, dtype=torch.float32, device=device)  # (N, UNIT_SCALAR_DIM)
-            unit_pool = torch.cat([unit_embs, unit_scalar_t], dim=1).mean(dim=0)  # (emb_dim + UNIT_SCALAR_DIM,)
+            u_ids = torch.tensor(sf.unit_ids, dtype=torch.long, device=device)
+            u_embs = self.unit_emb(u_ids)
+            u_sc = torch.tensor(sf.unit_scalars, dtype=torch.float32, device=device)
+            u_x = torch.cat([u_embs, u_sc], dim=-1).unsqueeze(0)
+            u_m = torch.ones(1, len(sf.unit_ids), dtype=torch.bool, device=device)
         else:
-            unit_pool = self._zero_unit_pool
+            u_x = torch.zeros(1, 0, emb + UNIT_SCALAR_DIM, device=device)
+            u_m = torch.zeros(1, 0, dtype=torch.bool, device=device)
+        _run_pool(self.unit_pool_enc, u_x, u_m, 1)
 
-        # Mean-pool combat enemy embeddings + per-enemy scalars
+        # Pool 2: combat enemies (embedding + scalars)
         if sf.combat_enemy_ids:
-            enemy_ids_t = torch.tensor(sf.combat_enemy_ids, dtype=torch.long, device=device)
-            enemy_embs = self.enemy_emb(enemy_ids_t)  # (N, emb_dim)
-            enemy_scalar_t = torch.tensor(sf.combat_enemy_scalars, dtype=torch.float32, device=device)  # (N, COMBAT_ENEMY_SCALAR_DIM)
-            combined = torch.cat([enemy_embs, enemy_scalar_t], dim=1)  # (N, emb_dim + COMBAT_ENEMY_SCALAR_DIM)
-            combat_enemy_pool = combined.mean(dim=0)  # (emb_dim + COMBAT_ENEMY_SCALAR_DIM,)
+            ce_ids = torch.tensor(sf.combat_enemy_ids, dtype=torch.long, device=device)
+            ce_embs = self.enemy_emb(ce_ids)
+            ce_sc = torch.tensor(sf.combat_enemy_scalars, dtype=torch.float32, device=device)
+            ce_x = torch.cat([ce_embs, ce_sc], dim=-1).unsqueeze(0)
+            ce_m = torch.ones(1, len(sf.combat_enemy_ids), dtype=torch.bool, device=device)
         else:
-            combat_enemy_pool = self._zero_combat_enemy_pool
+            ce_x = torch.zeros(1, 0, emb + COMBAT_ENEMY_SCALAR_DIM, device=device)
+            ce_m = torch.zeros(1, 0, dtype=torch.bool, device=device)
+        _run_pool(self.combat_enemy_pool_enc, ce_x, ce_m, 2)
 
-        # Mean-pool skill embeddings
+        # Pool 3: skills (embedding only)
         if sf.skill_ids:
-            skill_ids_t = torch.tensor(sf.skill_ids, dtype=torch.long, device=device)
-            skill_pool = self.skill_emb(skill_ids_t).mean(dim=0)
+            s_ids = torch.tensor(sf.skill_ids, dtype=torch.long, device=device)
+            s_x = self.skill_emb(s_ids).unsqueeze(0)
+            s_m = torch.ones(1, len(sf.skill_ids), dtype=torch.bool, device=device)
         else:
-            skill_pool = self._zero_emb
+            s_x = torch.zeros(1, 0, emb, device=device)
+            s_m = torch.zeros(1, 0, dtype=torch.bool, device=device)
+        _run_pool(self.skill_pool_enc, s_x, s_m, 3)
 
-        # Full map: visible sites pool (embedding + scalars, mean-pooled)
+        # Pool 4: visible sites (embedding + scalars)
         if sf.visible_site_ids:
-            site_ids_t = torch.tensor(sf.visible_site_ids, dtype=torch.long, device=device)
-            site_embs = self.map_site_emb(site_ids_t)  # (N, emb_dim)
-            site_scalar_t = torch.tensor(sf.visible_site_scalars, dtype=torch.float32, device=device)  # (N, 6)
-            combined = torch.cat([site_embs, site_scalar_t], dim=1)  # (N, emb_dim + 6)
-            visible_site_pool = combined.mean(dim=0)  # (emb_dim + 6,)
+            vs_ids = torch.tensor(sf.visible_site_ids, dtype=torch.long, device=device)
+            vs_embs = self.map_site_emb(vs_ids)
+            vs_sc = torch.tensor(sf.visible_site_scalars, dtype=torch.float32, device=device)
+            vs_x = torch.cat([vs_embs, vs_sc], dim=-1).unsqueeze(0)
+            vs_m = torch.ones(1, len(sf.visible_site_ids), dtype=torch.bool, device=device)
         else:
-            visible_site_pool = self._zero_site_pool
+            vs_x = torch.zeros(1, 0, emb + SITE_SCALAR_DIM, device=device)
+            vs_m = torch.zeros(1, 0, dtype=torch.bool, device=device)
+        _run_pool(self.visible_site_pool_enc, vs_x, vs_m, 4)
 
-        # Full map: per-enemy pool (shared enemy_emb + scalars, mean-pooled)
+        # Pool 5: map enemies (embedding + scalars)
         if sf.map_enemy_ids:
-            map_ids_t = torch.tensor(sf.map_enemy_ids, dtype=torch.long, device=device)
-            map_embs = self.enemy_emb(map_ids_t)  # (N, emb_dim) — shared with combat
-            map_scalar_t = torch.tensor(sf.map_enemy_scalars, dtype=torch.float32, device=device)  # (N, MAP_ENEMY_SCALAR_DIM)
-            map_enemy_pool = torch.cat([map_embs, map_scalar_t], dim=1).mean(dim=0)  # (emb_dim + MAP_ENEMY_SCALAR_DIM,)
+            me_ids = torch.tensor(sf.map_enemy_ids, dtype=torch.long, device=device)
+            me_embs = self.enemy_emb(me_ids)
+            me_sc = torch.tensor(sf.map_enemy_scalars, dtype=torch.float32, device=device)
+            me_x = torch.cat([me_embs, me_sc], dim=-1).unsqueeze(0)
+            me_m = torch.ones(1, len(sf.map_enemy_ids), dtype=torch.bool, device=device)
         else:
-            map_enemy_pool = self._zero_map_enemy_pool
+            me_x = torch.zeros(1, 0, emb + MAP_ENEMY_SCALAR_DIM, device=device)
+            me_m = torch.zeros(1, 0, dtype=torch.bool, device=device)
+        _run_pool(self.map_enemy_pool_enc, me_x, me_m, 5)
 
-        return torch.cat([
-            scalars,
-            mode_vec, hand_pool, unit_pool,
-            terrain_vec, site_vec, combat_enemy_pool, skill_pool,
-            visible_site_pool, map_enemy_pool,
-        ])
+        # Pool 6: deck cards (embedding only)
+        if sf.deck_card_ids:
+            dk_ids = torch.tensor(sf.deck_card_ids, dtype=torch.long, device=device)
+            dk_x = self.card_emb(dk_ids).unsqueeze(0)
+            dk_m = torch.ones(1, len(sf.deck_card_ids), dtype=torch.bool, device=device)
+        else:
+            dk_x = torch.zeros(1, 0, emb, device=device)
+            dk_m = torch.zeros(1, 0, dtype=torch.bool, device=device)
+        _run_pool(self.deck_pool_enc, dk_x, dk_m, 6)
+
+        # Pool 7: discard cards (embedding only)
+        if sf.discard_card_ids:
+            di_ids = torch.tensor(sf.discard_card_ids, dtype=torch.long, device=device)
+            di_x = self.card_emb(di_ids).unsqueeze(0)
+            di_m = torch.ones(1, len(sf.discard_card_ids), dtype=torch.bool, device=device)
+        else:
+            di_x = torch.zeros(1, 0, emb, device=device)
+            di_m = torch.zeros(1, 0, dtype=torch.bool, device=device)
+        _run_pool(self.discard_pool_enc, di_x, di_m, 7)
+
+        # Build state input: scalars + 3 fixed embs + 8 pool summaries
+        state_input = torch.cat([scalars, mode_vec, terrain_vec, site_vec, *summaries])
+
+        # Build unified entity sequence for cross-attention
+        all_ent = torch.cat(entity_parts, dim=0)  # (E, d_model)
+        all_mask = torch.cat(mask_parts, dim=0)    # (E,)
+        entity_seq = all_ent.unsqueeze(0)   # (1, E, d_model)
+        entity_mask = all_mask.unsqueeze(0)  # (1, E)
+
+        return state_input, entity_seq, entity_mask
 
     def _precompute_state_raw_tensors(
         self, transitions: list[Transition], device: torch.device,
@@ -371,6 +555,8 @@ class _EmbeddingActionScoringNetwork(nn.Module):
 
         # Variable-length pools — store as lists of per-transition tensors
         hand_card_ids: list[torch.Tensor] = []
+        deck_card_ids: list[torch.Tensor] = []
+        discard_card_ids: list[torch.Tensor] = []
         unit_ids: list[torch.Tensor] = []
         unit_scalars: list[torch.Tensor] = []
         combat_enemy_ids: list[torch.Tensor] = []
@@ -386,6 +572,14 @@ class _EmbeddingActionScoringNetwork(nn.Module):
             hand_card_ids.append(
                 torch.tensor(sf.hand_card_ids, dtype=torch.long, device=device)
                 if sf.hand_card_ids else torch.empty(0, dtype=torch.long, device=device)
+            )
+            deck_card_ids.append(
+                torch.tensor(sf.deck_card_ids, dtype=torch.long, device=device)
+                if sf.deck_card_ids else torch.empty(0, dtype=torch.long, device=device)
+            )
+            discard_card_ids.append(
+                torch.tensor(sf.discard_card_ids, dtype=torch.long, device=device)
+                if sf.discard_card_ids else torch.empty(0, dtype=torch.long, device=device)
             )
             unit_ids.append(
                 torch.tensor(sf.unit_ids, dtype=torch.long, device=device)
@@ -430,6 +624,8 @@ class _EmbeddingActionScoringNetwork(nn.Module):
             "terrain_ids": terrain_ids,
             "site_type_ids": site_type_ids,
             "hand_card_ids": hand_card_ids,
+            "deck_card_ids": deck_card_ids,
+            "discard_card_ids": discard_card_ids,
             "unit_ids": unit_ids,
             "unit_scalars": unit_scalars,
             "combat_enemy_ids": combat_enemy_ids,
@@ -443,99 +639,167 @@ class _EmbeddingActionScoringNetwork(nn.Module):
 
     def _encode_state_inputs_batched(
         self, raw: dict[str, Any], batch_indices: list[int],
-    ) -> torch.Tensor:
-        """Build state input vectors for a mini-batch, with live gradients.
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Build state input vectors and entity sequences for a mini-batch.
 
         Takes precomputed raw tensors and a list of transition indices.
-        Runs embedding lookups (with gradients) and mean-pools variable-length
-        entity pools, returning ``(bs, state_input_dim)`` ready for
-        ``state_encoder``.
+        Runs embedding lookups (with gradients) and EntityPoolEncoder attention.
+
+        Returns:
+            state_inputs: (bs, state_input_dim)
+            entity_seq: (bs, max_E, d_model)
+            entity_mask: (bs, max_E) bool
         """
         bs = len(batch_indices)
+        device = raw["scalars"].device
+        emb = self.emb_dim
+        d = self.d_model
 
         # Fixed-size lookups (batched)
-        scalars = raw["scalars"][batch_indices]                       # (bs, STATE_SCALAR_DIM)
-        mode_vec = self.mode_emb(raw["mode_ids"][batch_indices])      # (bs, emb)
-        terrain_vec = self.terrain_emb(raw["terrain_ids"][batch_indices])  # (bs, emb)
-        site_vec = self.site_emb(raw["site_type_ids"][batch_indices])     # (bs, emb)
+        scalars = raw["scalars"][batch_indices]
+        mode_vec = self.mode_emb(raw["mode_ids"][batch_indices])
+        terrain_vec = self.terrain_emb(raw["terrain_ids"][batch_indices])
+        site_vec = self.site_emb(raw["site_type_ids"][batch_indices])
 
-        # Variable-length pools — must iterate per-sample
-        emb = self.emb_dim
-        hand_pools = torch.zeros(bs, emb, device=scalars.device)
-        unit_pools = torch.zeros(bs, emb + UNIT_SCALAR_DIM, device=scalars.device)
-        combat_enemy_pools = torch.zeros(
-            bs, emb + COMBAT_ENEMY_SCALAR_DIM, device=scalars.device,
+        summaries: list[torch.Tensor] = []
+        entity_parts: list[torch.Tensor] = []
+        mask_parts: list[torch.Tensor] = []
+
+        def _pad_and_run_emb_pool(
+            pool_enc: EntityPoolEncoder, ids_key: str,
+            emb_table: nn.Embedding, type_idx: int,
+        ) -> None:
+            """Pad ID-only pool, embed, run through encoder."""
+            max_l = max(
+                (raw[ids_key][idx].numel() for idx in batch_indices), default=0,
+            )
+            if max_l > 0:
+                padded = torch.zeros(bs, max_l, dtype=torch.long, device=device)
+                mask = torch.zeros(bs, max_l, dtype=torch.bool, device=device)
+                for i, idx in enumerate(batch_indices):
+                    t = raw[ids_key][idx]
+                    ln = t.numel()
+                    if ln > 0:
+                        padded[i, :ln] = t
+                        mask[i, :ln] = True
+                x = emb_table(padded)
+                s, ent = pool_enc(x, mask)
+            else:
+                s = torch.zeros(bs, d, device=device)
+                ent = torch.zeros(bs, 0, d, device=device)
+                mask = torch.zeros(bs, 0, dtype=torch.bool, device=device)
+            summaries.append(s)
+            entity_parts.append(ent + self.entity_type_emb.weight[type_idx])
+            mask_parts.append(mask)
+
+        def _pad_and_run_emb_scalar_pool(
+            pool_enc: EntityPoolEncoder, ids_key: str, scalars_key: str,
+            emb_table: nn.Embedding, scalar_dim: int, type_idx: int,
+        ) -> None:
+            """Pad ID+scalar pool, embed, concatenate scalars, run encoder."""
+            max_l = max(
+                (raw[ids_key][idx].numel() for idx in batch_indices), default=0,
+            )
+            if max_l > 0:
+                padded_ids = torch.zeros(bs, max_l, dtype=torch.long, device=device)
+                padded_sc = torch.zeros(
+                    bs, max_l, scalar_dim, dtype=torch.float32, device=device,
+                )
+                mask = torch.zeros(bs, max_l, dtype=torch.bool, device=device)
+                for i, idx in enumerate(batch_indices):
+                    t = raw[ids_key][idx]
+                    ln = t.numel()
+                    if ln > 0:
+                        padded_ids[i, :ln] = t
+                        padded_sc[i, :ln] = raw[scalars_key][idx]
+                        mask[i, :ln] = True
+                x = torch.cat([emb_table(padded_ids), padded_sc], dim=-1)
+                s, ent = pool_enc(x, mask)
+            else:
+                s = torch.zeros(bs, d, device=device)
+                ent = torch.zeros(bs, 0, d, device=device)
+                mask = torch.zeros(bs, 0, dtype=torch.bool, device=device)
+            summaries.append(s)
+            entity_parts.append(ent + self.entity_type_emb.weight[type_idx])
+            mask_parts.append(mask)
+
+        # Pool 0: hand cards (emb only)
+        _pad_and_run_emb_pool(self.hand_pool_enc, "hand_card_ids", self.card_emb, 0)
+        # Pool 6: deck cards (emb only)
+        _pad_and_run_emb_pool(self.deck_pool_enc, "deck_card_ids", self.card_emb, 6)
+        # Pool 7: discard cards (emb only)
+        _pad_and_run_emb_pool(self.discard_pool_enc, "discard_card_ids", self.card_emb, 7)
+        # Pool 1: units (emb + scalars)
+        _pad_and_run_emb_scalar_pool(
+            self.unit_pool_enc, "unit_ids", "unit_scalars",
+            self.unit_emb, UNIT_SCALAR_DIM, 1,
         )
-        skill_pools = torch.zeros(bs, emb, device=scalars.device)
-        visible_site_pools = torch.zeros(
-            bs, emb + SITE_SCALAR_DIM, device=scalars.device,
+        # Pool 2: combat enemies (emb + scalars)
+        _pad_and_run_emb_scalar_pool(
+            self.combat_enemy_pool_enc, "combat_enemy_ids", "combat_enemy_scalars",
+            self.enemy_emb, COMBAT_ENEMY_SCALAR_DIM, 2,
         )
-        map_enemy_pools = torch.zeros(
-            bs, emb + MAP_ENEMY_SCALAR_DIM, device=scalars.device,
+        # Pool 3: skills (emb only)
+        _pad_and_run_emb_pool(self.skill_pool_enc, "skill_ids", self.skill_emb, 3)
+        # Pool 4: visible sites (emb + scalars)
+        _pad_and_run_emb_scalar_pool(
+            self.visible_site_pool_enc, "visible_site_ids", "visible_site_scalars",
+            self.map_site_emb, SITE_SCALAR_DIM, 4,
+        )
+        # Pool 5: map enemies (emb + scalars)
+        _pad_and_run_emb_scalar_pool(
+            self.map_enemy_pool_enc, "map_enemy_ids", "map_enemy_scalars",
+            self.enemy_emb, MAP_ENEMY_SCALAR_DIM, 5,
         )
 
-        for i, idx in enumerate(batch_indices):
-            # Hand cards
-            hids = raw["hand_card_ids"][idx]
-            if hids.numel() > 0:
-                hand_pools[i] = self.card_emb(hids).mean(dim=0)
+        state_inputs = torch.cat(
+            [scalars, mode_vec, terrain_vec, site_vec, *summaries], dim=-1,
+        )
+        entity_seq = torch.cat(entity_parts, dim=1)
+        entity_mask_all = torch.cat(mask_parts, dim=1)
 
-            # Units (embedding + per-unit scalars)
-            uids = raw["unit_ids"][idx]
-            if uids.numel() > 0:
-                u_embs = self.unit_emb(uids)
-                u_sc = raw["unit_scalars"][idx]
-                unit_pools[i] = torch.cat([u_embs, u_sc], dim=1).mean(dim=0)
+        return state_inputs, entity_seq, entity_mask_all
 
-            # Combat enemies
-            ceids = raw["combat_enemy_ids"][idx]
-            if ceids.numel() > 0:
-                ce_embs = self.enemy_emb(ceids)
-                ce_sc = raw["combat_enemy_scalars"][idx]
-                combat_enemy_pools[i] = torch.cat([ce_embs, ce_sc], dim=1).mean(dim=0)
+    def encode_state(
+        self, step: EncodedStep, device: torch.device,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Encode state features into repr + entity sequence.
 
-            # Skills
-            sids = raw["skill_ids"][idx]
-            if sids.numel() > 0:
-                skill_pools[i] = self.skill_emb(sids).mean(dim=0)
-
-            # Visible sites
-            vsids = raw["visible_site_ids"][idx]
-            if vsids.numel() > 0:
-                vs_embs = self.map_site_emb(vsids)
-                vs_sc = raw["visible_site_scalars"][idx]
-                visible_site_pools[i] = torch.cat([vs_embs, vs_sc], dim=1).mean(dim=0)
-
-            # Map enemies
-            meids = raw["map_enemy_ids"][idx]
-            if meids.numel() > 0:
-                me_embs = self.enemy_emb(meids)
-                me_sc = raw["map_enemy_scalars"][idx]
-                map_enemy_pools[i] = torch.cat([me_embs, me_sc], dim=1).mean(dim=0)
-
-        return torch.cat([
-            scalars,
-            mode_vec, hand_pools, unit_pools,
-            terrain_vec, site_vec, combat_enemy_pools, skill_pools,
-            visible_site_pools, map_enemy_pools,
-        ], dim=-1)  # (bs, state_input_dim)
-
-    def encode_state(self, step: EncodedStep, device: torch.device) -> torch.Tensor:
-        """Encode state features into a single vector. Computed once per step."""
-        state_input = self._encode_state_input(step.state, device)
-        return self.state_encoder(state_input)
+        Returns (state_repr, entity_seq, entity_mask).
+        """
+        state_input, entity_seq, entity_mask = self._encode_state_input(step.state, device)
+        state_repr = self.state_encoder(state_input)
+        return state_repr, entity_seq, entity_mask
 
     def encode_state_batch(
         self, steps: list[EncodedStep], device: torch.device,
-    ) -> torch.Tensor:
-        """Batch-encode multiple states in a single forward pass.
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Batch-encode multiple states.
 
-        Returns (B, hidden) tensor of state representations.
+        Returns (state_reprs (B, hidden), entity_seq (B, E, d_model),
+                 entity_mask (B, E)).
         """
-        inputs = torch.stack([
-            self._encode_state_input(step.state, device) for step in steps
-        ])  # (B, state_input_dim)
-        return self.state_encoder(inputs)  # (B, hidden)
+        state_inputs = []
+        entity_seqs: list[torch.Tensor] = []
+        entity_masks: list[torch.Tensor] = []
+        for step in steps:
+            si, es, em = self._encode_state_input(step.state, device)
+            state_inputs.append(si)
+            entity_seqs.append(es.squeeze(0))   # (E_i, d_model)
+            entity_masks.append(em.squeeze(0))  # (E_i,)
+        state_reprs = self.state_encoder(torch.stack(state_inputs))  # (B, hidden)
+        # Pad entity sequences to uniform length
+        max_e = max((es.shape[0] for es in entity_seqs), default=0)
+        B = len(steps)
+        d = self.d_model
+        entity_seq = torch.zeros(B, max_e, d, device=device)
+        entity_mask = torch.zeros(B, max_e, dtype=torch.bool, device=device)
+        for i, (es, em) in enumerate(zip(entity_seqs, entity_masks)):
+            e = es.shape[0]
+            if e > 0:
+                entity_seq[i, :e] = es
+                entity_mask[i, :e] = em
+        return state_reprs, entity_seq, entity_mask
 
     def encode_actions(self, step: EncodedStep, device: torch.device) -> torch.Tensor:
         """Encode all candidate actions into (N, hidden) tensor."""
@@ -574,20 +838,22 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         return self.action_encoder(action_input)  # (N, hidden)
 
     def forward(
-        self, step: EncodedStep, device: torch.device
+        self, step: EncodedStep, device: torch.device,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Score all candidates and estimate state value.
 
         Returns (logits: (N,), value: scalar).
         """
-        state_repr = self.encode_state(step, device)  # (hidden,)
+        state_repr, entity_seq, entity_mask = self.encode_state(step, device)
         action_reprs = self.encode_actions(step, device)  # (N, hidden)
-        n = action_reprs.size(0)
 
-        # Broadcast state to all candidates
-        state_broadcast = state_repr.unsqueeze(0).expand(n, -1)  # (N, hidden)
-        combined = torch.cat([state_broadcast, action_reprs], dim=-1)  # (N, 2*hidden)
-        logits = self.scoring_head(combined).squeeze(-1)  # (N,)
+        # Cross-attention scoring (add batch dim, then squeeze)
+        logits = self.cross_attn_scorer(
+            state_repr.unsqueeze(0),       # (1, hidden)
+            action_reprs.unsqueeze(0),     # (1, N, hidden)
+            entity_seq,                     # (1, E, d_model)
+            entity_mask,                    # (1, E)
+        ).squeeze(0)  # (N,)
 
         value = self.value_head(state_repr).squeeze(-1)  # scalar
         return logits, value
@@ -609,101 +875,129 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         action_counts = batch_dict["action_counts"]  # (N,)
         max_m = int(action_counts.max())
 
-        # ── State encoding ────────────────────────────────────────────
-        scalars_t = torch.tensor(batch_dict["state_scalars"], dtype=torch.float32, device=device)  # (N, 76)
-        state_ids_t = torch.tensor(batch_dict["state_ids"], dtype=torch.long, device=device)  # (N, 3)
+        # ── State encoding with attention pools ──────────────────────
+        scalars_t = torch.tensor(batch_dict["state_scalars"], dtype=torch.float32, device=device)
+        state_ids_t = torch.tensor(batch_dict["state_ids"], dtype=torch.long, device=device)
 
-        mode_vec = self.mode_emb(state_ids_t[:, 0])        # (N, emb)
-        terrain_vec = self.terrain_emb(state_ids_t[:, 1])   # (N, emb)
-        site_vec = self.site_emb(state_ids_t[:, 2])         # (N, emb)
+        mode_vec = self.mode_emb(state_ids_t[:, 0])
+        terrain_vec = self.terrain_emb(state_ids_t[:, 1])
+        site_vec = self.site_emb(state_ids_t[:, 2])
 
         emb = self.emb_dim
+        d = self.d_model
+        pool_summaries: list[torch.Tensor] = []
+        entity_parts: list[torch.Tensor] = []
+        mask_parts: list[torch.Tensor] = []
 
-        # Mean-pool hand card embeddings per env
-        hand_ids_t = torch.tensor(batch_dict["hand_card_ids"], dtype=torch.long, device=device)  # (N, max_H)
-        hand_counts_t = torch.tensor(batch_dict["hand_counts"], dtype=torch.long, device=device)  # (N,)
-        hand_embs = self.card_emb(hand_ids_t)  # (N, max_H, emb)
-        hand_mask = torch.arange(hand_ids_t.shape[1], device=device).unsqueeze(0) < hand_counts_t.unsqueeze(1)  # (N, max_H)
-        hand_embs_masked = hand_embs * hand_mask.unsqueeze(-1).float()
-        hand_pool = hand_embs_masked.sum(dim=1) / hand_counts_t.clamp(min=1).unsqueeze(-1).float()  # (N, emb)
+        def _run_emb_pool(
+            pool_enc: EntityPoolEncoder, ids_np: Any, counts_np: Any,
+            emb_table: nn.Embedding, type_idx: int,
+        ) -> None:
+            ids_t = torch.tensor(ids_np, dtype=torch.long, device=device)
+            counts_t = torch.tensor(counts_np, dtype=torch.long, device=device)
+            max_l = ids_t.shape[1]
+            if max_l > 0:
+                x = emb_table(ids_t)
+                mask = torch.arange(max_l, device=device).unsqueeze(0) < counts_t.unsqueeze(1)
+                s, ent = pool_enc(x, mask)
+            else:
+                s = torch.zeros(n, d, device=device)
+                ent = torch.zeros(n, 0, d, device=device)
+                mask = torch.zeros(n, 0, dtype=torch.bool, device=device)
+            pool_summaries.append(s)
+            entity_parts.append(ent + self.entity_type_emb.weight[type_idx])
+            mask_parts.append(mask)
 
-        # Mean-pool unit embeddings per env
-        unit_ids_t = torch.tensor(batch_dict["unit_ids"], dtype=torch.long, device=device)  # (N, max_U)
-        unit_counts_t = torch.tensor(batch_dict["unit_counts"], dtype=torch.long, device=device)  # (N,)
-        unit_embs = self.unit_emb(unit_ids_t)  # (N, max_U, emb)
-        unit_mask = torch.arange(unit_ids_t.shape[1], device=device).unsqueeze(0) < unit_counts_t.unsqueeze(1)
-        unit_embs_masked = unit_embs * unit_mask.unsqueeze(-1).float()
-        unit_pool = unit_embs_masked.sum(dim=1) / unit_counts_t.clamp(min=1).unsqueeze(-1).float()
+        def _run_emb_scalar_pool(
+            pool_enc: EntityPoolEncoder, ids_np: Any, counts_np: Any,
+            scalars_np: Any, emb_table: nn.Embedding,
+            scalar_dim: int, type_idx: int,
+        ) -> None:
+            ids_t = torch.tensor(ids_np, dtype=torch.long, device=device)
+            counts_t = torch.tensor(counts_np, dtype=torch.long, device=device)
+            max_l = ids_t.shape[1]
+            if max_l > 0:
+                embs = emb_table(ids_t)
+                sc_flat = torch.tensor(scalars_np, dtype=torch.float32, device=device)
+                sc = sc_flat.view(n, max_l, scalar_dim)
+                x = torch.cat([embs, sc], dim=-1)
+                mask = torch.arange(max_l, device=device).unsqueeze(0) < counts_t.unsqueeze(1)
+                s, ent = pool_enc(x, mask)
+            else:
+                s = torch.zeros(n, d, device=device)
+                ent = torch.zeros(n, 0, d, device=device)
+                mask = torch.zeros(n, 0, dtype=torch.bool, device=device)
+            pool_summaries.append(s)
+            entity_parts.append(ent + self.entity_type_emb.weight[type_idx])
+            mask_parts.append(mask)
 
-        # Mean-pool combat enemy embeddings + scalars
-        ce_ids_t = torch.tensor(batch_dict["combat_enemy_ids"], dtype=torch.long, device=device)  # (N, max_CE)
-        ce_counts_t = torch.tensor(batch_dict["combat_enemy_counts"], dtype=torch.long, device=device)  # (N,)
-        max_ce = ce_ids_t.shape[1]
-        ce_embs = self.enemy_emb(ce_ids_t)  # (N, max_CE, emb)
-        ce_scalars_flat = torch.tensor(batch_dict["combat_enemy_scalars"], dtype=torch.float32, device=device)  # (N*max_CE, CES_DIM)
-        ce_scalars_t = ce_scalars_flat.view(n, max_ce, -1)  # (N, max_CE, CES_DIM)
-        ce_combined = torch.cat([ce_embs, ce_scalars_t], dim=-1)  # (N, max_CE, emb+CES_DIM)
-        ce_mask = torch.arange(max_ce, device=device).unsqueeze(0) < ce_counts_t.unsqueeze(1)
-        ce_masked = ce_combined * ce_mask.unsqueeze(-1).float()
-        ce_pool = ce_masked.sum(dim=1) / ce_counts_t.clamp(min=1).unsqueeze(-1).float()  # (N, emb+CES_DIM)
+        # Pool 0: hand cards
+        _run_emb_pool(
+            self.hand_pool_enc, batch_dict["hand_card_ids"],
+            batch_dict["hand_counts"], self.card_emb, 0,
+        )
+        # Pool 6: deck cards
+        _run_emb_pool(
+            self.deck_pool_enc, batch_dict["deck_card_ids"],
+            batch_dict["deck_counts"], self.card_emb, 6,
+        )
+        # Pool 7: discard cards
+        _run_emb_pool(
+            self.discard_pool_enc, batch_dict["discard_card_ids"],
+            batch_dict["discard_counts"], self.card_emb, 7,
+        )
+        # Pool 1: units
+        _run_emb_scalar_pool(
+            self.unit_pool_enc, batch_dict["unit_ids"],
+            batch_dict["unit_counts"], batch_dict["unit_scalars"],
+            self.unit_emb, UNIT_SCALAR_DIM, 1,
+        )
+        # Pool 2: combat enemies
+        _run_emb_scalar_pool(
+            self.combat_enemy_pool_enc, batch_dict["combat_enemy_ids"],
+            batch_dict["combat_enemy_counts"], batch_dict["combat_enemy_scalars"],
+            self.enemy_emb, COMBAT_ENEMY_SCALAR_DIM, 2,
+        )
+        # Pool 3: skills
+        _run_emb_pool(
+            self.skill_pool_enc, batch_dict["skill_ids"],
+            batch_dict["skill_counts"], self.skill_emb, 3,
+        )
+        # Pool 4: visible sites
+        _run_emb_scalar_pool(
+            self.visible_site_pool_enc, batch_dict["visible_site_ids"],
+            batch_dict["visible_site_counts"], batch_dict["visible_site_scalars"],
+            self.map_site_emb, SITE_SCALAR_DIM, 4,
+        )
+        # Pool 5: map enemies
+        _run_emb_scalar_pool(
+            self.map_enemy_pool_enc, batch_dict["map_enemy_ids"],
+            batch_dict["map_enemy_counts"], batch_dict["map_enemy_scalars"],
+            self.enemy_emb, MAP_ENEMY_SCALAR_DIM, 5,
+        )
 
-        # Mean-pool skill embeddings
-        skill_ids_t = torch.tensor(batch_dict["skill_ids"], dtype=torch.long, device=device)  # (N, max_S)
-        skill_counts_t = torch.tensor(batch_dict["skill_counts"], dtype=torch.long, device=device)
-        skill_embs = self.skill_emb(skill_ids_t)
-        skill_mask = torch.arange(skill_ids_t.shape[1], device=device).unsqueeze(0) < skill_counts_t.unsqueeze(1)
-        skill_embs_masked = skill_embs * skill_mask.unsqueeze(-1).float()
-        skill_pool = skill_embs_masked.sum(dim=1) / skill_counts_t.clamp(min=1).unsqueeze(-1).float()
+        # Build state input and entity sequence
+        state_input = torch.cat(
+            [scalars_t, mode_vec, terrain_vec, site_vec, *pool_summaries], dim=-1,
+        )
+        state_reprs = self.state_encoder(state_input)
+        values = self.value_head(state_reprs).squeeze(-1)
 
-        # Mean-pool visible site embeddings + scalars
-        vs_ids_t = torch.tensor(batch_dict["visible_site_ids"], dtype=torch.long, device=device)  # (N, max_VS)
-        vs_counts_t = torch.tensor(batch_dict["visible_site_counts"], dtype=torch.long, device=device)
-        max_vs = vs_ids_t.shape[1]
-        vs_embs = self.map_site_emb(vs_ids_t)  # (N, max_VS, emb)
-        vs_scalars_flat = torch.tensor(batch_dict["visible_site_scalars"], dtype=torch.float32, device=device)  # (N*max_VS, SITE_DIM)
-        vs_scalars_t = vs_scalars_flat.view(n, max_vs, -1)
-        vs_combined = torch.cat([vs_embs, vs_scalars_t], dim=-1)
-        vs_mask = torch.arange(max_vs, device=device).unsqueeze(0) < vs_counts_t.unsqueeze(1)
-        vs_masked = vs_combined * vs_mask.unsqueeze(-1).float()
-        vs_pool = vs_masked.sum(dim=1) / vs_counts_t.clamp(min=1).unsqueeze(-1).float()
+        entity_seq = torch.cat(entity_parts, dim=1)     # (N, E, d_model)
+        entity_mask_all = torch.cat(mask_parts, dim=1)   # (N, E)
 
-        # Mean-pool map enemy embeddings + scalars
-        me_ids_t = torch.tensor(batch_dict["map_enemy_ids"], dtype=torch.long, device=device)  # (N, max_ME)
-        me_counts_t = torch.tensor(batch_dict["map_enemy_counts"], dtype=torch.long, device=device)
-        max_me = me_ids_t.shape[1]
-        me_embs = self.enemy_emb(me_ids_t)
-        me_scalars_flat = torch.tensor(batch_dict["map_enemy_scalars"], dtype=torch.float32, device=device)
-        me_scalars_t = me_scalars_flat.view(n, max_me, -1)
-        me_combined = torch.cat([me_embs, me_scalars_t], dim=-1)
-        me_mask = torch.arange(max_me, device=device).unsqueeze(0) < me_counts_t.unsqueeze(1)
-        me_masked = me_combined * me_mask.unsqueeze(-1).float()
-        me_pool = me_masked.sum(dim=1) / me_counts_t.clamp(min=1).unsqueeze(-1).float()
-
-        # Concatenate state input — same order as _encode_state_input
-        state_input = torch.cat([
-            scalars_t,
-            mode_vec, hand_pool, unit_pool,
-            terrain_vec, site_vec, ce_pool, skill_pool,
-            vs_pool, me_pool,
-        ], dim=-1)  # (N, state_input_dim)
-
-        state_reprs = self.state_encoder(state_input)  # (N, hidden)
-        values = self.value_head(state_reprs).squeeze(-1)  # (N,)
-
-        # ── Action encoding ───────────────────────────────────────────
-        # action_ids: (N*max_M, 6) → reshape to (N, max_M, 6)
-        action_ids_flat = torch.tensor(batch_dict["action_ids"], dtype=torch.long, device=device)  # (N*max_M, 6)
+        # ── Action encoding (unchanged) ──────────────────────────────
+        action_ids_flat = torch.tensor(batch_dict["action_ids"], dtype=torch.long, device=device)
         action_ids_3d = action_ids_flat.view(n, max_m, 6)
-        action_scalars_flat = torch.tensor(batch_dict["action_scalars"], dtype=torch.float32, device=device)  # (N*max_M, 34)
+        action_scalars_flat = torch.tensor(batch_dict["action_scalars"], dtype=torch.float32, device=device)
         action_scalars_3d = action_scalars_flat.view(n, max_m, -1)
 
-        # Build target enemy pools from CSR offsets
-        target_offsets = batch_dict["action_target_offsets"]  # (N*(max_M+1),)
-        target_ids_np = batch_dict["action_target_ids"]  # (T_total,)
+        target_offsets = batch_dict["action_target_offsets"]
+        target_ids_np = batch_dict["action_target_ids"]
         target_pools = torch.zeros(n, max_m, emb, device=device)
         if len(target_ids_np) > 0:
             all_target_ids = torch.tensor(target_ids_np, dtype=torch.long, device=device)
-            all_target_embs = self.enemy_emb(all_target_ids)  # (T_total, emb)
+            all_target_embs = self.enemy_emb(all_target_ids)
             for env_i in range(n):
                 ac_i = int(action_counts[env_i])
                 base = env_i * (max_m + 1)
@@ -713,7 +1007,6 @@ class _EmbeddingActionScoringNetwork(nn.Module):
                     if end > start:
                         target_pools[env_i, j] = all_target_embs[start:end].mean(dim=0)
 
-        # Flatten for action encoder
         flat_ids = action_ids_3d.view(n * max_m, 6)
         flat_scalars = action_scalars_3d.view(n * max_m, -1)
         flat_targets = target_pools.view(n * max_m, emb)
@@ -727,20 +1020,20 @@ class _EmbeddingActionScoringNetwork(nn.Module):
             self.skill_emb(flat_ids[:, 5]),
             flat_targets,
             flat_scalars,
-        ], dim=-1)  # (N*max_M, 7*emb + ACTION_SCALAR_DIM)
+        ], dim=-1)
 
-        flat_action_reprs = self.action_encoder(flat_action_input)  # (N*max_M, hidden)
-        action_reprs = flat_action_reprs.view(n, max_m, -1)  # (N, max_M, hidden)
+        flat_action_reprs = self.action_encoder(flat_action_input)
+        action_reprs = flat_action_reprs.view(n, max_m, -1)
 
-        # Scoring
-        state_expanded = state_reprs.unsqueeze(1).expand(-1, max_m, -1)  # (N, max_M, hidden)
-        combined = torch.cat([state_expanded, action_reprs], dim=-1)  # (N, max_M, 2*hidden)
-        logits = self.scoring_head(combined.view(-1, combined.size(-1))).squeeze(-1).view(n, max_m)  # (N, max_M)
+        # Cross-attention scoring
+        logits = self.cross_attn_scorer(
+            state_reprs, action_reprs, entity_seq, entity_mask_all,
+        )
 
         # Mask invalid positions
-        ac_t = torch.tensor(action_counts, dtype=torch.long, device=device)  # (N,)
-        mask = torch.arange(max_m, device=device).unsqueeze(0) < ac_t.unsqueeze(1)  # (N, max_M)
-        logits = logits.masked_fill(~mask, float("-inf"))
+        ac_t = torch.tensor(action_counts, dtype=torch.long, device=device)
+        action_mask = torch.arange(max_m, device=device).unsqueeze(0) < ac_t.unsqueeze(1)
+        logits = logits.masked_fill(~action_mask, float("-inf"))
 
         return logits, values
 
@@ -754,7 +1047,7 @@ class ReinforcePolicy:
 
         self._network = _EmbeddingActionScoringNetwork(
             self.config.hidden_size, self.config.embedding_dim,
-            self.config.num_hidden_layers,
+            self.config.num_hidden_layers, self.config.d_model,
         ).to(self._device)
         self._optimizer = torch.optim.Adam(self._network.parameters(), lr=self.config.learning_rate)
 
@@ -782,6 +1075,8 @@ class ReinforcePolicy:
         self._network.train()
         logits, value = self._network(encoded_step, self._device)
 
+        # Clamp finite logits to prevent NaN from exploding gradients
+        logits = logits.clamp(min=-50.0, max=50.0)
         log_probs = torch.log_softmax(logits, dim=0)
         selected_index = int(torch.multinomial(log_probs.exp(), 1).item())
 
@@ -816,6 +1111,9 @@ class ReinforcePolicy:
         self._network.train()
         logits, values = self._network.forward_batch(batch_dict, self._device)
         # logits: (N, max_M) with -inf at invalid positions
+        # Clamp finite logits to prevent NaN from exploding gradients
+        finite_mask = logits != float("-inf")
+        logits = logits.clamp(min=-50.0, max=50.0).masked_fill(~finite_mask, float("-inf"))
         log_probs_all = torch.log_softmax(logits, dim=-1)  # (N, max_M)
         probs = log_probs_all.exp()
         selected = torch.multinomial(probs, 1).squeeze(-1)  # (N,)
@@ -988,8 +1286,10 @@ class ReinforcePolicy:
 
                 self._optimizer.zero_grad(set_to_none=True)
 
-                # Embedding lookups with live gradients (not precomputed)
-                state_inputs = net._encode_state_inputs_batched(raw_state, batch)
+                # Embedding lookups + attention with live gradients
+                state_inputs, entity_seq, entity_mask = (
+                    net._encode_state_inputs_batched(raw_state, batch)
+                )
                 state_reprs = net.state_encoder(state_inputs)  # (bs, hidden)
                 values = net.value_head(state_reprs).squeeze(-1)  # (bs,)
 
@@ -1042,16 +1342,10 @@ class ReinforcePolicy:
                     bs, max_A, -1,
                 )  # (bs, max_A, hidden)
 
-                # Single batched scoring head
-                state_expanded = state_reprs.unsqueeze(1).expand(
-                    -1, max_A, -1,
-                )  # (bs, max_A, hidden)
-                combined = torch.cat(
-                    [state_expanded, action_reprs], dim=-1,
-                )  # (bs, max_A, 2*hidden)
-                logits = net.scoring_head(
-                    combined.view(-1, combined.size(-1)),
-                ).squeeze(-1).view(bs, max_A)  # (bs, max_A)
+                # Cross-attention scoring
+                logits = net.cross_attn_scorer(
+                    state_reprs, action_reprs, entity_seq, entity_mask,
+                )  # (bs, max_A)
 
                 # Masked log_softmax
                 logits = logits.masked_fill(~mask, float("-inf"))

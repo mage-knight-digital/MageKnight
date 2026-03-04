@@ -10,7 +10,7 @@ use mk_data::enemies::get_enemy;
 use mk_data::units::get_unit;
 use mk_engine::action_pipeline::{apply_legal_action, initial_events};
 use mk_engine::client_state::to_client_state;
-use mk_engine::legal_actions::{enumerate_legal_actions, enumerate_legal_actions_with_undo};
+use mk_engine::legal_actions::enumerate_legal_actions_with_undo;
 use mk_engine::setup::{create_solo_game, place_initial_tiles};
 use mk_engine::undo::UndoStack;
 use mk_types::effect::CardEffect;
@@ -208,9 +208,7 @@ fn run_replay(replay_path: PathBuf, step_mode: bool, from_step: Option<usize>) {
             return;
         }
 
-        // Use enumerate_legal_actions (no undo) to match the Python GameEngine,
-        // which records action indices without undo actions in the legal set.
-        let action_set = enumerate_legal_actions(&state, player_idx);
+        let action_set = enumerate_legal_actions_with_undo(&state, player_idx, &undo);
 
         if action_set.actions.is_empty() {
             println!("  Step {}: No legal actions — game stuck!", step_num);
@@ -364,7 +362,7 @@ fn run_replay_to_artifact(replay_path: PathBuf, artifact_path: PathBuf) {
             break;
         }
 
-        let action_set = enumerate_legal_actions(&state, player_idx);
+        let action_set = enumerate_legal_actions_with_undo(&state, player_idx, &undo);
 
         if action_set.actions.is_empty() {
             eprintln!("  Step {}: No legal actions — game stuck!", step_num);

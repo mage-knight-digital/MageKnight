@@ -4,6 +4,7 @@
 //! observations for efficient neural network forward passes.
 
 pub mod batch_output;
+pub mod training_scenario;
 
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::PathBuf;
@@ -12,12 +13,20 @@ use rayon::prelude::*;
 
 use mk_engine::action_pipeline::{apply_legal_action, ApplyError};
 use mk_engine::legal_actions::enumerate_legal_actions_with_undo;
-use mk_engine::setup::{create_solo_game, place_initial_tiles};
 use mk_engine::undo::UndoStack;
 use mk_features::EncodedStep;
 use mk_types::enums::Hero;
-use mk_types::legal_action::LegalActionSet;
+use mk_types::legal_action::{LegalAction, LegalActionSet};
 use mk_types::state::GameState;
+
+pub use training_scenario::TrainingScenario;
+use training_scenario::create_training_game;
+
+/// Remove Undo from an action set — RL agents should not use undo.
+fn filter_undo(mut action_set: LegalActionSet) -> LegalActionSet {
+    action_set.actions.retain(|a| !matches!(a, LegalAction::Undo));
+    action_set
+}
 
 use batch_output::BatchOutput;
 
@@ -50,36 +59,73 @@ struct SingleEnv {
     seed: u32,
     hero: Hero,
     max_steps: u64,
+    scenario: TrainingScenario,
+    /// Set of hex coordinates the player has visited (for exploration bonus).
+    visited_hexes: std::collections::BTreeSet<(i32, i32)>,
 }
 
 impl SingleEnv {
-    fn new(seed: u32, hero: Hero, max_steps: u64) -> Self {
-        let mut state = create_solo_game(seed, hero);
-        place_initial_tiles(&mut state);
-        let undo_stack = UndoStack::new();
-        let action_set = enumerate_legal_actions_with_undo(&state, 0, &undo_stack);
+    fn new(seed: u32, hero: Hero, max_steps: u64, scenario: TrainingScenario) -> Self {
+        let result = create_training_game(seed, hero, &scenario);
+        // Seed visited_hexes with starting position
+        let mut visited_hexes = std::collections::BTreeSet::new();
+        if let Some(pos) = result.state.players[0].position {
+            visited_hexes.insert((pos.q, pos.r));
+        }
         Self {
-            state,
-            undo_stack,
-            action_set,
+            state: result.state,
+            undo_stack: result.undo_stack,
+            action_set: result.action_set,
             step_count: 0,
             seed,
             hero,
             max_steps,
+            scenario,
+            visited_hexes,
         }
     }
 
     fn reset(&mut self, new_seed: u32) {
         self.seed = new_seed;
-        self.state = create_solo_game(new_seed, self.hero);
-        place_initial_tiles(&mut self.state);
-        self.undo_stack = UndoStack::new();
-        self.action_set = enumerate_legal_actions_with_undo(&self.state, 0, &self.undo_stack);
+        let result = create_training_game(new_seed, self.hero, &self.scenario);
+        self.state = result.state;
+        self.undo_stack = result.undo_stack;
+        self.action_set = result.action_set;
         self.step_count = 0;
+        self.visited_hexes.clear();
+        if let Some(pos) = self.state.players[0].position {
+            self.visited_hexes.insert((pos.q, pos.r));
+        }
     }
 
     fn fame(&self) -> u32 {
         self.state.players[0].fame
+    }
+
+    fn wound_count(&self) -> i32 {
+        self.state.players[0]
+            .hand
+            .iter()
+            .filter(|c| c.as_str() == "wound")
+            .count() as i32
+    }
+
+    fn non_wound_hand_size(&self) -> i32 {
+        self.state.players[0]
+            .hand
+            .iter()
+            .filter(|c| c.as_str() != "wound")
+            .count() as i32
+    }
+
+    /// Check if the player is on a hex they haven't visited before.
+    /// If so, record it and return true.
+    fn check_new_hex(&mut self) -> bool {
+        if let Some(pos) = self.state.players[0].position {
+            self.visited_hexes.insert((pos.q, pos.r))
+        } else {
+            false
+        }
     }
 
     fn is_done(&self) -> bool {
@@ -111,8 +157,17 @@ impl SingleEnv {
         match result {
             Ok(Ok((apply_result, new_actions))) => {
                 self.step_count += 1;
-                self.action_set = new_actions;
-                (apply_result.game_ended, false)
+                self.action_set = filter_undo(new_actions);
+
+                // In CombatDrill, end episode when combat resolves
+                let combat_drill_done =
+                    matches!(self.scenario, TrainingScenario::CombatDrill { .. })
+                        && self.state.combat.is_none();
+                if combat_drill_done {
+                    self.state.game_ended = true;
+                }
+
+                (apply_result.game_ended || combat_drill_done, false)
             }
             Ok(Err(e)) => {
                 eprintln!(
@@ -171,6 +226,12 @@ pub struct StepResult {
     pub truncated: Vec<bool>,
     /// (N,) — whether scenario end condition was triggered
     pub scenario_end_triggered: Vec<bool>,
+    /// (N,) — number of new hexes visited this step (0 or 1)
+    pub new_hexes: Vec<i32>,
+    /// (N,) — change in wound count this step (positive = gained wounds)
+    pub wound_deltas: Vec<i32>,
+    /// (N,) — number of non-wound cards in hand (captured before auto-reset)
+    pub non_wound_hand_sizes: Vec<i32>,
 }
 
 // =============================================================================
@@ -185,10 +246,16 @@ pub struct VecEnv {
 
 impl VecEnv {
     /// Create N parallel environments with incrementing seeds.
-    pub fn new(num_envs: usize, base_seed: u32, hero: Hero, max_steps: u64) -> Self {
+    pub fn new(
+        num_envs: usize,
+        base_seed: u32,
+        hero: Hero,
+        max_steps: u64,
+        scenario: TrainingScenario,
+    ) -> Self {
         let envs: Vec<SingleEnv> = (0..num_envs)
             .into_par_iter()
-            .map(|i| SingleEnv::new(base_seed + i as u32, hero, max_steps))
+            .map(|i| SingleEnv::new(base_seed + i as u32, hero, max_steps, scenario.clone()))
             .collect();
 
         Self {
@@ -227,8 +294,9 @@ impl VecEnv {
         let n = self.envs.len();
         assert_eq!(actions.len(), n, "actions length must match num_envs");
 
-        // Capture fames before stepping
+        // Capture fames and wounds before stepping
         let fames_before: Vec<i32> = self.envs.iter().map(|e| e.fame() as i32).collect();
+        let wounds_before: Vec<i32> = self.envs.iter().map(|e| e.wound_count()).collect();
 
         // Step all envs in parallel
         let results: Vec<(bool, bool)> = self
@@ -245,6 +313,13 @@ impl VecEnv {
             })
             .collect();
 
+        // Check for new hex visits (must be done before reset, requires &mut)
+        let new_hex_flags: Vec<bool> = self
+            .envs
+            .iter_mut()
+            .map(|env| env.check_new_hex())
+            .collect();
+
         // Compute deltas and dones
         let mut fame_deltas = Vec::with_capacity(n);
         let mut dones = Vec::with_capacity(n);
@@ -252,6 +327,9 @@ impl VecEnv {
         let mut panicked = Vec::with_capacity(n);
         let mut truncated = Vec::with_capacity(n);
         let mut scenario_end_triggered = Vec::with_capacity(n);
+        let mut new_hexes = Vec::with_capacity(n);
+        let mut wound_deltas = Vec::with_capacity(n);
+        let mut non_wound_hand_sizes = Vec::with_capacity(n);
 
         for (i, (game_ended, did_panic)) in results.iter().enumerate() {
             let env = &self.envs[i];
@@ -264,6 +342,9 @@ impl VecEnv {
             // Truncated = done due to max_steps, not natural game end
             truncated.push(done && !env.state.game_ended);
             scenario_end_triggered.push(env.state.scenario_end_triggered);
+            new_hexes.push(if new_hex_flags[i] { 1 } else { 0 });
+            wound_deltas.push(env.wound_count() - wounds_before[i]);
+            non_wound_hand_sizes.push(env.non_wound_hand_size());
         }
 
         // Auto-reset finished environments
@@ -282,6 +363,9 @@ impl VecEnv {
             panicked,
             truncated,
             scenario_end_triggered,
+            new_hexes,
+            wound_deltas,
+            non_wound_hand_sizes,
         }
     }
 
@@ -301,13 +385,13 @@ mod tests {
 
     #[test]
     fn vec_env_creation() {
-        let env = VecEnv::new(4, 42, Hero::Arythea, 100);
+        let env = VecEnv::new(4, 42, Hero::Arythea, 100, TrainingScenario::default());
         assert_eq!(env.num_envs(), 4);
     }
 
     #[test]
     fn encode_batch_shapes() {
-        let env = VecEnv::new(4, 42, Hero::Arythea, 100);
+        let env = VecEnv::new(4, 42, Hero::Arythea, 100, TrainingScenario::default());
         let batch = env.encode_batch();
         assert_eq!(batch.num_envs, 4);
         assert_eq!(batch.state_scalars.len(), 4 * mk_features::STATE_SCALAR_DIM);
@@ -324,7 +408,7 @@ mod tests {
 
     #[test]
     fn step_batch_random_actions() {
-        let mut env = VecEnv::new(4, 42, Hero::Arythea, 100);
+        let mut env = VecEnv::new(4, 42, Hero::Arythea, 100, TrainingScenario::default());
 
         for _ in 0..10 {
             let batch = env.encode_batch();
@@ -342,7 +426,7 @@ mod tests {
 
     #[test]
     fn auto_reset_on_max_steps() {
-        let mut env = VecEnv::new(1, 42, Hero::Arythea, 5);
+        let mut env = VecEnv::new(1, 42, Hero::Arythea, 5, TrainingScenario::default());
 
         // Step until the env is done
         let mut found_done = false;
@@ -363,7 +447,7 @@ mod tests {
 
     #[test]
     fn padding_consistency() {
-        let env = VecEnv::new(8, 1, Hero::Arythea, 100);
+        let env = VecEnv::new(8, 1, Hero::Arythea, 100, TrainingScenario::default());
         let batch = env.encode_batch();
 
         // action_ids should be (N * max_actions * 6)
@@ -377,6 +461,101 @@ mod tests {
             batch.action_scalars.len(),
             8 * batch.max_actions * 34,
             "action_scalars flat size mismatch"
+        );
+    }
+
+    #[test]
+    fn combat_drill_vec_env_runs() {
+        let scenario = TrainingScenario::CombatDrill {
+            enemy_tokens: vec!["diggers_1".to_string()],
+            is_fortified: false,
+            hand_override: None,
+            extra_cards: None,
+            units: None,
+            skills: None,
+            crystals: None,
+        };
+        let mut env = VecEnv::new(4, 42, Hero::Arythea, 50, scenario);
+        let batch = env.encode_batch();
+        assert_eq!(batch.num_envs, 4);
+
+        // All envs should start in combat with legal actions
+        for &c in &batch.action_counts {
+            assert!(c > 0, "Combat drill should have legal actions");
+        }
+
+        // Step a few times — should not panic
+        for _ in 0..20 {
+            let batch = env.encode_batch();
+            let actions: Vec<i32> = batch.action_counts.iter().map(|_| 0).collect();
+            let _result = env.step_batch(&actions);
+        }
+    }
+
+    #[test]
+    fn combat_drill_auto_resets() {
+        let scenario = TrainingScenario::CombatDrill {
+            enemy_tokens: vec!["diggers_1".to_string()],
+            is_fortified: false,
+            hand_override: None,
+            extra_cards: None,
+            units: None,
+            skills: None,
+            crystals: None,
+        };
+        let mut env = VecEnv::new(1, 42, Hero::Arythea, 10, scenario);
+
+        let mut found_done = false;
+        for _ in 0..50 {
+            let _batch = env.encode_batch();
+            let actions = vec![0i32; 1];
+            let result = env.step_batch(&actions);
+            if result.dones[0] {
+                found_done = true;
+                // Should auto-reset and still work
+                let batch2 = env.encode_batch();
+                assert!(batch2.action_counts[0] > 0, "Reset combat drill should have actions");
+                break;
+            }
+        }
+        assert!(found_done, "Combat drill should finish within 50 steps with max_steps=10");
+    }
+
+    #[test]
+    fn combat_drill_ends_when_combat_resolves() {
+        // Use a high max_steps so truncation isn't the cause of ending
+        let scenario = TrainingScenario::CombatDrill {
+            enemy_tokens: vec!["diggers_1".to_string()],
+            is_fortified: false,
+            hand_override: None,
+            extra_cards: None,
+            units: None,
+            skills: None,
+            crystals: None,
+        };
+        let mut env = VecEnv::new(1, 42, Hero::Arythea, 500, scenario);
+
+        let mut done_step = None;
+        for step in 0..200 {
+            let _batch = env.encode_batch();
+            let actions = vec![0i32; 1];
+            let result = env.step_batch(&actions);
+            if result.dones[0] {
+                done_step = Some(step);
+                // Should NOT be truncated — combat ended naturally
+                assert!(
+                    !result.truncated[0],
+                    "Combat drill end should not be truncated (should be natural game end)"
+                );
+                break;
+            }
+        }
+        let step = done_step.expect("Combat drill should end within 200 steps");
+        // With action-0 policy, combat typically ends in 15-40 steps.
+        // It should NOT run to 500 (max_steps).
+        assert!(
+            step < 100,
+            "Combat drill ended at step {step} — expected < 100 (combat should resolve, not hit max_steps)"
         );
     }
 }

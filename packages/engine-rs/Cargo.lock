@@ -831,6 +831,7 @@ dependencies = [
  "mk-features",
  "mk-types",
  "rayon",
+ "serde",
  "serde_json",
 ]
 

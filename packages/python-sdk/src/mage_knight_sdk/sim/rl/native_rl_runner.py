@@ -60,6 +60,8 @@ def py_encoded_to_encoded_step(py_encoded: Any) -> EncodedStep:
         scalars=py_encoded.state_scalars(),
         mode_id=py_encoded.mode_id(),
         hand_card_ids=py_encoded.hand_card_ids(),
+        deck_card_ids=py_encoded.deck_card_ids(),
+        discard_card_ids=py_encoded.discard_card_ids(),
         unit_ids=py_encoded.unit_ids(),
         unit_scalars=py_encoded.unit_scalars(),
         current_terrain_id=py_encoded.current_terrain_id(),
@@ -115,12 +117,17 @@ def run_native_rl_game(
 
     GameEngine = _get_engine_class()
     engine = GameEngine(seed=seed, hero=hero)
+    engine.set_rl_mode(True)
 
     step = 0
     outcome = "max_steps"
     reason = None
     stats: EpisodeTrainingStats | None = None
     episode_total_reward = 0.0
+    visited_hexes: set[tuple[int, int]] = set()
+    start_pos = engine.player_position()
+    if start_pos is not None:
+        visited_hexes.add(start_pos)
 
     try:
         while step < max_steps and not engine.is_game_ended():
@@ -129,6 +136,7 @@ def run_native_rl_game(
             encoded_step = py_encoded_to_encoded_step(py_encoded)
 
             fame_before = engine.fame()
+            wounds_before = engine.wound_count()
 
             # Policy forward pass (takes EncodedStep directly)
             action_index = policy.choose_action_from_encoded(encoded_step, rng)
@@ -141,6 +149,18 @@ def run_native_rl_game(
             # Compute reward
             fame_delta = float(fame_after - fame_before)
             reward = reward_config.fame_delta_scale * fame_delta + reward_config.step_penalty
+
+            # Exploration bonus for new hexes
+            pos = engine.player_position()
+            if pos is not None and pos not in visited_hexes and reward_config.new_hex_bonus != 0.0:
+                reward += reward_config.new_hex_bonus
+                visited_hexes.add(pos)
+
+            # Wound penalty
+            wound_delta = engine.wound_count() - wounds_before
+            if wound_delta > 0 and reward_config.wound_penalty != 0.0:
+                reward += reward_config.wound_penalty * float(wound_delta)
+
             policy.record_step_reward(reward)
             episode_total_reward += reward
 
@@ -210,11 +230,16 @@ def run_native_rl_game_ppo(
 
     GameEngine = _get_engine_class()
     engine = GameEngine(seed=seed, hero=hero)
+    engine.set_rl_mode(True)
 
     step = 0
     outcome = "max_steps"
     reason = None
     transitions: list[Transition] = []
+    visited_hexes: set[tuple[int, int]] = set()
+    start_pos = engine.player_position()
+    if start_pos is not None:
+        visited_hexes.add(start_pos)
 
     try:
         while step < max_steps and not engine.is_game_ended():
@@ -222,6 +247,7 @@ def run_native_rl_game_ppo(
             encoded_step = py_encoded_to_encoded_step(py_encoded)
 
             fame_before = engine.fame()
+            wounds_before = engine.wound_count()
 
             action_index = policy.choose_action_from_encoded(encoded_step, rng)
             step_info = policy.last_step_info
@@ -231,6 +257,17 @@ def run_native_rl_game_ppo(
             fame_after = engine.fame()
             fame_delta = float(fame_after - fame_before)
             reward = reward_config.fame_delta_scale * fame_delta + reward_config.step_penalty
+
+            # Exploration bonus for new hexes
+            pos = engine.player_position()
+            if pos is not None and pos not in visited_hexes and reward_config.new_hex_bonus != 0.0:
+                reward += reward_config.new_hex_bonus
+                visited_hexes.add(pos)
+
+            # Wound penalty
+            wound_delta = engine.wound_count() - wounds_before
+            if wound_delta > 0 and reward_config.wound_penalty != 0.0:
+                reward += reward_config.wound_penalty * float(wound_delta)
 
             if step_info is not None:
                 transitions.append(Transition(

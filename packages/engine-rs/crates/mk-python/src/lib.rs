@@ -19,11 +19,11 @@ use mk_engine::legal_actions::enumerate_legal_actions_with_undo;
 use mk_engine::scoring::calculate_final_scores;
 use mk_engine::setup::{create_solo_game, place_initial_tiles};
 use mk_engine::undo::UndoStack;
-use mk_env::VecEnv;
+use mk_env::{TrainingScenario, VecEnv};
 use mk_features::EncodedStep;
 use mk_types::enums::Hero;
 use mk_types::events::GameEvent;
-use mk_types::legal_action::LegalActionSet;
+use mk_types::legal_action::{LegalAction, LegalActionSet};
 use mk_types::state::GameState;
 
 // =============================================================================
@@ -40,6 +40,15 @@ fn parse_hero(name: &str) -> PyResult<Hero> {
         "krang" => Ok(Hero::Krang),
         "braevalar" => Ok(Hero::Braevalar),
         _ => Err(PyValueError::new_err(format!("Unknown hero: {name}"))),
+    }
+}
+
+fn parse_scenario(scenario: Option<&str>) -> PyResult<TrainingScenario> {
+    match scenario {
+        None | Some("full_game") => Ok(TrainingScenario::FullGame),
+        Some(json) => serde_json::from_str(json).map_err(|e| {
+            PyValueError::new_err(format!("Invalid scenario JSON: {e}"))
+        }),
     }
 }
 
@@ -78,6 +87,16 @@ impl PyEncodedStep {
     /// CARD_VOCAB indices for cards in the player's hand.
     fn hand_card_ids(&self) -> Vec<u16> {
         self.inner.state.hand_card_ids.clone()
+    }
+
+    /// CARD_VOCAB indices for cards in the draw pile.
+    fn deck_card_ids(&self) -> Vec<u16> {
+        self.inner.state.deck_card_ids.clone()
+    }
+
+    /// CARD_VOCAB indices for cards in the discard pile.
+    fn discard_card_ids(&self) -> Vec<u16> {
+        self.inner.state.discard_card_ids.clone()
     }
 
     /// UNIT_VOCAB indices for the player's units.
@@ -219,6 +238,8 @@ struct GameEngine {
     step_count: u64,
     /// Events from the last action (or initial events on new game).
     last_events: Vec<GameEvent>,
+    /// When true, Undo actions are filtered from the legal action set.
+    rl_mode: bool,
 }
 
 #[pymethods]
@@ -246,7 +267,18 @@ impl GameEngine {
             player_idx,
             step_count: 0,
             last_events: events,
+            rl_mode: false,
         })
+    }
+
+    /// Enable RL mode: filters Undo from legal actions.
+    fn set_rl_mode(&mut self, enabled: bool) {
+        self.rl_mode = enabled;
+        if enabled {
+            self.action_set
+                .actions
+                .retain(|a| !matches!(a, LegalAction::Undo));
+        }
     }
 
     /// Number of legal actions available in the current state.
@@ -305,6 +337,11 @@ impl GameEngine {
                     self.player_idx,
                     &self.undo_stack,
                 );
+                if self.rl_mode {
+                    self.action_set
+                        .actions
+                        .retain(|a| !matches!(a, LegalAction::Undo));
+                }
                 Ok(apply_result.game_ended)
             }
             Ok(Err(ApplyError::StaleActionSet { expected, got })) => {
@@ -348,6 +385,15 @@ impl GameEngine {
         self.state.players[self.player_idx].reputation
     }
 
+    /// Number of wound cards in hand.
+    fn wound_count(&self) -> i32 {
+        self.state.players[self.player_idx]
+            .hand
+            .iter()
+            .filter(|c| c.as_str() == "wound")
+            .count() as i32
+    }
+
     /// Current round number.
     fn round(&self) -> u32 {
         self.state.round
@@ -356,6 +402,13 @@ impl GameEngine {
     /// Whether the scenario end condition has been triggered (e.g. city revealed).
     fn scenario_end_triggered(&self) -> bool {
         self.state.scenario_end_triggered
+    }
+
+    /// Current player position as (q, r) hex coordinates, or None if not on the map.
+    fn player_position(&self) -> Option<(i32, i32)> {
+        self.state.players[self.player_idx]
+            .position
+            .map(|p| (p.q, p.r))
     }
 
     /// Total steps applied so far.
@@ -592,11 +645,28 @@ fn vec_bool_to_numpy<'py>(
 
 #[pymethods]
 impl PyVecEnv {
+    /// Create a vectorized environment.
+    ///
+    /// Args:
+    ///     num_envs: Number of parallel environments.
+    ///     base_seed: Starting seed (incremented per env).
+    ///     hero: Hero name.
+    ///     max_steps: Max steps per episode before truncation.
+    ///     scenario: Optional JSON string for TrainingScenario.
+    ///         None or "full_game" → FullGame (default).
+    ///         Otherwise parsed as JSON, e.g. '{"type":"CombatDrill","enemy_tokens":["diggers_1"],"is_fortified":false}'.
     #[new]
-    #[pyo3(signature = (num_envs=16, base_seed=42, hero="arythea", max_steps=2000))]
-    fn new(num_envs: usize, base_seed: u32, hero: &str, max_steps: u64) -> PyResult<Self> {
+    #[pyo3(signature = (num_envs=16, base_seed=42, hero="arythea", max_steps=2000, scenario=None))]
+    fn new(
+        num_envs: usize,
+        base_seed: u32,
+        hero: &str,
+        max_steps: u64,
+        scenario: Option<&str>,
+    ) -> PyResult<Self> {
         let hero_enum = parse_hero(hero)?;
-        let inner = VecEnv::new(num_envs, base_seed, hero_enum, max_steps);
+        let training_scenario = parse_scenario(scenario)?;
+        let inner = VecEnv::new(num_envs, base_seed, hero_enum, max_steps, training_scenario);
         Ok(Self { inner })
     }
 
@@ -620,6 +690,12 @@ impl PyVecEnv {
 
         dict.set_item("hand_card_ids", vec_i32_to_numpy(py, &np, &batch.hand_card_ids, &[n, batch.max_hand])?)?;
         dict.set_item("hand_counts", vec_i32_to_numpy(py, &np, &batch.hand_counts, &[n])?)?;
+
+        dict.set_item("deck_card_ids", vec_i32_to_numpy(py, &np, &batch.deck_card_ids, &[n, batch.max_deck])?)?;
+        dict.set_item("deck_counts", vec_i32_to_numpy(py, &np, &batch.deck_counts, &[n])?)?;
+
+        dict.set_item("discard_card_ids", vec_i32_to_numpy(py, &np, &batch.discard_card_ids, &[n, batch.max_discard])?)?;
+        dict.set_item("discard_counts", vec_i32_to_numpy(py, &np, &batch.discard_counts, &[n])?)?;
 
         dict.set_item("unit_ids", vec_i32_to_numpy(py, &np, &batch.unit_ids, &[n, batch.max_units])?)?;
         dict.set_item("unit_counts", vec_i32_to_numpy(py, &np, &batch.unit_counts, &[n])?)?;
@@ -671,6 +747,9 @@ impl PyVecEnv {
         dict.set_item("panicked", vec_bool_to_numpy(py, &np, &result.panicked)?)?;
         dict.set_item("truncated", vec_bool_to_numpy(py, &np, &result.truncated)?)?;
         dict.set_item("scenario_end_triggered", vec_bool_to_numpy(py, &np, &result.scenario_end_triggered)?)?;
+        dict.set_item("new_hexes", vec_i32_to_numpy(py, &np, &result.new_hexes, &[n])?)?;
+        dict.set_item("wound_deltas", vec_i32_to_numpy(py, &np, &result.wound_deltas, &[n])?)?;
+        dict.set_item("non_wound_hand_sizes", vec_i32_to_numpy(py, &np, &result.non_wound_hand_sizes, &[n])?)?;
 
         Ok(dict.to_object(py))
     }

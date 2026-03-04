@@ -134,7 +134,7 @@ pub(super) fn apply_use_skill(
 // =============================================================================
 
 /// Push passive (Permanent) modifiers for a skill when it's acquired.
-pub(crate) fn push_passive_skill_modifiers(
+pub fn push_passive_skill_modifiers(
     state: &mut GameState,
     player_idx: usize,
     skill_id: &SkillId,

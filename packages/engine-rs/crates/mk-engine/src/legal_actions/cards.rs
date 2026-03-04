@@ -938,16 +938,16 @@ fn has_block_useful_leaf(state: &GameState, player_idx: usize, effect: &CardEffe
 /// ManaBolt, PureMagic, DiscardForAttack, mana/crystal/draw/boost, modifiers, targeting,
 /// and Disease. Block, move, influence, healing, and cure are all useless.
 pub(super) fn is_dominated_in_attack(
-    state: &GameState,
-    player_idx: usize,
+    _state: &GameState,
+    _player_idx: usize,
     effect: &CardEffect,
 ) -> bool {
-    !has_attack_useful_leaf(state, player_idx, effect)
+    !has_attack_useful_leaf(effect)
 }
 
 /// Returns true if the effect tree contains at least one leaf that provides value during
 /// the Attack combat phase.
-fn has_attack_useful_leaf(state: &GameState, player_idx: usize, effect: &CardEffect) -> bool {
+fn has_attack_useful_leaf(effect: &CardEffect) -> bool {
     match effect {
         // Attack — always useful in Attack phase
         CardEffect::GainAttack { .. }
@@ -972,7 +972,7 @@ fn has_attack_useful_leaf(state: &GameState, player_idx: usize, effect: &CardEff
         // Discard for attack — recurse into inner effects
         CardEffect::DiscardForAttack { attacks_by_color } => attacks_by_color
             .iter()
-            .any(|(_, effect)| has_attack_useful_leaf(state, player_idx, effect)),
+            .any(|(_, effect)| has_attack_useful_leaf(effect)),
 
         // Disease — useful (weakens enemies before attacking)
         CardEffect::Disease => true,
@@ -1013,31 +1013,31 @@ fn has_attack_useful_leaf(state: &GameState, player_idx: usize, effect: &CardEff
         // Structural — recurse into children
         CardEffect::Choice { options } => options
             .iter()
-            .any(|o| has_attack_useful_leaf(state, player_idx, o)),
+            .any(has_attack_useful_leaf),
         CardEffect::Compound { effects } => effects
             .iter()
-            .any(|e| has_attack_useful_leaf(state, player_idx, e)),
+            .any(has_attack_useful_leaf),
         CardEffect::Conditional {
             then_effect,
             else_effect,
             ..
         } => {
-            has_attack_useful_leaf(state, player_idx, then_effect)
+            has_attack_useful_leaf(then_effect)
                 || else_effect
                     .as_ref()
-                    .is_some_and(|e| has_attack_useful_leaf(state, player_idx, e))
+                    .is_some_and(|e| has_attack_useful_leaf(e))
         }
         CardEffect::Scaling { base_effect, .. } => {
-            has_attack_useful_leaf(state, player_idx, base_effect)
+            has_attack_useful_leaf(base_effect)
         }
         CardEffect::DiscardCost { then_effect, .. } => {
-            has_attack_useful_leaf(state, player_idx, then_effect)
+            has_attack_useful_leaf(then_effect)
         }
         CardEffect::DiscardForBonus {
             choice_options, ..
         } => choice_options
             .iter()
-            .any(|o| has_attack_useful_leaf(state, player_idx, o)),
+            .any(has_attack_useful_leaf),
 
         // Conservative catch-all — don't prune unknown effects
         _ => true,

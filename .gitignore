@@ -43,6 +43,9 @@ packages/engine-rs/target/
 # Simulation artifacts (large binary data, training checkpoints)
 sim-artifacts/
 
+# Generated eval replays
+packages/python-sdk/eval_replays/
+
 # Viewer cache (converted replay artifacts)
 .viewer-cache/
 *.json.ndjson

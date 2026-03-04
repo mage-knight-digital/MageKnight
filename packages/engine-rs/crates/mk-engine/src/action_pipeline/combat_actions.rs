@@ -585,7 +585,7 @@ pub(super) fn apply_declare_attack_inner(
     // Mark used attack as assigned (consumed whether success or failure)
     // In RangedSiege phase, consume from both ranged and siege pools.
     let accumulator = &mut state.players[player_idx].combat_accumulator;
-    if state.combat.as_ref().map_or(false, |c| c.phase == CombatPhase::RangedSiege) {
+    if state.combat.as_ref().is_some_and(|c| c.phase == CombatPhase::RangedSiege) {
         // Consume all available from both siege and ranged pools
         let siege_avail = combat_resolution::subtract_elements(
             &accumulator.attack.siege_elements,

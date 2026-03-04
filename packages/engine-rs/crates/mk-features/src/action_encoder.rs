@@ -4,8 +4,10 @@
 //! and scalar features for the scoring network.
 
 use mk_data::enemies::get_enemy;
-use mk_types::enums::{CombatType, ManaColor, SidewaysAs};
+use mk_types::effect::CardEffect;
+use mk_types::enums::{CombatType, Element, ManaColor, SidewaysAs};
 use mk_types::legal_action::LegalAction;
+use mk_types::pending::ActivePending;
 use mk_types::state::GameState;
 
 use crate::source_derivation::derive_source;
@@ -204,6 +206,19 @@ fn extract_entity_ids(
             }
         }
 
+        LegalAction::ResolveTacticDecision {
+            data: mk_types::legal_action::TacticDecisionData::Preparation { deck_card_index },
+        } => {
+            // Look up the card at this deck position from the pending snapshot
+            if let Some(mk_types::pending::ActivePending::TacticDecision(
+                mk_types::pending::PendingTacticDecision::Preparation { deck_snapshot }
+            )) = &player.pending.active {
+                if let Some(cid) = deck_snapshot.get(*deck_card_index) {
+                    card_id = CARD_VOCAB.encode(cid.as_str());
+                }
+            }
+        }
+
         LegalAction::UseSkill { skill_id: sid } | LegalAction::ReturnInteractiveSkill { skill_id: sid } => {
             skill_id = SKILL_VOCAB.encode(sid.as_str());
         }
@@ -212,6 +227,12 @@ fn extract_entity_ids(
             advanced_action_id, ..
         } => {
             card_id = CARD_VOCAB.encode(advanced_action_id.as_str());
+        }
+
+        LegalAction::CompleteRest { discard_hand_index: Some(idx) } => {
+            if let Some(cid) = player.hand.get(*idx) {
+                card_id = CARD_VOCAB.encode(cid.as_str());
+            }
         }
 
         LegalAction::ResolveDecompose { hand_index } => {
@@ -323,6 +344,13 @@ fn extract_action_scalars(
         }
         LegalAction::ResolveChoice { choice_index } => {
             scalars[19] = scale(*choice_index as f32, 5.0);
+            // Enrich with effect parameters from the pending choice option
+            let player = &state.players[player_idx];
+            if let Some(ActivePending::Choice(ref choice)) = player.pending.active {
+                if let Some(option) = choice.options.get(*choice_index) {
+                    enrich_choice_scalars(&mut scalars, option);
+                }
+            }
         }
         LegalAction::ResolveDiscardForBonus { choice_index, discard_count } => {
             scalars[19] = scale(*choice_index as f32, 5.0);
@@ -411,8 +439,26 @@ fn extract_action_scalars(
         LegalAction::ResolveSourceOpeningReroll { reroll } => {
             scalars[0] = if *reroll { 1.0 } else { 0.0 };
         }
+        LegalAction::ResolveTacticDecision { data } => {
+            match data {
+                mk_types::legal_action::TacticDecisionData::ManaSteal { die_index } => {
+                    // Encode the color of the die being stolen
+                    if let Some(die) = state.source.dice.get(*die_index) {
+                        set_mana_color_one_hot(&mut scalars, 12, die.color);
+                    }
+                    scalars[19] = scale(*die_index as f32, 5.0);
+                }
+                mk_types::legal_action::TacticDecisionData::Preparation { deck_card_index } => {
+                    scalars[19] = scale(*deck_card_index as f32, 5.0);
+                }
+                _ => {}
+            }
+        }
         LegalAction::SubsetSelect { index } => {
             scalars[19] = scale(*index as f32, 5.0);
+        }
+        LegalAction::SubsetConfirm => {
+            scalars[11] = 1.0; // is_confirm (distinguishes from SubsetSelect(0))
         }
         LegalAction::BuySpell { .. } => {
             scalars[8] = 1.0; // has_card
@@ -470,6 +516,68 @@ fn set_mana_color_one_hot(scalars: &mut [f32], base: usize, color: ManaColor) {
         ManaColor::White => scalars[base + 3] = 1.0,
         ManaColor::Gold => scalars[base + 4] = 1.0,
         ManaColor::Black => scalars[base + 5] = 1.0,
+    }
+}
+
+fn set_element_one_hot(scalars: &mut [f32], base: usize, element: Element) {
+    match element {
+        Element::Physical => scalars[base] = 1.0,
+        Element::Fire => scalars[base + 1] = 1.0,
+        Element::Ice => scalars[base + 2] = 1.0,
+        Element::ColdFire => scalars[base + 3] = 1.0,
+    }
+}
+
+/// Enrich scalars for a ResolveChoice action with the chosen CardEffect's parameters.
+/// Uses the same scalar positions as equivalent direct actions so the network
+/// sees consistent semantics (e.g., mana color at [12..18], amount at [0]).
+fn enrich_choice_scalars(scalars: &mut [f32], effect: &CardEffect) {
+    match effect {
+        CardEffect::GainMana { color, amount } => {
+            set_mana_color_one_hot(scalars, 12, *color);
+            scalars[0] = scale(*amount as f32, 10.0);
+        }
+        CardEffect::GainAttack { amount, combat_type, element } => {
+            scalars[0] = scale(*amount as f32, 10.0);
+            match combat_type {
+                CombatType::Melee => scalars[20] = 1.0,
+                CombatType::Ranged => scalars[21] = 1.0,
+                CombatType::Siege => scalars[22] = 1.0,
+            }
+            set_element_one_hot(scalars, 23, *element);
+        }
+        CardEffect::AttackWithDefeatBonus { amount, combat_type, element, .. } => {
+            scalars[0] = scale(*amount as f32, 10.0);
+            match combat_type {
+                CombatType::Melee => scalars[20] = 1.0,
+                CombatType::Ranged => scalars[21] = 1.0,
+                CombatType::Siege => scalars[22] = 1.0,
+            }
+            set_element_one_hot(scalars, 23, *element);
+        }
+        CardEffect::GainBlock { amount, element } => {
+            scalars[0] = scale(*amount as f32, 10.0);
+            set_element_one_hot(scalars, 23, *element);
+        }
+        CardEffect::GainMove { amount } => {
+            scalars[0] = scale(*amount as f32, 10.0);
+        }
+        CardEffect::GainInfluence { amount } => {
+            scalars[0] = scale(*amount as f32, 10.0);
+        }
+        CardEffect::GainHealing { amount } => {
+            scalars[0] = scale(*amount as f32, 10.0);
+        }
+        CardEffect::GainFame { amount } => {
+            scalars[0] = scale(*amount as f32, 10.0);
+        }
+        CardEffect::DrawCards { count } => {
+            scalars[0] = scale(*count as f32, 10.0);
+        }
+        CardEffect::GainCrystal { color: Some(basic_color) } => {
+            set_mana_color_one_hot(scalars, 12, ManaColor::from(*basic_color));
+        }
+        _ => {}
     }
 }
 

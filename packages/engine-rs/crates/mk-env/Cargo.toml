@@ -10,4 +10,5 @@ mk-data = { workspace = true }
 mk-engine = { workspace = true }
 mk-features = { workspace = true }
 rayon = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }

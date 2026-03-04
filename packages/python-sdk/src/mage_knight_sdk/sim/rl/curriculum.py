@@ -1,0 +1,316 @@
+"""Curriculum learning for RL training.
+
+Two abstractions:
+- TrainingScenario: Python mirror of Rust enum, serializes to JSON for PyO3 boundary.
+- CurriculumPhase + CurriculumSchedule: building blocks pairing scenario with reward config.
+
+Same neural network throughout — EncodedStep dimensions are identical regardless of scenario.
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass, field
+
+from .rewards import RewardConfig
+
+
+# =============================================================================
+# TrainingScenario — Python mirror of Rust TrainingScenario enum
+# =============================================================================
+
+
+@dataclass(frozen=True)
+class TrainingScenario:
+    """Python mirror of the Rust TrainingScenario enum.
+
+    Serializes to JSON for the PyO3 boundary. The Rust side deserializes
+    via serde with `#[serde(tag = "type")]`.
+    """
+
+    kind: str = "full_game"
+    params: dict = field(default_factory=dict)
+
+    @staticmethod
+    def full_game() -> TrainingScenario:
+        return TrainingScenario(kind="full_game")
+
+    @staticmethod
+    def combat_drill(
+        enemy_tokens: list[str] | None = None,
+        is_fortified: bool = False,
+        hand_override: list[str] | None = None,
+        extra_cards: list[str] | None = None,
+        units: list[str] | None = None,
+        skills: list[str] | None = None,
+        crystals: dict | None = None,
+    ) -> TrainingScenario:
+        if enemy_tokens is None:
+            enemy_tokens = ["diggers_1"]
+        params: dict = {"enemy_tokens": enemy_tokens, "is_fortified": is_fortified}
+        for key, value in [
+            ("hand_override", hand_override),
+            ("extra_cards", extra_cards),
+            ("units", units),
+            ("skills", skills),
+            ("crystals", crystals),
+        ]:
+            if value is not None:
+                params[key] = value
+        return TrainingScenario(
+            kind="combat_drill",
+            params=params,
+        )
+
+    def to_rust_json(self) -> str | None:
+        """Serialize to JSON for PyVecEnv(scenario=...).
+
+        Returns None for full_game (Rust default), JSON string otherwise.
+        """
+        if self.kind == "full_game":
+            return None
+        if self.kind == "combat_drill":
+            obj: dict = {
+                "type": "CombatDrill",
+                "enemy_tokens": self.params.get("enemy_tokens", ["diggers_1"]),
+                "is_fortified": self.params.get("is_fortified", False),
+            }
+            for key in ("hand_override", "extra_cards", "units", "skills", "crystals"):
+                value = self.params.get(key)
+                if value is not None:
+                    obj[key] = value
+            return json.dumps(obj)
+        raise ValueError(f"Unknown scenario kind: {self.kind}")
+
+
+# =============================================================================
+# CurriculumPhase + CurriculumSchedule
+# =============================================================================
+
+
+@dataclass(frozen=True)
+class CurriculumPhase:
+    """One building block: scenario + reward config + episode count."""
+
+    name: str
+    scenario: TrainingScenario
+    reward_config: RewardConfig
+    episodes: int
+    max_steps: int = 2000
+
+
+@dataclass(frozen=True)
+class CurriculumSchedule:
+    """Ordered list of phases. Same network throughout."""
+
+    phases: list[CurriculumPhase]
+
+
+# =============================================================================
+# Built-in schedules
+# =============================================================================
+
+
+def default_combat_curriculum() -> CurriculumSchedule:
+    """Three-phase curriculum: fixed-hand warmup → random-hand combat → full game.
+
+    Phase 1 uses hand_override so every episode is solvable — the agent
+    learns that attacking leads to kills and fame.  Phase 2 removes the
+    hand override so the agent generalises to random 5-card deals.
+    No wound penalty in either combat phase to avoid the "pacifist"
+    local optimum where the agent only blocks.
+    """
+    fame_only = RewardConfig(
+        fame_delta_scale=5.0,
+    )
+    fame_efficient = RewardConfig(
+        fame_delta_scale=5.0,
+        wound_penalty=-2.0,
+        cards_remaining_bonus=0.3,
+    )
+    return CurriculumSchedule(phases=[
+        CurriculumPhase(
+            name="combat_warmup",
+            scenario=TrainingScenario.combat_drill(
+                enemy_tokens=["diggers_1"],
+                hand_override=["rage", "arythea_battle_versatility", "determination", "stamina", "concentration"],
+            ),
+            reward_config=fame_only,
+            episodes=5000,
+            max_steps=200,
+        ),
+        CurriculumPhase(
+            name="combat_random",
+            scenario=TrainingScenario.combat_drill(
+                enemy_tokens=["diggers_1"],
+            ),
+            reward_config=fame_efficient,
+            episodes=20000,
+            max_steps=200,
+        ),
+        CurriculumPhase(
+            name="combat_refined",
+            scenario=TrainingScenario.combat_drill(
+                enemy_tokens=["diggers_1"],
+            ),
+            reward_config=fame_efficient,
+            episodes=25000,
+            max_steps=200,
+        ),
+        CurriculumPhase(
+            name="full_game",
+            scenario=TrainingScenario.full_game(),
+            reward_config=RewardConfig(
+                fame_delta_scale=1.0,
+                new_hex_bonus=0.1,
+            ),
+            episodes=50000,
+            max_steps=2000,
+        ),
+    ])
+
+
+def guardsmen_combat_curriculum() -> CurriculumSchedule:
+    """Guardsmen-based curriculum forcing basic/powered card play.
+
+    Guardsmen have 7 armor — sideways-only (5 attack max) can't kill them.
+    The agent must discover basic plays (Rage basic = 2) and powered plays
+    (Rage powered = 4) to reach the 7-attack threshold.
+    """
+    fame_efficient = RewardConfig(
+        fame_delta_scale=5.0,
+        wound_penalty=-4.0,
+        cards_remaining_bonus=0.3,
+    )
+    return CurriculumSchedule(phases=[
+        CurriculumPhase(
+            name="guardsmen_fixed",
+            scenario=TrainingScenario.combat_drill(
+                enemy_tokens=["guardsmen_1"],
+                hand_override=["rage", "arythea_battle_versatility",
+                               "determination", "stamina", "concentration"],
+            ),
+            reward_config=fame_efficient,
+            episodes=20000,
+            max_steps=200,
+        ),
+        CurriculumPhase(
+            name="guardsmen_random",
+            scenario=TrainingScenario.combat_drill(
+                enemy_tokens=["guardsmen_1"],
+            ),
+            reward_config=fame_efficient,
+            episodes=40000,
+            max_steps=200,
+        ),
+    ])
+
+
+def progressive_combat_curriculum() -> CurriculumSchedule:
+    """6-phase linear curriculum building combat skills incrementally.
+
+    Phase 1: Sideways warmup — fixed hand, diggers, no wound penalty
+    Phase 2: Basic plays — random hand, prowlers, cards_remaining_bonus
+    Phase 3: Powered plays — wolf riders (4 armor), 3 red crystals
+    Phase 4: Unit combat — prowlers + peasants unit
+    Phase 5: Harder enemies — swordsmen (5 armor, 6 attack), all tools
+    Phase 6: Multi-enemy — 2x prowlers, resource allocation
+    """
+    fame_only = RewardConfig(
+        fame_delta_scale=5.0,
+    )
+    fame_efficient = RewardConfig(
+        fame_delta_scale=5.0,
+        cards_remaining_bonus=0.5,
+    )
+    fame_wound = RewardConfig(
+        fame_delta_scale=5.0,
+        wound_penalty=-1.0,
+        cards_remaining_bonus=0.3,
+    )
+    fame_wound_heavy = RewardConfig(
+        fame_delta_scale=5.0,
+        wound_penalty=-2.0,
+        cards_remaining_bonus=0.3,
+    )
+    red_crystals = {"red": 3, "blue": 0, "green": 0, "white": 0}
+
+    return CurriculumSchedule(phases=[
+        # Phase 1: sideways warmup — every episode solvable
+        CurriculumPhase(
+            name="sideways_warmup",
+            scenario=TrainingScenario.combat_drill(
+                enemy_tokens=["diggers_1"],
+                hand_override=[
+                    "rage", "arythea_battle_versatility",
+                    "determination", "stamina", "concentration",
+                ],
+            ),
+            reward_config=fame_only,
+            episodes=5000,
+            max_steps=200,
+        ),
+        # Phase 2: basic plays — cards_remaining_bonus rewards efficiency
+        CurriculumPhase(
+            name="basic_plays",
+            scenario=TrainingScenario.combat_drill(
+                enemy_tokens=["prowlers_1"],
+            ),
+            reward_config=fame_efficient,
+            episodes=15000,
+            max_steps=200,
+        ),
+        # Phase 3: powered plays — 4 armor needs powered rage/battle_versatility
+        CurriculumPhase(
+            name="powered_plays",
+            scenario=TrainingScenario.combat_drill(
+                enemy_tokens=["wolf_riders_1"],
+                crystals=red_crystals,
+            ),
+            reward_config=fame_wound,
+            episodes=20000,
+            max_steps=200,
+        ),
+        # Phase 4: unit combat — peasants provide free attack value
+        CurriculumPhase(
+            name="unit_combat",
+            scenario=TrainingScenario.combat_drill(
+                enemy_tokens=["prowlers_1"],
+                units=["peasants"],
+            ),
+            reward_config=fame_wound,
+            episodes=15000,
+            max_steps=200,
+        ),
+        # Phase 5: harder enemies — must combine all skills to survive
+        CurriculumPhase(
+            name="harder_enemies",
+            scenario=TrainingScenario.combat_drill(
+                enemy_tokens=["swordsmen_1"],
+                units=["peasants"],
+                crystals=red_crystals,
+            ),
+            reward_config=fame_wound_heavy,
+            episodes=20000,
+            max_steps=200,
+        ),
+        # Phase 6: multi-enemy — resource allocation across 2 targets
+        CurriculumPhase(
+            name="multi_enemy",
+            scenario=TrainingScenario.combat_drill(
+                enemy_tokens=["prowlers_1", "prowlers_2"],
+                units=["peasants"],
+                crystals=red_crystals,
+            ),
+            reward_config=fame_wound_heavy,
+            episodes=25000,
+            max_steps=300,
+        ),
+    ])
+
+
+CURRICULA: dict[str, callable] = {
+    "default": default_combat_curriculum,
+    "guardsmen": guardsmen_combat_curriculum,
+    "progressive": progressive_combat_curriculum,
+}
