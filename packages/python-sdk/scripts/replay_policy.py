@@ -31,31 +31,7 @@ _RESET = "\033[0m"
 
 # ── Combat phase names ──────────────────────────────────────────────────────
 
-_PHASE_NAMES = {
-    "ranged_siege": "Ranged & Siege",
-    "block": "Block",
-    "assign_damage": "Assign Damage",
-    "attack": "Attack",
-}
-
-# ── Source → phase mapping ──────────────────────────────────────────────────
-
-def _source_to_phase(source: str) -> str | None:
-    """Map a source string to its combat phase, or None for non-phase sources."""
-    if "declare_targets" in source:
-        return "ranged_siege"
-    if "sideways.block" in source or "basic" in source and "block" in source:
-        return "block"
-    if "assign_damage" in source:
-        return "assign_damage"
-    if "sideways.attack" in source or "resolve_attack" in source:
-        return "attack"
-    if ".powered" in source or ".basic" in source:
-        # Card play during a phase — keep current phase
-        return None
-    if "end_phase" in source:
-        return None
-    return None
+_PHASES = ["Ranged & Siege", "Block", "Assign Damage", "Attack"]
 
 
 # ── Action formatting ───────────────────────────────────────────────────────
@@ -170,6 +146,7 @@ def replay_seed(policy: ReinforcePolicy, seed: int, scenario_json: str, max_step
         chosen_ids = ids[action_idx] if action_idx < n else None
         chosen_str = _action_label(chosen_ids) if chosen_ids is not None else "?"
         chosen_src = _SRC_REV.get(int(chosen_ids[1]), "") if chosen_ids is not None else ""
+        chosen_at = _AT_REV.get(int(chosen_ids[0]), "") if chosen_ids is not None else ""
 
         alt_strs = []
         for j in range(min(n, 8)):
@@ -189,6 +166,7 @@ def replay_seed(policy: ReinforcePolicy, seed: int, scenario_json: str, max_step
             "chosen_idx": action_idx,
             "chosen": chosen_str,
             "chosen_source": chosen_src,
+            "chosen_action_type": chosen_at,
             "alts": alt_strs,
             "fame_delta": fame_d,
             "wound_delta": wound_d,
@@ -210,49 +188,66 @@ def replay_seed(policy: ReinforcePolicy, seed: int, scenario_json: str, max_step
 # ── Pretty printing ─────────────────────────────────────────────────────────
 
 def _print_episode_verbose(result):
-    """Print a single episode with combat phase grouping and readable formatting."""
+    """Print a single episode with combat phase grouping and readable formatting.
+
+    Phase tracking: combat always starts in Ranged & Siege (phase 0).
+    Each END_COMBAT_PHASE advances to the next phase. If the only action
+    in a phase is END_COMBAT_PHASE with no events, that phase was skipped.
+    """
     steps = result["steps"]
     if not steps:
         return
 
-    current_phase = None
-    phase_counter = 0
+    phase_idx = 0       # 0=Ranged&Siege, 1=Block, 2=AssignDamage, 3=Attack
+    header_shown = False
 
     for s in steps:
-        # Detect phase from source
-        src = s["chosen_source"]
-        src_short = src.split(".")[-1] if "." in src else src
-        new_phase = _source_to_phase(src_short)
+        is_end_phase = s["chosen_action_type"].upper() == "END_COMBAT_PHASE"
+        has_events = s["fame_delta"] != 0 or s["wound_delta"] != 0
 
-        # Print phase header on transitions
-        if new_phase and new_phase != current_phase:
-            current_phase = new_phase
-            phase_counter += 1
-            phase_name = _PHASE_NAMES.get(current_phase, current_phase)
-            print(f"    {_BOLD}── {phase_name} ──{_RESET}")
-
-        # Build the action line
-        prefix = f"      "
-        action_text = s["chosen"]
-
-        # Annotations
-        annotations = []
-        if s["fame_delta"]:
-            annotations.append(f"{_GREEN}+{s['fame_delta']} fame{_RESET}")
-        if s["wound_delta"]:
-            annotations.append(f"{_RED}+{s['wound_delta']} wound{'s' if s['wound_delta'] > 1 else ''}{_RESET}")
-
-        anno_str = f"  {'  '.join(annotations)}" if annotations else ""
-
-        # Alternatives (only show if > 1 action and not auto-resolved)
-        alt_str = ""
-        if s["n_actions"] > 1 and s["alts"]:
-            others = s["alts"][:3]
-            alt_str = f"  {_DIM}(or: {', '.join(others)}){_RESET}"
-
-        print(f"{prefix}{action_text}{anno_str}{alt_str}")
+        if is_end_phase:
+            if not header_shown and not has_events:
+                # Pure skip — this phase had nothing. Don't print anything.
+                pass
+            else:
+                # Meaningful end-of-phase (wounds, or actions preceded it)
+                if not header_shown and phase_idx < len(_PHASES):
+                    print(f"    {_BOLD}── {_PHASES[phase_idx]} ──{_RESET}")
+                    header_shown = True
+                _print_step_line(s)
+            # Advance to next phase
+            phase_idx += 1
+            header_shown = False
+        else:
+            # Non-end action — show phase header if needed
+            if not header_shown and phase_idx < len(_PHASES):
+                print(f"    {_BOLD}── {_PHASES[phase_idx]} ──{_RESET}")
+                header_shown = True
+            _print_step_line(s)
 
     print()
+
+
+def _print_step_line(s):
+    """Print a single step line with annotations and alternatives."""
+    action_text = s["chosen"]
+
+    # Annotations
+    annotations = []
+    if s["fame_delta"]:
+        annotations.append(f"{_GREEN}+{s['fame_delta']} fame{_RESET}")
+    if s["wound_delta"]:
+        annotations.append(f"{_RED}+{s['wound_delta']} wound{'s' if s['wound_delta'] > 1 else ''}{_RESET}")
+
+    anno_str = f"  {'  '.join(annotations)}" if annotations else ""
+
+    # Alternatives (only show if > 1 action and not auto-resolved)
+    alt_str = ""
+    if s["n_actions"] > 1 and s["alts"]:
+        others = s["alts"][:3]
+        alt_str = f"  {_DIM}(or: {', '.join(others)}){_RESET}"
+
+    print(f"      {action_text}{anno_str}{alt_str}")
 
 
 def _print_episode_summary(result):
