@@ -484,6 +484,56 @@ mod tests {
         }
     }
 
+    /// Reproduce: seed=5473 with 135 action indices yields 0 legal actions.
+    #[test]
+    fn replay_seed_5473_zero_actions() {
+        let actions: Vec<usize> = vec![
+            2, 0, 10, 5, 2, 6, 2, 7, 1, 4, 1, 1, 4, 1, 0, 3, 0, 9, 8, 2, 1, 1, 1, 1, 0, 0,
+            0, 0, 0, 2, 4, 1, 0, 9, 1, 2, 6, 0, 1, 2, 0, 2, 1, 0, 0, 1, 0, 0, 2, 1, 6, 0, 0,
+            1, 2, 1, 0, 1, 0, 7, 1, 0, 0, 0, 0, 0, 2, 1, 11, 10, 9, 10, 4, 2, 3, 0, 3, 2, 0,
+            0, 1, 1, 7, 3, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 2, 1, 3, 1, 1, 0, 1, 2, 1, 1, 2, 4, 0, 1, 1, 1, 1, 2, 1, 0, 0, 2, 3, 0, 1, 0,
+            0, 0,
+        ];
+
+        let mut env = SingleEnv::new(5473, Hero::Arythea, 500, TrainingScenario::default());
+        for (i, &action_idx) in actions.iter().enumerate() {
+            assert!(
+                !env.action_set.actions.is_empty(),
+                "0 legal actions at step {i} (before applying action index {action_idx})"
+            );
+            let action = &env.action_set.actions[action_idx.min(env.action_set.actions.len() - 1)];
+            let p = &env.state.players[0];
+            eprintln!(
+                "step {i:>3}: idx={action_idx:<3} action={action:?}  hand={} flags={:?}",
+                p.hand.len(), p.flags
+            );
+            let (game_ended, panicked) = env.step(action_idx);
+            assert!(!panicked, "Engine panicked at step {i}");
+            if game_ended {
+                return;
+            }
+        }
+        if env.action_set.actions.is_empty() {
+            let s = &env.state;
+            let p = &s.players[0];
+            eprintln!("=== 0 legal actions after step {} ===", actions.len());
+            eprintln!("phase: {:?}, round_phase: {:?}", s.phase, s.round_phase);
+            eprintln!("combat: {:?}", s.combat.as_ref().map(|c| &c.phase));
+            eprintln!("pending active: {:?}", p.pending.active);
+            eprintln!("pending deferred: {:?}", p.pending.deferred);
+            eprintln!("flags: {:?}", p.flags);
+            eprintln!("position: {:?}", p.position);
+            eprintln!("hand: {:?}", p.hand);
+            eprintln!("deck: {}, discard: {}", p.deck.len(), p.discard.len());
+            eprintln!("play_area: {:?}", p.play_area);
+            eprintln!("influence: {}, healing: {}", p.influence_points, p.healing_points);
+            eprintln!("skills: {:?}", p.skills);
+            eprintln!("game_ended: {}, scenario_end_triggered: {}", s.game_ended, s.scenario_end_triggered);
+            panic!("0 legal actions after replaying all {} actions", actions.len());
+        }
+    }
+
     #[test]
     fn vec_env_creation() {
         let env = VecEnv::new(4, 42, Hero::Arythea, 100, TrainingScenario::default());

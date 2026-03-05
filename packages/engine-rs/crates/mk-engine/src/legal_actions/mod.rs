@@ -216,10 +216,10 @@ pub fn enumerate_legal_actions_with_undo(
         };
     }
 
-    // Must slow recover: hand is all wounds, deck empty, and player hasn't satisfied
-    // the minimum turn requirement yet. Force DeclareRest (slow recovery), with the
-    // exception of card-drawing skills that could provide a playable card.
-    if utils::must_slow_recover(player)
+    // Hand is all wounds and minimum turn requirement not yet met: the player
+    // cannot play any card, so restrict to DeclareRest (slow/normal recovery)
+    // and card-drawing skills that could provide a playable card.
+    if utils::hand_is_all_wounds(player)
         && !player.flags.contains(PlayerFlags::IS_RESTING)
         && !player
             .flags

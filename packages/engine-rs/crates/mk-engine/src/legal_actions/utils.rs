@@ -8,3 +8,10 @@ pub(super) fn must_slow_recover(player: &PlayerState) -> bool {
         && player.hand.iter().all(|c| c.as_str() == WOUND_CARD_ID)
         && player.deck.is_empty()
 }
+
+/// Check if hand contains only wounds (no playable cards).
+/// Unlike `must_slow_recover`, this is true regardless of deck state.
+pub(super) fn hand_is_all_wounds(player: &PlayerState) -> bool {
+    !player.hand.is_empty()
+        && player.hand.iter().all(|c| c.as_str() == WOUND_CARD_ID)
+}

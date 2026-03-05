@@ -3226,6 +3226,9 @@ fn positive_rep_increases_effective_influence() {
     // Without rep bonus: 1 influence < 3, no healing available.
     // With rep bonus: effective 3 >= 3, healing 1 should appear.
     state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
+    state.players[0]
+        .flags
+        .insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     assert!(
         actions.actions.iter().any(|a| matches!(a, LegalAction::InteractSite { healing: 1 })),
@@ -3316,6 +3319,9 @@ fn max_rep_bonus_at_plus_seven() {
 
     // Village cost = 3 per wound. Effective = 5 → can heal 1 wound.
     state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
+    state.players[0]
+        .flags
+        .insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     assert!(
         actions.actions.iter().any(|a| matches!(a, LegalAction::InteractSite { healing: 1 })),
