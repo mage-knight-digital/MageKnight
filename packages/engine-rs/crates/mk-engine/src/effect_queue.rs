@@ -290,6 +290,9 @@ pub fn resolve_pending_choice(
                 if hand_idx < player.hand.len() {
                     let discarded = player.hand.remove(hand_idx);
                     player.discard.push(discarded);
+                    player
+                        .flags
+                        .insert(PlayerFlags::DISCARDED_CARD_THIS_TURN);
                 }
             }
         }
@@ -570,6 +573,9 @@ pub fn resolve_pending_choice(
                     if let Some(idx) = player.hand.iter().position(|c| *c == cid) {
                         let removed = player.hand.remove(idx);
                         player.discard.push(removed);
+                        player
+                            .flags
+                            .insert(PlayerFlags::DISCARDED_CARD_THIS_TURN);
                     }
                     if let Some(def) = mk_data::cards::get_card(cid.as_str()) {
                         if let Some(basic) = def.color.to_basic_mana_color() {
@@ -1773,6 +1779,7 @@ fn discard_eligible_cards(
     filter: DiscardForBonusFilter,
 ) {
     let player = &mut state.players[player_idx];
+    let initial_hand_size = player.hand.len();
     let mut remaining = discard_count;
 
     match filter {
@@ -1814,6 +1821,12 @@ fn discard_eligible_cards(
                 }
             }
         }
+    }
+
+    if player.hand.len() < initial_hand_size {
+        player
+            .flags
+            .insert(PlayerFlags::DISCARDED_CARD_THIS_TURN);
     }
 }
 
@@ -3304,6 +3317,9 @@ fn apply_discard_cost(
                 let player = &mut state.players[player_idx];
                 let discarded = player.hand.remove(idx);
                 player.discard.push(discarded);
+                player
+                    .flags
+                    .insert(PlayerFlags::DISCARDED_CARD_THIS_TURN);
                 ResolveResult::Decomposed(vec![then_effect.clone()])
             }
             _ => {
@@ -3979,6 +3995,9 @@ fn apply_discard_for_crystal(
         if let Some(idx) = player.hand.iter().position(|c| c == cid) {
             let removed = player.hand.remove(idx);
             player.discard.push(removed);
+            player
+                .flags
+                .insert(PlayerFlags::DISCARDED_CARD_THIS_TURN);
         }
         if let Some(def) = mk_data::cards::get_card(cid.as_str()) {
             if let Some(basic) = def.color.to_basic_mana_color() {
@@ -4347,10 +4366,13 @@ fn apply_attack_with_defeat_bonus(
 // =============================================================================
 
 /// Handle a Choice effect by filtering resolvable options.
+/// In combat, also filters out options that are useless in the current combat phase
+/// (e.g., Move/Influence during Attack, Attack during Block).
 fn resolve_choice(state: &GameState, player_idx: usize, options: &[CardEffect]) -> ResolveResult {
     let resolvable: Vec<CardEffect> = options
         .iter()
         .filter(|opt| is_resolvable(state, player_idx, opt))
+        .filter(|opt| is_useful_in_current_combat_phase(state, player_idx, opt))
         .cloned()
         .collect();
 
@@ -4359,6 +4381,55 @@ fn resolve_choice(state: &GameState, player_idx: usize, options: &[CardEffect]) 
         1 => ResolveResult::Decomposed(resolvable),
         _ => ResolveResult::NeedsChoice(resolvable),
     }
+}
+
+/// Returns true if the effect is useful in the current combat context, or if not in combat.
+/// Filters out Move and Influence from choices during combat (they have no effect),
+/// with exceptions for rule overrides (MoveCardsInCombat, InfluenceCardsInCombat)
+/// and Cumbersome enemies in Block phase (move can be spent as block).
+fn is_useful_in_current_combat_phase(
+    state: &GameState,
+    player_idx: usize,
+    effect: &CardEffect,
+) -> bool {
+    let combat = match &state.combat {
+        Some(c) => c,
+        None => return true,
+    };
+
+    match effect {
+        CardEffect::GainMove { .. } => {
+            // Move is usable in Block phase with cumbersome enemies
+            if combat.phase == CombatPhase::Block && has_cumbersome_enemy_in_combat(state) {
+                return true;
+            }
+            crate::card_play::is_rule_active(state, player_idx, RuleOverride::MoveCardsInCombat)
+        }
+        CardEffect::GainInfluence { .. } => {
+            crate::card_play::is_rule_active(
+                state,
+                player_idx,
+                RuleOverride::InfluenceCardsInCombat,
+            )
+        }
+        _ => true,
+    }
+}
+
+/// Check if any undefeated enemy in combat has the Cumbersome ability.
+fn has_cumbersome_enemy_in_combat(state: &GameState) -> bool {
+    let combat = match &state.combat {
+        Some(c) => c,
+        None => return false,
+    };
+    combat.enemies.iter().any(|enemy| {
+        if enemy.is_defeated {
+            return false;
+        }
+        mk_data::enemies::get_enemy(enemy.enemy_id.as_str()).is_some_and(|def| {
+            crate::combat_resolution::has_ability(def, EnemyAbilityType::Cumbersome)
+        })
+    })
 }
 
 /// Evaluate a conditional and decompose into the appropriate branch.

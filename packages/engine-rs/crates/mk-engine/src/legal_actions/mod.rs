@@ -18,7 +18,7 @@
 //! 12. Undo
 
 mod cards;
-pub(crate) mod combat;
+pub mod combat;
 mod cooperative;
 mod explore;
 mod movement;
@@ -209,6 +209,30 @@ pub fn enumerate_legal_actions_with_undo(
         if undo.can_undo() {
             actions.push(LegalAction::Undo);
         }
+        return LegalActionSet {
+            epoch,
+            player_idx,
+            actions,
+        };
+    }
+
+    // Must slow recover: hand is all wounds, deck empty, and player hasn't satisfied
+    // the minimum turn requirement yet. Force DeclareRest (slow recovery), with the
+    // exception of card-drawing skills that could provide a playable card.
+    if utils::must_slow_recover(player)
+        && !player.flags.contains(PlayerFlags::IS_RESTING)
+        && !player
+            .flags
+            .contains(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN)
+        && !player.flags.contains(PlayerFlags::HAS_RESTED_THIS_TURN)
+        && !player.flags.contains(PlayerFlags::HAS_COMBATTED_THIS_TURN)
+        && !player
+            .flags
+            .contains(PlayerFlags::DISCARDED_CARD_THIS_TURN)
+        && state.combat.is_none()
+    {
+        skills::enumerate_card_drawing_skills(state, player_idx, &mut actions);
+        enumerate_turn_options(state, player_idx, undo, &mut actions);
         return LegalActionSet {
             epoch,
             player_idx,

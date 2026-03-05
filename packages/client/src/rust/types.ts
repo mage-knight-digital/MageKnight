@@ -42,7 +42,6 @@ export type LegalAction =
   // Combat
   | { ChallengeRampaging: { hex: { q: number; r: number } } }
   | { DeclareBlock: { enemy_instance_id: string; attack_index: number } }
-  | { InitiateAttack: { attack_type: string } }
   | { SpendMoveOnCumbersome: { enemy_instance_id: string } }
   | { AssignDamageToHero: { enemy_index: number; attack_index: number } }
   | { AssignDamageToUnit: { enemy_index: number; attack_index: number; unit_instance_id: string } }

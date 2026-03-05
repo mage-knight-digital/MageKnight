@@ -2,8 +2,8 @@
  * useCombatActions — derives all combat UI state from legalActions[].
  *
  * Follows the same pattern as extractTurnOptions() in TurnActions.tsx,
- * but covers every combat phase: block, attack (initiate → subset select
- * → confirm), and damage assignment.
+ * but covers every combat phase: block, attack (subset select → confirm),
+ * and damage assignment.
  */
 
 import { useMemo } from "react";
@@ -12,7 +12,6 @@ import {
   extractBlockActions,
   extractCumbersomeActions,
   extractBannerFearActions,
-  extractInitiateAttackOptions,
   extractSubsetSelectOptions,
   extractDamageToHeroOptions,
   extractDamageToUnitOptions,
@@ -25,7 +24,6 @@ import {
   type BlockActionOption,
   type CumbersomeActionOption,
   type BannerFearActionOption,
-  type InitiateAttackOption,
   type SubsetSelectOption,
   type DamageToHeroOption,
   type DamageToUnitOption,
@@ -48,8 +46,7 @@ export interface CombatActions {
   convertInfluenceToBlock: ConvertInfluenceToBlockOption[];
   payHeroesAssaultAction: LegalAction | undefined;
 
-  // Attack phase — pre-initiate
-  initiateAttackOptions: InitiateAttackOption[];
+  // Attack phase
   convertMoveToAttack: ConvertMoveToAttackOption[];
 
   // Attack phase — target selection (SubsetSelect/SubsetConfirm)
@@ -97,7 +94,6 @@ export function useCombatActions(): CombatActions {
       convertInfluenceToBlock: extractConvertInfluenceToBlock(legalActions),
       payHeroesAssaultAction: findAction(legalActions, "PayHeroesAssaultInfluence"),
 
-      initiateAttackOptions: extractInitiateAttackOptions(legalActions),
       convertMoveToAttack: extractConvertMoveToAttack(legalActions),
 
       isSelectingTargets: subsetSelectOptions.length > 0 || hasAction(legalActions, "SubsetConfirm"),

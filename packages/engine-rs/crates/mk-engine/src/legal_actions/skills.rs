@@ -245,6 +245,42 @@ pub(super) fn enumerate_skill_activations(
     }
 }
 
+/// Skills whose effects can draw cards — these can escape slow recovery
+/// by drawing non-wound cards into hand.
+/// - 5 hero motivation skills each draw 2 cards
+/// - tovak_i_feel_no_pain discards a wound then draws 1
+/// - krang/braevalar_regenerate consume mana, remove wound, conditionally draw
+const CARD_DRAWING_SKILLS: &[&str] = &[
+    "arythea_motivation",
+    "tovak_motivation",
+    "goldyx_motivation",
+    "norowas_motivation",
+    "wolfhawk_motivation",
+    "tovak_i_feel_no_pain",
+    "krang_regenerate",
+    "braevalar_regenerate",
+];
+
+/// Enumerate only card-drawing skills available to the player.
+/// Used when must_slow_recover is true — these are the only skills that
+/// can provide a playable card to satisfy the minimum turn requirement.
+pub(super) fn enumerate_card_drawing_skills(
+    state: &GameState,
+    player_idx: usize,
+    actions: &mut Vec<LegalAction>,
+) {
+    // Reuse full skill enumeration, then filter to card-drawing skills only.
+    let mut all_skills = Vec::new();
+    enumerate_skill_activations(state, player_idx, &mut all_skills);
+    for action in all_skills {
+        if let LegalAction::UseSkill { ref skill_id } = action {
+            if CARD_DRAWING_SKILLS.contains(&skill_id.as_str()) {
+                actions.push(action);
+            }
+        }
+    }
+}
+
 /// Check if the current game context allows a skill with the given phase restriction.
 fn phase_allows_skill(
     restriction: SkillPhaseRestriction,

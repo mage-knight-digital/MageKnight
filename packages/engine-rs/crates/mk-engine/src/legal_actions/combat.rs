@@ -186,10 +186,12 @@ pub(super) fn enumerate_cumbersome_actions(
 // Attack enumeration
 // =============================================================================
 
-/// Enumerate InitiateAttack actions for RangedSiege and Attack phases.
+/// Enumerate attack target selection actions for RangedSiege and Attack phases.
 ///
-/// Only available when no attack declaration is active (`declared_attack_targets` is None).
-/// Does not require accumulated attack — the player declares targets first, then plays cards.
+/// Emits one `SubsetSelect { index }` per eligible enemy target, allowing the player
+/// to directly pick a target without a separate initiation step.
+/// Only available when no attack declaration is active (`declared_attack_targets` is None)
+/// and no active pending exists (the pending check is handled by the caller).
 pub(super) fn enumerate_attack_declarations(
     state: &GameState,
     player_idx: usize,
@@ -208,21 +210,15 @@ pub(super) fn enumerate_attack_declarations(
     let player_id = state.players[player_idx].id.as_str();
     let modifiers = &state.active_modifiers;
 
-    match combat.phase {
-        CombatPhase::RangedSiege => {
-            // Single action — all non-defeated enemies are eligible targets.
-            // Pool combination (ranged+siege vs siege-only) determined at resolution
-            // based on whether any target is fortified.
-            if has_eligible_targets(combat, CombatType::Siege, false, modifiers, player_id) {
-                actions.push(LegalAction::InitiateAttack { attack_type: CombatType::Siege });
-            }
-        }
-        CombatPhase::Attack => {
-            if has_eligible_targets(combat, CombatType::Melee, false, modifiers, player_id) {
-                actions.push(LegalAction::InitiateAttack { attack_type: CombatType::Melee });
-            }
-        }
-        _ => {}
+    let attack_type = match combat.phase {
+        CombatPhase::RangedSiege => CombatType::Siege,
+        CombatPhase::Attack => CombatType::Melee,
+        _ => return,
+    };
+
+    let eligible = eligible_attack_targets(combat, attack_type, modifiers, Some(player_id));
+    for i in 0..eligible.len() {
+        actions.push(LegalAction::SubsetSelect { index: i });
     }
 }
 
@@ -248,49 +244,6 @@ pub(super) fn enumerate_resolve_attack(
     if is_declared_attack_sufficient(state, player_idx, target_ids, attack_type) {
         actions.push(LegalAction::ResolveAttack);
     }
-}
-
-/// Check if there are eligible enemy targets for an attack type (ignores accumulator).
-fn has_eligible_targets(
-    combat: &CombatState,
-    _attack_type: CombatType,
-    exclude_fortified: bool,
-    modifiers: &[mk_types::modifier::ActiveModifier],
-    player_id: &str,
-) -> bool {
-    combat.enemies.iter().any(|enemy| {
-        if enemy.is_defeated {
-            return false;
-        }
-        if !crate::cooperative_assault::is_enemy_assigned_to_player(
-            &combat.enemy_assignments,
-            player_id,
-            enemy.instance_id.as_str(),
-        ) {
-            return false;
-        }
-        let def = match get_enemy(enemy.enemy_id.as_str()) {
-            Some(d) => d,
-            None => return false,
-        };
-        if exclude_fortified
-            && crate::combat_resolution::is_effectively_fortified(
-                def,
-                enemy.instance_id.as_str(),
-                combat.is_at_fortified_site,
-                modifiers,
-            )
-        {
-            return false;
-        }
-        // Exclude already-declared targets (AttackTargets currently held)
-        if let Some(ref declared) = combat.declared_attack_targets {
-            if declared.contains(&enemy.instance_id) {
-                return false;
-            }
-        }
-        true
-    })
 }
 
 /// Check if accumulated attack is sufficient to defeat the declared targets.
@@ -457,7 +410,7 @@ pub(crate) fn compute_total_target_armor(
 /// Compute eligible enemy instance IDs for an attack type.
 ///
 /// Filters by cooperative assault assignments when `player_id` is provided.
-pub(crate) fn eligible_attack_targets(
+pub fn eligible_attack_targets(
     combat: &CombatState,
     attack_type: CombatType,
     modifiers: &[mk_types::modifier::ActiveModifier],

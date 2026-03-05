@@ -299,6 +299,53 @@ pub(super) fn apply_subset_select(
     player_idx: usize,
     index: usize,
 ) -> Result<ApplyResult, ApplyError> {
+    // Lazy creation: if no active pending, create SubsetSelectionState from combat context
+    if state.players[player_idx].pending.active.is_none() {
+        let combat = state
+            .combat
+            .as_ref()
+            .ok_or_else(|| ApplyError::InternalError(
+                "SubsetSelect: no pending and no combat".into(),
+            ))?;
+
+        let attack_type = match combat.phase {
+            CombatPhase::RangedSiege => CombatType::Siege,
+            CombatPhase::Attack => CombatType::Melee,
+            _ => {
+                return Err(ApplyError::InternalError(
+                    "SubsetSelect: invalid combat phase for lazy creation".into(),
+                ))
+            }
+        };
+
+        let player_id_str = state.players[player_idx].id.as_str().to_string();
+        let eligible = crate::legal_actions::combat::eligible_attack_targets(
+            combat,
+            attack_type,
+            &state.active_modifiers,
+            Some(&player_id_str),
+        );
+
+        if eligible.is_empty() {
+            return Err(ApplyError::InternalError(
+                "SubsetSelect: no eligible enemies".into(),
+            ));
+        }
+
+        let pool_size = eligible.len();
+        state.players[player_idx].pending.active =
+            Some(ActivePending::SubsetSelection(SubsetSelectionState {
+                kind: SubsetSelectionKind::AttackTargets {
+                    attack_type,
+                    eligible_instance_ids: eligible,
+                },
+                pool_size,
+                max_selections: pool_size,
+                min_selections: 1,
+                selected: Vec::new(),
+            }));
+    }
+
     let ss = match &mut state.players[player_idx].pending.active {
         Some(ActivePending::SubsetSelection(ss)) => ss,
         _ => {
@@ -317,9 +364,8 @@ pub(super) fn apply_subset_select(
     ss.selected.push(index);
     ss.selected.sort_unstable();
 
-    // Auto-confirm if we've hit the max — but NOT for AttackTargets (needs sufficiency check)
-    let should_auto_confirm = ss.selected.len() >= ss.max_selections
-        && !matches!(ss.kind, SubsetSelectionKind::AttackTargets { .. });
+    // Auto-confirm if we've hit the max
+    let should_auto_confirm = ss.selected.len() >= ss.max_selections;
     if should_auto_confirm {
         return finalize_subset_selection(state, player_idx);
     }
@@ -571,47 +617,4 @@ pub(super) fn apply_initiate_mana_search(
 }
 
 
-pub(super) fn apply_initiate_attack(
-    state: &mut GameState,
-    player_idx: usize,
-    attack_type: CombatType,
-) -> Result<ApplyResult, ApplyError> {
-    use mk_types::pending::{SubsetSelectionKind, SubsetSelectionState};
-
-    let combat = state
-        .combat
-        .as_ref()
-        .ok_or_else(|| ApplyError::InternalError("InitiateAttack: no combat".into()))?;
-
-    let player_id_str = state.players[player_idx].id.as_str().to_string();
-    let eligible =
-        crate::legal_actions::combat::eligible_attack_targets(combat, attack_type, &state.active_modifiers, Some(&player_id_str));
-
-    if eligible.is_empty() {
-        return Err(ApplyError::InternalError(
-            "InitiateAttack: no eligible enemies".into(),
-        ));
-    }
-
-    let pool_size = eligible.len();
-    let eligible_ids: Vec<CombatInstanceId> = eligible.into_iter().collect();
-
-    state.players[player_idx].pending.active =
-        Some(ActivePending::SubsetSelection(SubsetSelectionState {
-            kind: SubsetSelectionKind::AttackTargets {
-                attack_type,
-                eligible_instance_ids: eligible_ids,
-            },
-            pool_size,
-            max_selections: pool_size, // Can target all
-            min_selections: 1,
-            selected: Vec::new(),
-        }));
-
-    Ok(ApplyResult {
-        needs_reenumeration: true,
-        game_ended: false,
-        events: Vec::new(),
-    })
-}
 

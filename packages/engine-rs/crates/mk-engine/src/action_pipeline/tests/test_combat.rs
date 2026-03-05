@@ -608,7 +608,6 @@ fn contract_all_combat_actions_executable() {
                 matches!(
                     a,
                     LegalAction::DeclareBlock { .. }
-                        | LegalAction::InitiateAttack { .. }
                         | LegalAction::SubsetSelect { .. }
                         | LegalAction::SubsetConfirm
                         | LegalAction::EndCombatPhase
@@ -705,31 +704,25 @@ fn vampiric_bonus_affects_attack_enumeration() {
         physical: 6, fire: 0, ice: 0, cold_fire: 0,
     };
 
-    // InitiateAttack is still offered (we have attack > 0 and eligible enemies)
+    // SubsetSelect (attack target) is still offered (we have eligible enemies)
     let legal = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     assert!(
-        legal.actions.iter().any(|a| matches!(a, LegalAction::InitiateAttack { .. })),
-        "InitiateAttack should be available with 6 attack"
+        legal.actions.iter().any(|a| matches!(a, LegalAction::SubsetSelect { .. })),
+        "SubsetSelect should be available for attack targets"
     );
 
-    // After initiating, selecting, and confirming targets, ResolveAttack should NOT be offered
+    // After selecting target, it auto-confirms (single enemy). ResolveAttack should NOT be offered.
     let mut undo = UndoStack::new();
     let epoch = state.action_epoch;
-    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::InitiateAttack { attack_type: CombatType::Melee }, epoch).unwrap();
-    let epoch = state.action_epoch;
+    // Single enemy: SubsetSelect auto-confirms (pool_size=1, max_selections=1)
     apply_legal_action(&mut state, &mut undo, 0, &LegalAction::SubsetSelect { index: 0 }, epoch).unwrap();
-    let epoch = state.action_epoch;
-    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::SubsetConfirm, epoch).unwrap();
     let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
     assert!(
         !legal.actions.contains(&LegalAction::ResolveAttack),
         "6 attack should not be sufficient to resolve against armor 7"
     );
 
-    // Undo SubsetConfirm (restores pre-confirm snapshot), then InitiateAttack.
-    // SubsetSelect doesn't save a snapshot — it only mutates pending.active.selected.
-    let epoch = state.action_epoch;
-    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::Undo, epoch).unwrap();
+    // Undo SubsetSelect (restores pre-select snapshot from lazy creation).
     let epoch = state.action_epoch;
     apply_legal_action(&mut state, &mut undo, 0, &LegalAction::Undo, epoch).unwrap();
     assert!(state.players[0].pending.active.is_none(), "Should be back to base combat state");
@@ -738,11 +731,8 @@ fn vampiric_bonus_affects_attack_enumeration() {
     state.players[0].combat_accumulator.attack.normal_elements.physical = 7;
     let mut undo = UndoStack::new();
     let epoch = state.action_epoch;
-    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::InitiateAttack { attack_type: CombatType::Melee }, epoch).unwrap();
-    let epoch = state.action_epoch;
+    // Single enemy: SubsetSelect auto-confirms
     apply_legal_action(&mut state, &mut undo, 0, &LegalAction::SubsetSelect { index: 0 }, epoch).unwrap();
-    let epoch = state.action_epoch;
-    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::SubsetConfirm, epoch).unwrap();
     let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
     assert!(
         legal.actions.contains(&LegalAction::ResolveAttack),
@@ -1622,16 +1612,14 @@ fn defend_protects_other_enemy() {
         physical: 3, fire: 0, ice: 0, cold_fire: 0,
     };
 
-    // Initiate attack targeting prowlers (enemy_1 = index 1 in eligible list)
+    // Select prowlers (enemy_1 = index 1 in eligible list)
     let mut undo = UndoStack::new();
     let epoch = state.action_epoch;
-    apply_legal_action(&mut state, &mut undo, 0,
-        &LegalAction::InitiateAttack { attack_type: CombatType::Melee }, epoch).unwrap();
-    let epoch = state.action_epoch;
+    // SubsetSelect lazily creates attack SubsetSelectionState + selects prowlers
     apply_legal_action(&mut state, &mut undo, 0,
         &LegalAction::SubsetSelect { index: 1 }, epoch).unwrap();
 
-    // SubsetConfirm stores targets (always available), then check ResolveAttack
+    // SubsetConfirm stores targets, then check ResolveAttack
     let epoch = state.action_epoch;
     apply_legal_action(&mut state, &mut undo, 0,
         &LegalAction::SubsetConfirm, epoch).unwrap();
@@ -1657,9 +1645,7 @@ fn defend_protects_other_enemy_sufficient_attack() {
 
     let mut undo = UndoStack::new();
     let epoch = state.action_epoch;
-    apply_legal_action(&mut state, &mut undo, 0,
-        &LegalAction::InitiateAttack { attack_type: CombatType::Melee }, epoch).unwrap();
-    let epoch = state.action_epoch;
+    // SubsetSelect lazily creates + selects prowlers (index 1)
     apply_legal_action(&mut state, &mut undo, 0,
         &LegalAction::SubsetSelect { index: 1 }, epoch).unwrap();
     let epoch = state.action_epoch;
@@ -1687,9 +1673,7 @@ fn defend_used_once_per_combat() {
     };
     let mut undo = UndoStack::new();
     let epoch = state.action_epoch;
-    apply_legal_action(&mut state, &mut undo, 0,
-        &LegalAction::InitiateAttack { attack_type: CombatType::Melee }, epoch).unwrap();
-    let epoch = state.action_epoch;
+    // SubsetSelect lazily creates + selects prowlers (index 1)
     apply_legal_action(&mut state, &mut undo, 0,
         &LegalAction::SubsetSelect { index: 1 }, epoch).unwrap();
     let epoch = state.action_epoch;
@@ -1711,10 +1695,8 @@ fn defend_used_once_per_combat() {
 
     let mut undo = UndoStack::new();
     let epoch = state.action_epoch;
-    apply_legal_action(&mut state, &mut undo, 0,
-        &LegalAction::InitiateAttack { attack_type: CombatType::Melee }, epoch).unwrap();
-    let epoch = state.action_epoch;
     // enemy_2 is now index 1 (enemy_0=corrupted_priests, enemy_2=prowlers — enemy_1 defeated)
+    // SubsetSelect lazily creates + selects prowlers(enemy_2) at index 1
     apply_legal_action(&mut state, &mut undo, 0,
         &LegalAction::SubsetSelect { index: 1 }, epoch).unwrap();
     let epoch = state.action_epoch;
@@ -1753,9 +1735,7 @@ fn defend_bonus_persists_after_defender_killed() {
     };
     let mut undo = UndoStack::new();
     let epoch = state.action_epoch;
-    apply_legal_action(&mut state, &mut undo, 0,
-        &LegalAction::InitiateAttack { attack_type: CombatType::Melee }, epoch).unwrap();
-    let epoch = state.action_epoch;
+    // SubsetSelect lazily creates + selects prowlers (index 1)
     apply_legal_action(&mut state, &mut undo, 0,
         &LegalAction::SubsetSelect { index: 1 }, epoch).unwrap();
     let epoch = state.action_epoch;
@@ -1773,20 +1753,16 @@ fn defend_bonus_persists_after_defender_killed() {
     );
 
     // Step 2: Kill corrupted_priests (defend already used, so just needs 5)
+    // Only one eligible target now — SubsetSelect auto-confirms
     state.players[0].combat_accumulator.attack.normal_elements = ElementalValues {
         physical: 5, fire: 0, ice: 0, cold_fire: 0,
     };
     state.players[0].combat_accumulator.assigned_attack.normal_elements = ElementalValues::default();
     let mut undo = UndoStack::new();
     let epoch = state.action_epoch;
-    apply_legal_action(&mut state, &mut undo, 0,
-        &LegalAction::InitiateAttack { attack_type: CombatType::Melee }, epoch).unwrap();
-    let epoch = state.action_epoch;
+    // Single enemy: SubsetSelect lazily creates + selects + auto-confirms
     apply_legal_action(&mut state, &mut undo, 0,
         &LegalAction::SubsetSelect { index: 0 }, epoch).unwrap();
-    let epoch = state.action_epoch;
-    apply_legal_action(&mut state, &mut undo, 0,
-        &LegalAction::SubsetConfirm, epoch).unwrap();
     let epoch = state.action_epoch;
     apply_legal_action(&mut state, &mut undo, 0,
         &LegalAction::ResolveAttack, epoch).unwrap();
@@ -1814,14 +1790,9 @@ fn defend_self_adds_armor() {
 
     let mut undo = UndoStack::new();
     let epoch = state.action_epoch;
-    apply_legal_action(&mut state, &mut undo, 0,
-        &LegalAction::InitiateAttack { attack_type: CombatType::Melee }, epoch).unwrap();
-    let epoch = state.action_epoch;
+    // Single enemy: SubsetSelect lazily creates + selects + auto-confirms
     apply_legal_action(&mut state, &mut undo, 0,
         &LegalAction::SubsetSelect { index: 0 }, epoch).unwrap();
-    let epoch = state.action_epoch;
-    apply_legal_action(&mut state, &mut undo, 0,
-        &LegalAction::SubsetConfirm, epoch).unwrap();
 
     let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
     assert!(

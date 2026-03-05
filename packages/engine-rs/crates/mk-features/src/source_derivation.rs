@@ -40,7 +40,6 @@ pub fn derive_source_str(action: &LegalAction, state: &GameState, player_idx: us
 
         // === Combat-specific ===
         LegalAction::DeclareBlock { .. } => "combat.declare_block",
-        LegalAction::InitiateAttack { .. } => "combat.declare_targets",
         LegalAction::ResolveAttack => "combat.resolve_attack",
         LegalAction::EndCombatPhase => "combat.end_phase",
         LegalAction::SpendMoveOnCumbersome { .. } => "combat.cumbersome",
@@ -59,6 +58,9 @@ pub fn derive_source_str(action: &LegalAction, state: &GameState, player_idx: us
                     | mk_types::pending::SubsetSelectionKind::MidnightMeditation => "meditation.select",
                     mk_types::pending::SubsetSelectionKind::RestWoundDiscard { .. } => "normal.turn.complete_rest",
                 }
+            } else if in_combat {
+                // Lazy attack target selection: no pending yet, but in combat attack phase
+                "combat.declare_targets"
             } else {
                 "pending_choice.index"
             }

@@ -41,17 +41,10 @@ pub(super) fn setup_combat_game(enemy_ids: &[&str]) -> GameState {
 pub(super) fn execute_attack(
     state: &mut GameState,
     undo: &mut UndoStack,
-    attack_type: CombatType,
+    _attack_type: CombatType,
     target_count: usize,
 ) {
-    let epoch = state.action_epoch;
-    apply_legal_action(
-        state, undo, 0,
-        &LegalAction::InitiateAttack { attack_type },
-        epoch,
-    ).unwrap();
-
-    // Select targets 0..target_count
+    // Select targets 0..target_count (first select lazily creates SubsetSelectionState)
     for i in 0..target_count {
         let epoch = state.action_epoch;
         apply_legal_action(

@@ -1116,6 +1116,21 @@ class ReinforcePolicy:
         logits = logits.clamp(min=-50.0, max=50.0).masked_fill(~finite_mask, float("-inf"))
         log_probs_all = torch.log_softmax(logits, dim=-1)  # (N, max_M)
         probs = log_probs_all.exp()
+        if torch.isnan(probs).any() or torch.isinf(probs).any() or (probs < 0).any():
+            bad_rows = (torch.isnan(probs) | torch.isinf(probs) | (probs < 0)).any(dim=-1)
+            for idx in bad_rows.nonzero(as_tuple=True)[0][:3]:
+                i = idx.item()
+                print(f"[NaN DEBUG] env={i}")
+                print(f"  raw logits:  {logits[i][finite_mask[i]]}")
+                print(f"  probs:       {probs[i][finite_mask[i]]}")
+                print(f"  values:      {values[i]}")
+                n_actions = batch_dict["num_actions"][i] if "num_actions" in batch_dict else "?"
+                print(f"  num_actions: {n_actions}")
+                if "action_scalars" in batch_dict:
+                    scalars = batch_dict["action_scalars"][i]
+                    if hasattr(scalars, 'shape') and len(scalars.shape) == 2:
+                        for j in range(min(int(n_actions) if isinstance(n_actions, (int, float)) else 5, scalars.shape[0])):
+                            print(f"  action[{j}] scalars: {scalars[j]}")
         selected = torch.multinomial(probs, 1).squeeze(-1)  # (N,)
 
         n = logits.shape[0]

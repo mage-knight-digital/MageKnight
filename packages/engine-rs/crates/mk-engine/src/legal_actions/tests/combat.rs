@@ -1266,24 +1266,22 @@ fn attack_enumerated_for_feasible_targets() {
     assert_eq!(actions.len(), 1);
     assert!(matches!(
         &actions[0],
-        LegalAction::InitiateAttack {
-            attack_type: CombatType::Melee,
-        }
+        LegalAction::SubsetSelect { index: 0 }
     ));
 }
 
 #[test]
-fn initiate_attack_available_without_accumulated_attack() {
+fn attack_target_available_without_accumulated_attack() {
     let mut state = setup_combat_game(&["prowlers"]); // armor 3
     state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
-    // No attack accumulated (all zeros) — InitiateAttack should still appear (declare-first flow)
+    // No attack accumulated (all zeros) — SubsetSelect should still appear (declare-first flow)
 
     let mut actions = Vec::new();
     enumerate_attack_declarations(&state, 0, &mut actions);
 
     assert!(
         !actions.is_empty(),
-        "InitiateAttack should be available even without accumulated attack"
+        "SubsetSelect should be available even without accumulated attack"
     );
 }
 
@@ -1306,10 +1304,9 @@ fn resolve_attack_not_available_without_sufficient_attack() {
 }
 
 #[test]
-fn rangedsiege_emits_single_initiate_attack() {
-    // In RangedSiege, only one InitiateAttack (Siege) should be emitted
-    // regardless of whether enemies are fortified.
-    let mut state = setup_combat_game(&["prowlers"]); // non-fortified
+fn rangedsiege_emits_subset_select_per_enemy() {
+    // In RangedSiege, one SubsetSelect per eligible enemy
+    let mut state = setup_combat_game(&["prowlers"]); // non-fortified, single enemy
     state.players[0].combat_accumulator.attack.ranged_elements = ElementalValues {
         physical: 10,
         fire: 0,
@@ -1320,25 +1317,19 @@ fn rangedsiege_emits_single_initiate_attack() {
     let mut actions = Vec::new();
     enumerate_attack_declarations(&state, 0, &mut actions);
 
-    assert_eq!(actions.len(), 1, "RangedSiege should emit exactly one InitiateAttack");
-    assert!(matches!(
-        &actions[0],
-        LegalAction::InitiateAttack { attack_type: CombatType::Siege }
-    ));
+    assert_eq!(actions.len(), 1, "RangedSiege should emit one SubsetSelect per eligible enemy");
+    assert!(matches!(&actions[0], LegalAction::SubsetSelect { index: 0 }));
 }
 
 #[test]
-fn rangedsiege_fortified_emits_single_initiate_attack() {
+fn rangedsiege_fortified_emits_subset_select() {
     let state = setup_combat_game(&["diggers"]); // Fortified, armor 3
 
     let mut actions = Vec::new();
     enumerate_attack_declarations(&state, 0, &mut actions);
 
-    assert_eq!(actions.len(), 1, "RangedSiege should emit exactly one InitiateAttack for fortified enemies");
-    assert!(matches!(
-        &actions[0],
-        LegalAction::InitiateAttack { attack_type: CombatType::Siege }
-    ));
+    assert_eq!(actions.len(), 1, "RangedSiege should emit SubsetSelect for fortified enemies");
+    assert!(matches!(&actions[0], LegalAction::SubsetSelect { index: 0 }));
 }
 
 // ---- Combined ranged+siege pool tests ----

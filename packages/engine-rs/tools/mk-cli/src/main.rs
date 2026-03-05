@@ -817,14 +817,6 @@ fn format_action(action: &LegalAction, state: &GameState, player_idx: usize) -> 
             let enemy_name = combat_enemy_name(state, enemy_instance_id.as_str());
             format!("Block {} attack #{}", enemy_name, attack_index + 1)
         }
-        LegalAction::InitiateAttack { attack_type } => {
-            let atype = match attack_type {
-                CombatType::Melee => "melee",
-                CombatType::Ranged => "ranged",
-                CombatType::Siege => "siege",
-            };
-            format!("Declare {} attack", atype)
-        }
         LegalAction::SpendMoveOnCumbersome { enemy_instance_id } => {
             let name = combat_enemy_name(state, enemy_instance_id.as_str());
             format!("Spend move on {} (cumbersome)", name)

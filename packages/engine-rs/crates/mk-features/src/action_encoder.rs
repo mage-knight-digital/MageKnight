@@ -11,7 +11,7 @@ use mk_types::pending::ActivePending;
 use mk_types::state::GameState;
 
 use crate::source_derivation::derive_source;
-use crate::types::{scale, ActionFeatures, ACTION_SCALAR_DIM};
+use crate::types::{scale, terrain_difficulty, ActionFeatures, ACTION_SCALAR_DIM};
 use crate::vocab::{ACTION_TYPE_VOCAB, CARD_VOCAB, ENEMY_VOCAB, SKILL_VOCAB, UNIT_VOCAB};
 
 /// Encode all legal actions into ActionFeatures.
@@ -66,7 +66,6 @@ fn derive_action_type(action: &LegalAction) -> u16 {
         LegalAction::ResolveDiscardForCrystal { .. } => "RESOLVE_DISCARD_FOR_CRYSTAL",
         LegalAction::ChallengeRampaging { .. } => "CHALLENGE_RAMPAGING",
         LegalAction::DeclareBlock { .. } => "DECLARE_BLOCK",
-        LegalAction::InitiateAttack { .. } => "DECLARE_ATTACK",
         LegalAction::ResolveAttack => "RESOLVE_ATTACK",
         LegalAction::SpendMoveOnCumbersome { .. } => "SPEND_MOVE_ON_CUMBERSOME",
         LegalAction::ResolveTacticDecision { .. } => "RESOLVE_TACTIC_DECISION",
@@ -274,6 +273,22 @@ fn extract_entity_ids(
                         }
                     }
                 }
+            } else if let Some(ref combat) = state.combat {
+                // Lazy attack target selection: no pending yet, resolve from combat context
+                let attack_type = match combat.phase {
+                    mk_types::enums::CombatPhase::RangedSiege => CombatType::Siege,
+                    mk_types::enums::CombatPhase::Attack => CombatType::Melee,
+                    _ => CombatType::Melee,
+                };
+                let player_id_str = player.id.as_str();
+                let eligible = mk_engine::legal_actions::combat::eligible_attack_targets(
+                    combat, attack_type, &state.active_modifiers, Some(player_id_str),
+                );
+                if let Some(iid) = eligible.get(*index) {
+                    if let Some(e) = combat.enemies.iter().find(|e| e.instance_id == *iid) {
+                        target_enemy_ids.push(ENEMY_VOCAB.encode(e.enemy_id.as_str()));
+                    }
+                }
             }
         }
 
@@ -336,6 +351,17 @@ fn extract_action_scalars(
             scalars[4] = scale((target.q - pos.q) as f32, 10.0);
             scalars[5] = scale((target.r - pos.r) as f32, 10.0);
             scalars[10] = scale(*cost as f32, 10.0);
+            // Target hex context
+            if let Some(hex) = state.map.hexes.get(&target.key()) {
+                scalars[24] = terrain_difficulty(hex.terrain);
+                scalars[25] = if hex.site.is_some() { 1.0 } else { 0.0 };
+                scalars[26] = if !hex.enemies.is_empty() { 1.0 } else { 0.0 };
+            }
+            // Will this move provoke rampaging enemies? (skirting past adjacent rampagers)
+            let provoked = mk_engine::movement::find_provoked_rampaging_enemies(
+                state, player_idx, pos, *target,
+            );
+            scalars[27] = if provoked.is_empty() { 0.0 } else { 1.0 };
         }
         LegalAction::Explore { direction } => {
             let (dq, dr) = direction.offset();
@@ -381,15 +407,8 @@ fn extract_action_scalars(
                 }
             }
         }
-        LegalAction::InitiateAttack { attack_type } => {
-            match attack_type {
-                CombatType::Melee => scalars[20] = 1.0,
-                CombatType::Ranged => scalars[21] = 1.0,
-                CombatType::Siege => scalars[22] = 1.0,
-            }
-        }
         LegalAction::ResolveAttack => {
-            // Similar to InitiateAttack, encode attack type from declared state
+            // Encode attack type from declared state
             if let Some(ref combat) = state.combat {
                 if let Some(attack_type) = combat.declared_attack_type {
                     match attack_type {

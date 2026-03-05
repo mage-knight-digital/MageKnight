@@ -89,6 +89,9 @@ pub fn end_turn(state: &mut GameState, player_idx: usize) -> Result<EndTurnResul
             .contains(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN)
             && !player.flags.contains(PlayerFlags::HAS_RESTED_THIS_TURN)
             && !player.flags.contains(PlayerFlags::HAS_COMBATTED_THIS_TURN)
+            && !player
+                .flags
+                .contains(PlayerFlags::DISCARDED_CARD_THIS_TURN)
         {
             return Err(EndTurnError::MinimumTurnRequirementNotMet);
         }
@@ -753,6 +756,9 @@ fn reset_player_turn_inner(player: &mut PlayerState) {
         .flags
         .remove(PlayerFlags::REPUTATION_BONUS_APPLIED_THIS_TURN);
     player.flags.remove(PlayerFlags::IS_INTERACTING);
+    player
+        .flags
+        .remove(PlayerFlags::DISCARDED_CARD_THIS_TURN);
 
     // Clear mana state (crystals persist, tokens don't)
     player.pure_mana.clear();

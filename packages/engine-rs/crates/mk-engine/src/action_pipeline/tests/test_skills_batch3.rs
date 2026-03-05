@@ -411,10 +411,10 @@ fn master_of_chaos_gold_gives_choice() {
         free_rotate_available: false,
     });
     activate_skill(&mut state, &mut undo, "krang_master_of_chaos");
-    // In combat (Attack phase), all 5 options are resolvable → choice with 5 options
+    // In combat, Move and Influence are filtered out → 3 options remain (Block, Ranged, Melee)
     match &state.players[0].pending.active {
         Some(mk_types::pending::ActivePending::Choice(c)) => {
-            assert_eq!(c.options.len(), 5);
+            assert_eq!(c.options.len(), 3);
             assert!(matches!(c.resolution, mk_types::pending::ChoiceResolution::MasterOfChaosGoldChoice));
         }
         other => panic!("Expected MasterOfChaosGoldChoice pending, got {:?}", other),

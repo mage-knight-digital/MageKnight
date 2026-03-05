@@ -1230,6 +1230,75 @@ mod tests {
     }
 
     #[test]
+    fn improvisation_in_combat_filters_move_and_influence() {
+        use mk_types::effect::CardEffect;
+        // In combat, improvisation's choice should filter out Move and Influence.
+        // Attack (melee) and Block remain as valid options → PendingChoice.
+        let mut state = setup_game(vec!["improvisation", "march"]);
+        state.combat = Some(Box::new(CombatState::default()));
+        state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+
+        let result = play_card(&mut state, 0, 0, false, None).unwrap();
+        assert!(matches!(result, CardPlayResult::PendingChoice),
+            "Should present choice between attack and block");
+
+        if let Some(ActivePending::Choice(ref choice)) = state.players[0].pending.active {
+            let has_move = choice.options.iter().any(|o| matches!(o, CardEffect::GainMove { .. }));
+            let has_influence = choice.options.iter().any(|o| matches!(o, CardEffect::GainInfluence { .. }));
+            let has_attack = choice.options.iter().any(|o| matches!(o, CardEffect::GainAttack { .. }));
+            let has_block = choice.options.iter().any(|o| matches!(o, CardEffect::GainBlock { .. }));
+            assert!(!has_move, "Move should be filtered out in combat");
+            assert!(!has_influence, "Influence should be filtered out in combat");
+            assert!(has_attack, "Melee attack should be available");
+            assert!(has_block, "Block should be available");
+            assert_eq!(choice.options.len(), 2, "Only attack and block should remain");
+        } else {
+            panic!("Expected ActivePending::Choice");
+        }
+    }
+
+    #[test]
+    fn improvisation_in_block_phase_allows_move_with_cumbersome() {
+        use mk_types::effect::CardEffect;
+        // In Block phase with a cumbersome enemy, move should be available
+        // (can be spent as block against cumbersome). Influence still filtered.
+        let mut state = setup_game(vec!["improvisation", "march"]);
+        let mut combat = CombatState::default();
+        combat.phase = CombatPhase::Block;
+        combat.enemies.push(mk_types::state::CombatEnemy {
+            enemy_id: mk_types::ids::EnemyId::from("orc_stonethrowers"),
+            instance_id: "enemy_0".into(),
+            is_blocked: false,
+            is_defeated: false,
+            damage_assigned: false,
+            is_required_for_conquest: false,
+            summoned_by_instance_id: None,
+            is_summoner_hidden: false,
+            attacks_blocked: vec![false],
+            attacks_damage_assigned: vec![false],
+            attacks_cancelled: vec![false],
+        });
+        state.combat = Some(Box::new(combat));
+
+        let result = play_card(&mut state, 0, 0, false, None).unwrap();
+        assert!(matches!(result, CardPlayResult::PendingChoice));
+
+        if let Some(ActivePending::Choice(ref choice)) = state.players[0].pending.active {
+            let has_move = choice.options.iter().any(|o| matches!(o, CardEffect::GainMove { .. }));
+            let has_block = choice.options.iter().any(|o| matches!(o, CardEffect::GainBlock { .. }));
+            let has_attack = choice.options.iter().any(|o| matches!(o, CardEffect::GainAttack { .. }));
+            let has_influence = choice.options.iter().any(|o| matches!(o, CardEffect::GainInfluence { .. }));
+            assert!(has_block, "Block should be available");
+            assert!(has_move, "Move should be available with cumbersome enemy");
+            assert!(has_attack, "Attack should be available");
+            assert!(!has_influence, "Influence should be filtered out in combat");
+            assert_eq!(choice.options.len(), 3, "Move, attack, and block should remain");
+        } else {
+            panic!("Expected ActivePending::Choice");
+        }
+    }
+
+    #[test]
     fn improvisation_no_non_wound_cards_skips() {
         let mut state = setup_game(vec!["improvisation"]);
         // After improvisation is played from hand, hand is empty → can't discard

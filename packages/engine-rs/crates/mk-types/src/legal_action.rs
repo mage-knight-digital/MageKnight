@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::action::ManaSourceInfo;
-use crate::enums::{BasicManaColor, CombatType, Element, GladeWoundChoice, SidewaysAs, Terrain};
+use crate::enums::{BasicManaColor, Element, GladeWoundChoice, SidewaysAs, Terrain};
 use crate::hex::{HexCoord, HexDirection};
 use crate::ids::{CardId, CombatInstanceId, SkillId, TacticId, UnitId, UnitInstanceId};
 use crate::modifier::CombatValueType;
@@ -78,10 +78,6 @@ pub enum LegalAction {
     DeclareBlock {
         enemy_instance_id: CombatInstanceId,
         attack_index: usize,
-    },
-    /// Initiate an attack declaration — enters SubsetSelection for target enemies.
-    InitiateAttack {
-        attack_type: CombatType,
     },
     SpendMoveOnCumbersome {
         enemy_instance_id: CombatInstanceId,

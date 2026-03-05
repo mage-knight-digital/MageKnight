@@ -84,6 +84,7 @@ bitflags! {
         const BEFORE_TURN_TACTIC_PENDING        = 1 << 16;
         const REPUTATION_BONUS_APPLIED_THIS_TURN = 1 << 17;
         const IS_INTERACTING                   = 1 << 18;
+        const DISCARDED_CARD_THIS_TURN         = 1 << 19;
     }
 }
 

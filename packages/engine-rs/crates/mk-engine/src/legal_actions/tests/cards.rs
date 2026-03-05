@@ -524,7 +524,7 @@ fn chilling_stare_basic_is_choice() {
 
 #[test]
 fn chilling_stare_basic_select_enemy_nullifies_abilities() {
-    // Choose option 1 (SelectCombatEnemy → nullify all attack abilities)
+    // Without Diplomacy, Influence is filtered in combat → SelectCombatEnemy auto-resolves.
     let (mut state, mut undo) = setup_card_combat("chilling_stare", &["prowlers"]);
 
     let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
@@ -533,13 +533,7 @@ fn chilling_stare_basic_select_enemy_nullifies_abilities() {
     )).unwrap();
     let _ = apply_legal_action(&mut state, &mut undo, 0, action, legal.epoch);
 
-    // Choose option 1 (select enemy)
-    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
-    let resolve = legal.actions.iter().find(|a| matches!(a,
-        LegalAction::ResolveChoice { choice_index: 1 }
-    )).unwrap();
-    let _ = apply_legal_action(&mut state, &mut undo, 0, resolve, legal.epoch);
-
+    // Influence filtered out in combat → SelectCombatEnemy is only option → auto-resolves.
     // Single enemy → auto-resolve. Should have AbilityNullifier modifiers.
     let nullifier_count = state.active_modifiers.iter().filter(|m| {
         matches!(&m.effect, mk_types::modifier::ModifierEffect::AbilityNullifier { .. })

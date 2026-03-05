@@ -232,6 +232,8 @@ pub struct StepResult {
     pub wound_deltas: Vec<i32>,
     /// (N,) — number of non-wound cards in hand (captured before auto-reset)
     pub non_wound_hand_sizes: Vec<i32>,
+    /// (N,) — number of new tiles explored this step (0 or 1)
+    pub new_tiles: Vec<i32>,
 }
 
 // =============================================================================
@@ -294,9 +296,10 @@ impl VecEnv {
         let n = self.envs.len();
         assert_eq!(actions.len(), n, "actions length must match num_envs");
 
-        // Capture fames and wounds before stepping
+        // Capture fames, wounds, and hex counts before stepping
         let fames_before: Vec<i32> = self.envs.iter().map(|e| e.fame() as i32).collect();
         let wounds_before: Vec<i32> = self.envs.iter().map(|e| e.wound_count()).collect();
+        let hexes_before: Vec<usize> = self.envs.iter().map(|e| e.state.map.hexes.len()).collect();
 
         // Step all envs in parallel
         let results: Vec<(bool, bool)> = self
@@ -330,6 +333,7 @@ impl VecEnv {
         let mut new_hexes = Vec::with_capacity(n);
         let mut wound_deltas = Vec::with_capacity(n);
         let mut non_wound_hand_sizes = Vec::with_capacity(n);
+        let mut new_tiles = Vec::with_capacity(n);
 
         for (i, (game_ended, did_panic)) in results.iter().enumerate() {
             let env = &self.envs[i];
@@ -345,6 +349,8 @@ impl VecEnv {
             new_hexes.push(if new_hex_flags[i] { 1 } else { 0 });
             wound_deltas.push(env.wound_count() - wounds_before[i]);
             non_wound_hand_sizes.push(env.non_wound_hand_size());
+            let hexes_now = env.state.map.hexes.len();
+            new_tiles.push(if hexes_now > hexes_before[i] { 1 } else { 0 });
         }
 
         // Auto-reset finished environments
@@ -366,6 +372,7 @@ impl VecEnv {
             new_hexes,
             wound_deltas,
             non_wound_hand_sizes,
+            new_tiles,
         }
     }
 
@@ -382,6 +389,100 @@ impl VecEnv {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Reproduce: seed=15604 with 156 action indices yields 0 legal actions.
+    #[test]
+    fn replay_seed_15604_zero_actions() {
+        let actions: Vec<usize> = vec![
+            5, 7, 4, 3, 3, 4, 2, 2, 0, 0, 4, 2, 6, 7, 4, 5, 6, 7, 4, 6, 1, 4, 1, 7, 7, 4,
+            0, 0, 4, 2, 2, 0, 1, 0, 0, 3, 3, 8, 7, 7, 5, 4, 6, 2, 7, 5, 0, 3, 3, 1, 2, 0,
+            6, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 4, 4, 5, 2, 2, 2, 2, 0, 2, 1, 0, 0, 0, 0, 0,
+            0, 2, 2, 3, 2, 1, 5, 4, 3, 3, 4, 0, 3, 3, 1, 2, 6, 4, 1, 3, 0, 1, 10, 1, 1, 3,
+            0, 2, 4, 1, 3, 2, 10, 3, 1, 0, 4, 1, 1, 4, 1, 3, 0, 10, 11, 2, 3, 5, 3, 9, 7,
+            4, 4, 0, 3, 3, 5, 0, 2, 4, 3, 3, 1, 2, 0, 4, 4, 1, 3, 3, 5, 2, 1, 0, 2, 1, 0, 0,
+        ];
+
+        let mut env = SingleEnv::new(15604, Hero::Arythea, 500, TrainingScenario::default());
+        for (i, &action_idx) in actions.iter().enumerate() {
+            assert!(
+                !env.action_set.actions.is_empty(),
+                "0 legal actions at step {i} (before applying action index {action_idx})"
+            );
+            let action = &env.action_set.actions[action_idx.min(env.action_set.actions.len() - 1)];
+            let p = &env.state.players[0];
+            eprintln!(
+                "step {i:>3}: idx={action_idx:<3} action={action:?}  hand={} flags={:?}",
+                p.hand.len(), p.flags
+            );
+            let (game_ended, panicked) = env.step(action_idx);
+            assert!(!panicked, "Engine panicked at step {i}");
+            if game_ended {
+                return; // Game ended normally, no bug
+            }
+        }
+        // After all actions, should still have legal actions
+        if env.action_set.actions.is_empty() {
+            let s = &env.state;
+            let p = &s.players[0];
+            eprintln!("=== 0 legal actions after step {} ===", actions.len());
+            eprintln!("phase: {:?}, round_phase: {:?}", s.phase, s.round_phase);
+            eprintln!("combat: {:?}", s.combat.as_ref().map(|c| &c.phase));
+            eprintln!("pending active: {:?}", p.pending.active);
+            eprintln!("pending deferred: {:?}", p.pending.deferred);
+            eprintln!("flags: {:?}", p.flags);
+            eprintln!("position: {:?}", p.position);
+            eprintln!("hand: {} cards, deck: {}, discard: {}", p.hand.len(), p.deck.len(), p.discard.len());
+            eprintln!("game_ended: {}, scenario_end_triggered: {}", s.game_ended, s.scenario_end_triggered);
+            panic!("0 legal actions after replaying all {} actions", actions.len());
+        }
+    }
+
+    /// Reproduce: seed=9424 with 120 action indices yields 0 legal actions.
+    #[test]
+    fn replay_seed_9424_zero_actions() {
+        let actions: Vec<usize> = vec![
+            2, 0, 4, 0, 3, 1, 3, 2, 6, 1, 11, 2, 1, 5, 1, 4, 0, 15, 8, 11, 1, 4, 1, 0, 0, 2,
+            2, 1, 7, 4, 0, 6, 5, 1, 3, 0, 0, 5, 6, 1, 6, 2, 0, 2, 7, 0, 7, 0, 0, 9, 5, 0, 5,
+            0, 10, 4, 4, 4, 2, 1, 1, 0, 4, 7, 2, 4, 2, 1, 2, 1, 2, 2, 2, 0, 0, 0, 7, 5, 1, 1,
+            3, 1, 1, 4, 2, 10, 4, 5, 4, 2, 2, 1, 1, 0, 2, 7, 0, 4, 0, 0, 2, 0, 0, 1, 1, 0, 0,
+            1, 2, 2, 5, 1, 5, 3, 0, 0, 0, 3, 0, 2,
+        ];
+
+        let mut env = SingleEnv::new(9424, Hero::Arythea, 500, TrainingScenario::default());
+        for (i, &action_idx) in actions.iter().enumerate() {
+            assert!(
+                !env.action_set.actions.is_empty(),
+                "0 legal actions at step {i} (before applying action index {action_idx})"
+            );
+            let action = &env.action_set.actions[action_idx.min(env.action_set.actions.len() - 1)];
+            let p = &env.state.players[0];
+            eprintln!(
+                "step {i:>3}: idx={action_idx:<3} action={action:?}  hand={} flags={:?}",
+                p.hand.len(), p.flags
+            );
+            let (game_ended, panicked) = env.step(action_idx);
+            assert!(!panicked, "Engine panicked at step {i}");
+            if game_ended {
+                return;
+            }
+        }
+        if env.action_set.actions.is_empty() {
+            let s = &env.state;
+            let p = &s.players[0];
+            eprintln!("=== 0 legal actions after step {} ===", actions.len());
+            eprintln!("phase: {:?}, round_phase: {:?}", s.phase, s.round_phase);
+            eprintln!("combat: {:?}", s.combat.as_ref().map(|c| &c.phase));
+            eprintln!("pending active: {:?}", p.pending.active);
+            eprintln!("pending deferred: {:?}", p.pending.deferred);
+            eprintln!("flags: {:?}", p.flags);
+            eprintln!("position: {:?}", p.position);
+            eprintln!("hand: {:?}", p.hand);
+            eprintln!("play_area: {:?}", p.play_area);
+            eprintln!("influence: {}, healing: {}", p.influence_points, p.healing_points);
+            eprintln!("game_ended: {}, scenario_end_triggered: {}", s.game_ended, s.scenario_end_triggered);
+            panic!("0 legal actions after replaying all {} actions", actions.len());
+        }
+    }
 
     #[test]
     fn vec_env_creation() {

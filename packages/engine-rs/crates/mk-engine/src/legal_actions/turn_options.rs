@@ -51,7 +51,10 @@ pub(super) fn enumerate_turn_options(
             .flags
             .contains(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN)
             || player.flags.contains(PlayerFlags::HAS_RESTED_THIS_TURN)
-            || player.flags.contains(PlayerFlags::HAS_COMBATTED_THIS_TURN))
+            || player.flags.contains(PlayerFlags::HAS_COMBATTED_THIS_TURN)
+            || player
+                .flags
+                .contains(PlayerFlags::DISCARDED_CARD_THIS_TURN))
     {
         actions.push(LegalAction::EndTurn);
     }

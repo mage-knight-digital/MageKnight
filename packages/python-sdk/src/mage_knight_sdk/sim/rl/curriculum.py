@@ -309,8 +309,70 @@ def progressive_combat_curriculum() -> CurriculumSchedule:
     ])
 
 
+def combat_to_full_game_curriculum() -> CurriculumSchedule:
+    """Bridge from combat-trained agent to full game play.
+
+    Designed to resume from a combat checkpoint (e.g. progressive phase 6).
+    The agent already knows how to fight — this teaches movement, exploration,
+    and mana management on top of existing combat skills.
+
+    Phase 1: Combat refresher — quick re-calibration with current action space.
+    Phase 2: Full game, short horizon — dense exploration rewards, learn to move.
+    Phase 3: Full game, longer horizon — scale up to real game length.
+    """
+    # Combat refresher: re-adapt to any action space changes
+    combat_refresh = RewardConfig(
+        fame_delta_scale=5.0,
+        cards_remaining_bonus=0.3,
+    )
+    # Full game: dense rewards for exploration + fame
+    explore_dense = RewardConfig(
+        fame_delta_scale=2.0,
+        new_hex_bonus=1.0,
+        wound_penalty=-0.5,
+    )
+    # Full game: longer horizon, dial back exploration bonus
+    explore_scaled = RewardConfig(
+        fame_delta_scale=2.0,
+        new_hex_bonus=0.5,
+        wound_penalty=-1.0,
+    )
+
+    return CurriculumSchedule(phases=[
+        # Phase 1: quick combat refresher (adapts weights to any action space changes)
+        CurriculumPhase(
+            name="combat_refresh",
+            scenario=TrainingScenario.combat_drill(
+                enemy_tokens=["prowlers_1", "prowlers_2"],
+                units=["peasants"],
+                crystals={"red": 3, "blue": 0, "green": 0, "white": 0},
+            ),
+            reward_config=combat_refresh,
+            episodes=5000,
+            max_steps=300,
+        ),
+        # Phase 2: full game, short horizon — learn to move and explore
+        CurriculumPhase(
+            name="explore_short",
+            scenario=TrainingScenario.full_game(),
+            reward_config=explore_dense,
+            episodes=50000,
+            max_steps=500,
+        ),
+        # Phase 3: full game, longer horizon — scale up
+        CurriculumPhase(
+            name="explore_long",
+            scenario=TrainingScenario.full_game(),
+            reward_config=explore_scaled,
+            episodes=100000,
+            max_steps=2000,
+        ),
+    ])
+
+
 CURRICULA: dict[str, callable] = {
     "default": default_combat_curriculum,
     "guardsmen": guardsmen_combat_curriculum,
     "progressive": progressive_combat_curriculum,
+    "full_game": combat_to_full_game_curriculum,
 }

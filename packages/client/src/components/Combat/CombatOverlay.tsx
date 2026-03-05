@@ -555,22 +555,9 @@ function CombatOverlayInner({ combat }: CombatOverlayProps) {
 
       {/* === Action buttons — outside layout to avoid z-index stacking context === */}
 
-      {/* Initiate Attack buttons (pre-target-selection) */}
-          {combatActions.initiateAttackOptions.length > 0 && !combatActions.isSelectingTargets && (
+      {/* Convert Move to Attack buttons */}
+          {combatActions.convertMoveToAttack.length > 0 && !combatActions.isSelectingTargets && (
             <div className="combat-scene__initiate-attacks">
-              {combatActions.initiateAttackOptions.map((opt) => (
-                <button
-                  key={opt.attackType}
-                  className="combat-scene__initiate-attack-btn"
-                  onClick={() => {
-                    triggerEffect("attack");
-                    sendAction(opt.action);
-                  }}
-                  type="button"
-                >
-                  Select Targets
-                </button>
-              ))}
               {combatActions.convertMoveToAttack.map((opt, i) => (
                 <button
                   key={`convert-move-${i}`}

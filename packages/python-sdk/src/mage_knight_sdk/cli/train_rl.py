@@ -570,6 +570,7 @@ def _train_curriculum(
                 _append_metrics_log(
                     path=metrics_path, episode=global_ep - 1,
                     seed=meta.seed, stats=stats, fame=meta.total_fame_delta,
+                    tiles_explored=meta.tiles_explored,
                     phase_name=phase.name, phase_index=phase_idx,
                     reward_breakdown=meta.reward_breakdown,
                 )
@@ -578,11 +579,14 @@ def _train_curriculum(
                     tb.log_episode(global_ep, stats, reward_breakdown=meta.reward_breakdown)
 
                 bd = meta.reward_breakdown
+                tiles = meta.tiles_explored
+                explore_fame = tiles * 2  # 2 fame per tile explored
+                combat_fame = max(0, meta.total_fame_delta - explore_fame)
                 print(
                     f"ep={global_ep:04d} [{phase.name}] steps={steps:<4} "
                     f"R={total_reward:>7.1f}  "
-                    f"fame={bd.fame:>5.1f}  wounds={bd.wound_penalty:>5.1f}  "
-                    f"cards={bd.cards_remaining_bonus:>4.1f}  "
+                    f"fame={meta.total_fame_delta:>3}(t{tiles}/c{combat_fame})  "
+                    f"wounds={bd.wound_penalty:>5.1f}  "
                     f"ent={opt_stats.entropy:.2f}"
                 )
 
@@ -756,15 +760,20 @@ def _append_metrics_log(
     seed: int,
     stats: Any,
     fame: int = 0,
+    tiles_explored: int = 0,
     phase_name: str | None = None,
     phase_index: int | None = None,
     reward_breakdown: Any = None,
 ) -> None:
     """Write metrics from EpisodeTrainingStats."""
+    explore_fame = tiles_explored * 2
+    combat_fame = max(0, fame - explore_fame)
     record: dict[str, Any] = {
         "episode": episode + 1,
         "seed": seed,
         "fame": fame,
+        "tiles_explored": tiles_explored,
+        "combat_fame": combat_fame,
         "outcome": stats.outcome,
         "steps": stats.steps,
         "reason": None,

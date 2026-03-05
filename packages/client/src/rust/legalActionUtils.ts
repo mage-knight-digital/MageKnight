@@ -321,28 +321,6 @@ export function extractBannerFearActions(actions: LegalAction[]): BannerFearActi
 }
 
 // =============================================================================
-// Combat: Initiate Attack options
-// =============================================================================
-
-export interface InitiateAttackOption {
-  attackType: string;
-  action: LegalAction;
-}
-
-export function extractInitiateAttackOptions(actions: LegalAction[]): InitiateAttackOption[] {
-  const result: InitiateAttackOption[] = [];
-  for (const action of actions) {
-    if (actionType(action) !== "InitiateAttack") continue;
-    const data = actionData(action)!;
-    result.push({
-      attackType: data["attack_type"] as string,
-      action,
-    });
-  }
-  return result;
-}
-
-// =============================================================================
 // Combat: Subset selection (attack target toggling)
 // =============================================================================
 

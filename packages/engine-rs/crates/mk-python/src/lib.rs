@@ -750,6 +750,7 @@ impl PyVecEnv {
         dict.set_item("new_hexes", vec_i32_to_numpy(py, &np, &result.new_hexes, &[n])?)?;
         dict.set_item("wound_deltas", vec_i32_to_numpy(py, &np, &result.wound_deltas, &[n])?)?;
         dict.set_item("non_wound_hand_sizes", vec_i32_to_numpy(py, &np, &result.non_wound_hand_sizes, &[n])?)?;
+        dict.set_item("new_tiles", vec_i32_to_numpy(py, &np, &result.new_tiles, &[n])?)?;
 
         Ok(dict.to_object(py))
     }

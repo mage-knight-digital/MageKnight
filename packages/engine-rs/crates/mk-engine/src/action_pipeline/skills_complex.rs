@@ -987,6 +987,9 @@ pub(crate) fn execute_invocation(
         } else {
             state.players[player_idx].discard.push(opt.card_id.clone());
         }
+        state.players[player_idx]
+            .flags
+            .insert(PlayerFlags::DISCARDED_CARD_THIS_TURN);
     }
 
     // Gain mana token

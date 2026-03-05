@@ -184,6 +184,7 @@ class CompletedEpisodeMeta:
     truncated: bool = False  # True if episode hit max_steps (not natural game end)
     scenario_end_triggered: bool = False  # True if scenario end condition was met (e.g. city revealed)
     total_fame_delta: int = 0  # Cumulative fame gained during the episode
+    tiles_explored: int = 0  # Number of new tiles revealed during the episode
     reward_breakdown: RewardBreakdown = field(default_factory=RewardBreakdown)
 
 
@@ -203,6 +204,7 @@ class EpisodeBuffers:
     reward_step_penalty: list[float] = field(default_factory=list)
     reward_terminal: list[float] = field(default_factory=list)
     reward_scenario_trigger: list[float] = field(default_factory=list)
+    tiles_explored: list[int] = field(default_factory=list)
 
     def ensure_size(self, num_envs: int) -> None:
         while len(self.buffers) < num_envs:
@@ -221,6 +223,8 @@ class EpisodeBuffers:
                     self.reward_scenario_trigger):
             while len(lst) < num_envs:
                 lst.append(0.0)
+        while len(self.tiles_explored) < num_envs:
+            self.tiles_explored.append(0)
 
 
 @dataclass
@@ -282,6 +286,18 @@ def collect_vecenv_rollout(
         # 1. Encode all envs → batched numpy dict
         batch_dict = vec_env.encode_batch()
 
+        # Check for envs with 0 legal actions (engine bug)
+        if "action_counts" in batch_dict:
+            for i in range(num_envs):
+                if batch_dict["action_counts"][i] == 0:
+                    seed = episode_buffers.seeds[i]
+                    step = len(episode_buffers.action_indices[i])
+                    acts = episode_buffers.action_indices[i]
+                    raise RuntimeError(
+                        f"Engine bug: env {i} has 0 legal actions at step {step}. "
+                        f"seed={seed}, actions_so_far={acts}"
+                    )
+
         # 2. Batched forward pass
         actions, log_probs, values = policy.choose_actions_batch(batch_dict)
 
@@ -295,6 +311,7 @@ def collect_vecenv_rollout(
         new_hexes = step_result["new_hexes"]
         wound_deltas = step_result["wound_deltas"]
         non_wound_hand_sizes = step_result["non_wound_hand_sizes"]
+        new_tiles = step_result["new_tiles"]
 
         # 4. Process each env
         for i in range(num_envs):
@@ -316,6 +333,10 @@ def collect_vecenv_rollout(
                 wound_pen = reward_config.wound_penalty * float(wound_deltas[i])
                 reward += wound_pen
                 episode_buffers.reward_wound_penalty[i] += wound_pen
+
+            # Track tiles explored
+            if new_tiles[i] > 0:
+                episode_buffers.tiles_explored[i] += int(new_tiles[i])
 
             episode_buffers.fame_deltas[i] += int(fame_deltas[i])
 
@@ -347,6 +368,7 @@ def collect_vecenv_rollout(
                     episode_buffers.action_indices[i] = []
                     episode_buffers.scenario_end_triggered[i] = False
                     episode_buffers.fame_deltas[i] = 0
+                    episode_buffers.tiles_explored[i] = 0
                     episode_buffers.reward_fame[i] = 0.0
                     episode_buffers.reward_wound_penalty[i] = 0.0
                     episode_buffers.reward_cards_remaining[i] = 0.0
@@ -407,6 +429,7 @@ def collect_vecenv_rollout(
                     truncated=bool(truncated_flags[i]),
                     scenario_end_triggered=episode_buffers.scenario_end_triggered[i],
                     total_fame_delta=episode_buffers.fame_deltas[i],
+                    tiles_explored=episode_buffers.tiles_explored[i],
                     reward_breakdown=breakdown,
                 ))
                 bufs[i] = []
@@ -414,6 +437,7 @@ def collect_vecenv_rollout(
                 episode_buffers.action_indices[i] = []
                 episode_buffers.scenario_end_triggered[i] = False
                 episode_buffers.fame_deltas[i] = 0
+                episode_buffers.tiles_explored[i] = 0
                 episode_buffers.reward_fame[i] = 0.0
                 episode_buffers.reward_wound_penalty[i] = 0.0
                 episode_buffers.reward_cards_remaining[i] = 0.0

@@ -212,12 +212,6 @@ pub fn apply_legal_action(
             combat_actions::apply_declare_block(state, player_idx, enemy_instance_id, *attack_index)?
         }
 
-        LegalAction::InitiateAttack { attack_type } => {
-            // Reversible: save snapshot (enters SubsetSelection, undo returns to combat)
-            undo_stack.save(state);
-            tactics::apply_initiate_attack(state, player_idx, *attack_type)?
-        }
-
         LegalAction::ResolveChoice { choice_index } => {
             // Reversible: save snapshot
             undo_stack.save(state);
@@ -438,7 +432,11 @@ pub fn apply_legal_action(
         }
 
         LegalAction::SubsetSelect { index } => {
-            // No undo save: only mutates pending.active.selected
+            // Lazy creation: save undo when creating SubsetSelectionState from combat context
+            if state.players[player_idx].pending.active.is_none() {
+                undo_stack.save(state);
+            }
+            // No undo save for subsequent selects (only mutates pending.active.selected)
             tactics::apply_subset_select(state, player_idx, *index)?
         }
 
