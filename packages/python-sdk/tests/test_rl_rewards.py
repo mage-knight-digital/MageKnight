@@ -12,8 +12,8 @@ class RewardConfigTest(unittest.TestCase):
     def test_default_values(self) -> None:
         config = RewardConfig()
         self.assertAlmostEqual(config.fame_delta_scale, 1.0)
-        self.assertAlmostEqual(config.step_penalty, -0.001)
-        self.assertAlmostEqual(config.terminal_end_bonus, 1.0)
+        self.assertAlmostEqual(config.step_penalty, 0.0)
+        self.assertAlmostEqual(config.terminal_end_bonus, 0.0)
         self.assertAlmostEqual(config.terminal_max_steps_penalty, -0.5)
         self.assertAlmostEqual(config.terminal_failure_penalty, -1.0)
 

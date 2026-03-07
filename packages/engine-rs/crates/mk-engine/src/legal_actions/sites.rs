@@ -317,36 +317,42 @@ pub(super) fn enumerate_site_actions(
 // Reputation influence bonus helpers
 // =============================================================================
 
-/// Reputation influence bonus table — same magnitude as unit recruitment's
-/// `reputation_cost_modifier()` but inverted sign (positive rep = positive bonus).
+/// Reputation influence bonus table (asymmetric, per rulebook).
 ///
 /// | Rep | Bonus |
 /// |-----|-------|
-/// | 0   | 0     |
-/// | ±1,2| ±1    |
-/// | ±3,4| ±2    |
-/// | ±5,6| ±3    |
-/// | ±7  | ±5    |
+/// | -7  | -5 (X)|
+/// | -6  | -5    |
+/// | -5  | -3    |
+/// | -4  | -2    |
+/// | -3  | -1    |
+/// | -2  | -1    |
+/// | -1  |  0    |
+/// |  0  |  0    |
+/// |  1  |  0    |
+/// |  2  | +1    |
+/// |  3  | +1    |
+/// |  4  | +2    |
+/// |  5  | +2    |
+/// |  6  | +3    |
+/// |  7  | +5    |
 pub(crate) fn reputation_influence_bonus(reputation: i8) -> i32 {
-    let rep = reputation.clamp(-7, 7);
-    if rep == 0 {
-        return 0;
+    match reputation.clamp(-7, 7) {
+        -7 => -5, // X space (should be blocked before reaching here)
+        -6 => -5,
+        -5 => -3,
+        -4 => -2,
+        -3 => -1,
+        -2 => -1,
+        -1 | 0 | 1 => 0,
+        2 => 1,
+        3 => 1,
+        4 => 2,
+        5 => 2,
+        6 => 3,
+        7 => 5,
+        _ => unreachable!(),
     }
-    if rep == 7 {
-        return 5;
-    }
-    if rep == -7 {
-        return -5;
-    }
-    let abs_rep = rep.unsigned_abs();
-    let magnitude = if abs_rep <= 2 {
-        1
-    } else if abs_rep <= 4 {
-        2
-    } else {
-        3
-    };
-    if rep > 0 { magnitude } else { -magnitude }
 }
 
 /// Compute effective influence at a site, accounting for reputation bonus and

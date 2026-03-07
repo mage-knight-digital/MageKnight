@@ -232,13 +232,14 @@ fn whirlwind_basic_skip_attack_single_enemy() {
 
 #[test]
 fn whirlwind_powered_defeats_single_enemy() {
-    // Whirlwind powered: select enemy → defeat outright.
+    // Whirlwind powered: select enemy → defeat outright. Attack phase only.
     let (mut state, mut undo) = setup_card_combat("whirlwind", &["prowlers"]);
     state.players[0].pure_mana.push(ManaToken {
         color: ManaColor::White,
         source: ManaTokenSource::Effect,
         cannot_power_spells: false,
     });
+    state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
 
     let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
     let action = legal.actions.iter().find(|a| matches!(a,
@@ -251,6 +252,54 @@ fn whirlwind_powered_defeats_single_enemy() {
     assert!(combat.enemies[0].is_defeated, "whirlwind powered should defeat prowlers");
     // Fame should be earned
     assert!(state.players[0].fame > 0, "should earn fame for defeated enemy");
+}
+
+#[test]
+fn whirlwind_powered_not_playable_in_ranged_siege_phase() {
+    // Whirlwind powered says "Play this only in the Attack Phase of combat."
+    // It should NOT be playable during RangedSiege phase.
+    let (mut state, _undo) = setup_card_combat("whirlwind", &["prowlers"]);
+    state.players[0].pure_mana.push(ManaToken {
+        color: ManaColor::White,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+
+    // Default combat phase is RangedSiege
+    assert_eq!(state.combat.as_ref().unwrap().phase, CombatPhase::RangedSiege);
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &_undo);
+    let has_powered = legal.actions.iter().any(|a| matches!(a,
+        LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "whirlwind"
+    ));
+    assert!(!has_powered, "whirlwind powered should NOT be playable in RangedSiege phase");
+
+    // Basic whirlwind (skip attack) should still be playable in RangedSiege
+    let has_basic = legal.actions.iter().any(|a| matches!(a,
+        LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "whirlwind"
+    ));
+    assert!(has_basic, "whirlwind basic should be playable in RangedSiege phase");
+}
+
+#[test]
+fn whirlwind_powered_playable_in_attack_phase() {
+    // Whirlwind powered should be playable in the Attack phase.
+    let (mut state, mut undo) = setup_card_combat("whirlwind", &["prowlers"]);
+    state.players[0].pure_mana.push(ManaToken {
+        color: ManaColor::White,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+    state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let action = legal.actions.iter().find(|a| matches!(a,
+        LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "whirlwind"
+    )).expect("whirlwind powered should be playable in Attack phase");
+    let _ = apply_legal_action(&mut state, &mut undo, 0, action, legal.epoch);
+
+    let combat = state.combat.as_ref().unwrap();
+    assert!(combat.enemies[0].is_defeated, "whirlwind powered should defeat enemy in Attack phase");
 }
 
 #[test]

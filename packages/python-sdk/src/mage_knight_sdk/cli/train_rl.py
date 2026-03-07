@@ -79,6 +79,8 @@ class _TBWriter:
             self._writer.add_scalar("reward_breakdown/step_penalty", reward_breakdown.step_penalty, episode)
             self._writer.add_scalar("reward_breakdown/terminal", reward_breakdown.terminal_bonus, episode)
             self._writer.add_scalar("reward_breakdown/scenario_trigger", reward_breakdown.scenario_trigger_bonus, episode)
+            self._writer.add_scalar("reward_breakdown/wasted_move", reward_breakdown.wasted_move_penalty, episode)
+            self._writer.add_scalar("reward_breakdown/backtrack", reward_breakdown.backtrack_penalty, episode)
 
     def close(self) -> None:
         if self._writer is not None:
@@ -111,6 +113,8 @@ def main() -> int:
     parser.add_argument("--new-hex-bonus", type=float, default=0.0, help="One-time bonus for each new hex visited")
     parser.add_argument("--wound-penalty", type=float, default=0.0, help="Penalty per wound gained (negative = penalty, e.g. -0.5)")
     parser.add_argument("--cards-remaining-bonus", type=float, default=0.0, help="Terminal bonus per non-wound card remaining in hand")
+    parser.add_argument("--wasted-move-penalty", type=float, default=0.0, help="Quadratic penalty per wasted move point at end of turn (e.g. -0.02)")
+    parser.add_argument("--backtrack-penalty", type=float, default=0.0, help="Penalty for moving to a hex already visited this turn (e.g. -0.3)")
 
     parser.add_argument("--checkpoint-dir", default=None, help="Run directory for checkpoints + logs (default: auto-generated under training/runs/)")
     parser.add_argument("--checkpoint-every", type=int, default=25, help="Save checkpoint every N episodes")
@@ -128,6 +132,9 @@ def main() -> int:
 
     # Curriculum learning
     parser.add_argument("--curriculum", default=None, help="Curriculum schedule name (e.g. 'default'). Overrides --episodes, reward args, and --max-steps with per-phase values.")
+
+    # Combat oracle
+    parser.add_argument("--combat-oracle", action="store_true", default=False, help="Auto-resolve combat via exhaustive search oracle (agent skips combat actions)")
 
     args = parser.parse_args()
     if args.episodes < 1:
@@ -173,6 +180,8 @@ def main() -> int:
         new_hex_bonus=args.new_hex_bonus,
         wound_penalty=args.wound_penalty,
         cards_remaining_bonus=args.cards_remaining_bonus,
+        wasted_move_penalty=args.wasted_move_penalty,
+        backtrack_penalty=args.backtrack_penalty,
     )
 
     run_dir = _resolve_run_dir(args.checkpoint_dir, args.resume)
@@ -507,6 +516,7 @@ def _train_curriculum(
             hero=hero,
             max_steps=phase.max_steps,
             scenario=scenario_json,
+            combat_oracle=args.combat_oracle,
         )
 
         episode_buffers = EpisodeBuffers()
@@ -705,6 +715,8 @@ def _write_run_manifest(
             "new_hex_bonus": reward_config.new_hex_bonus,
             "wound_penalty": reward_config.wound_penalty,
             "cards_remaining_bonus": reward_config.cards_remaining_bonus,
+            "wasted_move_penalty": reward_config.wasted_move_penalty,
+            "backtrack_penalty": reward_config.backtrack_penalty,
         },
         "cli": vars(args),
     }
@@ -801,6 +813,8 @@ def _append_metrics_log(
             "step_penalty": reward_breakdown.step_penalty,
             "terminal": reward_breakdown.terminal_bonus,
             "scenario_trigger": reward_breakdown.scenario_trigger_bonus,
+            "wasted_move": reward_breakdown.wasted_move_penalty,
+            "backtrack": reward_breakdown.backtrack_penalty,
         }
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(record, sort_keys=True) + "\n")

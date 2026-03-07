@@ -174,6 +174,8 @@ class RewardBreakdown:
     step_penalty: float = 0.0
     terminal_bonus: float = 0.0
     scenario_trigger_bonus: float = 0.0
+    wasted_move_penalty: float = 0.0
+    backtrack_penalty: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -204,6 +206,8 @@ class EpisodeBuffers:
     reward_step_penalty: list[float] = field(default_factory=list)
     reward_terminal: list[float] = field(default_factory=list)
     reward_scenario_trigger: list[float] = field(default_factory=list)
+    reward_wasted_move: list[float] = field(default_factory=list)
+    reward_backtrack: list[float] = field(default_factory=list)
     tiles_explored: list[int] = field(default_factory=list)
 
     def ensure_size(self, num_envs: int) -> None:
@@ -220,7 +224,8 @@ class EpisodeBuffers:
         for lst in (self.reward_fame, self.reward_wound_penalty,
                     self.reward_cards_remaining, self.reward_new_hex,
                     self.reward_step_penalty, self.reward_terminal,
-                    self.reward_scenario_trigger):
+                    self.reward_scenario_trigger, self.reward_wasted_move,
+                    self.reward_backtrack):
             while len(lst) < num_envs:
                 lst.append(0.0)
         while len(self.tiles_explored) < num_envs:
@@ -312,6 +317,8 @@ def collect_vecenv_rollout(
         wound_deltas = step_result["wound_deltas"]
         non_wound_hand_sizes = step_result["non_wound_hand_sizes"]
         new_tiles = step_result["new_tiles"]
+        wasted_move_pts = step_result["wasted_move_points"]
+        backtrack = step_result["backtrack_moves"]
 
         # 4. Process each env
         for i in range(num_envs):
@@ -333,6 +340,19 @@ def collect_vecenv_rollout(
                 wound_pen = reward_config.wound_penalty * float(wound_deltas[i])
                 reward += wound_pen
                 episode_buffers.reward_wound_penalty[i] += wound_pen
+
+            # Quadratic penalty for wasted move points at end of turn
+            wasted = int(wasted_move_pts[i])
+            if wasted > 0 and reward_config.wasted_move_penalty != 0.0:
+                wasted_pen = reward_config.wasted_move_penalty * float(wasted * wasted)
+                reward += wasted_pen
+                episode_buffers.reward_wasted_move[i] += wasted_pen
+
+            # Backtracking penalty for revisiting hexes within same turn
+            if backtrack[i] > 0 and reward_config.backtrack_penalty != 0.0:
+                bt_pen = reward_config.backtrack_penalty
+                reward += bt_pen
+                episode_buffers.reward_backtrack[i] += bt_pen
 
             # Track tiles explored
             if new_tiles[i] > 0:
@@ -376,6 +396,8 @@ def collect_vecenv_rollout(
                     episode_buffers.reward_step_penalty[i] = 0.0
                     episode_buffers.reward_terminal[i] = 0.0
                     episode_buffers.reward_scenario_trigger[i] = 0.0
+                    episode_buffers.reward_wasted_move[i] = 0.0
+                    episode_buffers.reward_backtrack[i] = 0.0
                     # Snapshot seed for the new (reset) episode
                     new_seeds = vec_env.seeds()
                     episode_buffers.seeds[i] = int(new_seeds[i])
@@ -421,6 +443,8 @@ def collect_vecenv_rollout(
                     step_penalty=episode_buffers.reward_step_penalty[i],
                     terminal_bonus=episode_buffers.reward_terminal[i],
                     scenario_trigger_bonus=episode_buffers.reward_scenario_trigger[i],
+                    wasted_move_penalty=episode_buffers.reward_wasted_move[i],
+                    backtrack_penalty=episode_buffers.reward_backtrack[i],
                 )
                 completed_episodes.append(episode)
                 completed_metas.append(CompletedEpisodeMeta(
@@ -445,6 +469,8 @@ def collect_vecenv_rollout(
                 episode_buffers.reward_step_penalty[i] = 0.0
                 episode_buffers.reward_terminal[i] = 0.0
                 episode_buffers.reward_scenario_trigger[i] = 0.0
+                episode_buffers.reward_wasted_move[i] = 0.0
+                episode_buffers.reward_backtrack[i] = 0.0
                 # Snapshot seed for the new (reset) episode
                 new_seeds = vec_env.seeds()
                 episode_buffers.seeds[i] = int(new_seeds[i])

@@ -10,9 +10,9 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::enums::{BasicManaColor, Hero, SidewaysAs, TileId, TimeOfDay};
+use crate::enums::{BasicManaColor, CombatPhase, Hero, SidewaysAs, SiteType, TileId, TimeOfDay};
 use crate::hex::{HexCoord, HexDirection};
-use crate::ids::{CardId, EnemyId, PlayerId, TacticId};
+use crate::ids::{CardId, EnemyId, PlayerId, SkillId, TacticId, UnitId};
 
 /// A game event emitted by the engine.
 ///
@@ -120,6 +120,77 @@ pub enum GameEvent {
     CrystalGained {
         player_id: PlayerId,
         color: BasicManaColor,
+    },
+
+    /// A unit was recruited.
+    UnitRecruited {
+        player_id: PlayerId,
+        unit_id: UnitId,
+    },
+
+    /// A unit was activated in combat.
+    UnitActivated {
+        player_id: PlayerId,
+        unit_id: UnitId,
+    },
+
+    /// A unit was wounded.
+    UnitWounded {
+        player_id: PlayerId,
+        unit_id: UnitId,
+    },
+
+    /// A unit was destroyed.
+    UnitDestroyed {
+        player_id: PlayerId,
+        unit_id: UnitId,
+    },
+
+    /// A skill was gained (from level up).
+    SkillGained {
+        player_id: PlayerId,
+        skill_id: SkillId,
+    },
+
+    /// Reputation changed.
+    ReputationChanged {
+        player_id: PlayerId,
+        old_value: i8,
+        new_value: i8,
+    },
+
+    /// Combat phase changed.
+    CombatPhaseChanged {
+        phase: CombatPhase,
+    },
+
+    /// A site was conquered.
+    SiteConquered {
+        player_id: PlayerId,
+        site_type: SiteType,
+    },
+
+    /// A reward was selected (spell, artifact, advanced action).
+    RewardSelected {
+        player_id: PlayerId,
+        card_id: CardId,
+    },
+
+    /// A card was gained (from offer, reward, etc.).
+    CardGained {
+        player_id: PlayerId,
+        card_id: CardId,
+    },
+
+    /// A player declared rest.
+    Rested {
+        player_id: PlayerId,
+    },
+
+    /// Generic action event for actions without a specific event type.
+    ActionTaken {
+        player_id: PlayerId,
+        action_type: String,
     },
 
     /// A player performed an undo.

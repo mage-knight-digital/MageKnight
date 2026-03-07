@@ -143,9 +143,9 @@ function AccumulatorDisplay() {
     const { attack } = acc;
     const isRangedSiege = phase === COMBAT_PHASE_RANGED_SIEGE;
 
-    const totalRanged = attack.ranged + attack.rangedElements.fire + attack.rangedElements.ice;
-    const totalSiege = attack.siege + attack.siegeElements.fire + attack.siegeElements.ice;
-    const totalNormal = attack.normal + attack.normalElements.fire + attack.normalElements.ice + attack.normalElements.coldFire + attack.normalElements.physical;
+    const totalRanged = attack.ranged;
+    const totalSiege = attack.siege;
+    const totalNormal = attack.normal;
 
     const relevantAttack = isRangedSiege
       ? totalRanged + totalSiege
@@ -170,11 +170,13 @@ function AccumulatorDisplay() {
     const hasIceResistantEnemy = state.combat.enemies.some(e => e.resistances.includes("ice") && !e.isDefeated);
 
     // Calculate elemental breakdown for display
+    // Each type total (normal/ranged/siege) is the sum of its elemental values,
+    // so we only use the elemental breakdowns to avoid double-counting.
     const elements: ElementBreakdown = {
       fire: attack.normalElements.fire + attack.rangedElements.fire + attack.siegeElements.fire,
       ice: attack.normalElements.ice + attack.rangedElements.ice + attack.siegeElements.ice,
-      coldFire: attack.normalElements.coldFire,
-      physical: attack.normal + attack.ranged + attack.siege + attack.normalElements.physical,
+      coldFire: attack.normalElements.coldFire + attack.rangedElements.coldFire + attack.siegeElements.coldFire,
+      physical: attack.normalElements.physical + attack.rangedElements.physical + attack.siegeElements.physical,
     };
     const showElementBreakdown = elements.fire > 0 || elements.ice > 0 || elements.coldFire > 0;
 
@@ -582,14 +584,7 @@ function CombatOverlayInner({ combat }: CombatOverlayProps) {
             </button>
           )}
 
-          {/* Declaration banner — prompt to play cards after confirming targets */}
-          {combatActions.hasDeclaredAttack && !combatActions.resolveAttackAction && (
-            <div className="combat-scene__declaration-banner">
-              Play cards to build attack power
-            </div>
-          )}
-
-          {/* Resolve Attack button (targets declared, attack sufficient) */}
+{/* Resolve Attack button (targets declared, attack sufficient) */}
           {combatActions.resolveAttackAction && (
             <button
               className="combat-scene__declare-targets"

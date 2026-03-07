@@ -208,7 +208,9 @@ fn run_replay(replay_path: PathBuf, step_mode: bool, from_step: Option<usize>) {
             return;
         }
 
-        let action_set = enumerate_legal_actions_with_undo(&state, player_idx, &undo);
+        let mut action_set = enumerate_legal_actions_with_undo(&state, player_idx, &undo);
+        // Filter undo to match RL training action indices
+        action_set.actions.retain(|a| !matches!(a, LegalAction::Undo));
 
         if action_set.actions.is_empty() {
             println!("  Step {}: No legal actions — game stuck!", step_num);
@@ -307,6 +309,12 @@ struct ArtifactMessage {
 struct ArtifactPayload {
     events: Vec<mk_types::events::GameEvent>,
     state: mk_types::client_state::ClientGameState,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    legal_actions: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    chosen_action_index: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    chosen_action: Option<String>,
 }
 
 fn run_replay_to_artifact(replay_path: PathBuf, artifact_path: PathBuf) {
@@ -352,6 +360,9 @@ fn run_replay_to_artifact(replay_path: PathBuf, artifact_path: PathBuf) {
         payload: ArtifactPayload {
             events: init_events,
             state: init_client,
+            legal_actions: None,
+            chosen_action_index: None,
+            chosen_action: None,
         },
     });
 
@@ -362,7 +373,9 @@ fn run_replay_to_artifact(replay_path: PathBuf, artifact_path: PathBuf) {
             break;
         }
 
-        let action_set = enumerate_legal_actions_with_undo(&state, player_idx, &undo);
+        let mut action_set = enumerate_legal_actions_with_undo(&state, player_idx, &undo);
+        // Filter undo to match RL training action indices
+        action_set.actions.retain(|a| !matches!(a, LegalAction::Undo));
 
         if action_set.actions.is_empty() {
             eprintln!("  Step {}: No legal actions — game stuck!", step_num);
@@ -382,6 +395,14 @@ fn run_replay_to_artifact(replay_path: PathBuf, artifact_path: PathBuf) {
         let action = action_set.actions[action_index].clone();
         let epoch = action_set.epoch;
 
+        // Serialize legal actions for the artifact
+        let legal_action_strings: Vec<String> = action_set
+            .actions
+            .iter()
+            .map(|a| format!("{:?}", a))
+            .collect();
+        let chosen_action_string = format!("{:?}", action);
+
         match apply_legal_action(&mut state, &mut undo, player_idx, &action, epoch) {
             Ok(result) => {
                 let client = to_client_state(&state, &player_id);
@@ -391,6 +412,9 @@ fn run_replay_to_artifact(replay_path: PathBuf, artifact_path: PathBuf) {
                     payload: ArtifactPayload {
                         events: result.events,
                         state: client,
+                        legal_actions: Some(legal_action_strings),
+                        chosen_action_index: Some(action_index),
+                        chosen_action: Some(chosen_action_string),
                     },
                 });
             }

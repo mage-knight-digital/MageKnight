@@ -6,7 +6,7 @@
 
 use mk_types::enums::*;
 use mk_types::events::{CardPlayMode, GameEvent};
-use mk_types::ids::CombatInstanceId;
+use mk_types::ids::{CombatInstanceId, SkillId, UnitId};
 use mk_types::legal_action::LegalAction;
 use mk_types::state::*;
 
@@ -130,6 +130,19 @@ pub fn apply_legal_action(
                 .collect()
         })
         .unwrap_or_default();
+    let pre_reputation = state.players[player_idx].reputation;
+    let pre_unit_ids: Vec<UnitId> = state.players[player_idx]
+        .units
+        .iter()
+        .map(|u| u.unit_id.clone())
+        .collect();
+    let pre_unit_wounded: Vec<(UnitId, bool)> = state.players[player_idx]
+        .units
+        .iter()
+        .map(|u| (u.unit_id.clone(), u.wounded))
+        .collect();
+    let pre_skills: Vec<SkillId> = state.players[player_idx].skills.clone();
+    let pre_combat_phase = state.combat.as_ref().map(|c| c.phase);
 
     let mut events = Vec::new();
 
@@ -398,6 +411,9 @@ pub fn apply_legal_action(
         LegalAction::DeclareRest => {
             // Reversible: save snapshot
             undo_stack.save(state);
+            events.push(GameEvent::Rested {
+                player_id: player_id.clone(),
+            });
             turn_flow::apply_declare_rest(state, player_idx)
         }
 
@@ -812,6 +828,73 @@ pub fn apply_legal_action(
         }
     }
 
+    // Detect reputation change
+    let post_reputation = state.players[player_idx].reputation;
+    if post_reputation != pre_reputation {
+        events.push(GameEvent::ReputationChanged {
+            player_id: player_id.clone(),
+            old_value: pre_reputation,
+            new_value: post_reputation,
+        });
+    }
+
+    // Detect unit recruitment (new units that weren't there before)
+    let post_unit_ids: Vec<UnitId> = state.players[player_idx]
+        .units
+        .iter()
+        .map(|u| u.unit_id.clone())
+        .collect();
+    for uid in &post_unit_ids {
+        if !pre_unit_ids.contains(uid) {
+            events.push(GameEvent::UnitRecruited {
+                player_id: player_id.clone(),
+                unit_id: uid.clone(),
+            });
+        }
+    }
+
+    // Detect unit destruction (units that disappeared)
+    for uid in &pre_unit_ids {
+        if !post_unit_ids.contains(uid) {
+            events.push(GameEvent::UnitDestroyed {
+                player_id: player_id.clone(),
+                unit_id: uid.clone(),
+            });
+        }
+    }
+
+    // Detect unit wounded (units that became wounded)
+    for pu in &state.players[player_idx].units {
+        if pu.wounded {
+            if let Some((_, was_wounded)) = pre_unit_wounded.iter().find(|(id, _)| *id == pu.unit_id) {
+                if !was_wounded {
+                    events.push(GameEvent::UnitWounded {
+                        player_id: player_id.clone(),
+                        unit_id: pu.unit_id.clone(),
+                    });
+                }
+            }
+        }
+    }
+
+    // Detect skill gain
+    for skill in &state.players[player_idx].skills {
+        if !pre_skills.contains(skill) {
+            events.push(GameEvent::SkillGained {
+                player_id: player_id.clone(),
+                skill_id: skill.clone(),
+            });
+        }
+    }
+
+    // Detect combat phase change
+    let post_combat_phase = state.combat.as_ref().map(|c| c.phase);
+    if post_combat_phase != pre_combat_phase {
+        if let Some(phase) = post_combat_phase {
+            events.push(GameEvent::CombatPhaseChanged { phase });
+        }
+    }
+
     // Detect game end
     if result.game_ended {
         events.push(GameEvent::GameEnded {
@@ -828,10 +911,87 @@ pub fn apply_legal_action(
         result.events = merged;
     }
 
+    // Fallback: if no events were generated at all, emit a generic ActionTaken
+    if result.events.is_empty() {
+        result.events.push(GameEvent::ActionTaken {
+            player_id: player_id.clone(),
+            action_type: action_type_label(action),
+        });
+    }
+
     // Increment epoch after every action
     state.action_epoch += 1;
 
     Ok(result)
+}
+
+/// Derive a human-readable label for a LegalAction variant.
+fn action_type_label(action: &LegalAction) -> String {
+    match action {
+        LegalAction::SelectTactic { .. } => "SelectTactic".to_string(),
+        LegalAction::PlayCardBasic { .. } => "PlayCardBasic".to_string(),
+        LegalAction::PlayCardPowered { .. } => "PlayCardPowered".to_string(),
+        LegalAction::PlayCardSideways { .. } => "PlayCardSideways".to_string(),
+        LegalAction::Move { .. } => "Move".to_string(),
+        LegalAction::Explore { .. } => "Explore".to_string(),
+        LegalAction::ChallengeRampaging { .. } => "ChallengeRampaging".to_string(),
+        LegalAction::DeclareBlock { .. } => "DeclareBlock".to_string(),
+        LegalAction::ResolveChoice { .. } => "ResolveChoice".to_string(),
+        LegalAction::ResolveDiscardForBonus { .. } => "ResolveDiscardForBonus".to_string(),
+        LegalAction::ResolveDecompose { .. } => "ResolveDecompose".to_string(),
+        LegalAction::ResolveDiscardForCrystal { .. } => "ResolveDiscardForCrystal".to_string(),
+        LegalAction::SpendMoveOnCumbersome { .. } => "SpendMoveOnCumbersome".to_string(),
+        LegalAction::ResolveTacticDecision { .. } => "ResolveTacticDecision".to_string(),
+        LegalAction::ActivateTactic => "ActivateTactic".to_string(),
+        LegalAction::InitiateManaSearch => "InitiateManaSearch".to_string(),
+        LegalAction::BeginInteraction => "BeginInteraction".to_string(),
+        LegalAction::EnterSite => "EnterSite".to_string(),
+        LegalAction::InteractSite { .. } => "InteractSite".to_string(),
+        LegalAction::PlunderSite => "PlunderSite".to_string(),
+        LegalAction::DeclinePlunder => "DeclinePlunder".to_string(),
+        LegalAction::ResolveGladeWound { .. } => "ResolveGladeWound".to_string(),
+        LegalAction::RecruitUnit { .. } => "RecruitUnit".to_string(),
+        LegalAction::ActivateUnit { .. } => "ActivateUnit".to_string(),
+        LegalAction::AssignDamageToHero { .. } => "AssignDamageToHero".to_string(),
+        LegalAction::AssignDamageToUnit { .. } => "AssignDamageToUnit".to_string(),
+        LegalAction::ChooseLevelUpReward { .. } => "ChooseLevelUpReward".to_string(),
+        LegalAction::EndTurn => "EndTurn".to_string(),
+        LegalAction::DeclareRest => "DeclareRest".to_string(),
+        LegalAction::CompleteRest { .. } => "CompleteRest".to_string(),
+        LegalAction::ResolveAttack => "ResolveAttack".to_string(),
+        LegalAction::EndCombatPhase => "EndCombatPhase".to_string(),
+        LegalAction::UseSkill { .. } => "UseSkill".to_string(),
+        LegalAction::ReturnInteractiveSkill { .. } => "ReturnInteractiveSkill".to_string(),
+        LegalAction::SubsetSelect { .. } => "SubsetSelect".to_string(),
+        LegalAction::SubsetConfirm => "SubsetConfirm".to_string(),
+        LegalAction::AnnounceEndOfRound => "AnnounceEndOfRound".to_string(),
+        LegalAction::ForfeitTurn => "ForfeitTurn".to_string(),
+        LegalAction::Undo => "Undo".to_string(),
+        LegalAction::BuyArtifact => "BuyArtifact".to_string(),
+        LegalAction::BuyCityAdvancedAction { .. } => "BuyCityAdvancedAction".to_string(),
+        LegalAction::BuyCityAdvancedActionFromDeck => "BuyCityAdvancedActionFromDeck".to_string(),
+        LegalAction::AddEliteToOffer => "AddEliteToOffer".to_string(),
+        LegalAction::SelectArtifact { .. } => "SelectArtifact".to_string(),
+        LegalAction::BuySpell { .. } => "BuySpell".to_string(),
+        LegalAction::LearnAdvancedAction { .. } => "LearnAdvancedAction".to_string(),
+        LegalAction::BurnMonastery => "BurnMonastery".to_string(),
+        LegalAction::SelectReward { .. } => "SelectReward".to_string(),
+        LegalAction::AltarTribute { .. } => "AltarTribute".to_string(),
+        LegalAction::AssignBanner { .. } => "AssignBanner".to_string(),
+        LegalAction::UseBannerCourage { .. } => "UseBannerCourage".to_string(),
+        LegalAction::UseBannerFear { .. } => "UseBannerFear".to_string(),
+        LegalAction::ConvertMoveToAttack { .. } => "ConvertMoveToAttack".to_string(),
+        LegalAction::ConvertInfluenceToBlock { .. } => "ConvertInfluenceToBlock".to_string(),
+        LegalAction::PayHeroesAssaultInfluence => "PayHeroesAssaultInfluence".to_string(),
+        LegalAction::PayThugsDamageInfluence { .. } => "PayThugsDamageInfluence".to_string(),
+        LegalAction::ResolveUnitMaintenance { .. } => "ResolveUnitMaintenance".to_string(),
+        LegalAction::ResolveHexCostReduction { .. } => "ResolveHexCostReduction".to_string(),
+        LegalAction::ResolveTerrainCostReduction { .. } => "ResolveTerrainCostReduction".to_string(),
+        LegalAction::ResolveCrystalRollColor { .. } => "ResolveCrystalRollColor".to_string(),
+        LegalAction::ForfeitUnitReward => "ForfeitUnitReward".to_string(),
+        LegalAction::DisbandUnitForReward { .. } => "DisbandUnitForReward".to_string(),
+        _ => "Unknown".to_string(),
+    }
 }
 
 /// Generate the initial batch of events for a newly created game.

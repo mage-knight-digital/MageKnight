@@ -6485,6 +6485,7 @@ mod tests {
             mana_enhancement_center: None,
             source_opening_center: None,
             dummy_player: None,
+            turn_number: 0,
         }
     }
 

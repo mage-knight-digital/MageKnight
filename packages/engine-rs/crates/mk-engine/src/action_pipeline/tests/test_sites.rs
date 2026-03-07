@@ -3219,11 +3219,11 @@ fn disband_unit_for_reward_replaces_unit() {
 fn positive_rep_increases_effective_influence() {
     let mut state = setup_playing_game(vec!["wound"]);
     place_player_on_site(&mut state, SiteType::Village);
-    state.players[0].reputation = 3; // bonus = +2
-    state.players[0].influence_points = 1; // 1 + 2 = 3 effective
+    state.players[0].reputation = 3; // bonus = +1
+    state.players[0].influence_points = 2; // 2 + 1 = 3 effective
 
     // Village healing costs 3 per wound.
-    // Without rep bonus: 1 influence < 3, no healing available.
+    // Without rep bonus: 2 influence < 3, no healing available.
     // With rep bonus: effective 3 >= 3, healing 1 should appear.
     state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
     state.players[0]
@@ -3232,7 +3232,7 @@ fn positive_rep_increases_effective_influence() {
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     assert!(
         actions.actions.iter().any(|a| matches!(a, LegalAction::InteractSite { healing: 1 })),
-        "Positive rep (+3) should grant +2 influence, enabling healing at village"
+        "Positive rep (+3) should grant +1 influence, enabling healing at village"
     );
 }
 
@@ -3240,14 +3240,14 @@ fn positive_rep_increases_effective_influence() {
 fn negative_rep_decreases_effective_influence() {
     let mut state = setup_playing_game(vec!["wound"]);
     place_player_on_site(&mut state, SiteType::Village);
-    state.players[0].reputation = -3; // bonus = -2
-    state.players[0].influence_points = 4; // 4 - 2 = 2 effective
+    state.players[0].reputation = -3; // bonus = -1
+    state.players[0].influence_points = 3; // 3 - 1 = 2 effective
 
     // Village healing costs 3. Effective influence = 2 < 3, so no healing.
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     assert!(
         !actions.actions.iter().any(|a| matches!(a, LegalAction::InteractSite { .. })),
-        "Negative rep (-3) should reduce influence by 2, blocking healing at village"
+        "Negative rep (-3) should reduce influence by 1, blocking healing at village"
     );
 }
 
@@ -3269,8 +3269,8 @@ fn negative_rep_saturates_at_zero() {
 fn reputation_bonus_applied_once_per_turn() {
     let mut state = setup_playing_game(vec!["wound", "wound"]);
     place_player_on_site(&mut state, SiteType::Village);
-    state.players[0].reputation = 5; // bonus = +3
-    state.players[0].influence_points = 3; // effective = 6
+    state.players[0].reputation = 5; // bonus = +2
+    state.players[0].influence_points = 4; // effective = 6
 
     // First healing (cost 3): should succeed and apply the bonus
     let mut undo = UndoStack::new();
@@ -3460,11 +3460,11 @@ fn shield_bonus_combined_with_reputation_bonus() {
     hex.site.as_mut().unwrap().owner = Some(state.players[0].id.clone());
     hex.shield_tokens.push(state.players[0].id.clone()); // +1 shield
 
-    state.players[0].reputation = 3; // +2 rep bonus
-    state.players[0].influence_points = 0; // 0 + 2 + 1 = 3 effective
+    state.players[0].reputation = 3; // +1 rep bonus
+    state.players[0].influence_points = 1; // 1 + 1 + 1 = 3 effective
 
     let effective = crate::legal_actions::sites::compute_effective_influence(&state, 0);
-    assert_eq!(effective, 3, "Shield bonus (+1) combined with rep bonus (+2) = 3 effective influence");
+    assert_eq!(effective, 3, "Shield bonus (+1) combined with rep bonus (+1) = 3 effective influence");
 }
 
 #[test]
@@ -3496,8 +3496,8 @@ fn normal_unit_cost_uses_base_cost_only() {
     // The blanket reputation bonus handles it.
     let mut state = setup_playing_game(vec!["march"]);
     place_player_on_site(&mut state, SiteType::Village);
-    state.players[0].reputation = 3; // +2 blanket bonus
-    state.players[0].influence_points = 2; // effective = 4
+    state.players[0].reputation = 3; // +1 blanket bonus
+    state.players[0].influence_points = 3; // effective = 4
 
     state.offers.units = vec![mk_types::ids::UnitId::from("peasants")]; // cost 4
 
@@ -3518,10 +3518,10 @@ fn thugs_cost_has_reversed_reputation_delta() {
     // thugs need a -2x delta to reverse it.
     let mut state = setup_playing_game(vec!["march"]);
     place_player_on_site(&mut state, SiteType::Village);
-    state.players[0].reputation = 3; // base_mod = -2 (cost reduction)
-    // Thugs delta = -2 * (-2) = +4 (reversed: they pay MORE with positive rep)
-    // base_cost = 5, delta = +4, total_cost = 9
-    state.players[0].influence_points = 7; // effective = 7 + 2 = 9
+    state.players[0].reputation = 3; // base_mod = -1 (cost reduction)
+    // Thugs delta = -2 * (-1) = +2 (reversed: they pay MORE with positive rep)
+    // base_cost = 5, delta = +2, total_cost = 7
+    state.players[0].influence_points = 6; // effective = 6 + 1 = 7
 
     state.offers.units = vec![mk_types::ids::UnitId::from("thugs")]; // cost 5
 
@@ -3530,9 +3530,9 @@ fn thugs_cost_has_reversed_reputation_delta() {
     let recruit = actions.actions.iter().find(|a| matches!(a, LegalAction::RecruitUnit { .. }));
     assert!(recruit.is_some(), "Thugs should be recruitable");
     if let Some(LegalAction::RecruitUnit { influence_cost, .. }) = recruit {
-        // With rep +3: base_mod = -2, thugs delta = -2 * (-2) = +4
-        // Total cost = 5 + 4 = 9
-        assert_eq!(*influence_cost, 9, "Thugs cost should include reversed rep delta (5 + 4 = 9)");
+        // With rep +3: base_mod = -1, thugs delta = -2 * (-1) = +2
+        // Total cost = 5 + 2 = 7
+        assert_eq!(*influence_cost, 7, "Thugs cost should include reversed rep delta (5 + 2 = 7)");
     }
 }
 
@@ -3541,10 +3541,10 @@ fn heroes_cost_has_doubled_reputation_delta() {
     // Heroes have doubled reputation. Blanket applies 1x, hero delta adds 1x more.
     let mut state = setup_playing_game(vec!["march"]);
     place_player_on_site(&mut state, SiteType::Village);
-    state.players[0].reputation = 3; // base_mod = -2
-    // Hero delta = base_mod = -2 (extra 1x reduction)
-    // base_cost = 9, delta = -2, total_cost = 7
-    state.players[0].influence_points = 5; // effective = 5 + 2 = 7
+    state.players[0].reputation = 3; // base_mod = -1
+    // Hero delta = base_mod = -1 (extra 1x reduction)
+    // base_cost = 9, delta = -1, total_cost = 8
+    state.players[0].influence_points = 7; // effective = 7 + 1 = 8
 
     state.offers.units = vec![mk_types::ids::UnitId::from("hero_blue")]; // cost 9, is_hero
 
@@ -3553,8 +3553,8 @@ fn heroes_cost_has_doubled_reputation_delta() {
     let recruit = actions.actions.iter().find(|a| matches!(a, LegalAction::RecruitUnit { .. }));
     assert!(recruit.is_some(), "Hero should be recruitable with doubled rep discount");
     if let Some(LegalAction::RecruitUnit { influence_cost, .. }) = recruit {
-        // With rep +3: base_mod = -2, hero delta = -2, total_cost = 9 - 2 = 7
-        assert_eq!(*influence_cost, 7, "Hero cost should have extra rep delta (9 - 2 = 7)");
+        // With rep +3: base_mod = -1, hero delta = -1, total_cost = 9 - 1 = 8
+        assert_eq!(*influence_cost, 8, "Hero cost should have extra rep delta (9 - 1 = 8)");
     }
 }
 

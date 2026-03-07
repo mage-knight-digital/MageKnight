@@ -707,8 +707,8 @@ fn has_ranged_siege_useful_leaf(
         // Ranged-producing spells/effects — always useful
         CardEffect::ManaBolt { .. } | CardEffect::PureMagic { .. } => true,
 
-        // Combat targeting — always useful
-        CardEffect::SelectCombatEnemy { .. } => true,
+        // Combat targeting — defeat is Attack-phase only (whirlwind powered)
+        CardEffect::SelectCombatEnemy { template } => !template.defeat,
 
         // Discard for attack — check if any color option produces useful attack
         CardEffect::DiscardForAttack { attacks_by_color } => attacks_by_color
@@ -852,8 +852,8 @@ fn has_block_useful_leaf(state: &GameState, player_idx: usize, effect: &CardEffe
         // Modifiers — always useful (could set up block bonuses, etc.)
         CardEffect::ApplyModifier { .. } => true,
 
-        // Combat targeting — useful
-        CardEffect::SelectCombatEnemy { .. } => true,
+        // Combat targeting — defeat is Attack-phase only (whirlwind powered)
+        CardEffect::SelectCombatEnemy { template } => !template.defeat,
 
         // Attack — NOT useful in Block phase
         CardEffect::GainAttack { .. }

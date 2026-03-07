@@ -450,3 +450,38 @@ fn no_level_up_reward_at_odd_levels() {
         "Odd level (3) should not queue a LevelUpReward"
     );
 }
+
+/// Regression: enumerate_site_reward_choice used current_player_index
+/// (turn-order index) instead of player_idx. In solo mode with a dummy
+/// player, current_player_index can be 1 while state.players has only
+/// 1 entry, causing an index-out-of-bounds panic.
+#[test]
+fn site_reward_unit_with_dummy_player_does_not_panic() {
+    use mk_types::pending::SiteReward;
+
+    let mut state = setup_game(vec!["march"]);
+    // Simulate solo mode: dummy is turn_order[0], human is turn_order[1]
+    state.turn_order = vec![
+        PlayerId::from("__dummy__"),
+        PlayerId::from("player_0"),
+    ];
+    state.current_player_index = 1;
+    state.offers.units = vec![
+        UnitId::from("peasants"),
+        UnitId::from("foresters"),
+    ];
+    state.players[0].command_tokens = 2;
+    state.players[0].pending.active = Some(ActivePending::SiteRewardChoice {
+        reward: SiteReward::Unit,
+        reward_index: 0,
+    });
+
+    let undo = UndoStack::new();
+    // player_idx=0 is the real index into state.players
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    // Should produce SelectReward for each unit in the offer
+    let rewards: Vec<_> = legal.actions.iter()
+        .filter(|a| matches!(a, LegalAction::SelectReward { .. }))
+        .collect();
+    assert_eq!(rewards.len(), 2, "Expected 2 unit reward choices, got {rewards:?}");
+}

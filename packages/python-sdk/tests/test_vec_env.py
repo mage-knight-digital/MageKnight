@@ -29,7 +29,7 @@ class TestPyVecEnv(unittest.TestCase):
         batch = env.encode_batch()
 
         # State scalars: (N, STATE_SCALAR_DIM=76)
-        self.assertEqual(batch["state_scalars"].shape, (n, 76))
+        self.assertEqual(batch["state_scalars"].shape, (n, 84))
         self.assertEqual(batch["state_scalars"].dtype, np.float32)
 
         # State IDs: (N, 3)
@@ -228,7 +228,7 @@ class TestVecEnvRunner(unittest.TestCase):
         self.assertGreater(len(ep), 0)
 
         vt = ep[0]
-        self.assertEqual(vt.state_scalars.shape, (76,))
+        self.assertEqual(vt.state_scalars.shape, (84,))
         self.assertEqual(vt.state_ids.shape, (3,))
         self.assertGreater(vt.action_ids.shape[0], 0)
 
@@ -256,7 +256,7 @@ class TestVecEnvRunner(unittest.TestCase):
         vt = result.episodes[0][0]
         t = vec_transition_to_transition(vt)
 
-        self.assertEqual(len(t.encoded_step.state.scalars), 76)
+        self.assertEqual(len(t.encoded_step.state.scalars), 84)
         self.assertGreater(len(t.encoded_step.actions), 0)
         self.assertIsInstance(t.reward, float)
 

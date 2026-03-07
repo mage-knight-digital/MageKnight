@@ -487,3 +487,332 @@ fn natures_vengeance_gated_on_combat_even_out_of_turn() {
     ), "Should see return in combat for natures_vengeance");
 }
 
+// =========================================================================
+// Ritual of Pain: OtherPlayers scope must NOT apply to owner
+// =========================================================================
+
+#[test]
+fn ritual_of_pain_owner_wounds_not_playable_sideways() {
+    // Bug: OtherPlayers-scoped modifiers from Ritual of Pain incorrectly apply
+    // to Arythea (the owner). The scope means only OTHER players should benefit.
+    let (mut state, mut undo) = setup_two_player_with_skill(Hero::Arythea, "arythea_ritual_of_pain");
+    state.players[0].hand = vec![CardId::from("march")]; // no wounds → skip to center
+    activate_skill(&mut state, &mut undo, "arythea_ritual_of_pain");
+
+    // Confirm OtherPlayers-scoped modifiers exist in the center
+    assert!(state.active_modifiers.iter().any(|m|
+        matches!(&m.effect, mk_types::modifier::ModifierEffect::RuleOverride {
+            rule: mk_types::modifier::RuleOverride::WoundsPlayableSideways
+        })
+        && matches!(&m.scope, mk_types::modifier::ModifierScope::OtherPlayers)
+    ));
+
+    // Now give Arythea a wound to test sideways play
+    state.players[0].hand.push(CardId::from("wound"));
+
+    // WoundsPlayableSideways should NOT be active for the owner
+    assert!(
+        !crate::card_play::is_rule_active(
+            &state, 0,
+            mk_types::modifier::RuleOverride::WoundsPlayableSideways,
+        ),
+        "WoundsPlayableSideways should NOT be active for the skill owner (OtherPlayers scope)",
+    );
+
+    // Wound sideways value should remain 0 for the owner
+    let sw_val = crate::card_play::get_effective_sideways_value(
+        &state, 0, true,
+        mk_types::enums::DeedCardType::Wound,
+        None,
+    );
+    assert_eq!(sw_val, 0, "Wound sideways value should be 0 for the skill owner");
+}
+
+// =========================================================================
+// Solo interactive skill self-return
+// =========================================================================
+
+/// Helper: set up a solo game with a skill (uses create_solo_game → has dummy_player).
+/// Simulates advancing to the next turn by calling advance_turn_pub.
+fn solo_advance_turn(state: &mut GameState) {
+    // Reset turn state for current player before advancing
+    let player_idx = state.current_player_index as usize;
+    crate::end_turn::advance_turn_pub(state, player_idx);
+}
+
+#[test]
+fn solo_self_return_available_next_turn() {
+    let (mut state, mut undo) = setup_with_skill(Hero::Norowas, "norowas_prayer_of_weather");
+    activate_skill(&mut state, &mut undo, "norowas_prayer_of_weather");
+
+    // On the same turn, return should NOT be available (owner == self, same turn)
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    assert!(!actions.actions.iter().any(|a|
+        matches!(a, LegalAction::ReturnInteractiveSkill { .. })
+    ), "Should NOT be able to self-return on the same turn");
+
+    // Advance to next turn
+    solo_advance_turn(&mut state);
+
+    // Now return should be available
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    assert!(actions.actions.iter().any(|a|
+        matches!(a, LegalAction::ReturnInteractiveSkill { skill_id }
+            if skill_id.as_str() == "norowas_prayer_of_weather")
+    ), "Should be able to self-return on the next turn in solo");
+}
+
+#[test]
+fn solo_self_return_not_available_same_turn() {
+    let (mut state, mut undo) = setup_with_skill(Hero::Norowas, "norowas_prayer_of_weather");
+    activate_skill(&mut state, &mut undo, "norowas_prayer_of_weather");
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    assert!(!actions.actions.iter().any(|a|
+        matches!(a, LegalAction::ReturnInteractiveSkill { .. })
+    ), "Should NOT see self-return on the same turn");
+}
+
+#[test]
+fn solo_self_return_expired_after_window() {
+    let (mut state, mut undo) = setup_with_skill(Hero::Norowas, "norowas_prayer_of_weather");
+    activate_skill(&mut state, &mut undo, "norowas_prayer_of_weather");
+
+    // Placement was at turn_number=0. Set turn_number=2 to simulate two turns later.
+    // The return window is placement_turn + 1, so turn_number > pt + 1 means expired.
+    state.turn_number = 2;
+
+    // solo_return_window_open checks placement_turn < turn_number (0 < 2 = true),
+    // but the EXPIRY logic in advance_turn cleans up the modifiers. Since we're testing
+    // the enumeration logic directly, the modifiers still exist here.
+    // The return should still be offered if modifiers exist and window is open.
+    // What we really want to test is that advance_turn expires them.
+    // Simulate the expiry that advance_turn would do:
+    solo_advance_turn(&mut state);
+
+    // After advance with turn_number > pt + 1, modifiers should be expired
+    let has_center_modifier = state.active_modifiers.iter().any(|m|
+        matches!(&m.source, mk_types::modifier::ModifierSource::Skill { skill_id, .. }
+            if skill_id.as_str() == "norowas_prayer_of_weather")
+        && matches!(m.duration, mk_types::modifier::ModifierDuration::Round)
+        && matches!(m.scope, mk_types::modifier::ModifierScope::OtherPlayers)
+    );
+    assert!(!has_center_modifier,
+        "Center modifiers should be expired after return window passes");
+
+    // And return should not be available (no modifiers to return)
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    assert!(!actions.actions.iter().any(|a|
+        matches!(a, LegalAction::ReturnInteractiveSkill { .. })
+    ), "Should NOT see self-return after return window expires");
+}
+
+#[test]
+fn solo_self_return_grants_terrain_cost_benefit() {
+    let (mut state, mut undo) = setup_with_skill(Hero::Norowas, "norowas_prayer_of_weather");
+    activate_skill(&mut state, &mut undo, "norowas_prayer_of_weather");
+    solo_advance_turn(&mut state);
+
+    // Return the skill
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::ReturnInteractiveSkill {
+            skill_id: mk_types::ids::SkillId::from("norowas_prayer_of_weather"),
+        },
+        epoch,
+    ).unwrap();
+
+    // Returner (self) gets Turn/SelfScope TerrainCost -1
+    assert!(state.active_modifiers.iter().any(|m|
+        matches!(&m.effect, mk_types::modifier::ModifierEffect::TerrainCost {
+            amount, minimum, ..
+        } if *amount == -1 && *minimum == 1)
+        && matches!(&m.duration, mk_types::modifier::ModifierDuration::Turn)
+        && matches!(&m.scope, mk_types::modifier::ModifierScope::SelfScope)
+    ), "Solo self-return of Prayer of Weather should grant TerrainCost -1");
+}
+
+#[test]
+fn solo_ritual_of_pain_self_return() {
+    let (mut state, mut undo) = setup_with_skill(Hero::Arythea, "arythea_ritual_of_pain");
+    state.players[0].hand = vec![CardId::from("march")]; // no wounds → skip to center
+    activate_skill(&mut state, &mut undo, "arythea_ritual_of_pain");
+    solo_advance_turn(&mut state);
+
+    // Return the skill
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::ReturnInteractiveSkill {
+            skill_id: mk_types::ids::SkillId::from("arythea_ritual_of_pain"),
+        },
+        epoch,
+    ).unwrap();
+
+    // Returner gets WoundsPlayableSideways + SidewaysValue(3)
+    assert!(state.active_modifiers.iter().any(|m|
+        matches!(&m.effect, mk_types::modifier::ModifierEffect::RuleOverride {
+            rule: mk_types::modifier::RuleOverride::WoundsPlayableSideways
+        })
+        && matches!(&m.scope, mk_types::modifier::ModifierScope::SelfScope)
+        && matches!(&m.duration, mk_types::modifier::ModifierDuration::Turn)
+    ), "Solo self-return of Ritual of Pain should grant WoundsPlayableSideways");
+
+    assert!(state.active_modifiers.iter().any(|m|
+        matches!(&m.effect, mk_types::modifier::ModifierEffect::SidewaysValue {
+            new_value, for_wounds, ..
+        } if *new_value == 3 && *for_wounds)
+        && matches!(&m.scope, mk_types::modifier::ModifierScope::SelfScope)
+    ), "Solo self-return of Ritual of Pain should grant SidewaysValue(3)");
+}
+
+#[test]
+fn solo_mana_enhancement_available_next_turn() {
+    let (mut state, _undo) = setup_with_skill(Hero::Krang, "krang_mana_enhancement");
+
+    // Manually trigger mana enhancement (simulating card play with mana consumption)
+    let skill_id = mk_types::ids::SkillId::from("krang_mana_enhancement");
+    state.mana_enhancement_center = Some(mk_types::state::ManaEnhancementCenter {
+        marked_color: BasicManaColor::Red,
+        owner_id: state.players[0].id.clone(),
+        skill_id: skill_id.clone(),
+        placement_turn: state.turn_number,
+    });
+    // Push the dummy center marker modifier
+    use mk_types::modifier::*;
+    use mk_types::ids::ModifierId;
+    state.active_modifiers.push(ActiveModifier {
+        id: ModifierId::from("me_marker"),
+        effect: ModifierEffect::TerrainCost {
+            terrain: TerrainOrAll::All, amount: 0, minimum: 0, replace_cost: None,
+        },
+        source: ModifierSource::Skill {
+            skill_id,
+            player_id: state.players[0].id.clone(),
+        },
+        duration: ModifierDuration::Round,
+        scope: ModifierScope::OtherPlayers,
+        created_at_round: 1,
+        created_by_player_id: state.players[0].id.clone(),
+    });
+
+    // Same turn: NOT available
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    assert!(!actions.actions.iter().any(|a|
+        matches!(a, LegalAction::ReturnInteractiveSkill { skill_id }
+            if skill_id.as_str() == "krang_mana_enhancement")
+    ), "Mana Enhancement return should NOT be available on same turn");
+
+    // Advance turn
+    solo_advance_turn(&mut state);
+
+    // Next turn: available
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    assert!(actions.actions.iter().any(|a|
+        matches!(a, LegalAction::ReturnInteractiveSkill { skill_id }
+            if skill_id.as_str() == "krang_mana_enhancement")
+    ), "Mana Enhancement return should be available on next turn in solo");
+}
+
+#[test]
+fn solo_mana_enhancement_expired_after_window() {
+    let (mut state, _undo) = setup_with_skill(Hero::Krang, "krang_mana_enhancement");
+
+    let skill_id = mk_types::ids::SkillId::from("krang_mana_enhancement");
+    state.mana_enhancement_center = Some(mk_types::state::ManaEnhancementCenter {
+        marked_color: BasicManaColor::Red,
+        owner_id: state.players[0].id.clone(),
+        skill_id: skill_id.clone(),
+        placement_turn: state.turn_number,
+    });
+    use mk_types::modifier::*;
+    use mk_types::ids::ModifierId;
+    state.active_modifiers.push(ActiveModifier {
+        id: ModifierId::from("me_marker"),
+        effect: ModifierEffect::TerrainCost {
+            terrain: TerrainOrAll::All, amount: 0, minimum: 0, replace_cost: None,
+        },
+        source: ModifierSource::Skill {
+            skill_id,
+            player_id: state.players[0].id.clone(),
+        },
+        duration: ModifierDuration::Round,
+        scope: ModifierScope::OtherPlayers,
+        created_at_round: 1,
+        created_by_player_id: state.players[0].id.clone(),
+    });
+
+    // Advance twice — should expire
+    solo_advance_turn(&mut state);
+    solo_advance_turn(&mut state);
+
+    // Mana Enhancement center should be cleared
+    assert!(state.mana_enhancement_center.is_none(),
+        "Mana Enhancement should be expired after return window passes");
+}
+
+#[test]
+fn time_bending_expires_center_skills() {
+    let (mut state, mut undo) = setup_two_player_with_skill(Hero::Norowas, "norowas_prayer_of_weather");
+    activate_skill(&mut state, &mut undo, "norowas_prayer_of_weather");
+
+    // Confirm center modifiers exist
+    assert!(state.active_modifiers.iter().any(|m|
+        matches!(&m.scope, mk_types::modifier::ModifierScope::OtherPlayers)
+        && matches!(&m.source, mk_types::modifier::ModifierSource::Skill { skill_id, .. }
+            if skill_id.as_str() == "norowas_prayer_of_weather")
+    ), "Center modifiers should exist before Time Bending");
+
+    // Simulate Time Bending: set the flag and call advance_turn with is_time_bending
+    state.players[0].flags.insert(PlayerFlags::IS_TIME_BENT_TURN);
+    // Use advance_turn_pub which calls advance_turn(state, idx, false)
+    // But we need Time Bending path. Let's manually trigger via end_turn with the right state.
+    // Actually the Time Bending flag is checked in advance_turn, so let's simulate it:
+    // The tactic state's extra_turn_pending + IS_TIME_BENT_TURN logic is different.
+    // Time Bending in advance_turn is via the `is_time_bending` parameter.
+    // We can't easily trigger it via the public API in a unit test, so let's verify
+    // that expire_interactive_skills_for_player works correctly.
+    crate::end_turn::expire_interactive_skills_for_player_pub(&state.players[0].id.clone(), &mut state);
+
+    // Center modifiers should be cleared
+    assert!(!state.active_modifiers.iter().any(|m|
+        matches!(&m.scope, mk_types::modifier::ModifierScope::OtherPlayers)
+        && matches!(&m.source, mk_types::modifier::ModifierSource::Skill { skill_id, .. }
+            if skill_id.as_str() == "norowas_prayer_of_weather")
+    ), "Center modifiers should be cleared by Time Bending expiry");
+}
+
+#[test]
+fn multiplayer_return_still_works_after_solo_changes() {
+    // Regression: ensure multiplayer return is unaffected by the solo changes
+    let (mut state, mut undo) = setup_two_player_with_skill(Hero::Norowas, "norowas_prayer_of_weather");
+    activate_skill(&mut state, &mut undo, "norowas_prayer_of_weather");
+    switch_to_player_1(&mut state);
+
+    // Player 1 should see return option
+    let actions = enumerate_legal_actions_with_undo(&state, 1, &UndoStack::new());
+    assert!(actions.actions.iter().any(|a|
+        matches!(a, LegalAction::ReturnInteractiveSkill { skill_id }
+            if skill_id.as_str() == "norowas_prayer_of_weather")
+    ), "Multiplayer return should still work");
+
+    // Execute the return
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 1,
+        &LegalAction::ReturnInteractiveSkill {
+            skill_id: mk_types::ids::SkillId::from("norowas_prayer_of_weather"),
+        },
+        epoch,
+    ).unwrap();
+
+    // Player 1 gets the benefit
+    assert!(state.active_modifiers.iter().any(|m|
+        matches!(&m.effect, mk_types::modifier::ModifierEffect::TerrainCost {
+            amount, ..
+        } if *amount == -1)
+        && matches!(&m.scope, mk_types::modifier::ModifierScope::SelfScope)
+    ), "Multiplayer return benefit should be granted");
+}
+

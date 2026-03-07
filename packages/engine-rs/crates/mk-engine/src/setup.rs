@@ -389,6 +389,8 @@ pub fn create_solo_game(seed: u32, hero: Hero) -> GameState {
         source_opening_center: None,
 
         dummy_player: Some(dummy),
+
+        turn_number: 0,
     }
 }
 
@@ -533,6 +535,8 @@ pub fn create_multiplayer_game(
         source_opening_center: None,
 
         dummy_player: None,
+
+        turn_number: 0,
     }
 }
 

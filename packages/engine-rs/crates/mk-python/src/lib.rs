@@ -15,6 +15,7 @@ use pyo3::prelude::*;
 
 use mk_engine::action_pipeline::{apply_legal_action, initial_events, ApplyError};
 use mk_engine::client_state::to_client_state;
+use mk_engine::combat_search::{search_combat, CombatSearchConfig};
 use mk_engine::legal_actions::enumerate_legal_actions_with_undo;
 use mk_engine::scoring::calculate_final_scores;
 use mk_engine::setup::{create_solo_game, place_initial_tiles};
@@ -436,6 +437,140 @@ impl GameEngine {
         }
     }
 
+    /// Auto-resolve combat using the exhaustive search oracle.
+    ///
+    /// If the engine is currently in combat, runs the combat search to find
+    /// the optimal action sequence, then replays those actions. Returns the
+    /// list of action indices that were applied (for recording in replays).
+    ///
+    /// Returns an empty list if not in combat.
+    fn auto_resolve_combat(&mut self) -> PyResult<Vec<i32>> {
+        if self.state.combat.is_none() {
+            return Ok(vec![]);
+        }
+
+        let config = CombatSearchConfig {
+            node_limit: 1_000_000,
+            seed_rollouts: 500,
+        };
+        let result = search_combat(&self.state, &config);
+
+        let mut action_indices = Vec::new();
+
+        // Replay optimal actions from the search result
+        for action in &result.actions {
+            if self.state.combat.is_none() || self.state.game_ended {
+                break;
+            }
+            // Find the action index in the current legal action set
+            let idx = self.action_set.actions.iter().position(|a| a == action);
+            if let Some(idx) = idx {
+                action_indices.push(idx as i32);
+                // Apply it through the normal path to keep events/epoch in sync
+                let epoch = self.action_set.epoch;
+                match apply_legal_action(
+                    &mut self.state,
+                    &mut self.undo_stack,
+                    self.player_idx,
+                    action,
+                    epoch,
+                ) {
+                    Ok(apply_result) => {
+                        self.step_count += 1;
+                        self.last_events = apply_result.events;
+                        self.action_set = enumerate_legal_actions_with_undo(
+                            &self.state,
+                            self.player_idx,
+                            &self.undo_stack,
+                        );
+                        if self.rl_mode {
+                            self.action_set
+                                .actions
+                                .retain(|a| !matches!(a, LegalAction::Undo));
+                        }
+                    }
+                    Err(_) => break,
+                }
+            } else {
+                break; // Action not found — fall through to fallback
+            }
+        }
+
+        // Fallback: if combat didn't fully resolve, pick action 0 until it ends
+        while self.state.combat.is_some() && !self.state.game_ended {
+            if self.action_set.actions.is_empty() {
+                break;
+            }
+            action_indices.push(0);
+            let action = self.action_set.actions[0].clone();
+            let epoch = self.action_set.epoch;
+            match apply_legal_action(
+                &mut self.state,
+                &mut self.undo_stack,
+                self.player_idx,
+                &action,
+                epoch,
+            ) {
+                Ok(apply_result) => {
+                    self.step_count += 1;
+                    self.last_events = apply_result.events;
+                    self.action_set = enumerate_legal_actions_with_undo(
+                        &self.state,
+                        self.player_idx,
+                        &self.undo_stack,
+                    );
+                    if self.rl_mode {
+                        self.action_set
+                            .actions
+                            .retain(|a| !matches!(a, LegalAction::Undo));
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+
+        Ok(action_indices)
+    }
+
+    /// Whether the engine is currently in combat.
+    fn in_combat(&self) -> bool {
+        self.state.combat.is_some()
+    }
+
+    /// Get the oracle's recommended action index for the current combat state.
+    ///
+    /// Runs the combat search and returns the index of the first action
+    /// in the optimal sequence (within the current legal action set).
+    /// Returns None if not in combat or no action found.
+    ///
+    /// Does NOT apply the action — call apply_action() with the result.
+    fn combat_oracle_action(&self) -> Option<usize> {
+        if self.state.combat.is_none() {
+            return None;
+        }
+
+        let config = CombatSearchConfig {
+            node_limit: 1_000_000,
+            seed_rollouts: 500,
+        };
+        let result = search_combat(&self.state, &config);
+
+        // Find the first action from the optimal sequence in the current action set
+        if let Some(action) = result.actions.first() {
+            self.action_set
+                .actions
+                .iter()
+                .position(|a| a == action)
+        } else {
+            // Search returned no actions — fallback to 0
+            if self.action_set.actions.is_empty() {
+                None
+            } else {
+                Some(0)
+            }
+        }
+    }
+
     /// Get the legal actions as a JSON string.
     ///
     /// Returns a JSON array of LegalAction objects. Useful for debugging
@@ -656,17 +791,25 @@ impl PyVecEnv {
     ///         None or "full_game" → FullGame (default).
     ///         Otherwise parsed as JSON, e.g. '{"type":"CombatDrill","enemy_tokens":["diggers_1"],"is_fortified":false}'.
     #[new]
-    #[pyo3(signature = (num_envs=16, base_seed=42, hero="arythea", max_steps=2000, scenario=None))]
+    #[pyo3(signature = (num_envs=16, base_seed=42, hero="arythea", max_steps=2000, scenario=None, combat_oracle=false))]
     fn new(
         num_envs: usize,
         base_seed: u32,
         hero: &str,
         max_steps: u64,
         scenario: Option<&str>,
+        combat_oracle: bool,
     ) -> PyResult<Self> {
         let hero_enum = parse_hero(hero)?;
         let training_scenario = parse_scenario(scenario)?;
-        let inner = VecEnv::new(num_envs, base_seed, hero_enum, max_steps, training_scenario);
+        let inner = VecEnv::new(
+            num_envs,
+            base_seed,
+            hero_enum,
+            max_steps,
+            training_scenario,
+            combat_oracle,
+        );
         Ok(Self { inner })
     }
 
@@ -751,6 +894,8 @@ impl PyVecEnv {
         dict.set_item("wound_deltas", vec_i32_to_numpy(py, &np, &result.wound_deltas, &[n])?)?;
         dict.set_item("non_wound_hand_sizes", vec_i32_to_numpy(py, &np, &result.non_wound_hand_sizes, &[n])?)?;
         dict.set_item("new_tiles", vec_i32_to_numpy(py, &np, &result.new_tiles, &[n])?)?;
+        dict.set_item("wasted_move_points", vec_i32_to_numpy(py, &np, &result.wasted_move_points, &[n])?)?;
+        dict.set_item("backtrack_moves", vec_i32_to_numpy(py, &np, &result.backtrack_moves, &[n])?)?;
 
         Ok(dict.to_object(py))
     }

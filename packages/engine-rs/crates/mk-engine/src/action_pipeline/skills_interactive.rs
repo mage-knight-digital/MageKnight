@@ -26,11 +26,12 @@ pub fn place_skill_in_center_pub(state: &mut GameState, player_idx: usize, skill
 pub(super) fn place_skill_in_center(state: &mut GameState, player_idx: usize, skill_id: &SkillId) {
     use mk_types::modifier::{ModifierDuration, ModifierEffect, ModifierScope, RuleOverride, TerrainOrAll};
 
-    // Flip skill face-down
+    // Flip skill face-down and record placement turn
     let player = &mut state.players[player_idx];
     if !player.skill_flip_state.flipped_skills.contains(skill_id) {
         player.skill_flip_state.flipped_skills.push(skill_id.clone());
     }
+    player.skill_flip_state.placement_turn = state.turn_number;
 
     // Add center marker modifiers (Round duration, OtherPlayers scope)
     match skill_id.as_str() {
@@ -281,17 +282,31 @@ pub(super) fn apply_return_interactive_skill(
     use mk_types::modifier::*;
     use mk_types::pending::ChoiceResolution;
 
-    // Find owner by scanning modifiers
+    // Find owner by scanning modifiers (prefer different-player owner; fallback to self in solo)
+    let returner_id = &state.players[player_idx].id;
     let owner_id = state.active_modifiers.iter()
         .find_map(|m| {
             if let ModifierSource::Skill { skill_id: sid, player_id: owner } = &m.source {
-                if sid.as_str() == skill_id.as_str()
-                    && *owner != state.players[player_idx].id
-                {
+                if sid.as_str() == skill_id.as_str() && *owner != *returner_id {
                     return Some(owner.clone());
                 }
             }
             None
+        })
+        .or_else(|| {
+            // Solo self-return: owner == returner
+            if state.dummy_player.is_some() {
+                state.active_modifiers.iter().find_map(|m| {
+                    if let ModifierSource::Skill { skill_id: sid, player_id: owner } = &m.source {
+                        if sid.as_str() == skill_id.as_str() && *owner == *returner_id {
+                            return Some(owner.clone());
+                        }
+                    }
+                    None
+                })
+            } else {
+                None
+            }
         })
         .ok_or_else(|| ApplyError::InternalError(
             format!("ReturnInteractiveSkill: no center modifier for {}", skill_id.as_str())

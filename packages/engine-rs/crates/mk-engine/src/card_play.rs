@@ -5,7 +5,10 @@
 use mk_data::cards::{get_card, PoweredBy};
 use mk_types::action::ManaSourceInfo;
 use mk_types::enums::*;
-use mk_types::modifier::{ModifierEffect, ModifierSource, RuleOverride, SidewaysCondition};
+use mk_types::modifier::{
+    ActiveModifier, ModifierEffect, ModifierScope, ModifierSource, RuleOverride,
+    SidewaysCondition,
+};
 use mk_types::pending::{ActivePending, ChoiceResolution, ContinuationEntry, PendingChoice};
 use mk_types::state::*;
 
@@ -389,11 +392,22 @@ pub(crate) fn is_die_available_with_overrides(
     }
 }
 
+/// Check whether a modifier applies to the given player based on its scope.
+fn modifier_applies_to_player(m: &ActiveModifier, player_id: &mk_types::ids::PlayerId) -> bool {
+    match m.scope {
+        ModifierScope::SelfScope => m.created_by_player_id == *player_id,
+        ModifierScope::OtherPlayers => m.created_by_player_id != *player_id,
+        ModifierScope::AllPlayers => true,
+        // Enemy/unit scopes don't target players; fall back to creator check.
+        _ => m.created_by_player_id == *player_id,
+    }
+}
+
 /// Check if a rule override is active for the given player.
 pub fn is_rule_active(state: &GameState, player_idx: usize, rule: RuleOverride) -> bool {
     let player_id = &state.players[player_idx].id;
     state.active_modifiers.iter().any(|m| {
-        m.created_by_player_id == *player_id
+        modifier_applies_to_player(m, player_id)
             && matches!(&m.effect, ModifierEffect::RuleOverride { rule: r } if *r == rule)
     })
 }
@@ -416,7 +430,7 @@ pub fn get_effective_sideways_value(
         .contains(PlayerFlags::USED_MANA_FROM_SOURCE);
     let mut best = base_value;
     for m in &state.active_modifiers {
-        if m.created_by_player_id != *player_id {
+        if !modifier_applies_to_player(m, player_id) {
             continue;
         }
         if let ModifierEffect::SidewaysValue {
@@ -799,6 +813,7 @@ pub(crate) fn check_mana_enhancement_trigger(
         marked_color: basic_color,
         owner_id: state.players[player_idx].id.clone(),
         skill_id: skill_id.clone(),
+        placement_turn: state.turn_number,
     });
     // Place skill in center (flip + dummy marker for returnable_skills detection)
     crate::action_pipeline::place_skill_in_center_pub(state, player_idx, &skill_id);

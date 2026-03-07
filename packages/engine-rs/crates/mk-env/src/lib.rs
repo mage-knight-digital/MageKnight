@@ -12,6 +12,7 @@ use std::path::PathBuf;
 use rayon::prelude::*;
 
 use mk_engine::action_pipeline::{apply_legal_action, ApplyError};
+use mk_engine::combat_search::{search_combat, CombatSearchConfig};
 use mk_engine::legal_actions::enumerate_legal_actions_with_undo;
 use mk_engine::undo::UndoStack;
 use mk_features::EncodedStep;
@@ -62,15 +63,27 @@ struct SingleEnv {
     scenario: TrainingScenario,
     /// Set of hex coordinates the player has visited (for exploration bonus).
     visited_hexes: std::collections::BTreeSet<(i32, i32)>,
+    /// Hex coordinates visited this turn (for backtracking penalty).
+    turn_hexes: std::collections::BTreeSet<(i32, i32)>,
+    /// When true, auto-resolve combat via exhaustive search oracle.
+    combat_oracle: bool,
 }
 
 impl SingleEnv {
-    fn new(seed: u32, hero: Hero, max_steps: u64, scenario: TrainingScenario) -> Self {
+    fn new(
+        seed: u32,
+        hero: Hero,
+        max_steps: u64,
+        scenario: TrainingScenario,
+        combat_oracle: bool,
+    ) -> Self {
         let result = create_training_game(seed, hero, &scenario);
-        // Seed visited_hexes with starting position
+        // Seed visited_hexes and turn_hexes with starting position
         let mut visited_hexes = std::collections::BTreeSet::new();
+        let mut turn_hexes = std::collections::BTreeSet::new();
         if let Some(pos) = result.state.players[0].position {
             visited_hexes.insert((pos.q, pos.r));
+            turn_hexes.insert((pos.q, pos.r));
         }
         Self {
             state: result.state,
@@ -82,6 +95,8 @@ impl SingleEnv {
             max_steps,
             scenario,
             visited_hexes,
+            turn_hexes,
+            combat_oracle,
         }
     }
 
@@ -93,8 +108,10 @@ impl SingleEnv {
         self.action_set = result.action_set;
         self.step_count = 0;
         self.visited_hexes.clear();
+        self.turn_hexes.clear();
         if let Some(pos) = self.state.players[0].position {
             self.visited_hexes.insert((pos.q, pos.r));
+            self.turn_hexes.insert((pos.q, pos.r));
         }
     }
 
@@ -128,8 +145,66 @@ impl SingleEnv {
         }
     }
 
+    /// Check if the player backtracked (moved to a hex already visited this turn).
+    /// Updates turn_hexes. On EndTurn, clears for the new turn.
+    fn check_backtrack(&mut self, position_before: Option<(i32, i32)>, was_end_turn: bool) -> bool {
+        if let Some(pos) = self.state.players[0].position {
+            let coords = (pos.q, pos.r);
+            if was_end_turn {
+                self.turn_hexes.clear();
+                self.turn_hexes.insert(coords);
+                return false;
+            }
+            let moved = position_before != Some(coords);
+            let backtracked = moved && self.turn_hexes.contains(&coords);
+            self.turn_hexes.insert(coords);
+            backtracked
+        } else {
+            false
+        }
+    }
+
     fn is_done(&self) -> bool {
         self.state.game_ended || self.step_count >= self.max_steps
+    }
+
+    /// Auto-resolve combat using the exhaustive search oracle.
+    /// Replays the optimal action sequence, falling back to action[0] if needed.
+    fn resolve_combat_oracle(&mut self) {
+        let config = CombatSearchConfig {
+            node_limit: 1_000_000,
+            seed_rollouts: 500,
+        };
+        let result = search_combat(&self.state, &config);
+
+        // Replay optimal actions from the search result
+        for action in &result.actions {
+            if self.state.combat.is_none() || self.state.game_ended {
+                break;
+            }
+            let epoch = self.state.action_epoch;
+            let _ = apply_legal_action(&mut self.state, &mut self.undo_stack, 0, action, epoch);
+        }
+
+        // Fallback: if combat didn't fully resolve, pick action[0] until it ends
+        while self.state.combat.is_some() && !self.state.game_ended {
+            let actions = mk_engine::legal_actions::enumerate_legal_actions_with_undo(
+                &self.state,
+                0,
+                &self.undo_stack,
+            );
+            if actions.actions.is_empty() {
+                break;
+            }
+            let epoch = actions.epoch;
+            let action = actions.actions[0].clone();
+            let _ = apply_legal_action(&mut self.state, &mut self.undo_stack, 0, &action, epoch);
+        }
+
+        // Re-enumerate legal actions after combat resolution
+        let new_actions =
+            enumerate_legal_actions_with_undo(&self.state, 0, &self.undo_stack);
+        self.action_set = filter_undo(new_actions);
     }
 
     fn action_count(&self) -> usize {
@@ -159,6 +234,11 @@ impl SingleEnv {
                 self.step_count += 1;
                 self.action_set = filter_undo(new_actions);
 
+                // Auto-resolve combat with oracle if enabled
+                if self.combat_oracle && self.state.combat.is_some() {
+                    self.resolve_combat_oracle();
+                }
+
                 // In CombatDrill, end episode when combat resolves
                 let combat_drill_done =
                     matches!(self.scenario, TrainingScenario::CombatDrill { .. })
@@ -167,7 +247,7 @@ impl SingleEnv {
                     self.state.game_ended = true;
                 }
 
-                (apply_result.game_ended || combat_drill_done, false)
+                (apply_result.game_ended || self.state.game_ended || combat_drill_done, false)
             }
             Ok(Err(e)) => {
                 eprintln!(
@@ -234,6 +314,10 @@ pub struct StepResult {
     pub non_wound_hand_sizes: Vec<i32>,
     /// (N,) — number of new tiles explored this step (0 or 1)
     pub new_tiles: Vec<i32>,
+    /// (N,) — move points wasted on EndTurn (captured before reset zeroes them)
+    pub wasted_move_points: Vec<i32>,
+    /// (N,) — whether the player backtracked to a hex already visited this turn (0 or 1)
+    pub backtrack_moves: Vec<i32>,
 }
 
 // =============================================================================
@@ -254,10 +338,19 @@ impl VecEnv {
         hero: Hero,
         max_steps: u64,
         scenario: TrainingScenario,
+        combat_oracle: bool,
     ) -> Self {
         let envs: Vec<SingleEnv> = (0..num_envs)
             .into_par_iter()
-            .map(|i| SingleEnv::new(base_seed + i as u32, hero, max_steps, scenario.clone()))
+            .map(|i| {
+                SingleEnv::new(
+                    base_seed + i as u32,
+                    hero,
+                    max_steps,
+                    scenario.clone(),
+                    combat_oracle,
+                )
+            })
             .collect();
 
         Self {
@@ -296,10 +389,19 @@ impl VecEnv {
         let n = self.envs.len();
         assert_eq!(actions.len(), n, "actions length must match num_envs");
 
-        // Capture fames, wounds, and hex counts before stepping
+        // Capture fames, wounds, hex counts, positions, and move points before stepping
         let fames_before: Vec<i32> = self.envs.iter().map(|e| e.fame() as i32).collect();
         let wounds_before: Vec<i32> = self.envs.iter().map(|e| e.wound_count()).collect();
         let hexes_before: Vec<usize> = self.envs.iter().map(|e| e.state.map.hexes.len()).collect();
+        let move_points_before: Vec<i32> = self.envs.iter().map(|e| e.state.players[0].move_points as i32).collect();
+        let positions_before: Vec<Option<(i32, i32)>> = self.envs.iter()
+            .map(|e| e.state.players[0].position.map(|p| (p.q, p.r)))
+            .collect();
+        let is_end_turn: Vec<bool> = self.envs.iter().zip(actions.iter()).map(|(env, &action)| {
+            if env.is_done() { return false; }
+            let idx = (action as usize).min(env.action_set.actions.len().saturating_sub(1));
+            matches!(env.action_set.actions.get(idx), Some(LegalAction::EndTurn))
+        }).collect();
 
         // Step all envs in parallel
         let results: Vec<(bool, bool)> = self
@@ -323,6 +425,14 @@ impl VecEnv {
             .map(|env| env.check_new_hex())
             .collect();
 
+        // Check for backtracking (moved to a hex already visited this turn)
+        let backtrack_flags: Vec<bool> = self
+            .envs
+            .iter_mut()
+            .enumerate()
+            .map(|(i, env)| env.check_backtrack(positions_before[i], is_end_turn[i]))
+            .collect();
+
         // Compute deltas and dones
         let mut fame_deltas = Vec::with_capacity(n);
         let mut dones = Vec::with_capacity(n);
@@ -334,6 +444,8 @@ impl VecEnv {
         let mut wound_deltas = Vec::with_capacity(n);
         let mut non_wound_hand_sizes = Vec::with_capacity(n);
         let mut new_tiles = Vec::with_capacity(n);
+        let mut wasted_move_points = Vec::with_capacity(n);
+        let mut backtrack_moves = Vec::with_capacity(n);
 
         for (i, (game_ended, did_panic)) in results.iter().enumerate() {
             let env = &self.envs[i];
@@ -351,6 +463,8 @@ impl VecEnv {
             non_wound_hand_sizes.push(env.non_wound_hand_size());
             let hexes_now = env.state.map.hexes.len();
             new_tiles.push(if hexes_now > hexes_before[i] { 1 } else { 0 });
+            wasted_move_points.push(if is_end_turn[i] { move_points_before[i] } else { 0 });
+            backtrack_moves.push(if backtrack_flags[i] { 1 } else { 0 });
         }
 
         // Auto-reset finished environments
@@ -373,6 +487,8 @@ impl VecEnv {
             wound_deltas,
             non_wound_hand_sizes,
             new_tiles,
+            wasted_move_points,
+            backtrack_moves,
         }
     }
 
@@ -402,7 +518,7 @@ mod tests {
             4, 4, 0, 3, 3, 5, 0, 2, 4, 3, 3, 1, 2, 0, 4, 4, 1, 3, 3, 5, 2, 1, 0, 2, 1, 0, 0,
         ];
 
-        let mut env = SingleEnv::new(15604, Hero::Arythea, 500, TrainingScenario::default());
+        let mut env = SingleEnv::new(15604, Hero::Arythea, 500, TrainingScenario::default(), false);
         for (i, &action_idx) in actions.iter().enumerate() {
             assert!(
                 !env.action_set.actions.is_empty(),
@@ -448,7 +564,7 @@ mod tests {
             1, 2, 2, 5, 1, 5, 3, 0, 0, 0, 3, 0, 2,
         ];
 
-        let mut env = SingleEnv::new(9424, Hero::Arythea, 500, TrainingScenario::default());
+        let mut env = SingleEnv::new(9424, Hero::Arythea, 500, TrainingScenario::default(), false);
         for (i, &action_idx) in actions.iter().enumerate() {
             assert!(
                 !env.action_set.actions.is_empty(),
@@ -496,7 +612,7 @@ mod tests {
             0, 0,
         ];
 
-        let mut env = SingleEnv::new(5473, Hero::Arythea, 500, TrainingScenario::default());
+        let mut env = SingleEnv::new(5473, Hero::Arythea, 500, TrainingScenario::default(), false);
         for (i, &action_idx) in actions.iter().enumerate() {
             assert!(
                 !env.action_set.actions.is_empty(),
@@ -536,13 +652,13 @@ mod tests {
 
     #[test]
     fn vec_env_creation() {
-        let env = VecEnv::new(4, 42, Hero::Arythea, 100, TrainingScenario::default());
+        let env = VecEnv::new(4, 42, Hero::Arythea, 100, TrainingScenario::default(), false);
         assert_eq!(env.num_envs(), 4);
     }
 
     #[test]
     fn encode_batch_shapes() {
-        let env = VecEnv::new(4, 42, Hero::Arythea, 100, TrainingScenario::default());
+        let env = VecEnv::new(4, 42, Hero::Arythea, 100, TrainingScenario::default(), false);
         let batch = env.encode_batch();
         assert_eq!(batch.num_envs, 4);
         assert_eq!(batch.state_scalars.len(), 4 * mk_features::STATE_SCALAR_DIM);
@@ -559,7 +675,7 @@ mod tests {
 
     #[test]
     fn step_batch_random_actions() {
-        let mut env = VecEnv::new(4, 42, Hero::Arythea, 100, TrainingScenario::default());
+        let mut env = VecEnv::new(4, 42, Hero::Arythea, 100, TrainingScenario::default(), false);
 
         for _ in 0..10 {
             let batch = env.encode_batch();
@@ -577,7 +693,7 @@ mod tests {
 
     #[test]
     fn auto_reset_on_max_steps() {
-        let mut env = VecEnv::new(1, 42, Hero::Arythea, 5, TrainingScenario::default());
+        let mut env = VecEnv::new(1, 42, Hero::Arythea, 5, TrainingScenario::default(), false);
 
         // Step until the env is done
         let mut found_done = false;
@@ -598,7 +714,7 @@ mod tests {
 
     #[test]
     fn padding_consistency() {
-        let env = VecEnv::new(8, 1, Hero::Arythea, 100, TrainingScenario::default());
+        let env = VecEnv::new(8, 1, Hero::Arythea, 100, TrainingScenario::default(), false);
         let batch = env.encode_batch();
 
         // action_ids should be (N * max_actions * 6)
@@ -626,7 +742,7 @@ mod tests {
             skills: None,
             crystals: None,
         };
-        let mut env = VecEnv::new(4, 42, Hero::Arythea, 50, scenario);
+        let mut env = VecEnv::new(4, 42, Hero::Arythea, 50, scenario, false);
         let batch = env.encode_batch();
         assert_eq!(batch.num_envs, 4);
 
@@ -654,7 +770,7 @@ mod tests {
             skills: None,
             crystals: None,
         };
-        let mut env = VecEnv::new(1, 42, Hero::Arythea, 10, scenario);
+        let mut env = VecEnv::new(1, 42, Hero::Arythea, 10, scenario, false);
 
         let mut found_done = false;
         for _ in 0..50 {
@@ -684,7 +800,7 @@ mod tests {
             skills: None,
             crystals: None,
         };
-        let mut env = VecEnv::new(1, 42, Hero::Arythea, 500, scenario);
+        let mut env = VecEnv::new(1, 42, Hero::Arythea, 500, scenario, false);
 
         let mut done_step = None;
         for step in 0..200 {
@@ -707,6 +823,39 @@ mod tests {
         assert!(
             step < 100,
             "Combat drill ended at step {step} — expected < 100 (combat should resolve, not hit max_steps)"
+        );
+    }
+
+    #[test]
+    fn combat_oracle_auto_resolves() {
+        // Use CombatDrill with oracle=true — combat should resolve in a single step
+        let scenario = TrainingScenario::CombatDrill {
+            enemy_tokens: vec!["diggers_1".to_string()],
+            is_fortified: false,
+            hand_override: None,
+            extra_cards: None,
+            units: None,
+            skills: None,
+            crystals: None,
+        };
+        let mut env = SingleEnv::new(42, Hero::Arythea, 500, scenario, true);
+
+        // The env starts in combat; the first step should trigger oracle resolution
+        assert!(
+            env.state.combat.is_some(),
+            "CombatDrill should start in combat"
+        );
+
+        // Step once — oracle should auto-resolve the entire combat
+        let (game_ended, panicked) = env.step(0);
+        assert!(!panicked, "Oracle step should not panic");
+
+        // After oracle resolution, combat should be gone
+        // (game_ended is true because CombatDrill ends when combat resolves)
+        assert!(game_ended, "CombatDrill + oracle should end after one step");
+        assert!(
+            env.state.combat.is_none(),
+            "Combat should be fully resolved by oracle"
         );
     }
 }

@@ -843,6 +843,10 @@ fn advance_turn(state: &mut GameState, current_player_idx: usize, is_time_bendin
 
     // Time Bending extra turn: same player takes another turn
     if is_time_bending {
+        state.turn_number += 1;
+        // Expire center interactive skills before the extra turn (rules: "interactive
+        // Skills used during the first turn expire before the start of the second turn")
+        expire_interactive_skills_for_player(state, &state.players[current_player_idx].id.clone());
         let player = &mut state.players[current_player_idx];
         player.flags.insert(PlayerFlags::IS_TIME_BENT_TURN);
         // Refresh once-per-turn skill cooldowns (but NOT once-per-round)
@@ -934,6 +938,7 @@ fn advance_turn(state: &mut GameState, current_player_idx: usize, is_time_bendin
     }
 
     state.current_player_index = next_turn_idx as u32;
+    state.turn_number += 1;
 
     // Find the player index in state.players for this turn_order entry
     let next_player_id = &state.turn_order[next_turn_idx];
@@ -956,13 +961,35 @@ fn advance_turn(state: &mut GameState, current_player_idx: usize, is_time_bendin
     if let Some(ref center) = state.mana_enhancement_center {
         let next_player_id = &state.players[next_player_idx].id;
         if center.owner_id == *next_player_id {
-            let skill_str = center.skill_id.as_str().to_string();
-            let owner_id = center.owner_id.clone();
+            // In solo, only expire if the return window has passed (placed turn + 1 < current turn)
+            let should_expire = if state.dummy_player.is_some() {
+                state.turn_number > center.placement_turn + 1
+            } else {
+                true // multiplayer: expire when owner's turn comes back
+            };
+            if should_expire {
+                let skill_str = center.skill_id.as_str().to_string();
+                let owner_id = center.owner_id.clone();
+                state.active_modifiers.retain(|m| {
+                    !matches!(&m.source, mk_types::modifier::ModifierSource::Skill { skill_id: sid, player_id: oid }
+                        if sid.as_str() == skill_str && *oid == owner_id)
+                });
+                state.mana_enhancement_center = None;
+            }
+        }
+    }
+
+    // Solo: expire center interactive skills whose return window has passed
+    if state.dummy_player.is_some() {
+        let next_pid = state.players[next_player_idx].id.clone();
+        let pt = state.players[next_player_idx].skill_flip_state.placement_turn;
+        if state.turn_number > pt + 1 {
             state.active_modifiers.retain(|m| {
-                !matches!(&m.source, mk_types::modifier::ModifierSource::Skill { skill_id: sid, player_id: oid }
-                    if sid.as_str() == skill_str && *oid == owner_id)
+                !matches!(&m.source, mk_types::modifier::ModifierSource::Skill { player_id: owner, .. }
+                    if *owner == next_pid
+                        && matches!(m.duration, mk_types::modifier::ModifierDuration::Round)
+                        && matches!(m.scope, mk_types::modifier::ModifierScope::OtherPlayers))
             });
-            state.mana_enhancement_center = None;
         }
     }
 
@@ -1489,6 +1516,11 @@ fn apply_magical_glade_mana(state: &mut GameState, player_idx: usize) {
 ///
 /// Used when a player's turn is skipped (flipped round-order token) —
 /// any cooperative/interactive skill tokens still in effect expire.
+/// Public wrapper for tests.
+pub fn expire_interactive_skills_for_player_pub(player_id: &PlayerId, state: &mut GameState) {
+    expire_interactive_skills_for_player(state, player_id);
+}
+
 fn expire_interactive_skills_for_player(state: &mut GameState, player_id: &PlayerId) {
     state.active_modifiers.retain(|m| {
         !matches!(

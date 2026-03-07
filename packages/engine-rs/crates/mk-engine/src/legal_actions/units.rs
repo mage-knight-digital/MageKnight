@@ -10,28 +10,25 @@ use mk_types::ids::UnitId;
 use mk_types::legal_action::LegalAction;
 use mk_types::state::{GameState, PlayerFlags, PlayerState};
 
-/// Reputation cost modifier table.
-/// Matches TS `getReputationCostModifier` in `rules/unitRecruitment.ts`.
+/// Reputation cost modifier table (asymmetric, per rulebook).
+/// Negation of `reputation_influence_bonus()` in sites.rs.
 fn reputation_cost_modifier(reputation: i8) -> i32 {
-    let rep = reputation.clamp(-7, 7);
-    if rep == 0 {
-        return 0;
+    match reputation.clamp(-7, 7) {
+        -7 => 5,
+        -6 => 5,
+        -5 => 3,
+        -4 => 2,
+        -3 => 1,
+        -2 => 1,
+        -1 | 0 | 1 => 0,
+        2 => -1,
+        3 => -1,
+        4 => -2,
+        5 => -2,
+        6 => -3,
+        7 => -5,
+        _ => unreachable!(),
     }
-    if rep == -7 {
-        return 5;
-    }
-    if rep == 7 {
-        return -5;
-    }
-    let abs_rep = rep.unsigned_abs();
-    let modifier = if abs_rep <= 2 {
-        1
-    } else if abs_rep <= 4 {
-        2
-    } else {
-        3
-    };
-    if rep < 0 { modifier } else { -modifier }
 }
 
 /// Map a SiteType to a RecruitSite. Returns None if recruitment not possible.
@@ -511,22 +508,22 @@ mod tests {
 
     #[test]
     fn rep_mod_negative() {
-        assert_eq!(reputation_cost_modifier(-1), 1);
+        assert_eq!(reputation_cost_modifier(-1), 0);
         assert_eq!(reputation_cost_modifier(-2), 1);
-        assert_eq!(reputation_cost_modifier(-3), 2);
+        assert_eq!(reputation_cost_modifier(-3), 1);
         assert_eq!(reputation_cost_modifier(-4), 2);
         assert_eq!(reputation_cost_modifier(-5), 3);
-        assert_eq!(reputation_cost_modifier(-6), 3);
+        assert_eq!(reputation_cost_modifier(-6), 5);
         assert_eq!(reputation_cost_modifier(-7), 5);
     }
 
     #[test]
     fn rep_mod_positive() {
-        assert_eq!(reputation_cost_modifier(1), -1);
+        assert_eq!(reputation_cost_modifier(1), 0);
         assert_eq!(reputation_cost_modifier(2), -1);
-        assert_eq!(reputation_cost_modifier(3), -2);
+        assert_eq!(reputation_cost_modifier(3), -1);
         assert_eq!(reputation_cost_modifier(4), -2);
-        assert_eq!(reputation_cost_modifier(5), -3);
+        assert_eq!(reputation_cost_modifier(5), -2);
         assert_eq!(reputation_cost_modifier(6), -3);
         assert_eq!(reputation_cost_modifier(7), -5);
     }

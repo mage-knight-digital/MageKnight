@@ -167,7 +167,7 @@
 /* Accumulator HUD - fixed position above hand cards */
 .combat-hud__accumulator {
   position: fixed;
-  bottom: clamp(180px, 25vh, 280px); /* Stay above the hand cards */
+  bottom: clamp(190px, 26vh, 290px);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -592,38 +592,6 @@
   50% { box-shadow: 0 4px 24px rgba(255, 255, 255, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.15); }
 }
 
-/* ============================================================================
-   Declaration Banner — prompt after confirming targets
-   ============================================================================ */
-
-.combat-scene__declaration-banner {
-  position: fixed;
-  bottom: clamp(220px, 28vh, 320px);
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 0.4rem 1.2rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: rgba(212, 165, 116, 0.9);
-  background: linear-gradient(
-    135deg,
-    rgba(26, 29, 46, 0.88) 0%,
-    rgba(15, 15, 25, 0.92) 100%
-  );
-  border: 1px solid rgba(212, 165, 116, 0.35);
-  border-radius: 6px;
-  z-index: 150;
-  pointer-events: none;
-  white-space: nowrap;
-  animation: declaration-banner-pulse 2s ease-in-out infinite;
-}
-
-@keyframes declaration-banner-pulse {
-  0%, 100% { opacity: 0.85; }
-  50% { opacity: 1; }
-}
 
 /* Attack progress separator in accumulator */
 .combat-hud__progress-separator {

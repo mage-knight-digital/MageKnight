@@ -9,6 +9,7 @@ members = [
     "crates/mk-python",
     "tools/mk-cli",
     "tools/mk-server",
+    "tools/mk-combat-search",
 ]
 
 [workspace.package]

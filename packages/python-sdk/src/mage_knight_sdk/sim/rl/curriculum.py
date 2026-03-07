@@ -112,51 +112,51 @@ class CurriculumSchedule:
 
 
 def default_combat_curriculum() -> CurriculumSchedule:
-    """Three-phase curriculum: fixed-hand warmup → random-hand combat → full game.
+    """Default curriculum — straight to full game with combat oracle.
 
-    Phase 1 uses hand_override so every episode is solvable — the agent
-    learns that attacking leads to kills and fame.  Phase 2 removes the
-    hand override so the agent generalises to random 5-card deals.
-    No wound penalty in either combat phase to avoid the "pacifist"
-    local optimum where the agent only blocks.
+    Combat drill phases are no longer needed because the combat oracle
+    auto-resolves combat optimally during FullGame training. The agent
+    learns strategic decisions (movement, when to fight, site interactions)
+    while combat tactics are handled by the oracle.
     """
-    fame_only = RewardConfig(
-        fame_delta_scale=5.0,
-    )
-    fame_efficient = RewardConfig(
-        fame_delta_scale=5.0,
-        wound_penalty=-2.0,
-        cards_remaining_bonus=0.3,
-    )
+    # Combat drill phases commented out — oracle handles combat now.
+    # fame_only = RewardConfig(
+    #     fame_delta_scale=5.0,
+    # )
+    # fame_efficient = RewardConfig(
+    #     fame_delta_scale=5.0,
+    #     wound_penalty=-2.0,
+    #     cards_remaining_bonus=0.3,
+    # )
     return CurriculumSchedule(phases=[
-        CurriculumPhase(
-            name="combat_warmup",
-            scenario=TrainingScenario.combat_drill(
-                enemy_tokens=["diggers_1"],
-                hand_override=["rage", "arythea_battle_versatility", "determination", "stamina", "concentration"],
-            ),
-            reward_config=fame_only,
-            episodes=5000,
-            max_steps=200,
-        ),
-        CurriculumPhase(
-            name="combat_random",
-            scenario=TrainingScenario.combat_drill(
-                enemy_tokens=["diggers_1"],
-            ),
-            reward_config=fame_efficient,
-            episodes=20000,
-            max_steps=200,
-        ),
-        CurriculumPhase(
-            name="combat_refined",
-            scenario=TrainingScenario.combat_drill(
-                enemy_tokens=["diggers_1"],
-            ),
-            reward_config=fame_efficient,
-            episodes=25000,
-            max_steps=200,
-        ),
+        # CurriculumPhase(
+        #     name="combat_warmup",
+        #     scenario=TrainingScenario.combat_drill(
+        #         enemy_tokens=["diggers_1"],
+        #         hand_override=["rage", "arythea_battle_versatility", "determination", "stamina", "concentration"],
+        #     ),
+        #     reward_config=fame_only,
+        #     episodes=5000,
+        #     max_steps=200,
+        # ),
+        # CurriculumPhase(
+        #     name="combat_random",
+        #     scenario=TrainingScenario.combat_drill(
+        #         enemy_tokens=["diggers_1"],
+        #     ),
+        #     reward_config=fame_efficient,
+        #     episodes=20000,
+        #     max_steps=200,
+        # ),
+        # CurriculumPhase(
+        #     name="combat_refined",
+        #     scenario=TrainingScenario.combat_drill(
+        #         enemy_tokens=["diggers_1"],
+        #     ),
+        #     reward_config=fame_efficient,
+        #     episodes=25000,
+        #     max_steps=200,
+        # ),
         CurriculumPhase(
             name="full_game",
             scenario=TrainingScenario.full_game(),
@@ -310,21 +310,11 @@ def progressive_combat_curriculum() -> CurriculumSchedule:
 
 
 def combat_to_full_game_curriculum() -> CurriculumSchedule:
-    """Bridge from combat-trained agent to full game play.
+    """Full game curriculum with short → long horizon ramp.
 
-    Designed to resume from a combat checkpoint (e.g. progressive phase 6).
-    The agent already knows how to fight — this teaches movement, exploration,
-    and mana management on top of existing combat skills.
-
-    Phase 1: Combat refresher — quick re-calibration with current action space.
-    Phase 2: Full game, short horizon — dense exploration rewards, learn to move.
-    Phase 3: Full game, longer horizon — scale up to real game length.
+    Combat oracle handles combat automatically, so no combat drill phases needed.
+    Two phases: short horizon for dense exploration feedback, then scale up.
     """
-    # Combat refresher: re-adapt to any action space changes
-    combat_refresh = RewardConfig(
-        fame_delta_scale=5.0,
-        cards_remaining_bonus=0.3,
-    )
     # Full game: dense rewards for exploration + fame
     explore_dense = RewardConfig(
         fame_delta_scale=2.0,
@@ -339,19 +329,22 @@ def combat_to_full_game_curriculum() -> CurriculumSchedule:
     )
 
     return CurriculumSchedule(phases=[
-        # Phase 1: quick combat refresher (adapts weights to any action space changes)
-        CurriculumPhase(
-            name="combat_refresh",
-            scenario=TrainingScenario.combat_drill(
-                enemy_tokens=["prowlers_1", "prowlers_2"],
-                units=["peasants"],
-                crystals={"red": 3, "blue": 0, "green": 0, "white": 0},
-            ),
-            reward_config=combat_refresh,
-            episodes=5000,
-            max_steps=300,
-        ),
-        # Phase 2: full game, short horizon — learn to move and explore
+        # Combat refresh phase commented out — oracle handles combat now.
+        # CurriculumPhase(
+        #     name="combat_refresh",
+        #     scenario=TrainingScenario.combat_drill(
+        #         enemy_tokens=["prowlers_1", "prowlers_2"],
+        #         units=["peasants"],
+        #         crystals={"red": 3, "blue": 0, "green": 0, "white": 0},
+        #     ),
+        #     reward_config=RewardConfig(
+        #         fame_delta_scale=5.0,
+        #         cards_remaining_bonus=0.3,
+        #     ),
+        #     episodes=5000,
+        #     max_steps=300,
+        # ),
+        # Phase 1: full game, short horizon — learn to move and explore
         CurriculumPhase(
             name="explore_short",
             scenario=TrainingScenario.full_game(),
@@ -359,7 +352,7 @@ def combat_to_full_game_curriculum() -> CurriculumSchedule:
             episodes=50000,
             max_steps=500,
         ),
-        # Phase 3: full game, longer horizon — scale up
+        # Phase 2: full game, longer horizon — scale up
         CurriculumPhase(
             name="explore_long",
             scenario=TrainingScenario.full_game(),

@@ -166,6 +166,49 @@ export function ReplayProvider({ artifact, playerId, artifactName, children }: R
   // Build GameContext value from current frame
   const currentState = frames.length > 0 ? frames[frameIndex].state : null;
 
+  // Log current frame to console for debugging (inspect in DevTools)
+  useEffect(() => {
+    if (frames.length === 0 || !frames[frameIndex]) return;
+    const frame = frames[frameIndex]!;
+    const raw = artifact.messageLog[frameIndex];
+    const player = frame.state.players?.[0];
+    const eventTypes = frame.events
+      .map((e) => (e as unknown as Record<string, unknown>)["type"])
+      .join(", ");
+    const chosenAction = raw?.payload?.chosen_action as string | undefined;
+    const header = chosenAction
+      ? `[Replay] Frame ${frameIndex}/${frames.length - 1} → ${chosenAction}`
+      : `[Replay] Frame ${frameIndex}/${frames.length - 1}`;
+    console.groupCollapsed(header, eventTypes);
+    console.log("State:", frame.state);
+    console.log("Events:", frame.events);
+    if (player) {
+      console.log("Player:", {
+        position: player.position,
+        fame: player.fame,
+        level: player.level,
+        reputation: player.reputation,
+        hand: player.hand,
+        playArea: player.playArea,
+        units: player.units,
+        crystals: player.crystals,
+        manaTokens: player.manaTokens,
+        movePoints: player.movePoints,
+        influencePoints: player.influencePoints,
+        pending: player.pending,
+      });
+    }
+    if (frame.state.combat) {
+      console.log("Combat:", frame.state.combat);
+    }
+    const legalActions = raw?.payload?.legal_actions as string[] | undefined;
+    const chosenIndex = raw?.payload?.chosen_action_index as number | undefined;
+    if (legalActions) {
+      console.log(`Legal Actions (${legalActions.length}, chose #${chosenIndex}):`, legalActions);
+    }
+    console.groupEnd();
+  }, [frameIndex, frames, artifact.messageLog]);
+
   // Accumulate all events from frame 0 through current frame for the activity feed
   const accumulatedEvents: readonly GameEvent[] = useMemo(() => {
     if (frames.length === 0) return [];

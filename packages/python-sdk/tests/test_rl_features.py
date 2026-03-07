@@ -135,7 +135,7 @@ class SkillVocabTest(unittest.TestCase):
 # These sizes come from the Rust vocab.rs tests. When the Rust side changes,
 # update these values to keep the two in sync.
 _RUST_VOCAB_SIZES = {
-    "card": 123,
+    "card": 135,
     "unit": 32,
     "enemy": 73,
     "action_type": 89,
@@ -178,7 +178,7 @@ class VocabSyncWithRustTest(unittest.TestCase):
 
 class DimensionConstantsTest(unittest.TestCase):
     def test_dimensions(self) -> None:
-        self.assertEqual(STATE_SCALAR_DIM, 76)
+        self.assertEqual(STATE_SCALAR_DIM, 84)
         self.assertEqual(ACTION_SCALAR_DIM, 34)
         self.assertEqual(SITE_SCALAR_DIM, 6)
         self.assertEqual(MAP_ENEMY_SCALAR_DIM, 11)

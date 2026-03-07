@@ -378,7 +378,7 @@ pub(super) fn enumerate_pending(
             }
         }
         ActivePending::SiteRewardChoice { ref reward, reward_index } => {
-            enumerate_site_reward_choice(reward, *reward_index, state, actions);
+            enumerate_site_reward_choice(reward, *reward_index, state, player_idx, actions);
         }
         ActivePending::TomeOfAllSpells(ref tome) => {
             use mk_types::pending::TomeOfAllSpellsPhase;
@@ -597,9 +597,9 @@ fn enumerate_site_reward_choice(
     reward: &SiteReward,
     reward_index: usize,
     state: &mk_types::state::GameState,
+    player_idx: usize,
     actions: &mut Vec<LegalAction>,
 ) {
-    let player_idx = state.current_player_index as usize;
     match reward {
         SiteReward::Spell { .. } => {
             for (idx, card_id) in state.offers.spells.iter().enumerate() {

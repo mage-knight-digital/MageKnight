@@ -3,6 +3,7 @@
 //! Each legal action is encoded with vocabulary indices for embedding layers
 //! and scalar features for the scoring network.
 
+use mk_data::cards::get_card;
 use mk_data::enemies::get_enemy;
 use mk_types::effect::CardEffect;
 use mk_types::enums::{CombatType, Element, ManaColor, SidewaysAs};
@@ -327,22 +328,43 @@ fn extract_action_scalars(
     let mut scalars = vec![0.0f32; ACTION_SCALAR_DIM];
 
     match action {
-        LegalAction::PlayCardBasic { .. } => {
+        LegalAction::PlayCardBasic { card_id, .. } => {
             scalars[2] = 1.0; // is_basic
+            if let Some(card_def) = get_card(card_id.as_str()) {
+                let h = extract_headline_values(&card_def.basic_effect);
+                apply_headline_scalars(&mut scalars, &h);
+            }
         }
-        LegalAction::PlayCardPowered { mana_color, .. } => {
+        LegalAction::PlayCardPowered { card_id, mana_color, .. } => {
             scalars[1] = 1.0; // is_powered
             scalars[8] = 1.0; // has_card
             scalars[6] = scale(1.0, 5.0); // num_mana
             set_mana_color_one_hot(&mut scalars, 12, ManaColor::from(*mana_color));
+            if let Some(card_def) = get_card(card_id.as_str()) {
+                let h = extract_headline_values(&card_def.powered_effect);
+                apply_headline_scalars(&mut scalars, &h);
+            }
         }
-        LegalAction::PlayCardSideways { sideways_as, .. } => {
+        LegalAction::PlayCardSideways { card_id, sideways_as, .. } => {
             scalars[3] = 1.0; // is_sideways
+            let sw_val = get_card(card_id.as_str())
+                .map(|c| c.sideways_value)
+                .unwrap_or(1);
             match sideways_as {
-                SidewaysAs::Move => {}
-                SidewaysAs::Influence => {}
-                SidewaysAs::Attack => {}
-                SidewaysAs::Block => {}
+                SidewaysAs::Move => {
+                    scalars[18] = scale(sw_val as f32, 10.0);
+                    scalars[0] = scale(sw_val as f32, 10.0);
+                }
+                SidewaysAs::Influence => {
+                    scalars[0] = scale(sw_val as f32, 10.0);
+                }
+                SidewaysAs::Attack => {
+                    scalars[28] = scale(sw_val as f32, 10.0);
+                    scalars[0] = scale(sw_val as f32, 10.0);
+                }
+                SidewaysAs::Block => {
+                    scalars[0] = scale(sw_val as f32, 10.0);
+                }
             }
         }
         LegalAction::Move { target, cost } => {
@@ -547,6 +569,136 @@ fn set_element_one_hot(scalars: &mut [f32], base: usize, element: Element) {
     }
 }
 
+// =============================================================================
+// Headline value extraction for card plays
+// =============================================================================
+
+/// Summary values extracted from a CardEffect tree for encoding.
+#[derive(Default)]
+struct HeadlineValues {
+    move_val: u32,
+    attack_val: u32,
+    block_val: u32,
+    influence_val: u32,
+    heal_val: u32,
+    draw_val: u32,
+    combat_type: Option<CombatType>,
+    element: Option<Element>,
+}
+
+/// Recursively extract headline values from a CardEffect tree.
+fn extract_headline_values(effect: &CardEffect) -> HeadlineValues {
+    let mut h = HeadlineValues::default();
+    match effect {
+        CardEffect::GainMove { amount } => h.move_val = *amount,
+        CardEffect::GainAttack {
+            amount,
+            combat_type,
+            element,
+        } => {
+            h.attack_val = *amount;
+            h.combat_type = Some(*combat_type);
+            h.element = Some(*element);
+        }
+        CardEffect::AttackWithDefeatBonus {
+            amount,
+            combat_type,
+            element,
+            ..
+        } => {
+            h.attack_val = *amount;
+            h.combat_type = Some(*combat_type);
+            h.element = Some(*element);
+        }
+        CardEffect::GainBlock { amount, element } | CardEffect::GainBlockElement { amount, element } => {
+            h.block_val = *amount;
+            h.element = Some(*element);
+        }
+        CardEffect::GainInfluence { amount } => h.influence_val = *amount,
+        CardEffect::GainHealing { amount } => h.heal_val = *amount,
+        CardEffect::DrawCards { count } => h.draw_val = *count,
+        CardEffect::GainFame { amount } => {
+            // Fame doesn't map to a headline channel but contributes to max
+            h.heal_val = h.heal_val.max(*amount);
+        }
+        CardEffect::Cure { amount } => h.heal_val = *amount,
+        CardEffect::CardBoost { bonus } => h.attack_val = *bonus,
+        CardEffect::PureMagic { amount } => h.move_val = *amount,
+        CardEffect::Compound { effects } => {
+            for sub in effects {
+                let sub_h = extract_headline_values(sub);
+                h.move_val += sub_h.move_val;
+                h.attack_val += sub_h.attack_val;
+                h.block_val += sub_h.block_val;
+                h.influence_val += sub_h.influence_val;
+                h.heal_val += sub_h.heal_val;
+                h.draw_val += sub_h.draw_val;
+                if h.combat_type.is_none() {
+                    h.combat_type = sub_h.combat_type;
+                }
+                if h.element.is_none() {
+                    h.element = sub_h.element;
+                }
+            }
+        }
+        CardEffect::Choice { options } => {
+            for opt in options {
+                let opt_h = extract_headline_values(opt);
+                h.move_val = h.move_val.max(opt_h.move_val);
+                h.attack_val = h.attack_val.max(opt_h.attack_val);
+                h.block_val = h.block_val.max(opt_h.block_val);
+                h.influence_val = h.influence_val.max(opt_h.influence_val);
+                h.heal_val = h.heal_val.max(opt_h.heal_val);
+                h.draw_val = h.draw_val.max(opt_h.draw_val);
+                if h.combat_type.is_none() {
+                    h.combat_type = opt_h.combat_type;
+                }
+                if h.element.is_none() {
+                    h.element = opt_h.element;
+                }
+            }
+        }
+        CardEffect::Conditional { then_effect, .. } => {
+            h = extract_headline_values(then_effect);
+        }
+        CardEffect::Scaling { base_effect, .. } => {
+            h = extract_headline_values(base_effect);
+        }
+        _ => {} // Complex/interactive effects → zeros
+    }
+    h
+}
+
+/// Apply headline values to the scalar array for card play actions.
+fn apply_headline_scalars(scalars: &mut [f32], h: &HeadlineValues) {
+    let max_val = h
+        .move_val
+        .max(h.attack_val)
+        .max(h.block_val)
+        .max(h.influence_val)
+        .max(h.heal_val)
+        .max(h.draw_val);
+    if max_val > 0 {
+        scalars[0] = scale(max_val as f32, 10.0);
+    }
+    if h.move_val > 0 {
+        scalars[18] = scale(h.move_val as f32, 10.0);
+    }
+    if h.attack_val > 0 {
+        scalars[28] = scale(h.attack_val as f32, 10.0);
+    }
+    if let Some(ct) = h.combat_type {
+        match ct {
+            CombatType::Melee => scalars[20] = 1.0,
+            CombatType::Ranged => scalars[21] = 1.0,
+            CombatType::Siege => scalars[22] = 1.0,
+        }
+    }
+    if let Some(elem) = h.element {
+        set_element_one_hot(scalars, 23, elem);
+    }
+}
+
 /// Enrich scalars for a ResolveChoice action with the chosen CardEffect's parameters.
 /// Uses the same scalar positions as equivalent direct actions so the network
 /// sees consistent semantics (e.g., mana color at [12..18], amount at [0]).
@@ -648,5 +800,178 @@ mod tests {
         assert!(ACTION_TYPE_VOCAB.encode("MOVE") > 0);
         assert!(ACTION_TYPE_VOCAB.encode("END_TURN") > 0);
         assert!(ACTION_TYPE_VOCAB.encode("EXPLORE") > 0);
+    }
+
+    // =========================================================================
+    // Headline value encoding tests
+    // =========================================================================
+
+    use mk_types::enums::BasicManaColor;
+    use mk_types::ids::CardId;
+
+    /// Helper: extract scalars for a single action without needing game state.
+    fn scalars_for(action: &LegalAction) -> Vec<f32> {
+        let state = {
+            let mut s = mk_engine::setup::create_solo_game(1, Hero::Arythea);
+            mk_engine::setup::place_initial_tiles(&mut s);
+            s
+        };
+        extract_action_scalars(action, &state, 0)
+    }
+
+    #[test]
+    fn march_basic_encodes_move_2() {
+        let action = LegalAction::PlayCardBasic {
+            hand_index: 0,
+            card_id: CardId::from("march"),
+        };
+        let s = scalars_for(&action);
+        assert_eq!(s[2], 1.0, "is_basic flag");
+        assert_eq!(s[18], scale(2.0, 10.0), "move_value");
+        assert_eq!(s[0], scale(2.0, 10.0), "headline amount");
+        // No attack
+        assert_eq!(s[28], 0.0, "attack_value should be 0");
+    }
+
+    #[test]
+    fn march_powered_encodes_move_4() {
+        let action = LegalAction::PlayCardPowered {
+            hand_index: 0,
+            card_id: CardId::from("march"),
+            mana_color: BasicManaColor::Green,
+        };
+        let s = scalars_for(&action);
+        assert_eq!(s[1], 1.0, "is_powered flag");
+        assert_eq!(s[18], scale(4.0, 10.0), "move_value");
+        assert_eq!(s[0], scale(4.0, 10.0), "headline amount");
+    }
+
+    #[test]
+    fn march_sideways_move_encodes_move_1() {
+        let action = LegalAction::PlayCardSideways {
+            hand_index: 0,
+            card_id: CardId::from("march"),
+            sideways_as: SidewaysAs::Move,
+        };
+        let s = scalars_for(&action);
+        assert_eq!(s[3], 1.0, "is_sideways flag");
+        assert_eq!(s[18], scale(1.0, 10.0), "move_value");
+        assert_eq!(s[0], scale(1.0, 10.0), "headline amount");
+    }
+
+    #[test]
+    fn rage_basic_encodes_choice_max() {
+        // Rage basic = Choice { Attack 2 Melee Physical, Block 2 Physical }
+        // Max attack=2, max block=2 → headline=2
+        let action = LegalAction::PlayCardBasic {
+            hand_index: 0,
+            card_id: CardId::from("rage"),
+        };
+        let s = scalars_for(&action);
+        assert_eq!(s[0], scale(2.0, 10.0), "headline amount (max of attack/block)");
+        assert_eq!(s[28], scale(2.0, 10.0), "attack_value from choice max");
+        // Combat type melee from attack option
+        assert_eq!(s[20], 1.0, "combat_type melee");
+        // Element physical
+        assert_eq!(s[23], 1.0, "element physical");
+    }
+
+    #[test]
+    fn rage_powered_encodes_attack_4() {
+        let action = LegalAction::PlayCardPowered {
+            hand_index: 0,
+            card_id: CardId::from("rage"),
+            mana_color: BasicManaColor::Red,
+        };
+        let s = scalars_for(&action);
+        assert_eq!(s[28], scale(4.0, 10.0), "attack_value");
+        assert_eq!(s[0], scale(4.0, 10.0), "headline amount");
+        assert_eq!(s[20], 1.0, "combat_type melee");
+    }
+
+    #[test]
+    fn swiftness_powered_encodes_ranged_attack_3() {
+        let action = LegalAction::PlayCardPowered {
+            hand_index: 0,
+            card_id: CardId::from("swiftness"),
+            mana_color: BasicManaColor::White,
+        };
+        let s = scalars_for(&action);
+        assert_eq!(s[28], scale(3.0, 10.0), "attack_value");
+        assert_eq!(s[0], scale(3.0, 10.0), "headline amount");
+        assert_eq!(s[21], 1.0, "combat_type ranged");
+        assert_eq!(s[23], 1.0, "element physical");
+    }
+
+    #[test]
+    fn threaten_powered_encodes_compound_influence() {
+        // Threaten powered = Compound { Influence 5, RepChange -1 }
+        let action = LegalAction::PlayCardPowered {
+            hand_index: 0,
+            card_id: CardId::from("threaten"),
+            mana_color: BasicManaColor::Red,
+        };
+        let s = scalars_for(&action);
+        assert_eq!(s[0], scale(5.0, 10.0), "headline amount = influence 5");
+        // No move or attack
+        assert_eq!(s[18], 0.0, "no move");
+        assert_eq!(s[28], 0.0, "no attack");
+    }
+
+    #[test]
+    fn sideways_attack_encodes_attack_channel() {
+        let action = LegalAction::PlayCardSideways {
+            hand_index: 0,
+            card_id: CardId::from("march"),
+            sideways_as: SidewaysAs::Attack,
+        };
+        let s = scalars_for(&action);
+        assert_eq!(s[28], scale(1.0, 10.0), "attack_value for sideways attack");
+        assert_eq!(s[0], scale(1.0, 10.0), "headline amount");
+        assert_eq!(s[18], 0.0, "no move for sideways attack");
+    }
+
+    #[test]
+    fn headline_dimension_unchanged() {
+        assert_eq!(ACTION_SCALAR_DIM, 34);
+    }
+
+    #[test]
+    fn extract_headline_simple_move() {
+        let effect = CardEffect::GainMove { amount: 3 };
+        let h = extract_headline_values(&effect);
+        assert_eq!(h.move_val, 3);
+        assert_eq!(h.attack_val, 0);
+        assert!(h.combat_type.is_none());
+    }
+
+    #[test]
+    fn extract_headline_compound_sums() {
+        let effect = CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainMove { amount: 2 },
+                CardEffect::GainInfluence { amount: 4 },
+            ],
+        };
+        let h = extract_headline_values(&effect);
+        assert_eq!(h.move_val, 2);
+        assert_eq!(h.influence_val, 4);
+    }
+
+    #[test]
+    fn extract_headline_choice_takes_max() {
+        let effect = CardEffect::Choice {
+            options: vec![
+                CardEffect::GainMove { amount: 2 },
+                CardEffect::GainAttack {
+                    amount: 3,
+                    combat_type: CombatType::Melee,
+                    element: Element::Physical,
+                },
+            ],
+        };
+        let h = extract_headline_values(&effect);
+        assert_eq!(h.move_val, 2);
+        assert_eq!(h.attack_val, 3);
     }
 }

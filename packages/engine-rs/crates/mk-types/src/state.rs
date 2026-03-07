@@ -186,6 +186,9 @@ pub struct SkillCooldowns {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SkillFlipState {
     pub flipped_skills: Vec<SkillId>,
+    /// Turn number when the last interactive skill was placed in center.
+    /// Used for solo self-return window tracking.
+    pub placement_turn: u32,
 }
 
 /// Master of Chaos state (Krang).
@@ -667,6 +670,8 @@ pub struct ManaEnhancementCenter {
     pub marked_color: BasicManaColor,
     pub owner_id: PlayerId,
     pub skill_id: SkillId,
+    /// Turn number when this was placed (for solo self-return window).
+    pub placement_turn: u32,
 }
 
 /// Source Opening skill center state.
@@ -811,6 +816,10 @@ pub struct GameState {
 
     // Solo mode
     pub dummy_player: Option<DummyPlayer>,
+
+    /// Monotonically increasing turn counter (incremented each time a real player starts a turn).
+    /// Used for solo interactive skill self-return window tracking.
+    pub turn_number: u32,
 }
 
 #[cfg(test)]
