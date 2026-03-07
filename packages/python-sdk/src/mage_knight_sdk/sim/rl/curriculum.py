@@ -163,6 +163,7 @@ def default_combat_curriculum() -> CurriculumSchedule:
             reward_config=RewardConfig(
                 fame_delta_scale=1.0,
                 new_hex_bonus=0.1,
+                wound_penalty=-0.5,
             ),
             episodes=50000,
             max_steps=2000,

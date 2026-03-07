@@ -59,7 +59,8 @@ pub(super) fn enumerate_normal_cards(
                 &card_def.basic_effect,
             ) {
                 let dominated = (!is_interacting && is_influence_only(&card_def.basic_effect))
-                    || (is_interacting && is_move_only(&card_def.basic_effect));
+                    || (is_interacting && is_move_only(&card_def.basic_effect))
+                    || ((is_resting || has_rested) && is_move_only(&card_def.basic_effect));
                 if !dominated {
                     basic_actions.push(LegalAction::PlayCardBasic {
                         hand_index,
@@ -74,7 +75,8 @@ pub(super) fn enumerate_normal_cards(
                 && card_id.as_str() == "space_bending";
             let powered_dominated =
                 (!is_interacting && is_influence_only(&card_def.powered_effect))
-                    || (is_interacting && is_move_only(&card_def.powered_effect));
+                    || (is_interacting && is_move_only(&card_def.powered_effect))
+                    || ((is_resting || has_rested) && is_move_only(&card_def.powered_effect));
             match card_def.powered_by {
             PoweredBy::Single(color) => {
                 if !time_bending_blocked

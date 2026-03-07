@@ -112,7 +112,8 @@ fn wound_not_sideways_playable() {
 
 #[test]
 fn no_sideways_when_resting() {
-    let mut state = setup_game(vec!["march"]);
+    // Use concentration (Draw cards) — not move-only, so basic is still offered.
+    let mut state = setup_game(vec!["concentration", "march"]);
     state.players[0].flags.insert(PlayerFlags::IS_RESTING);
     let legal = enumerate_legal_actions(&state, 0);
 
@@ -125,12 +126,19 @@ fn no_sideways_when_resting() {
         "sideways should not be playable while resting"
     );
 
-    // But basic/powered plays are still allowed during rest (FAQ S3).
+    // Basic plays are still allowed during rest (FAQ S3) — for non-move-only cards.
     let has_basic = legal
         .actions
         .iter()
-        .any(|a| matches!(a, LegalAction::PlayCardBasic { .. }));
-    assert!(has_basic, "basic plays should be allowed while resting");
+        .any(|a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "concentration"));
+    assert!(has_basic, "concentration basic (Draw) should be allowed while resting");
+
+    // Move-only cards should be pruned during rest.
+    let march_basic = legal
+        .actions
+        .iter()
+        .any(|a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "march"));
+    assert!(!march_basic, "march basic (Move 2) should be pruned while resting");
 }
 
 #[test]
@@ -1410,4 +1418,45 @@ fn improvisation_powered_available_in_combat_with_red_source_die() {
         "improvisation powered should be available in combat with red source die; actions: {:?}",
         legal.actions
     );
+}
+
+// =========================================================================
+// Rest: move-only cards pruned
+// =========================================================================
+
+#[test]
+fn march_basic_pruned_during_rest() {
+    // March basic = Move 2, which is useless during rest (can't move).
+    let mut state = setup_game(vec!["march", "concentration"]);
+    state.players[0].flags.insert(PlayerFlags::HAS_RESTED_THIS_TURN);
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let march_basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "march"),
+    );
+    assert!(!march_basic, "march basic (Move 2) should be pruned during rest");
+
+    // Concentration basic = draw cards — not move-only, should still be offered
+    let conc_basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "concentration"),
+    );
+    assert!(conc_basic, "concentration basic (Draw) should still be available during rest");
+}
+
+#[test]
+fn march_powered_pruned_during_rest() {
+    // March powered = Move 4, also useless during rest.
+    let mut state = setup_game(vec!["march"]);
+    state.players[0].flags.insert(PlayerFlags::HAS_RESTED_THIS_TURN);
+    state.players[0].pure_mana.push(mk_types::state::ManaToken {
+        color: ManaColor::Green,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let march_powered = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "march"),
+    );
+    assert!(!march_powered, "march powered (Move 4) should be pruned during rest");
 }
