@@ -22,3 +22,4 @@ class RewardConfig:
     cards_remaining_bonus: float = 0.0
     wasted_move_penalty: float = 0.0
     backtrack_penalty: float = 0.0
+    wound_shaping_k: float = 0.0

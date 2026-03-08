@@ -64,6 +64,102 @@ function formatTimeOfDay(tod: string): string {
   }
 }
 
+/** Format a subset selection kind for display */
+function formatSubsetKind(kind: string | undefined): string {
+  switch (kind) {
+    case "rethink":
+      return "Rethink (redraw cards)";
+    case "midnight_meditation":
+      return "Midnight Meditation";
+    case "mana_search":
+      return "Mana Search (reroll dice)";
+    case "attack_targets":
+      return "attack target selection";
+    case "rest_wound_discard":
+      return "wound discard (rest)";
+    default:
+      return kind ? formatId(kind) : "a selection";
+  }
+}
+
+/** Format an action type string into a human-readable description */
+function formatActionType(actionType: string): string {
+  switch (actionType) {
+    case "BeginInteraction":
+      return "began site interaction";
+    case "EnterSite":
+      return "entered a site";
+    case "InteractSite":
+      return "interacted with site";
+    case "PlunderSite":
+      return "plundered the site";
+    case "DeclinePlunder":
+      return "declined to plunder";
+    case "EndCombatPhase":
+      return "ended combat phase";
+    case "ResolveAttack":
+      return "resolved attack";
+    case "ActivateTactic":
+      return "activated tactic";
+    case "InitiateManaSearch":
+      return "initiated mana search";
+    case "AnnounceEndOfRound":
+      return "announced end of round";
+    case "ForfeitTurn":
+      return "forfeited their turn";
+    case "BuyArtifact":
+      return "bought an artifact";
+    case "BurnMonastery":
+      return "burned the monastery!";
+    case "AddEliteToOffer":
+      return "added elite unit to offer";
+    case "BuyCityAdvancedActionFromDeck":
+      return "drew an advanced action";
+    case "PayHeroesAssaultInfluence":
+      return "paid influence for Heroes";
+    case "MeditationDoneSelecting":
+      return "finished meditation selection";
+    case "ResolveTraining":
+      return "resolved Training";
+    case "ResolveBookOfWisdom":
+      return "resolved Book of Wisdom";
+    case "ResolveTomeOfAllSpells":
+      return "resolved Tome of All Spells";
+    case "ResolveCircletOfProficiency":
+      return "resolved Circlet of Proficiency";
+    case "ResolveMaximalEffect":
+      return "resolved Maximal Effect";
+    case "ResolveMeditation":
+      return "resolved Meditation";
+    case "ConvertMoveToAttack":
+      return "converted movement to attack";
+    case "ConvertInfluenceToBlock":
+      return "converted influence to block";
+    case "SpendMoveOnCumbersome":
+      return "spent movement on cumbersome enemy";
+    case "ResolveGladeWound":
+      return "resolved glade wound";
+    case "ResolveBannerProtection":
+      return "resolved banner protection";
+    case "AssignDamageToHero":
+      return "assigned damage to hero";
+    case "AssignDamageToUnit":
+      return "assigned damage to unit";
+    case "ResolveSourceOpeningReroll":
+      return "resolved Source Opening reroll";
+    case "ResolveSteadyTempoDeckPlacement":
+      return "resolved Steady Tempo";
+    case "ResolveCrystalJoyReclaim":
+      return "resolved Crystal Joy";
+    case "ForfeitUnitReward":
+      return "forfeited unit reward";
+    case "ResolveCrystalRollColor":
+      return "chose crystal color";
+    default:
+      return formatId(actionType);
+  }
+}
+
 /** Format combat phase for display */
 function formatCombatPhase(phase: string): string {
   switch (phase) {
@@ -279,7 +375,15 @@ export function narrateRustEvent(
 
     case "choiceResolved": {
       const name = pid ? heroName(players, pid) : "Hero";
-      return msg(`${name} resolved a choice`, EVENT_CATEGORY.LIFECYCLE, pid);
+      const choiceCardId = field(event, "card_id", "cardId") as string | undefined;
+      const choiceSkillId = field(event, "skill_id", "skillId") as string | undefined;
+      let source = "";
+      if (choiceCardId) {
+        source = ` (${formatId(choiceCardId)})`;
+      } else if (choiceSkillId) {
+        source = ` (${formatId(choiceSkillId)})`;
+      }
+      return msg(`${name} resolved a choice${source}`, EVENT_CATEGORY.LIFECYCLE, pid);
     }
 
     // ---- Progression ----
@@ -377,13 +481,52 @@ export function narrateRustEvent(
       return msg(`${name} declared rest`, EVENT_CATEGORY.LIFECYCLE, pid);
     }
 
+    case "restCompleted": {
+      const name = pid ? heroName(players, pid) : "Hero";
+      return msg(`${name} discarded a card for rest`, EVENT_CATEGORY.LIFECYCLE, pid);
+    }
+
+    // ---- Skills ----
+
+    case "skillUsed": {
+      const name = pid ? heroName(players, pid) : "Hero";
+      const skillId = field(event, "skill_id", "skillId") as string | undefined;
+      const skillLabel = skillId ? formatId(skillId) : "a skill";
+      return msg(`${name} used ${skillLabel}`, EVENT_CATEGORY.PROGRESSION, pid);
+    }
+
+    case "interactiveSkillReturned": {
+      const name = pid ? heroName(players, pid) : "Hero";
+      const skillId = field(event, "skill_id", "skillId") as string | undefined;
+      const skillLabel = skillId ? formatId(skillId) : "a skill";
+      return msg(`${name} returned ${skillLabel}`, EVENT_CATEGORY.PROGRESSION, pid);
+    }
+
+    // ---- Subset Selection ----
+
+    case "subsetSelectionStarted": {
+      const name = pid ? heroName(players, pid) : "Hero";
+      const kind = event["kind"] as string | undefined;
+      const label = formatSubsetKind(kind);
+      return msg(`${name} started ${label}`, EVENT_CATEGORY.TACTICS, pid);
+    }
+
+    case "subsetSelectionConfirmed": {
+      const name = pid ? heroName(players, pid) : "Hero";
+      const kind = event["kind"] as string | undefined;
+      const count = event["count"] as number | undefined;
+      const label = formatSubsetKind(kind);
+      const countLabel = count != null ? ` (${count} selected)` : "";
+      return msg(`${name} confirmed ${label}${countLabel}`, EVENT_CATEGORY.TACTICS, pid);
+    }
+
     // ---- Generic fallback ----
 
     case "actionTaken": {
       const name = pid ? heroName(players, pid) : "Hero";
-      const actionType = field(event, "action_type", "actionType") as string | undefined;
-      const label = actionType ? formatId(actionType) : "action";
-      return msg(`${name}: ${label}`, EVENT_CATEGORY.LIFECYCLE, pid);
+      const actionTypeStr = field(event, "action_type", "actionType") as string | undefined;
+      const label = actionTypeStr ? formatActionType(actionTypeStr) : "took an action";
+      return msg(`${name} ${label}`, EVENT_CATEGORY.LIFECYCLE, pid);
     }
 
     // ---- Undo ----

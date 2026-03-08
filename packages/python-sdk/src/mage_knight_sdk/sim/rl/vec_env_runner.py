@@ -176,6 +176,7 @@ class RewardBreakdown:
     scenario_trigger_bonus: float = 0.0
     wasted_move_penalty: float = 0.0
     backtrack_penalty: float = 0.0
+    wound_shaping: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -188,6 +189,9 @@ class CompletedEpisodeMeta:
     total_fame_delta: int = 0  # Cumulative fame gained during the episode
     tiles_explored: int = 0  # Number of new tiles revealed during the episode
     reward_breakdown: RewardBreakdown = field(default_factory=RewardBreakdown)
+    total_wounds: int = 0  # Total wounds gained during the episode
+    combats_entered: int = 0  # Number of combats entered during the episode
+    turns_resting: int = 0  # Number of turns spent resting
 
 
 @dataclass
@@ -208,7 +212,13 @@ class EpisodeBuffers:
     reward_scenario_trigger: list[float] = field(default_factory=list)
     reward_wasted_move: list[float] = field(default_factory=list)
     reward_backtrack: list[float] = field(default_factory=list)
+    reward_wound_shaping: list[float] = field(default_factory=list)
     tiles_explored: list[int] = field(default_factory=list)
+    prev_wound_potential: list[float] = field(default_factory=list)
+    total_wounds: list[int] = field(default_factory=list)
+    combats_entered: list[int] = field(default_factory=list)
+    prev_in_combat: list[bool] = field(default_factory=list)
+    turns_resting: list[int] = field(default_factory=list)
 
     def ensure_size(self, num_envs: int) -> None:
         while len(self.buffers) < num_envs:
@@ -225,11 +235,21 @@ class EpisodeBuffers:
                     self.reward_cards_remaining, self.reward_new_hex,
                     self.reward_step_penalty, self.reward_terminal,
                     self.reward_scenario_trigger, self.reward_wasted_move,
-                    self.reward_backtrack):
+                    self.reward_backtrack, self.reward_wound_shaping):
             while len(lst) < num_envs:
                 lst.append(0.0)
         while len(self.tiles_explored) < num_envs:
             self.tiles_explored.append(0)
+        while len(self.prev_wound_potential) < num_envs:
+            self.prev_wound_potential.append(0.0)
+        while len(self.total_wounds) < num_envs:
+            self.total_wounds.append(0)
+        while len(self.combats_entered) < num_envs:
+            self.combats_entered.append(0)
+        while len(self.prev_in_combat) < num_envs:
+            self.prev_in_combat.append(False)
+        while len(self.turns_resting) < num_envs:
+            self.turns_resting.append(0)
 
 
 @dataclass
@@ -319,6 +339,10 @@ def collect_vecenv_rollout(
         new_tiles = step_result["new_tiles"]
         wasted_move_pts = step_result["wasted_move_points"]
         backtrack = step_result["backtrack_moves"]
+        wound_counts = step_result["wound_counts"]
+        total_card_counts = step_result["total_card_counts"]
+        in_combat_flags = step_result["in_combat"]
+        rested_turns_step = step_result["rested_turns"]
 
         # 4. Process each env
         for i in range(num_envs):
@@ -354,9 +378,34 @@ def collect_vecenv_rollout(
                 reward += bt_pen
                 episode_buffers.reward_backtrack[i] += bt_pen
 
+            # Potential-based wound shaping: γ·φ(s') - φ(s)
+            if reward_config.wound_shaping_k != 0.0:
+                tc = max(int(total_card_counts[i]), 1)
+                ratio = int(wound_counts[i]) / tc
+                phi_new = -reward_config.wound_shaping_k * (ratio * ratio)
+                phi_old = episode_buffers.prev_wound_potential[i]
+                shaping = policy.config.gamma * phi_new - phi_old
+                reward += shaping
+                episode_buffers.reward_wound_shaping[i] += shaping
+                episode_buffers.prev_wound_potential[i] = phi_new
+
             # Track tiles explored
             if new_tiles[i] > 0:
                 episode_buffers.tiles_explored[i] += int(new_tiles[i])
+
+            # Track wound gains
+            if wound_deltas[i] > 0:
+                episode_buffers.total_wounds[i] += int(wound_deltas[i])
+
+            # Track combat entries (transition from not-in-combat to in-combat)
+            currently_in_combat = bool(in_combat_flags[i])
+            if currently_in_combat and not episode_buffers.prev_in_combat[i]:
+                episode_buffers.combats_entered[i] += 1
+            episode_buffers.prev_in_combat[i] = currently_in_combat
+
+            # Track rest turns
+            if rested_turns_step[i] > 0:
+                episode_buffers.turns_resting[i] += int(rested_turns_step[i])
 
             episode_buffers.fame_deltas[i] += int(fame_deltas[i])
 
@@ -398,6 +447,12 @@ def collect_vecenv_rollout(
                     episode_buffers.reward_scenario_trigger[i] = 0.0
                     episode_buffers.reward_wasted_move[i] = 0.0
                     episode_buffers.reward_backtrack[i] = 0.0
+                    episode_buffers.reward_wound_shaping[i] = 0.0
+                    episode_buffers.prev_wound_potential[i] = 0.0
+                    episode_buffers.total_wounds[i] = 0
+                    episode_buffers.combats_entered[i] = 0
+                    episode_buffers.prev_in_combat[i] = False
+                    episode_buffers.turns_resting[i] = 0
                     # Snapshot seed for the new (reset) episode
                     new_seeds = vec_env.seeds()
                     episode_buffers.seeds[i] = int(new_seeds[i])
@@ -445,6 +500,7 @@ def collect_vecenv_rollout(
                     scenario_trigger_bonus=episode_buffers.reward_scenario_trigger[i],
                     wasted_move_penalty=episode_buffers.reward_wasted_move[i],
                     backtrack_penalty=episode_buffers.reward_backtrack[i],
+                    wound_shaping=episode_buffers.reward_wound_shaping[i],
                 )
                 completed_episodes.append(episode)
                 completed_metas.append(CompletedEpisodeMeta(
@@ -455,6 +511,9 @@ def collect_vecenv_rollout(
                     total_fame_delta=episode_buffers.fame_deltas[i],
                     tiles_explored=episode_buffers.tiles_explored[i],
                     reward_breakdown=breakdown,
+                    total_wounds=episode_buffers.total_wounds[i],
+                    combats_entered=episode_buffers.combats_entered[i],
+                    turns_resting=episode_buffers.turns_resting[i],
                 ))
                 bufs[i] = []
                 episode_buffers.buffers[i] = bufs[i]
@@ -471,6 +530,12 @@ def collect_vecenv_rollout(
                 episode_buffers.reward_scenario_trigger[i] = 0.0
                 episode_buffers.reward_wasted_move[i] = 0.0
                 episode_buffers.reward_backtrack[i] = 0.0
+                episode_buffers.reward_wound_shaping[i] = 0.0
+                episode_buffers.prev_wound_potential[i] = 0.0
+                episode_buffers.total_wounds[i] = 0
+                episode_buffers.combats_entered[i] = 0
+                episode_buffers.prev_in_combat[i] = False
+                episode_buffers.turns_resting[i] = 0
                 # Snapshot seed for the new (reset) episode
                 new_seeds = vec_env.seeds()
                 episode_buffers.seeds[i] = int(new_seeds[i])

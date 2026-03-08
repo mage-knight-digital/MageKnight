@@ -228,9 +228,18 @@ pub fn apply_legal_action(
         LegalAction::ResolveChoice { choice_index } => {
             // Reversible: save snapshot
             undo_stack.save(state);
+            // Extract source context from the pending choice before it's consumed
+            let (source_card, source_skill) = match &state.players[player_idx].pending.active {
+                Some(mk_types::pending::ActivePending::Choice(pc)) => {
+                    (pc.card_id.clone(), pc.skill_id.clone())
+                }
+                _ => (None, None),
+            };
             events.push(GameEvent::ChoiceResolved {
                 player_id: player_id.clone(),
                 choice_index: *choice_index,
+                card_id: source_card,
+                skill_id: source_skill,
             });
             choices::apply_resolve_choice(state, player_idx, *choice_index)?
         }
@@ -420,6 +429,9 @@ pub fn apply_legal_action(
         LegalAction::CompleteRest { discard_hand_index } => {
             // Reversible: save snapshot (no RNG involved).
             undo_stack.save(state);
+            events.push(GameEvent::RestCompleted {
+                player_id: player_id.clone(),
+            });
             turn_flow::apply_complete_rest(state, player_idx, *discard_hand_index)?
         }
 
@@ -438,25 +450,55 @@ pub fn apply_legal_action(
         LegalAction::UseSkill { skill_id } => {
             // Reversible: save snapshot
             undo_stack.save(state);
+            events.push(GameEvent::SkillUsed {
+                player_id: player_id.clone(),
+                skill_id: skill_id.clone(),
+            });
             skills::apply_use_skill(state, player_idx, skill_id)?
         }
 
         LegalAction::ReturnInteractiveSkill { skill_id } => {
             // Reversible: save snapshot
             undo_stack.save(state);
+            events.push(GameEvent::InteractiveSkillReturned {
+                player_id: player_id.clone(),
+                skill_id: skill_id.clone(),
+            });
             skills_interactive::apply_return_interactive_skill(state, player_idx, skill_id)?
         }
 
         LegalAction::SubsetSelect { index } => {
             // Lazy creation: save undo when creating SubsetSelectionState from combat context
-            if state.players[player_idx].pending.active.is_none() {
+            let is_first_select = state.players[player_idx].pending.active.is_none();
+            if is_first_select {
                 undo_stack.save(state);
             }
             // No undo save for subsequent selects (only mutates pending.active.selected)
-            tactics::apply_subset_select(state, player_idx, *index)?
+            let r = tactics::apply_subset_select(state, player_idx, *index)?;
+            // Emit start event on first select
+            if is_first_select {
+                let kind_label = match &state.players[player_idx].pending.active {
+                    Some(mk_types::pending::ActivePending::SubsetSelection(ss)) => {
+                        subset_selection_kind_label(&ss.kind)
+                    }
+                    _ => "selection".to_string(),
+                };
+                events.push(GameEvent::SubsetSelectionStarted {
+                    player_id: player_id.clone(),
+                    kind: kind_label,
+                });
+            }
+            r
         }
 
         LegalAction::SubsetConfirm => {
+            // Extract subset info before confirm consumes it
+            let (kind_label, count) = match &state.players[player_idx].pending.active {
+                Some(mk_types::pending::ActivePending::SubsetSelection(ss)) => {
+                    (subset_selection_kind_label(&ss.kind), ss.selected.len())
+                }
+                _ => ("selection".to_string(), 0),
+            };
             // AttackTargets: reversible (just stores targets, no RNG).
             // Others (Rethink, ManaSearch, RestWoundDiscard): irreversible (RNG shuffle).
             let is_attack_targets = matches!(
@@ -469,6 +511,11 @@ pub fn apply_legal_action(
             } else {
                 undo_stack.set_checkpoint();
             }
+            events.push(GameEvent::SubsetSelectionConfirmed {
+                player_id: player_id.clone(),
+                kind: kind_label,
+                count,
+            });
             tactics::apply_subset_confirm(state, player_idx)?
         }
 
@@ -925,6 +972,18 @@ pub fn apply_legal_action(
     Ok(result)
 }
 
+/// Derive a human-readable label for a SubsetSelectionKind.
+fn subset_selection_kind_label(kind: &mk_types::pending::SubsetSelectionKind) -> String {
+    use mk_types::pending::SubsetSelectionKind;
+    match kind {
+        SubsetSelectionKind::Rethink => "rethink".to_string(),
+        SubsetSelectionKind::MidnightMeditation => "midnight_meditation".to_string(),
+        SubsetSelectionKind::ManaSearch { .. } => "mana_search".to_string(),
+        SubsetSelectionKind::AttackTargets { .. } => "attack_targets".to_string(),
+        SubsetSelectionKind::RestWoundDiscard { .. } => "rest_wound_discard".to_string(),
+    }
+}
+
 /// Derive a human-readable label for a LegalAction variant.
 fn action_type_label(action: &LegalAction) -> String {
     match action {
@@ -990,7 +1049,20 @@ fn action_type_label(action: &LegalAction) -> String {
         LegalAction::ResolveCrystalRollColor { .. } => "ResolveCrystalRollColor".to_string(),
         LegalAction::ForfeitUnitReward => "ForfeitUnitReward".to_string(),
         LegalAction::DisbandUnitForReward { .. } => "DisbandUnitForReward".to_string(),
-        _ => "Unknown".to_string(),
+        LegalAction::ResolveSourceOpeningReroll { .. } => "ResolveSourceOpeningReroll".to_string(),
+        LegalAction::ResolveTraining { .. } => "ResolveTraining".to_string(),
+        LegalAction::ResolveBookOfWisdom { .. } => "ResolveBookOfWisdom".to_string(),
+        LegalAction::ResolveTomeOfAllSpells { .. } => "ResolveTomeOfAllSpells".to_string(),
+        LegalAction::ResolveCircletOfProficiency { .. } => "ResolveCircletOfProficiency".to_string(),
+        LegalAction::ResolveMaximalEffect { .. } => "ResolveMaximalEffect".to_string(),
+        LegalAction::ResolveMeditation { .. } => "ResolveMeditation".to_string(),
+        LegalAction::MeditationDoneSelecting => "MeditationDoneSelecting".to_string(),
+        LegalAction::ResolveBannerProtection { .. } => "ResolveBannerProtection".to_string(),
+        LegalAction::ResolveCrystalJoyReclaim { .. } => "ResolveCrystalJoyReclaim".to_string(),
+        LegalAction::ResolveSteadyTempoDeckPlacement { .. } => "ResolveSteadyTempoDeckPlacement".to_string(),
+        LegalAction::ProposeCooperativeAssault { .. } => "ProposeCooperativeAssault".to_string(),
+        LegalAction::RespondToCooperativeProposal { .. } => "RespondToCooperativeProposal".to_string(),
+        LegalAction::CancelCooperativeProposal => "CancelCooperativeProposal".to_string(),
     }
 }
 

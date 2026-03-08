@@ -1131,10 +1131,12 @@ pub(super) fn apply_select_reward(
             state.offers.units.remove(offer_idx);
 
             // Create PlayerUnit and add to player
+            let instance_id = mk_types::ids::UnitInstanceId::from(
+                format!("unit_{}", state.next_instance_counter)
+            );
+            state.next_instance_counter += 1;
             let new_unit = mk_types::state::PlayerUnit {
-                instance_id: mk_types::ids::UnitInstanceId::from(
-                    format!("unit_{}", state.players[player_idx].units.len())
-                ),
+                instance_id,
                 unit_id: uid.clone(),
                 level: mk_data::units::get_unit(uid.as_str()).map(|u| u.level).unwrap_or(1),
                 state: UnitState::Ready,
@@ -1483,10 +1485,12 @@ pub(super) fn apply_disband_unit_for_reward(
 
     // Create a PlayerUnit and add to player
     let level = mk_data::units::get_unit(reward_unit_id.as_str()).map(|u| u.level).unwrap_or(1);
+    let instance_id = mk_types::ids::UnitInstanceId::from(
+        format!("unit_{}", state.next_instance_counter)
+    );
+    state.next_instance_counter += 1;
     let new_unit = mk_types::state::PlayerUnit {
-        instance_id: mk_types::ids::UnitInstanceId::from(
-            format!("unit_{}", state.players[player_idx].units.len())
-        ),
+        instance_id,
         unit_id: reward_unit_id.clone(),
         level,
         state: UnitState::Ready,

@@ -67,6 +67,8 @@ struct SingleEnv {
     turn_hexes: std::collections::BTreeSet<(i32, i32)>,
     /// When true, auto-resolve combat via exhaustive search oracle.
     combat_oracle: bool,
+    /// If > 0, terminate early when fame == 0 after this many steps.
+    early_term_fame_step: u64,
 }
 
 impl SingleEnv {
@@ -76,6 +78,7 @@ impl SingleEnv {
         max_steps: u64,
         scenario: TrainingScenario,
         combat_oracle: bool,
+        early_term_fame_step: u64,
     ) -> Self {
         let result = create_training_game(seed, hero, &scenario);
         // Seed visited_hexes and turn_hexes with starting position
@@ -97,6 +100,7 @@ impl SingleEnv {
             visited_hexes,
             turn_hexes,
             combat_oracle,
+            early_term_fame_step,
         }
     }
 
@@ -135,6 +139,20 @@ impl SingleEnv {
             .count() as i32
     }
 
+    /// Total wound cards across hand + deck + discard (full deck).
+    fn full_deck_wound_count(&self) -> i32 {
+        let p = &self.state.players[0];
+        (p.hand.iter().filter(|c| c.as_str() == "wound").count()
+            + p.deck.iter().filter(|c| c.as_str() == "wound").count()
+            + p.discard.iter().filter(|c| c.as_str() == "wound").count()) as i32
+    }
+
+    /// Total cards across hand + deck + discard (full deck).
+    fn full_deck_card_count(&self) -> i32 {
+        let p = &self.state.players[0];
+        (p.hand.len() + p.deck.len() + p.discard.len()) as i32
+    }
+
     /// Check if the player is on a hex they haven't visited before.
     /// If so, record it and return true.
     fn check_new_hex(&mut self) -> bool {
@@ -165,7 +183,17 @@ impl SingleEnv {
     }
 
     fn is_done(&self) -> bool {
-        self.state.game_ended || self.step_count >= self.max_steps
+        if self.state.game_ended || self.step_count >= self.max_steps {
+            return true;
+        }
+        // Early termination: if fame == 0 after N steps, episode is going nowhere
+        if self.early_term_fame_step > 0
+            && self.step_count >= self.early_term_fame_step
+            && self.state.players[0].fame == 0
+        {
+            return true;
+        }
+        false
     }
 
     /// Auto-resolve combat using the exhaustive search oracle.
@@ -186,7 +214,8 @@ impl SingleEnv {
             let _ = apply_legal_action(&mut self.state, &mut self.undo_stack, 0, action, epoch);
         }
 
-        // Fallback: if combat didn't fully resolve, pick action[0] until it ends
+        // Fallback: if combat didn't fully resolve, pick EndCombatPhase or EndTurn
+        // to cleanly exit. Avoid picking card plays after all enemies are defeated.
         while self.state.combat.is_some() && !self.state.game_ended {
             let actions = mk_engine::legal_actions::enumerate_legal_actions_with_undo(
                 &self.state,
@@ -197,7 +226,18 @@ impl SingleEnv {
                 break;
             }
             let epoch = actions.epoch;
-            let action = actions.actions[0].clone();
+            let fallback_idx = actions
+                .actions
+                .iter()
+                .position(|a| matches!(a, LegalAction::EndCombatPhase))
+                .or_else(|| {
+                    actions
+                        .actions
+                        .iter()
+                        .position(|a| matches!(a, LegalAction::EndTurn))
+                })
+                .unwrap_or(0);
+            let action = actions.actions[fallback_idx].clone();
             let _ = apply_legal_action(&mut self.state, &mut self.undo_stack, 0, &action, epoch);
         }
 
@@ -318,6 +358,14 @@ pub struct StepResult {
     pub wasted_move_points: Vec<i32>,
     /// (N,) — whether the player backtracked to a hex already visited this turn (0 or 1)
     pub backtrack_moves: Vec<i32>,
+    /// (N,) — total wound cards in full deck (hand + deck + discard) after stepping
+    pub wound_counts: Vec<i32>,
+    /// (N,) — total cards in full deck (hand + deck + discard) after stepping
+    pub total_card_counts: Vec<i32>,
+    /// (N,) — whether each env is currently in combat after stepping
+    pub in_combat: Vec<bool>,
+    /// (N,) — whether the player ended a rest turn this step (0 or 1)
+    pub rested_turns: Vec<i32>,
 }
 
 // =============================================================================
@@ -339,6 +387,7 @@ impl VecEnv {
         max_steps: u64,
         scenario: TrainingScenario,
         combat_oracle: bool,
+        early_term_fame_step: u64,
     ) -> Self {
         let envs: Vec<SingleEnv> = (0..num_envs)
             .into_par_iter()
@@ -349,6 +398,7 @@ impl VecEnv {
                     max_steps,
                     scenario.clone(),
                     combat_oracle,
+                    early_term_fame_step,
                 )
             })
             .collect();
@@ -402,6 +452,11 @@ impl VecEnv {
             let idx = (action as usize).min(env.action_set.actions.len().saturating_sub(1));
             matches!(env.action_set.actions.get(idx), Some(LegalAction::EndTurn))
         }).collect();
+        // Capture IS_RESTING flag before step (EndTurn clears it)
+        let was_resting: Vec<bool> = self.envs.iter().map(|e| {
+            e.state.players[0].flags.contains(mk_types::state::PlayerFlags::IS_RESTING)
+                || e.state.players[0].flags.contains(mk_types::state::PlayerFlags::HAS_RESTED_THIS_TURN)
+        }).collect();
 
         // Step all envs in parallel
         let results: Vec<(bool, bool)> = self
@@ -446,6 +501,10 @@ impl VecEnv {
         let mut new_tiles = Vec::with_capacity(n);
         let mut wasted_move_points = Vec::with_capacity(n);
         let mut backtrack_moves = Vec::with_capacity(n);
+        let mut wound_counts = Vec::with_capacity(n);
+        let mut total_card_counts = Vec::with_capacity(n);
+        let mut in_combat = Vec::with_capacity(n);
+        let mut rested_turns = Vec::with_capacity(n);
 
         for (i, (game_ended, did_panic)) in results.iter().enumerate() {
             let env = &self.envs[i];
@@ -465,6 +524,11 @@ impl VecEnv {
             new_tiles.push(if hexes_now > hexes_before[i] { 1 } else { 0 });
             wasted_move_points.push(if is_end_turn[i] { move_points_before[i] } else { 0 });
             backtrack_moves.push(if backtrack_flags[i] { 1 } else { 0 });
+            wound_counts.push(env.full_deck_wound_count());
+            total_card_counts.push(env.full_deck_card_count());
+            in_combat.push(env.state.combat.is_some());
+            // A rest turn is detected when EndTurn fires while IS_RESTING or HAS_RESTED_THIS_TURN was set
+            rested_turns.push(if is_end_turn[i] && was_resting[i] { 1 } else { 0 });
         }
 
         // Auto-reset finished environments
@@ -489,6 +553,10 @@ impl VecEnv {
             new_tiles,
             wasted_move_points,
             backtrack_moves,
+            wound_counts,
+            total_card_counts,
+            in_combat,
+            rested_turns,
         }
     }
 
@@ -518,7 +586,7 @@ mod tests {
             4, 4, 0, 3, 3, 5, 0, 2, 4, 3, 3, 1, 2, 0, 4, 4, 1, 3, 3, 5, 2, 1, 0, 2, 1, 0, 0,
         ];
 
-        let mut env = SingleEnv::new(15604, Hero::Arythea, 500, TrainingScenario::default(), false);
+        let mut env = SingleEnv::new(15604, Hero::Arythea, 500, TrainingScenario::default(), false, 0);
         for (i, &action_idx) in actions.iter().enumerate() {
             assert!(
                 !env.action_set.actions.is_empty(),
@@ -564,7 +632,7 @@ mod tests {
             1, 2, 2, 5, 1, 5, 3, 0, 0, 0, 3, 0, 2,
         ];
 
-        let mut env = SingleEnv::new(9424, Hero::Arythea, 500, TrainingScenario::default(), false);
+        let mut env = SingleEnv::new(9424, Hero::Arythea, 500, TrainingScenario::default(), false, 0);
         for (i, &action_idx) in actions.iter().enumerate() {
             assert!(
                 !env.action_set.actions.is_empty(),
@@ -612,7 +680,103 @@ mod tests {
             0, 0,
         ];
 
-        let mut env = SingleEnv::new(5473, Hero::Arythea, 500, TrainingScenario::default(), false);
+        let mut env = SingleEnv::new(5473, Hero::Arythea, 500, TrainingScenario::default(), false, 0);
+        for (i, &action_idx) in actions.iter().enumerate() {
+            assert!(
+                !env.action_set.actions.is_empty(),
+                "0 legal actions at step {i} (before applying action index {action_idx})"
+            );
+            let action = &env.action_set.actions[action_idx.min(env.action_set.actions.len() - 1)];
+            let p = &env.state.players[0];
+            eprintln!(
+                "step {i:>3}: idx={action_idx:<3} action={action:?}  hand={} flags={:?}",
+                p.hand.len(), p.flags
+            );
+            let (game_ended, panicked) = env.step(action_idx);
+            assert!(!panicked, "Engine panicked at step {i}");
+            if game_ended {
+                return;
+            }
+        }
+        if env.action_set.actions.is_empty() {
+            let s = &env.state;
+            let p = &s.players[0];
+            eprintln!("=== 0 legal actions after step {} ===", actions.len());
+            eprintln!("phase: {:?}, round_phase: {:?}", s.phase, s.round_phase);
+            eprintln!("combat: {:?}", s.combat.as_ref().map(|c| &c.phase));
+            eprintln!("pending active: {:?}", p.pending.active);
+            eprintln!("pending deferred: {:?}", p.pending.deferred);
+            eprintln!("flags: {:?}", p.flags);
+            eprintln!("position: {:?}", p.position);
+            eprintln!("hand: {:?}", p.hand);
+            eprintln!("deck: {}, discard: {}", p.deck.len(), p.discard.len());
+            eprintln!("play_area: {:?}", p.play_area);
+            eprintln!("influence: {}, healing: {}", p.influence_points, p.healing_points);
+            eprintln!("skills: {:?}", p.skills);
+            eprintln!("game_ended: {}, scenario_end_triggered: {}", s.game_ended, s.scenario_end_triggered);
+            panic!("0 legal actions after replaying all {} actions", actions.len());
+        }
+    }
+
+    /// Regression: seed=11669 with 38 action indices previously yielded 0 legal actions
+    /// (FullGame scenario, no combat oracle).
+    #[test]
+    fn replay_seed_11669_zero_actions() {
+        let actions: Vec<usize> = vec![
+            3, 5, 7, 7, 10, 3, 12, 14, 0, 1, 2, 4, 0, 0, 1, 3, 7, 0, 0, 0, 1, 2, 3, 4, 2, 3, 4,
+            3, 4, 3, 4, 4, 1, 0, 0, 0, 0, 0,
+        ];
+
+        let mut env = SingleEnv::new(11669, Hero::Arythea, 500, TrainingScenario::default(), false, 0);
+        for (i, &action_idx) in actions.iter().enumerate() {
+            assert!(
+                !env.action_set.actions.is_empty(),
+                "0 legal actions at step {i} (before applying action index {action_idx})"
+            );
+            let action = &env.action_set.actions[action_idx.min(env.action_set.actions.len() - 1)];
+            let p = &env.state.players[0];
+            eprintln!(
+                "step {i:>3}: idx={action_idx:<3} action={action:?}  hand={} flags={:?}",
+                p.hand.len(), p.flags
+            );
+            let (game_ended, panicked) = env.step(action_idx);
+            assert!(!panicked, "Engine panicked at step {i}");
+            if game_ended {
+                return;
+            }
+        }
+        if env.action_set.actions.is_empty() {
+            let s = &env.state;
+            let p = &s.players[0];
+            eprintln!("=== 0 legal actions after step {} ===", actions.len());
+            eprintln!("phase: {:?}, round_phase: {:?}", s.phase, s.round_phase);
+            eprintln!("combat: {:?}", s.combat.as_ref().map(|c| &c.phase));
+            eprintln!("pending active: {:?}", p.pending.active);
+            eprintln!("pending deferred: {:?}", p.pending.deferred);
+            eprintln!("flags: {:?}", p.flags);
+            eprintln!("position: {:?}", p.position);
+            eprintln!("hand: {:?}", p.hand);
+            eprintln!("deck: {}, discard: {}", p.deck.len(), p.discard.len());
+            eprintln!("play_area: {:?}", p.play_area);
+            eprintln!("influence: {}, healing: {}", p.influence_points, p.healing_points);
+            eprintln!("skills: {:?}", p.skills);
+            eprintln!("game_ended: {}, scenario_end_triggered: {}", s.game_ended, s.scenario_end_triggered);
+            panic!("0 legal actions after replaying all {} actions", actions.len());
+        }
+    }
+
+    /// Reproduce: seed=5305 with 114 action indices yields 0 legal actions.
+    #[test]
+    fn replay_seed_5305_zero_actions() {
+        let actions: Vec<usize> = vec![
+            0, 4, 1, 10, 3, 3, 3, 1, 6, 1, 6, 0, 5, 2, 3, 2, 0, 8, 5, 8, 2, 1, 5, 8, 6, 0,
+            5, 1, 2, 2, 0, 3, 0, 0, 1, 4, 1, 7, 3, 4, 7, 3, 2, 1, 1, 3, 4, 3, 0, 0, 0, 0,
+            1, 5, 4, 6, 0, 0, 4, 2, 8, 6, 6, 4, 6, 3, 2, 4, 4, 1, 3, 1, 1, 5, 3, 0, 0, 0,
+            3, 4, 1, 2, 3, 0, 0, 1, 1, 3, 3, 0, 0, 3, 7, 2, 0, 6, 0, 4, 0, 2, 1, 4, 4, 5,
+            1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ];
+
+        let mut env = SingleEnv::new(5305, Hero::Arythea, 500, TrainingScenario::default(), false, 0);
         for (i, &action_idx) in actions.iter().enumerate() {
             assert!(
                 !env.action_set.actions.is_empty(),
@@ -652,13 +816,13 @@ mod tests {
 
     #[test]
     fn vec_env_creation() {
-        let env = VecEnv::new(4, 42, Hero::Arythea, 100, TrainingScenario::default(), false);
+        let env = VecEnv::new(4, 42, Hero::Arythea, 100, TrainingScenario::default(), false, 0);
         assert_eq!(env.num_envs(), 4);
     }
 
     #[test]
     fn encode_batch_shapes() {
-        let env = VecEnv::new(4, 42, Hero::Arythea, 100, TrainingScenario::default(), false);
+        let env = VecEnv::new(4, 42, Hero::Arythea, 100, TrainingScenario::default(), false, 0);
         let batch = env.encode_batch();
         assert_eq!(batch.num_envs, 4);
         assert_eq!(batch.state_scalars.len(), 4 * mk_features::STATE_SCALAR_DIM);
@@ -675,7 +839,7 @@ mod tests {
 
     #[test]
     fn step_batch_random_actions() {
-        let mut env = VecEnv::new(4, 42, Hero::Arythea, 100, TrainingScenario::default(), false);
+        let mut env = VecEnv::new(4, 42, Hero::Arythea, 100, TrainingScenario::default(), false, 0);
 
         for _ in 0..10 {
             let batch = env.encode_batch();
@@ -693,7 +857,7 @@ mod tests {
 
     #[test]
     fn auto_reset_on_max_steps() {
-        let mut env = VecEnv::new(1, 42, Hero::Arythea, 5, TrainingScenario::default(), false);
+        let mut env = VecEnv::new(1, 42, Hero::Arythea, 5, TrainingScenario::default(), false, 0);
 
         // Step until the env is done
         let mut found_done = false;
@@ -714,7 +878,7 @@ mod tests {
 
     #[test]
     fn padding_consistency() {
-        let env = VecEnv::new(8, 1, Hero::Arythea, 100, TrainingScenario::default(), false);
+        let env = VecEnv::new(8, 1, Hero::Arythea, 100, TrainingScenario::default(), false, 0);
         let batch = env.encode_batch();
 
         // action_ids should be (N * max_actions * 6)
@@ -742,7 +906,7 @@ mod tests {
             skills: None,
             crystals: None,
         };
-        let mut env = VecEnv::new(4, 42, Hero::Arythea, 50, scenario, false);
+        let mut env = VecEnv::new(4, 42, Hero::Arythea, 50, scenario, false, 0);
         let batch = env.encode_batch();
         assert_eq!(batch.num_envs, 4);
 
@@ -770,7 +934,7 @@ mod tests {
             skills: None,
             crystals: None,
         };
-        let mut env = VecEnv::new(1, 42, Hero::Arythea, 10, scenario, false);
+        let mut env = VecEnv::new(1, 42, Hero::Arythea, 10, scenario, false, 0);
 
         let mut found_done = false;
         for _ in 0..50 {
@@ -800,7 +964,7 @@ mod tests {
             skills: None,
             crystals: None,
         };
-        let mut env = VecEnv::new(1, 42, Hero::Arythea, 500, scenario, false);
+        let mut env = VecEnv::new(1, 42, Hero::Arythea, 500, scenario, false, 0);
 
         let mut done_step = None;
         for step in 0..200 {
@@ -838,7 +1002,7 @@ mod tests {
             skills: None,
             crystals: None,
         };
-        let mut env = SingleEnv::new(42, Hero::Arythea, 500, scenario, true);
+        let mut env = SingleEnv::new(42, Hero::Arythea, 500, scenario, true, 0);
 
         // The env starts in combat; the first step should trigger oracle resolution
         assert!(
@@ -858,4 +1022,43 @@ mod tests {
             "Combat should be fully resolved by oracle"
         );
     }
+
+    #[test]
+    fn early_termination_no_fame() {
+        // With early_term_fame_step=10, if the agent has 0 fame after 10 steps, episode ends
+        let mut env = SingleEnv::new(42, Hero::Arythea, 500, TrainingScenario::default(), false, 10);
+
+        // Step 10 times (action 0 = first legal action, likely movement/end turn)
+        for _ in 0..10 {
+            if env.is_done() {
+                break;
+            }
+            env.step(0);
+        }
+
+        // After 10 steps with action 0, fame should be 0 (no combat = no fame)
+        // and is_done() should return true due to early termination
+        assert_eq!(env.state.players[0].fame, 0, "Expected 0 fame after 10 random steps");
+        assert!(env.is_done(), "Expected early termination when fame == 0 after 10 steps");
+        assert!(!env.state.game_ended, "Game should not have ended naturally");
+    }
+
+    #[test]
+    fn early_termination_disabled_by_default() {
+        // With early_term_fame_step=0, no early termination
+        let mut env = SingleEnv::new(42, Hero::Arythea, 500, TrainingScenario::default(), false, 0);
+
+        for _ in 0..15 {
+            if env.is_done() {
+                break;
+            }
+            env.step(0);
+        }
+
+        // Even with 0 fame, is_done should be false (disabled)
+        if env.state.players[0].fame == 0 && !env.state.game_ended {
+            assert!(!env.is_done(), "Early termination should be disabled when early_term_fame_step=0");
+        }
+    }
+
 }

@@ -128,6 +128,7 @@ def run_native_rl_game(
     start_pos = engine.player_position()
     if start_pos is not None:
         visited_hexes.add(start_pos)
+    prev_wound_potential = 0.0
 
     try:
         while step < max_steps and not engine.is_game_ended():
@@ -160,6 +161,15 @@ def run_native_rl_game(
             wound_delta = engine.wound_count() - wounds_before
             if wound_delta > 0 and reward_config.wound_penalty != 0.0:
                 reward += reward_config.wound_penalty * float(wound_delta)
+
+            # Potential-based wound shaping: γ·φ(s') - φ(s)
+            if reward_config.wound_shaping_k != 0.0:
+                tc = max(engine.full_deck_card_count(), 1)
+                ratio = engine.full_deck_wound_count() / tc
+                phi_new = -reward_config.wound_shaping_k * (ratio * ratio)
+                shaping = policy.config.gamma * phi_new - prev_wound_potential
+                reward += shaping
+                prev_wound_potential = phi_new
 
             policy.record_step_reward(reward)
             episode_total_reward += reward
@@ -240,6 +250,7 @@ def run_native_rl_game_ppo(
     start_pos = engine.player_position()
     if start_pos is not None:
         visited_hexes.add(start_pos)
+    prev_wound_potential = 0.0
 
     try:
         while step < max_steps and not engine.is_game_ended():
@@ -268,6 +279,15 @@ def run_native_rl_game_ppo(
             wound_delta = engine.wound_count() - wounds_before
             if wound_delta > 0 and reward_config.wound_penalty != 0.0:
                 reward += reward_config.wound_penalty * float(wound_delta)
+
+            # Potential-based wound shaping: γ·φ(s') - φ(s)
+            if reward_config.wound_shaping_k != 0.0:
+                tc = max(engine.full_deck_card_count(), 1)
+                ratio = engine.full_deck_wound_count() / tc
+                phi_new = -reward_config.wound_shaping_k * (ratio * ratio)
+                shaping = policy.config.gamma * phi_new - prev_wound_potential
+                reward += shaping
+                prev_wound_potential = phi_new
 
             if step_info is not None:
                 transitions.append(Transition(

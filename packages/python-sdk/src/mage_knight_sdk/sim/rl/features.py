@@ -12,7 +12,7 @@ from dataclasses import dataclass
 # Embedding-based encoding constants
 # ---------------------------------------------------------------------------
 
-STATE_SCALAR_DIM = 84
+STATE_SCALAR_DIM = 85
 ACTION_SCALAR_DIM = 34
 SITE_SCALAR_DIM = 6   # per-site scalars for map pool
 MAP_ENEMY_SCALAR_DIM = 11  # per-enemy scalars for map enemy pool
@@ -29,7 +29,7 @@ UNIT_SCALAR_DIM = 2  # per-unit scalars [is_ready, is_wounded]
 class StateFeatures:
     """State features computed once per step (shared across all candidates)."""
 
-    scalars: list[float]                    # STATE_SCALAR_DIM floats (83)
+    scalars: list[float]                    # STATE_SCALAR_DIM floats (85)
     mode_id: int                            # MODE_VOCAB index
     hand_card_ids: list[int]                # variable-length CARD_VOCAB indices
     deck_card_ids: list[int]                # CARD_VOCAB indices (draw pile)

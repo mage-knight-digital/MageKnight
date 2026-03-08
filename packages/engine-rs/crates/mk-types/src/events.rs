@@ -86,6 +86,12 @@ pub enum GameEvent {
     ChoiceResolved {
         player_id: PlayerId,
         choice_index: usize,
+        /// Source card that created this choice, if any.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        card_id: Option<CardId>,
+        /// Source skill that created this choice, if any.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        skill_id: Option<SkillId>,
     },
 
     /// A round has ended (day/night transition).
@@ -185,6 +191,36 @@ pub enum GameEvent {
     /// A player declared rest.
     Rested {
         player_id: PlayerId,
+    },
+
+    /// A player completed rest (discarding a wound or non-wound card).
+    RestCompleted {
+        player_id: PlayerId,
+    },
+
+    /// A player used a skill.
+    SkillUsed {
+        player_id: PlayerId,
+        skill_id: SkillId,
+    },
+
+    /// A player returned an interactive skill to its owner.
+    InteractiveSkillReturned {
+        player_id: PlayerId,
+        skill_id: SkillId,
+    },
+
+    /// A subset selection was started (Rethink, rest wound discard, mana search, etc.).
+    SubsetSelectionStarted {
+        player_id: PlayerId,
+        kind: String,
+    },
+
+    /// A subset selection was confirmed.
+    SubsetSelectionConfirmed {
+        player_id: PlayerId,
+        kind: String,
+        count: usize,
     },
 
     /// Generic action event for actions without a specific event type.

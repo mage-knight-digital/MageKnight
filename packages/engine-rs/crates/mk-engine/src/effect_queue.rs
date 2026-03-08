@@ -5113,8 +5113,9 @@ fn execute_free_recruit(state: &mut GameState, player_idx: usize, offer_index: u
     let unit_id = state.offers.units.remove(offer_index);
     let unit_def = mk_data::units::get_unit(unit_id.as_str());
     let instance_id = mk_types::ids::UnitInstanceId::from(
-        format!("unit_{}", state.players[player_idx].units.len()).as_str(),
+        format!("unit_{}", state.next_instance_counter).as_str(),
     );
+    state.next_instance_counter += 1;
     state.players[player_idx].units.push(mk_types::state::PlayerUnit {
         unit_id: unit_id.clone(),
         instance_id,

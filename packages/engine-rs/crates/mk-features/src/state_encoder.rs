@@ -1,4 +1,4 @@
-//! State encoder — produces StateFeatures (84 scalars + entity pools).
+//! State encoder — produces StateFeatures (85 scalars + entity pools).
 //!
 //! Directly accesses Rust structs instead of crawling JSON dicts.
 
@@ -31,7 +31,22 @@ pub fn encode_state(state: &GameState, player_idx: usize) -> StateFeatures {
     let global_spatial = extract_global_spatial(state, pos); // 5
     let mana_source = extract_mana_source(state); // 7
 
-    let mut scalars = Vec::with_capacity(84);
+    // Wound-to-deck ratio: wounds across all zones / total cards
+    let total_wounds = player
+        .hand
+        .iter()
+        .chain(player.deck.iter())
+        .chain(player.discard.iter())
+        .filter(|c| c.as_str() == "wound")
+        .count() as f32;
+    let total_cards = (player.hand.len() + player.deck.len() + player.discard.len()) as f32;
+    let wound_ratio = if total_cards > 0.0 {
+        scale(total_wounds / total_cards, 1.0)
+    } else {
+        0.0
+    };
+
+    let mut scalars = Vec::with_capacity(85);
     scalars.extend_from_slice(&player_core);
     scalars.extend_from_slice(&resources);
     scalars.extend_from_slice(&tempo);
@@ -40,6 +55,7 @@ pub fn encode_state(state: &GameState, player_idx: usize) -> StateFeatures {
     scalars.extend_from_slice(&neighbor_scalars);
     scalars.extend_from_slice(&global_spatial);
     scalars.extend_from_slice(&mana_source);
+    scalars.push(wound_ratio);
 
     let mode_id = derive_mode(state, player_idx);
     let hand_card_ids = extract_hand_card_ids(player);
@@ -672,11 +688,11 @@ mod tests {
     use mk_types::enums::Hero;
 
     #[test]
-    fn encode_state_produces_84_scalars() {
+    fn encode_state_produces_85_scalars() {
         let mut state = create_solo_game(42, Hero::Arythea);
         place_initial_tiles(&mut state);
         let features = encode_state(&state, 0);
-        assert_eq!(features.scalars.len(), 84);
+        assert_eq!(features.scalars.len(), 85);
     }
 
     #[test]

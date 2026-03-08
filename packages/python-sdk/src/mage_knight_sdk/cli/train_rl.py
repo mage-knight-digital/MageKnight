@@ -15,6 +15,28 @@ from typing import Any
 from mage_knight_sdk.sim.hero_selection import resolve_hero
 
 
+class RunningMeanStd:
+    """Track running mean/std using Welford's online algorithm."""
+
+    def __init__(self) -> None:
+        self.mean: float = 0.0
+        self.var: float = 1.0
+        self.count: int = 0
+
+    def update(self, batch: list[float]) -> None:
+        for x in batch:
+            self.count += 1
+            delta = x - self.mean
+            self.mean += delta / self.count
+            delta2 = x - self.mean
+            # Use Welford's M2 update; var = M2 / count
+            self.var += (delta * delta2 - self.var) / self.count
+
+    def normalize(self, values: list[float]) -> list[float]:
+        std = max(self.var ** 0.5, 1e-8)
+        return [(v - self.mean) / std for v in values]
+
+
 _METRIC_DESCRIPTIONS: dict[str, str] = {
     "reward/total": "Total shaped reward for the episode. Includes fame, step penalty, end bonus, and victory bonuses.",
     "reward/fame": "Fame earned this episode (total_reward - 1.0, floored at 0). The core game objective.",
@@ -81,6 +103,27 @@ class _TBWriter:
             self._writer.add_scalar("reward_breakdown/scenario_trigger", reward_breakdown.scenario_trigger_bonus, episode)
             self._writer.add_scalar("reward_breakdown/wasted_move", reward_breakdown.wasted_move_penalty, episode)
             self._writer.add_scalar("reward_breakdown/backtrack", reward_breakdown.backtrack_penalty, episode)
+            self._writer.add_scalar("reward_breakdown/wound_shaping", reward_breakdown.wound_shaping, episode)
+
+    def log_explained_variance(self, episode: int, returns: list[float], values: list[float]) -> None:
+        if self._writer is None or not returns:
+            return
+        import numpy as np
+        ret = np.array(returns)
+        val = np.array(values)
+        var_ret = np.var(ret)
+        if var_ret < 1e-8:
+            ev = 0.0
+        else:
+            ev = 1.0 - np.var(ret - val) / var_ret
+        self._writer.add_scalar("optimization/explained_variance", float(ev), episode)
+
+    def log_wound_metrics(self, episode: int, total_wounds: float, turns_resting: float, wounds_per_combat: float) -> None:
+        if self._writer is None:
+            return
+        self._writer.add_scalar("wounds/total_per_episode", total_wounds, episode)
+        self._writer.add_scalar("wounds/turns_resting_per_episode", turns_resting, episode)
+        self._writer.add_scalar("wounds/per_combat", wounds_per_combat, episode)
 
     def close(self) -> None:
         if self._writer is not None:
@@ -115,6 +158,7 @@ def main() -> int:
     parser.add_argument("--cards-remaining-bonus", type=float, default=0.0, help="Terminal bonus per non-wound card remaining in hand")
     parser.add_argument("--wasted-move-penalty", type=float, default=0.0, help="Quadratic penalty per wasted move point at end of turn (e.g. -0.02)")
     parser.add_argument("--backtrack-penalty", type=float, default=0.0, help="Penalty for moving to a hex already visited this turn (e.g. -0.3)")
+    parser.add_argument("--wound-shaping-k", type=float, default=0.0, help="Potential-based wound shaping coefficient (e.g. 10.0). Applies continuous penalty proportional to (wounds/deck_size)^2")
 
     parser.add_argument("--checkpoint-dir", default=None, help="Run directory for checkpoints + logs (default: auto-generated under training/runs/)")
     parser.add_argument("--checkpoint-every", type=int, default=25, help="Save checkpoint every N episodes")
@@ -123,7 +167,7 @@ def main() -> int:
 
     # PPO flags
     parser.add_argument("--ppo", action="store_true", help="Use PPO instead of REINFORCE")
-    parser.add_argument("--batch-episodes", type=int, default=16, help="Episodes per PPO update batch (default: 16)")
+    parser.add_argument("--batch-episodes", type=int, default=64, help="Episodes per PPO update batch (default: 64)")
     parser.add_argument("--ppo-epochs", type=int, default=4, help="PPO optimization epochs per batch (default: 4)")
     parser.add_argument("--clip-epsilon", type=float, default=0.2, help="PPO clip ratio (default: 0.2)")
     parser.add_argument("--gae-lambda", type=float, default=0.95, help="GAE lambda (default: 0.95)")
@@ -135,6 +179,9 @@ def main() -> int:
 
     # Combat oracle
     parser.add_argument("--combat-oracle", action="store_true", default=False, help="Auto-resolve combat via exhaustive search oracle (agent skips combat actions)")
+
+    # Early termination
+    parser.add_argument("--early-term-fame-step", type=int, default=60, help="Terminate episode early if fame == 0 after this many steps (0 to disable)")
 
     args = parser.parse_args()
     if args.episodes < 1:
@@ -182,6 +229,7 @@ def main() -> int:
         cards_remaining_bonus=args.cards_remaining_bonus,
         wasted_move_penalty=args.wasted_move_penalty,
         backtrack_penalty=args.backtrack_penalty,
+        wound_shaping_k=args.wound_shaping_k,
     )
 
     run_dir = _resolve_run_dir(args.checkpoint_dir, args.resume)
@@ -344,9 +392,10 @@ def _train_ppo_native(
 ) -> int:
     """Native PPO training: collect batch of episodes, compute GAE, optimize, repeat."""
     from mage_knight_sdk.sim.rl.native_rl_runner import EpisodeTrainingStats, run_native_rl_game_ppo
-    from mage_knight_sdk.sim.rl.policy_gradient import OptimizationStats, compute_gae
+    from mage_knight_sdk.sim.rl.policy_gradient import OptimizationStats, Transition, compute_gae
 
     episode_num = 0
+    reward_normalizer = RunningMeanStd()
 
     while episode_num < args.episodes:
         batch_size = min(args.batch_episodes, args.episodes - episode_num)
@@ -403,8 +452,26 @@ def _train_ppo_native(
 
         # PPO optimization
         if episodes_data:
+            # Normalize rewards for GAE computation (keep raw rewards for logging)
+            all_raw_rewards = [t.reward for ep in episodes_data for t in ep]
+            reward_normalizer.update(all_raw_rewards)
+            normalized_episodes: list[list[Any]] = []
+            for ep in episodes_data:
+                raw_rewards = [t.reward for t in ep]
+                norm_rewards = reward_normalizer.normalize(raw_rewards)
+                normalized_episodes.append([
+                    Transition(
+                        encoded_step=t.encoded_step,
+                        action_index=t.action_index,
+                        log_prob=t.log_prob,
+                        value=t.value,
+                        reward=nr,
+                    )
+                    for t, nr in zip(ep, norm_rewards)
+                ])
+
             transitions_flat, advantages, returns = compute_gae(
-                episodes_data, args.gamma, args.gae_lambda,
+                normalized_episodes, args.gamma, args.gae_lambda,
                 terminated=batch_terminated,
             )
             opt_stats = policy.optimize_ppo(
@@ -439,6 +506,14 @@ def _train_ppo_native(
 
             if tb is not None:
                 tb.log_episode(global_ep, logged_stats)
+
+        # Log explained variance for the batch
+        if tb is not None and episodes_data:
+            batch_values = [t.value for t in transitions_flat]
+            tb.log_explained_variance(
+                resume_episode_offset + episode_num + len(batch_stats),
+                returns, batch_values,
+            )
 
         episode_num += len(batch_stats)
 
@@ -490,7 +565,7 @@ def _train_curriculum(
 
     from mage_knight_sdk.sim.rl.curriculum import CURRICULA
     from mage_knight_sdk.sim.rl.native_rl_runner import EpisodeTrainingStats
-    from mage_knight_sdk.sim.rl.policy_gradient import OptimizationStats, compute_gae
+    from mage_knight_sdk.sim.rl.policy_gradient import OptimizationStats, Transition, compute_gae
     from mage_knight_sdk.sim.rl.vec_env_runner import (
         EpisodeBuffers,
         collect_vecenv_rollout,
@@ -499,6 +574,7 @@ def _train_curriculum(
 
     schedule = CURRICULA[args.curriculum]()
     global_ep = resume_episode_offset
+    reward_normalizer = RunningMeanStd()
     hero = args.hero if args.hero.lower() != "random" else "arythea"
 
     for phase_idx, phase in enumerate(schedule.phases):
@@ -517,6 +593,7 @@ def _train_curriculum(
             max_steps=phase.max_steps,
             scenario=scenario_json,
             combat_oracle=args.combat_oracle,
+            early_term_fame_step=args.early_term_fame_step,
         )
 
         episode_buffers = EpisodeBuffers()
@@ -545,8 +622,26 @@ def _train_curriculum(
 
             # PPO optimization
             if episodes_data:
+                # Normalize rewards for GAE computation (keep raw rewards for logging)
+                all_raw_rewards = [t.reward for ep in episodes_data for t in ep]
+                reward_normalizer.update(all_raw_rewards)
+                normalized_episodes: list[list[Any]] = []
+                for ep in episodes_data:
+                    raw_rewards = [t.reward for t in ep]
+                    norm_rewards = reward_normalizer.normalize(raw_rewards)
+                    normalized_episodes.append([
+                        Transition(
+                            encoded_step=t.encoded_step,
+                            action_index=t.action_index,
+                            log_prob=t.log_prob,
+                            value=t.value,
+                            reward=nr,
+                        )
+                        for t, nr in zip(ep, norm_rewards)
+                    ])
+
                 transitions_flat, advantages, returns = compute_gae(
-                    episodes_data, args.gamma, args.gae_lambda,
+                    normalized_episodes, args.gamma, args.gae_lambda,
                     terminated=terminated_flags,
                 )
                 opt_stats = policy.optimize_ppo(
@@ -587,10 +682,20 @@ def _train_curriculum(
 
                 if tb is not None:
                     tb.log_episode(global_ep, stats, reward_breakdown=meta.reward_breakdown)
+                    wounds_per_combat = (
+                        meta.total_wounds / meta.combats_entered
+                        if meta.combats_entered > 0 else 0.0
+                    )
+                    tb.log_wound_metrics(
+                        global_ep,
+                        total_wounds=float(meta.total_wounds),
+                        turns_resting=float(meta.turns_resting),
+                        wounds_per_combat=wounds_per_combat,
+                    )
 
                 bd = meta.reward_breakdown
                 tiles = meta.tiles_explored
-                explore_fame = tiles * 2  # 2 fame per tile explored
+                explore_fame = tiles * 1  # 1 fame per tile explored
                 combat_fame = max(0, meta.total_fame_delta - explore_fame)
                 print(
                     f"ep={global_ep:04d} [{phase.name}] steps={steps:<4} "
@@ -599,6 +704,11 @@ def _train_curriculum(
                     f"wounds={bd.wound_penalty:>5.1f}  "
                     f"ent={opt_stats.entropy:.2f}"
                 )
+
+            # Log explained variance for the batch
+            if tb is not None and episodes_data:
+                batch_values = [t.value for t in transitions_flat]
+                tb.log_explained_variance(global_ep, returns, batch_values)
 
             # Checkpoint at interval
             if args.checkpoint_every > 0 and global_ep % args.checkpoint_every < len(result.episodes):
@@ -717,6 +827,7 @@ def _write_run_manifest(
             "cards_remaining_bonus": reward_config.cards_remaining_bonus,
             "wasted_move_penalty": reward_config.wasted_move_penalty,
             "backtrack_penalty": reward_config.backtrack_penalty,
+            "wound_shaping_k": reward_config.wound_shaping_k,
         },
         "cli": vars(args),
     }
@@ -778,7 +889,7 @@ def _append_metrics_log(
     reward_breakdown: Any = None,
 ) -> None:
     """Write metrics from EpisodeTrainingStats."""
-    explore_fame = tiles_explored * 2
+    explore_fame = tiles_explored * 1
     combat_fame = max(0, fame - explore_fame)
     record: dict[str, Any] = {
         "episode": episode + 1,
@@ -815,6 +926,7 @@ def _append_metrics_log(
             "scenario_trigger": reward_breakdown.scenario_trigger_bonus,
             "wasted_move": reward_breakdown.wasted_move_penalty,
             "backtrack": reward_breakdown.backtrack_penalty,
+            "wound_shaping": reward_breakdown.wound_shaping,
         }
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(record, sort_keys=True) + "\n")

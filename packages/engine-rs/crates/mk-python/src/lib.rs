@@ -75,7 +75,7 @@ struct PyEncodedStep {
 impl PyEncodedStep {
     // ── State features ──────────────────────────────────────────────
 
-    /// 76 state scalar features.
+    /// 85 state scalar features.
     fn state_scalars(&self) -> Vec<f32> {
         self.inner.state.scalars.clone()
     }
@@ -395,6 +395,20 @@ impl GameEngine {
             .count() as i32
     }
 
+    /// Total wound cards across hand + deck + discard (full deck).
+    fn full_deck_wound_count(&self) -> i32 {
+        let p = &self.state.players[self.player_idx];
+        (p.hand.iter().filter(|c| c.as_str() == "wound").count()
+            + p.deck.iter().filter(|c| c.as_str() == "wound").count()
+            + p.discard.iter().filter(|c| c.as_str() == "wound").count()) as i32
+    }
+
+    /// Total cards across hand + deck + discard (full deck).
+    fn full_deck_card_count(&self) -> i32 {
+        let p = &self.state.players[self.player_idx];
+        (p.hand.len() + p.deck.len() + p.discard.len()) as i32
+    }
+
     /// Current round number.
     fn round(&self) -> u32 {
         self.state.round
@@ -496,13 +510,27 @@ impl GameEngine {
             }
         }
 
-        // Fallback: if combat didn't fully resolve, pick action 0 until it ends
+        // Fallback: if combat didn't fully resolve, pick EndCombatPhase or EndTurn
+        // to cleanly exit. Avoid picking card plays after all enemies are defeated.
         while self.state.combat.is_some() && !self.state.game_ended {
             if self.action_set.actions.is_empty() {
                 break;
             }
-            action_indices.push(0);
-            let action = self.action_set.actions[0].clone();
+            // Prefer EndCombatPhase > EndTurn > action 0
+            let fallback_idx = self
+                .action_set
+                .actions
+                .iter()
+                .position(|a| matches!(a, LegalAction::EndCombatPhase))
+                .or_else(|| {
+                    self.action_set
+                        .actions
+                        .iter()
+                        .position(|a| matches!(a, LegalAction::EndTurn))
+                })
+                .unwrap_or(0);
+            action_indices.push(fallback_idx as i32);
+            let action = self.action_set.actions[fallback_idx].clone();
             let epoch = self.action_set.epoch;
             match apply_legal_action(
                 &mut self.state,
@@ -562,12 +590,12 @@ impl GameEngine {
                 .iter()
                 .position(|a| a == action)
         } else {
-            // Search returned no actions — fallback to 0
-            if self.action_set.actions.is_empty() {
-                None
-            } else {
-                Some(0)
-            }
+            // Search returned no actions — all enemies defeated or no viable path.
+            // Find EndCombatPhase to cleanly exit; return None if not available.
+            self.action_set
+                .actions
+                .iter()
+                .position(|a| matches!(a, LegalAction::EndCombatPhase))
         }
     }
 
@@ -632,7 +660,7 @@ impl GameEngine {
     /// Encode the current state + legal actions into RL features.
     ///
     /// Returns a PyEncodedStep containing:
-    /// - State features (83 scalars, mode, entity pools with unit scalars)
+    /// - State features (85 scalars, mode, entity pools with unit scalars)
     /// - Per-action features (6 vocab IDs + 34 scalars each)
     ///
     /// This replaces the Python-side feature extraction pipeline,
@@ -791,7 +819,7 @@ impl PyVecEnv {
     ///         None or "full_game" → FullGame (default).
     ///         Otherwise parsed as JSON, e.g. '{"type":"CombatDrill","enemy_tokens":["diggers_1"],"is_fortified":false}'.
     #[new]
-    #[pyo3(signature = (num_envs=16, base_seed=42, hero="arythea", max_steps=2000, scenario=None, combat_oracle=false))]
+    #[pyo3(signature = (num_envs=16, base_seed=42, hero="arythea", max_steps=2000, scenario=None, combat_oracle=false, early_term_fame_step=0))]
     fn new(
         num_envs: usize,
         base_seed: u32,
@@ -799,6 +827,7 @@ impl PyVecEnv {
         max_steps: u64,
         scenario: Option<&str>,
         combat_oracle: bool,
+        early_term_fame_step: u64,
     ) -> PyResult<Self> {
         let hero_enum = parse_hero(hero)?;
         let training_scenario = parse_scenario(scenario)?;
@@ -809,6 +838,7 @@ impl PyVecEnv {
             max_steps,
             training_scenario,
             combat_oracle,
+            early_term_fame_step,
         );
         Ok(Self { inner })
     }
@@ -896,6 +926,10 @@ impl PyVecEnv {
         dict.set_item("new_tiles", vec_i32_to_numpy(py, &np, &result.new_tiles, &[n])?)?;
         dict.set_item("wasted_move_points", vec_i32_to_numpy(py, &np, &result.wasted_move_points, &[n])?)?;
         dict.set_item("backtrack_moves", vec_i32_to_numpy(py, &np, &result.backtrack_moves, &[n])?)?;
+        dict.set_item("wound_counts", vec_i32_to_numpy(py, &np, &result.wound_counts, &[n])?)?;
+        dict.set_item("total_card_counts", vec_i32_to_numpy(py, &np, &result.total_card_counts, &[n])?)?;
+        dict.set_item("in_combat", vec_bool_to_numpy(py, &np, &result.in_combat)?)?;
+        dict.set_item("rested_turns", vec_i32_to_numpy(py, &np, &result.rested_turns, &[n])?)?;
 
         Ok(dict.to_object(py))
     }
