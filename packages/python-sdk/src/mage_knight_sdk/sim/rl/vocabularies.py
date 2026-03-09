@@ -322,11 +322,13 @@ _SOURCE_IDS: tuple[str, ...] = (
     "unit_reward.disband", "unit_reward.forfeit",
     # Added to match Rust encoder source strings
     "circlet_of_proficiency.card",
+    "combat.apply_block_boost",
     "combat.resolve_attack",
     "combat.use_banner_courage",
     "cooperative.cancel", "cooperative.propose", "cooperative.respond",
     "meditation.done",
     "normal.assign_banner",
+    "normal.begin_peaceful_moment_healing",
     "normal.site.add_elite_to_offer", "normal.site.altar_tribute",
     "normal.site.buy_artifact", "normal.site.buy_city_aa",
     "normal.site.buy_city_aa_deck",
