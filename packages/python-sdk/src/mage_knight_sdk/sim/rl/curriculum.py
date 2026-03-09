@@ -165,8 +165,11 @@ def default_combat_curriculum() -> CurriculumSchedule:
                 new_hex_bonus=0.1,
                 wound_penalty=-0.5,
                 wound_shaping_k=10.0,
+                scenario_trigger_bonus=10.0,
+                achievement_reward_scale=0.5,
+                wasted_move_penalty=-0.02,
             ),
-            episodes=50000,
+            episodes=500000,
             max_steps=2000,
         ),
     ])

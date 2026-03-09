@@ -930,6 +930,8 @@ impl PyVecEnv {
         dict.set_item("total_card_counts", vec_i32_to_numpy(py, &np, &result.total_card_counts, &[n])?)?;
         dict.set_item("in_combat", vec_bool_to_numpy(py, &np, &result.in_combat)?)?;
         dict.set_item("rested_turns", vec_i32_to_numpy(py, &np, &result.rested_turns, &[n])?)?;
+        dict.set_item("achievement_deltas", vec_i32_to_numpy(py, &np, &result.achievement_deltas, &[n])?)?;
+        dict.set_item("game_scores", vec_i32_to_numpy(py, &np, &result.game_scores, &[n])?)?;
 
         Ok(dict.to_object(py))
     }

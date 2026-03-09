@@ -497,3 +497,98 @@ fn solo_tactics_removed_at_round_end() {
     // Note: day tactics won't appear in night round anyway, but the removed_tactics
     // list tracks them for when day comes back around
 }
+
+// =========================================================================
+// Peaceful Moment healing window
+// =========================================================================
+
+#[test]
+fn begin_peaceful_moment_healing_available_when_flag_set() {
+    let mut state = setup_game(vec!["wound"]);
+    state.players[0].flags.insert(PlayerFlags::IS_PEACEFUL_MOMENT_HEALING);
+    let legal = enumerate_legal_actions(&state, 0);
+    let has_begin = legal
+        .actions
+        .iter()
+        .any(|a| matches!(a, LegalAction::BeginPeacefulMomentHealing));
+    assert!(has_begin, "BeginPeacefulMomentHealing should be available when flag set");
+}
+
+#[test]
+fn begin_peaceful_moment_healing_not_available_without_flag() {
+    let state = setup_game(vec!["wound"]);
+    let legal = enumerate_legal_actions(&state, 0);
+    let has_begin = legal
+        .actions
+        .iter()
+        .any(|a| matches!(a, LegalAction::BeginPeacefulMomentHealing));
+    assert!(!has_begin, "BeginPeacefulMomentHealing should not be available without flag");
+}
+
+#[test]
+fn begin_peaceful_moment_healing_executable() {
+    let mut state = setup_game(vec!["wound"]);
+    state.players[0].influence_points = 4;
+    state.players[0].flags.insert(PlayerFlags::IS_PEACEFUL_MOMENT_HEALING);
+    state.players[0].flags.insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    let result = apply_legal_action(
+        &mut state,
+        &mut undo,
+        0,
+        &LegalAction::BeginPeacefulMomentHealing,
+        epoch,
+    );
+    assert!(result.is_ok(), "BeginPeacefulMomentHealing should execute successfully");
+    // Flags should be cleared
+    assert!(!state.players[0].flags.contains(PlayerFlags::IS_PEACEFUL_MOMENT_HEALING));
+    // Pending choice should be set for conversion
+    assert!(state.players[0].pending.has_active());
+}
+
+#[test]
+fn healing_window_allows_sideways_influence_cards() {
+    let mut state = setup_game(vec!["march", "rage"]);
+    state.players[0].flags.insert(PlayerFlags::IS_PEACEFUL_MOMENT_HEALING);
+    state.players[0].flags.insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+    let legal = enumerate_legal_actions(&state, 0);
+    // Should offer sideways influence for cards (like IS_INTERACTING)
+    let sideways: Vec<_> = legal
+        .actions
+        .iter()
+        .filter(|a| matches!(a, LegalAction::PlayCardSideways { sideways_as: SidewaysAs::Influence, .. }))
+        .collect();
+    assert!(!sideways.is_empty(), "Should allow sideways influence during healing window");
+    // Move sideways should be suppressed
+    let move_sideways: Vec<_> = legal
+        .actions
+        .iter()
+        .filter(|a| matches!(a, LegalAction::PlayCardSideways { sideways_as: SidewaysAs::Move, .. }))
+        .collect();
+    assert!(move_sideways.is_empty(), "Move sideways should be suppressed during healing window");
+}
+
+#[test]
+fn healing_window_suppresses_site_interaction() {
+    let mut state = setup_game(vec!["march"]);
+    // Place player at a village
+    let hex = state.map.hexes.get_mut("0,0").unwrap();
+    hex.site = Some(Site {
+        site_type: SiteType::Village,
+        owner: None,
+        is_conquered: false,
+        is_burned: false,
+        city_color: None,
+        mine_color: None,
+        deep_mine_colors: None,
+    });
+    state.players[0].flags.insert(PlayerFlags::IS_PEACEFUL_MOMENT_HEALING);
+    state.players[0].flags.insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+    let legal = enumerate_legal_actions(&state, 0);
+    let has_begin_interaction = legal
+        .actions
+        .iter()
+        .any(|a| matches!(a, LegalAction::BeginInteraction));
+    assert!(!has_begin_interaction, "BeginInteraction should be suppressed during healing window");
+}

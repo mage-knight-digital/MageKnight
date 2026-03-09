@@ -73,6 +73,7 @@ fn derive_action_type(action: &LegalAction) -> u16 {
         LegalAction::ActivateTactic => "ACTIVATE_TACTIC",
         LegalAction::InitiateManaSearch => "REROLL_SOURCE_DICE",
         LegalAction::BeginInteraction => "BEGIN_INTERACTION",
+        LegalAction::BeginPeacefulMomentHealing => "BEGIN_PEACEFUL_MOMENT_HEALING",
         LegalAction::EnterSite => "ENTER_SITE",
         LegalAction::InteractSite { .. } => "INTERACT",
         LegalAction::PlunderSite => "PLUNDER_VILLAGE",
@@ -120,6 +121,7 @@ fn derive_action_type(action: &LegalAction) -> u16 {
         LegalAction::UseBannerFear { .. } => "USE_BANNER_FEAR",
         LegalAction::ConvertMoveToAttack { .. } => "CONVERT_MOVE_TO_ATTACK",
         LegalAction::ConvertInfluenceToBlock { .. } => "CONVERT_INFLUENCE_TO_BLOCK",
+        LegalAction::ApplyBlockBoost { .. } => "APPLY_BLOCK_BOOST",
         LegalAction::PayHeroesAssaultInfluence => "PAY_HEROES_ASSAULT_INFLUENCE",
         LegalAction::PayThugsDamageInfluence { .. } => "PAY_THUGS_DAMAGE_INFLUENCE",
         LegalAction::ResolveUnitMaintenance { .. } => "RESOLVE_UNIT_MAINTENANCE",
@@ -530,6 +532,10 @@ fn extract_action_scalars(
         }
         LegalAction::AssignBanner { .. } => {
             scalars[8] = 1.0; // has_card
+        }
+        LegalAction::ApplyBlockBoost { element } => {
+            set_element_one_hot(&mut scalars, 23, *element);
+            scalars[0] = scale(1.0, 10.0); // amount (+1)
         }
         _ => {}
     }

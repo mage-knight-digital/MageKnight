@@ -34,7 +34,8 @@ pub(super) fn enumerate_normal_cards(
     let player = &state.players[player_idx];
     let is_resting = player.flags.contains(PlayerFlags::IS_RESTING);
     let has_rested = player.flags.contains(PlayerFlags::HAS_RESTED_THIS_TURN);
-    let is_interacting = player.flags.contains(PlayerFlags::IS_INTERACTING);
+    let is_interacting = player.flags.contains(PlayerFlags::IS_INTERACTING)
+        || player.flags.contains(PlayerFlags::IS_PEACEFUL_MOMENT_HEALING);
 
     // Collect basic, powered, sideways separately to emit in category order.
     let mut basic_actions = Vec::new();
@@ -156,8 +157,8 @@ pub(super) fn enumerate_normal_cards(
                         card_id: card_id.clone(),
                         sideways_as: SidewaysAs::Influence,
                     });
-                } else if player.flags.contains(PlayerFlags::IS_INTERACTING) {
-                    // Interacting: influence only (no movement while at site).
+                } else if is_interacting {
+                    // Interacting or healing window: influence only (no movement).
                     sideways_actions.push(LegalAction::PlayCardSideways {
                         hand_index,
                         card_id: card_id.clone(),
@@ -470,7 +471,9 @@ pub(super) fn is_move_only(effect: &CardEffect) -> bool {
 /// Returns true if the tree contains at least one influence-producing leaf.
 fn has_influence_leaf(effect: &CardEffect) -> bool {
     match effect {
-        CardEffect::GainInfluence { .. } | CardEffect::PeacefulMomentAction { .. } => true,
+        CardEffect::GainInfluence { .. } => true,
+        // PeacefulMomentAction is NOT pure influence — it also heals wounds,
+        // so it shouldn't cause the card to be classified as influence-only.
         CardEffect::Compound { effects } => effects.iter().any(has_influence_leaf),
         CardEffect::Choice { options } => options.iter().any(has_influence_leaf),
         CardEffect::Conditional {
@@ -491,7 +494,7 @@ fn has_influence_leaf(effect: &CardEffect) -> bool {
 fn no_non_influence_value(effect: &CardEffect) -> bool {
     match effect {
         // Influence producers — OK
-        CardEffect::GainInfluence { .. } | CardEffect::PeacefulMomentAction { .. } => true,
+        CardEffect::GainInfluence { .. } => true,
 
         // Non-influence value producers → false
         CardEffect::GainMove { .. }

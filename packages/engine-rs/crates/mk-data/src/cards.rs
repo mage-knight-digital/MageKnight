@@ -2459,8 +2459,8 @@ fn peaceful_moment() -> CardDefinition {
         color: CardColor::White,
         card_type: DeedCardType::AdvancedAction,
         powered_by: PoweredBy::Single(BasicManaColor::White),
-        basic_effect: CardEffect::Choice {
-            options: vec![
+        basic_effect: CardEffect::Compound {
+            effects: vec![
                 CardEffect::GainInfluence { amount: 3 },
                 CardEffect::PeacefulMomentAction {
                     influence: 3,
@@ -2468,8 +2468,8 @@ fn peaceful_moment() -> CardDefinition {
                 },
             ],
         },
-        powered_effect: CardEffect::Choice {
-            options: vec![
+        powered_effect: CardEffect::Compound {
+            effects: vec![
                 CardEffect::GainInfluence { amount: 6 },
                 CardEffect::PeacefulMomentAction {
                     influence: 6,

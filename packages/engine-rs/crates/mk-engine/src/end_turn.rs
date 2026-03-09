@@ -758,6 +758,12 @@ fn reset_player_turn_inner(player: &mut PlayerState) {
     player.flags.remove(PlayerFlags::IS_INTERACTING);
     player
         .flags
+        .remove(PlayerFlags::IS_PEACEFUL_MOMENT_HEALING);
+    player
+        .flags
+        .remove(PlayerFlags::PEACEFUL_MOMENT_ALLOW_REFRESH);
+    player
+        .flags
         .remove(PlayerFlags::DISCARDED_CARD_THIS_TURN);
 
     // Clear mana state (crystals persist, tokens don't)

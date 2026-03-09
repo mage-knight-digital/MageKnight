@@ -94,6 +94,70 @@ pub(super) fn enumerate_block_declarations(
 }
 
 // =============================================================================
+// Block boost enumeration (Spirit Guides / CombatValue::Block modifiers)
+// =============================================================================
+
+/// Enumerate ApplyBlockBoost actions during Block phase.
+///
+/// When a player has a `CombatValue::Block` modifier with `element: None` and
+/// accumulated block in at least one element, emit one action per non-zero element.
+pub(super) fn enumerate_block_boost(
+    state: &GameState,
+    player_idx: usize,
+    actions: &mut Vec<LegalAction>,
+) {
+    let combat = match state.combat.as_ref() {
+        Some(c) => c,
+        None => return,
+    };
+
+    if combat.phase != CombatPhase::Block {
+        return;
+    }
+
+    let player = &state.players[player_idx];
+
+    // Check for a CombatValue::Block modifier with element: None
+    let has_block_boost = state.active_modifiers.iter().any(|m| {
+        m.created_by_player_id == player.id
+            && matches!(
+                &m.effect,
+                mk_types::modifier::ModifierEffect::CombatValue {
+                    value_type: mk_types::modifier::CombatValueType::Block,
+                    element: None,
+                    amount,
+                } if *amount > 0
+            )
+    });
+
+    if !has_block_boost {
+        return;
+    }
+
+    let elems = &player.combat_accumulator.block_elements;
+    if elems.physical > 0 {
+        actions.push(LegalAction::ApplyBlockBoost {
+            element: Element::Physical,
+        });
+    }
+    if elems.fire > 0 {
+        actions.push(LegalAction::ApplyBlockBoost {
+            element: Element::Fire,
+        });
+    }
+    if elems.ice > 0 {
+        actions.push(LegalAction::ApplyBlockBoost {
+            element: Element::Ice,
+        });
+    }
+    if elems.cold_fire > 0 {
+        actions.push(LegalAction::ApplyBlockBoost {
+            element: Element::ColdFire,
+        });
+    }
+}
+
+// =============================================================================
 // Cumbersome enumeration
 // =============================================================================
 

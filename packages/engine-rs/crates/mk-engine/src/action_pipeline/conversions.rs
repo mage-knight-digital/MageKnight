@@ -146,6 +146,58 @@ pub(super) fn apply_convert_influence_to_block(
     })
 }
 
+pub(super) fn apply_block_boost(
+    state: &mut GameState,
+    player_idx: usize,
+    element: Element,
+) -> Result<ApplyResult, ApplyError> {
+    // Find a CombatValue::Block modifier owned by this player and decrement its amount.
+    let player_id = state.players[player_idx].id.clone();
+    let modifier_idx = state
+        .active_modifiers
+        .iter()
+        .position(|m| {
+            m.created_by_player_id == player_id
+                && matches!(
+                    &m.effect,
+                    mk_types::modifier::ModifierEffect::CombatValue {
+                        value_type: mk_types::modifier::CombatValueType::Block,
+                        element: None,
+                        amount,
+                    } if *amount > 0
+                )
+        })
+        .ok_or_else(|| {
+            ApplyError::InternalError("ApplyBlockBoost: no CombatValue::Block modifier".into())
+        })?;
+
+    // Decrement amount; remove if it hits 0.
+    if let mk_types::modifier::ModifierEffect::CombatValue { amount, .. } =
+        &mut state.active_modifiers[modifier_idx].effect
+    {
+        *amount -= 1;
+        if *amount <= 0 {
+            state.active_modifiers.remove(modifier_idx);
+        }
+    }
+
+    // Apply +1 to the chosen element in the block accumulator.
+    let acc = &mut state.players[player_idx].combat_accumulator;
+    acc.block += 1;
+    match element {
+        Element::Physical => acc.block_elements.physical += 1,
+        Element::Fire => acc.block_elements.fire += 1,
+        Element::Ice => acc.block_elements.ice += 1,
+        Element::ColdFire => acc.block_elements.cold_fire += 1,
+    }
+
+    Ok(ApplyResult {
+        needs_reenumeration: true,
+        game_ended: false,
+        events: vec![],
+    })
+}
+
 pub(super) fn apply_pay_heroes_assault_influence(
     state: &mut GameState,
     player_idx: usize,

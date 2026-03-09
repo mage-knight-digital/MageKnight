@@ -43,9 +43,10 @@ use crate::undo::UndoStack;
 use self::cards::{enumerate_combat_cards, enumerate_normal_cards};
 use self::combat::{
     all_damage_assigned, enumerate_attack_declarations, enumerate_banner_fear,
-    enumerate_block_declarations, enumerate_conversion_actions, enumerate_cumbersome_actions,
-    enumerate_damage_assignments, enumerate_heroes_assault_payment,
-    enumerate_resolve_attack, enumerate_thugs_damage_payment,
+    enumerate_block_boost, enumerate_block_declarations, enumerate_conversion_actions,
+    enumerate_cumbersome_actions, enumerate_damage_assignments,
+    enumerate_heroes_assault_payment, enumerate_resolve_attack,
+    enumerate_thugs_damage_payment,
 };
 use self::explore::enumerate_explores;
 use self::movement::{enumerate_challenges, enumerate_moves};
@@ -162,6 +163,7 @@ pub fn enumerate_legal_actions_with_undo(
             enumerate_returnable_skills(state, player_idx, &mut actions);
             // Block/Attack declarations (categories 5-6).
             enumerate_block_declarations(state, player_idx, &mut actions);
+            enumerate_block_boost(state, player_idx, &mut actions);
             enumerate_banner_fear(state, player_idx, &mut actions);
             enumerate_cumbersome_actions(state, player_idx, &mut actions);
             enumerate_conversion_actions(state, player_idx, &mut actions);

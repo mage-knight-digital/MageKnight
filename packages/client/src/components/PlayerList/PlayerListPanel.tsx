@@ -7,8 +7,8 @@ import "./PlayerListPanel.css";
 export function PlayerListPanel() {
   const { state, myPlayerId } = useGame();
   const { shouldRevealUI, isIntroComplete } = useGameIntro();
-  const [introAnimState, setIntroAnimState] = useState<"hidden" | "revealing" | "visible">("hidden");
-  const hasAnimatedRef = useRef(false);
+  const [introAnimState, setIntroAnimState] = useState<"hidden" | "revealing" | "visible">(isIntroComplete ? "visible" : "hidden");
+  const hasAnimatedRef = useRef(isIntroComplete);
 
   // Trigger reveal animation slightly after top bar
   useEffect(() => {

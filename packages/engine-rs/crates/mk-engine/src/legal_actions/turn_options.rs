@@ -44,6 +44,13 @@ pub(super) fn enumerate_turn_options(
         enumerate_banner_courage(state, player_idx, actions);
     }
 
+    // BeginPeacefulMomentHealing — enter the conversion loop from the healing window.
+    if player.flags.contains(PlayerFlags::IS_PEACEFUL_MOMENT_HEALING)
+        && !player.pending.has_active()
+    {
+        actions.push(LegalAction::BeginPeacefulMomentHealing);
+    }
+
     // Category 9: EndTurn — available after playing a card, resting, or completing combat.
     if !is_resting
         && !player.pending.has_active()

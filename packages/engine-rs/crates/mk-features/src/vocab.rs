@@ -296,15 +296,17 @@ define_vocab!(ENEMY_VOCAB, "enemy",
 );
 
 // =============================================================================
-// Action Type Vocabulary (88 entries)
+// Action Type Vocabulary (90 entries)
 // =============================================================================
 
 define_vocab!(ACTION_TYPE_VOCAB, "action_type",
     ordered: [
         "ACTIVATE_TACTIC", "ACTIVATE_UNIT", "ALTAR_TRIBUTE",
-        "ANNOUNCE_END_OF_ROUND", "ASSIGN_ATTACK", "ASSIGN_BANNER",
-        "ASSIGN_BLOCK", "ASSIGN_DAMAGE", "BEGIN_INTERACTION", "BURN_MONASTERY",
-        "BUY_SPELL",
+        "ANNOUNCE_END_OF_ROUND", "APPLY_BLOCK_BOOST",
+        "ASSIGN_ATTACK", "ASSIGN_BANNER",
+        "ASSIGN_BLOCK", "ASSIGN_DAMAGE",
+        "BEGIN_INTERACTION", "BEGIN_PEACEFUL_MOMENT_HEALING",
+        "BURN_MONASTERY", "BUY_SPELL",
         "CANCEL_COOPERATIVE_PROPOSAL", "CHALLENGE_RAMPAGING",
         "CHOOSE_LEVEL_UP_REWARDS", "COMPLETE_REST",
         "CONVERT_INFLUENCE_TO_BLOCK", "CONVERT_MOVE_TO_ATTACK",
@@ -348,8 +350,10 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
     sorted: [
         "ACTIVATE_TACTIC", "ACTIVATE_UNIT", "ADD_ELITE_TO_OFFER",
         "ALTAR_TRIBUTE",
-        "ANNOUNCE_END_OF_ROUND", "ASSIGN_ATTACK", "ASSIGN_BANNER",
-        "ASSIGN_BLOCK", "ASSIGN_DAMAGE", "BEGIN_INTERACTION",
+        "ANNOUNCE_END_OF_ROUND", "APPLY_BLOCK_BOOST",
+        "ASSIGN_ATTACK", "ASSIGN_BANNER",
+        "ASSIGN_BLOCK", "ASSIGN_DAMAGE",
+        "BEGIN_INTERACTION", "BEGIN_PEACEFUL_MOMENT_HEALING",
         "BURN_MONASTERY", "BUY_ARTIFACT",
         "BUY_CITY_ADVANCED_ACTION", "BUY_CITY_ADVANCED_ACTION_FROM_DECK",
         "BUY_SPELL",
@@ -442,7 +446,7 @@ define_vocab!(MODE_VOCAB, "mode",
 );
 
 // =============================================================================
-// Source Vocabulary (150 entries)
+// Source Vocabulary (152 entries)
 // =============================================================================
 
 define_vocab!(SOURCE_VOCAB, "source",
@@ -451,6 +455,7 @@ define_vocab!(SOURCE_VOCAB, "source",
         "banner_protection.remove", "banner_protection.skip",
         "book_of_wisdom.card",
         "circlet_of_proficiency.card",
+        "combat.apply_block_boost",
         "combat.assign_attack", "combat.assign_block",
         "combat.assign_damage", "combat.banner_fear",
         "combat.convert_influence_to_block", "combat.convert_move_to_attack",
@@ -486,6 +491,7 @@ define_vocab!(SOURCE_VOCAB, "source",
         "normal.play_card.basic", "normal.play_card.powered", "normal.play_card.sideways",
         "normal.play_card.sideways.move", "normal.play_card.sideways.influence",
         "normal.play_card.sideways.attack", "normal.play_card.sideways.block",
+        "normal.begin_peaceful_moment_healing",
         "normal.site.add_elite_to_offer", "normal.site.altar_tribute",
         "normal.site.begin_interaction",
         "normal.site.burn_monastery", "normal.site.buy_aa",
@@ -540,6 +546,7 @@ define_vocab!(SOURCE_VOCAB, "source",
         "banner_protection.remove", "banner_protection.skip",
         "book_of_wisdom.card",
         "circlet_of_proficiency.card",
+        "combat.apply_block_boost",
         "combat.assign_attack", "combat.assign_block",
         "combat.assign_damage", "combat.banner_fear",
         "combat.convert_influence_to_block", "combat.convert_move_to_attack",
@@ -571,7 +578,9 @@ define_vocab!(SOURCE_VOCAB, "source",
         "meditation.done",
         "meditation.place.bottom", "meditation.place.top", "meditation.select",
         "normal.assign_banner",
-        "normal.banners.assign", "normal.challenge", "normal.explore",
+        "normal.banners.assign",
+        "normal.begin_peaceful_moment_healing",
+        "normal.challenge", "normal.explore",
         "normal.learning_aa", "normal.move",
         "normal.play_card.basic", "normal.play_card.powered", "normal.play_card.sideways",
         "normal.play_card.sideways.attack", "normal.play_card.sideways.block",
@@ -778,7 +787,7 @@ mod tests {
 
     #[test]
     fn action_type_vocab_size() {
-        assert_eq!(ACTION_TYPE_VOCAB.size(), 89); // 88 entries + UNK
+        assert_eq!(ACTION_TYPE_VOCAB.size(), 91); // 90 entries + UNK
     }
 
     #[test]
@@ -789,7 +798,7 @@ mod tests {
     #[test]
     fn source_vocab_size() {
         // Count the ordered entries
-        assert_eq!(SOURCE_VOCAB.size(), 151); // 150 entries + UNK
+        assert_eq!(SOURCE_VOCAB.size(), 153); // 152 entries + UNK
     }
 
     #[test]

@@ -58,13 +58,13 @@ export function ManaSourceOverlay() {
   const [colorPickerDieId, setColorPickerDieId] = useState<string | null>(null);
 
   // Track intro animation state
-  // Always start hidden - will reveal after intro completes
+  // If intro is already complete (replay mode, hot reload), start visible immediately
   const [introAnimState, setIntroAnimState] = useState<
     "hidden" | "revealing" | "visible"
-  >("hidden");
+  >(isIntroComplete ? "visible" : "hidden");
 
   // Track if we've animated in already
-  const hasAnimatedRef = useRef(false);
+  const hasAnimatedRef = useRef(isIntroComplete);
 
   // Track which dice are currently animating
   const [rollingDieIds, setRollingDieIds] = useState<Set<string>>(new Set());

@@ -85,6 +85,8 @@ bitflags! {
         const REPUTATION_BONUS_APPLIED_THIS_TURN = 1 << 17;
         const IS_INTERACTING                   = 1 << 18;
         const DISCARDED_CARD_THIS_TURN         = 1 << 19;
+        const IS_PEACEFUL_MOMENT_HEALING       = 1 << 20;
+        const PEACEFUL_MOMENT_ALLOW_REFRESH    = 1 << 21;
     }
 }
 

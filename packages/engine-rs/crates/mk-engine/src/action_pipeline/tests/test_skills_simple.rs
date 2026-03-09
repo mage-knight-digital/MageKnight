@@ -370,6 +370,269 @@ fn spirit_guides_turn_cooldown() {
         .any(|s| s.as_str() == "krang_spirit_guides"));
 }
 
+// ---- Circlet of Proficiency + Spirit Guides integration ----
+
+#[test]
+fn circlet_basic_with_spirit_guides_creates_block_boost_modifier() {
+    // Setup: Krang with Spirit Guides in common skills, Circlet in hand
+    let mut state = crate::setup::create_solo_game(42, Hero::Krang);
+    state.round_phase = RoundPhase::PlayerTurns;
+    state.phase = GamePhase::Round;
+    state.offers.common_skills.push(SkillId::from("krang_spirit_guides"));
+    state.players[0].hand = vec![CardId::from("circlet_of_proficiency")];
+    // Clear tile deck to avoid explore interference
+    state.map.tile_deck = mk_types::state::TileDeck::default();
+
+    let mut undo = crate::undo::UndoStack::new();
+
+    // Play Circlet basic → creates CircletOfProficiency pending
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::PlayCardBasic { hand_index: 0, card_id: CardId::from("circlet_of_proficiency") },
+        epoch,
+    ).unwrap();
+
+    // Should have CircletOfProficiency pending with Spirit Guides available
+    let spirit_guides_idx = match &state.players[0].pending.active {
+        Some(ActivePending::CircletOfProficiency(c)) => {
+            c.available_skills.iter().position(|s| s.as_str() == "krang_spirit_guides")
+                .expect("Spirit Guides should be in available skills")
+        }
+        other => panic!("Expected CircletOfProficiency pending, got {:?}", other),
+    };
+
+    // Resolve: select Spirit Guides
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::ResolveCircletOfProficiency { selection_index: spirit_guides_idx },
+        epoch,
+    ).unwrap();
+
+    // Should have: Move +1 and CombatValue::Block modifier
+    assert!(state.players[0].move_points >= 1, "Should gain Move 1 from Spirit Guides via Circlet");
+    assert!(
+        state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::CombatValue {
+                value_type: mk_types::modifier::CombatValueType::Block,
+                element: None,
+                amount,
+            } if *amount == 1)
+        ),
+        "Should have CombatValue::Block modifier from Spirit Guides via Circlet"
+    );
+
+    // Now enter block phase with some accumulated block
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Block,
+        ..CombatState::default()
+    }));
+    state.players[0].combat_accumulator.block = 2;
+    state.players[0].combat_accumulator.block_elements.physical = 2;
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &crate::undo::UndoStack::new());
+    assert!(
+        actions.actions.iter().any(|a| matches!(a, LegalAction::ApplyBlockBoost { element: Element::Physical })),
+        "ApplyBlockBoost should be available after Circlet + Spirit Guides"
+    );
+}
+
+// ---- Spirit Guides block boost integration ----
+
+#[test]
+fn spirit_guides_block_boost_enumerated_in_block_phase() {
+    let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_spirit_guides");
+    activate_skill(&mut state, &mut undo, "krang_spirit_guides");
+
+    // Enter combat block phase with some accumulated block
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Block,
+        ..CombatState::default()
+    }));
+    state.players[0].combat_accumulator.block = 3;
+    state.players[0].combat_accumulator.block_elements.physical = 3;
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &crate::undo::UndoStack::new());
+    assert!(
+        actions.actions.iter().any(|a| matches!(a,
+            LegalAction::ApplyBlockBoost { element: Element::Physical }
+        )),
+        "Should enumerate ApplyBlockBoost for physical block"
+    );
+    // No fire/ice/coldfire since those are 0
+    assert!(
+        !actions.actions.iter().any(|a| matches!(a,
+            LegalAction::ApplyBlockBoost { element: Element::Fire }
+        )),
+        "Should NOT enumerate ApplyBlockBoost for fire (zero accumulated)"
+    );
+}
+
+#[test]
+fn spirit_guides_block_boost_multiple_elements() {
+    let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_spirit_guides");
+    activate_skill(&mut state, &mut undo, "krang_spirit_guides");
+
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Block,
+        ..CombatState::default()
+    }));
+    state.players[0].combat_accumulator.block = 5;
+    state.players[0].combat_accumulator.block_elements.physical = 2;
+    state.players[0].combat_accumulator.block_elements.ice = 3;
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &crate::undo::UndoStack::new());
+    let boost_actions: Vec<_> = actions.actions.iter().filter(|a|
+        matches!(a, LegalAction::ApplyBlockBoost { .. })
+    ).collect();
+    assert_eq!(boost_actions.len(), 2, "Should have 2 boost options (physical + ice)");
+}
+
+#[test]
+fn spirit_guides_block_boost_not_in_ranged_siege() {
+    let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_spirit_guides");
+    activate_skill(&mut state, &mut undo, "krang_spirit_guides");
+
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::RangedSiege,
+        ..CombatState::default()
+    }));
+    state.players[0].combat_accumulator.block = 3;
+    state.players[0].combat_accumulator.block_elements.physical = 3;
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &crate::undo::UndoStack::new());
+    assert!(
+        !actions.actions.iter().any(|a| matches!(a, LegalAction::ApplyBlockBoost { .. })),
+        "Block boost should only be available in Block phase"
+    );
+}
+
+#[test]
+fn spirit_guides_block_boost_no_block_accumulated() {
+    let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_spirit_guides");
+    activate_skill(&mut state, &mut undo, "krang_spirit_guides");
+
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Block,
+        ..CombatState::default()
+    }));
+    // No block accumulated
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &crate::undo::UndoStack::new());
+    assert!(
+        !actions.actions.iter().any(|a| matches!(a, LegalAction::ApplyBlockBoost { .. })),
+        "No boost when no block accumulated"
+    );
+}
+
+#[test]
+fn spirit_guides_block_boost_applies_and_consumes_modifier() {
+    let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_spirit_guides");
+    activate_skill(&mut state, &mut undo, "krang_spirit_guides");
+
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Block,
+        ..CombatState::default()
+    }));
+    state.players[0].combat_accumulator.block = 3;
+    state.players[0].combat_accumulator.block_elements.ice = 3;
+
+    let epoch = state.action_epoch;
+    let result = apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::ApplyBlockBoost { element: Element::Ice },
+        epoch,
+    );
+    assert!(result.is_ok());
+
+    // Block should be boosted
+    assert_eq!(state.players[0].combat_accumulator.block, 4);
+    assert_eq!(state.players[0].combat_accumulator.block_elements.ice, 4);
+
+    // Modifier should be consumed
+    assert!(
+        !state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::CombatValue {
+                value_type: mk_types::modifier::CombatValueType::Block, ..
+            })
+        ),
+        "CombatValue::Block modifier should be consumed after use"
+    );
+}
+
+#[test]
+fn spirit_guides_block_boost_amount_2_allows_two_uses() {
+    // Simulates Circlet doubling: modifier with amount=2
+    let (mut state, mut undo) = setup_with_skill(Hero::Krang, "krang_spirit_guides");
+    activate_skill(&mut state, &mut undo, "krang_spirit_guides");
+
+    // Manually set the modifier amount to 2 (simulating Circlet doubling)
+    for m in state.active_modifiers.iter_mut() {
+        if let mk_types::modifier::ModifierEffect::CombatValue {
+            value_type: mk_types::modifier::CombatValueType::Block,
+            amount,
+            ..
+        } = &mut m.effect
+        {
+            *amount = 2;
+        }
+    }
+
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Block,
+        ..CombatState::default()
+    }));
+    state.players[0].combat_accumulator.block = 5;
+    state.players[0].combat_accumulator.block_elements.physical = 2;
+    state.players[0].combat_accumulator.block_elements.ice = 3;
+
+    // First boost: physical
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::ApplyBlockBoost { element: Element::Physical },
+        epoch,
+    ).unwrap();
+    assert_eq!(state.players[0].combat_accumulator.block_elements.physical, 3);
+
+    // Modifier should still exist with amount=1
+    assert!(state.active_modifiers.iter().any(|m|
+        matches!(&m.effect, mk_types::modifier::ModifierEffect::CombatValue {
+            value_type: mk_types::modifier::CombatValueType::Block,
+            amount,
+            ..
+        } if *amount == 1)
+    ), "Modifier should still exist with amount=1 after first use");
+
+    // Second boost: ice
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::ApplyBlockBoost { element: Element::Ice },
+        epoch,
+    ).unwrap();
+    assert_eq!(state.players[0].combat_accumulator.block_elements.ice, 4);
+    assert_eq!(state.players[0].combat_accumulator.block, 7); // 5 + 1 + 1
+
+    // Now modifier should be fully consumed
+    assert!(
+        !state.active_modifiers.iter().any(|m|
+            matches!(&m.effect, mk_types::modifier::ModifierEffect::CombatValue {
+                value_type: mk_types::modifier::CombatValueType::Block, ..
+            })
+        ),
+        "Modifier should be consumed after both uses"
+    );
+
+    // No more boost actions available
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &crate::undo::UndoStack::new());
+    assert!(
+        !actions.actions.iter().any(|a| matches!(a, LegalAction::ApplyBlockBoost { .. })),
+        "No more boost actions after modifier fully consumed"
+    );
+}
+
 // ---- Hawk Eyes (Wolfhawk) ----
 
 #[test]

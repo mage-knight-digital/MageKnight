@@ -303,6 +303,17 @@ pub fn apply_legal_action(
             }
         }
 
+        LegalAction::BeginPeacefulMomentHealing => {
+            // Reversible: clears flags, enters conversion pending.
+            undo_stack.save(state);
+            crate::effect_queue::enter_peaceful_moment_conversion(state, player_idx);
+            ApplyResult {
+                needs_reenumeration: true,
+                game_ended: false,
+                events: Vec::new(),
+            }
+        }
+
         LegalAction::EnterSite => {
             // Irreversible: draws enemy tokens (RNG)
             undo_stack.set_checkpoint();
@@ -733,6 +744,11 @@ pub fn apply_legal_action(
             conversions::apply_convert_influence_to_block(state, player_idx, *influence_points, *element)?
         }
 
+        LegalAction::ApplyBlockBoost { element } => {
+            undo_stack.save(state);
+            conversions::apply_block_boost(state, player_idx, *element)?
+        }
+
         LegalAction::PayHeroesAssaultInfluence => {
             undo_stack.save(state);
             conversions::apply_pay_heroes_assault_influence(state, player_idx)?
@@ -1004,6 +1020,7 @@ fn action_type_label(action: &LegalAction) -> String {
         LegalAction::ActivateTactic => "ActivateTactic".to_string(),
         LegalAction::InitiateManaSearch => "InitiateManaSearch".to_string(),
         LegalAction::BeginInteraction => "BeginInteraction".to_string(),
+        LegalAction::BeginPeacefulMomentHealing => "BeginPeacefulMomentHealing".to_string(),
         LegalAction::EnterSite => "EnterSite".to_string(),
         LegalAction::InteractSite { .. } => "InteractSite".to_string(),
         LegalAction::PlunderSite => "PlunderSite".to_string(),
@@ -1041,6 +1058,7 @@ fn action_type_label(action: &LegalAction) -> String {
         LegalAction::UseBannerFear { .. } => "UseBannerFear".to_string(),
         LegalAction::ConvertMoveToAttack { .. } => "ConvertMoveToAttack".to_string(),
         LegalAction::ConvertInfluenceToBlock { .. } => "ConvertInfluenceToBlock".to_string(),
+        LegalAction::ApplyBlockBoost { .. } => "ApplyBlockBoost".to_string(),
         LegalAction::PayHeroesAssaultInfluence => "PayHeroesAssaultInfluence".to_string(),
         LegalAction::PayThugsDamageInfluence { .. } => "PayThugsDamageInfluence".to_string(),
         LegalAction::ResolveUnitMaintenance { .. } => "ResolveUnitMaintenance".to_string(),

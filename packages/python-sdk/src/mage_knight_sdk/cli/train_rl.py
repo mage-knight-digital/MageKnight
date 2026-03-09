@@ -104,6 +104,7 @@ class _TBWriter:
             self._writer.add_scalar("reward_breakdown/wasted_move", reward_breakdown.wasted_move_penalty, episode)
             self._writer.add_scalar("reward_breakdown/backtrack", reward_breakdown.backtrack_penalty, episode)
             self._writer.add_scalar("reward_breakdown/wound_shaping", reward_breakdown.wound_shaping, episode)
+            self._writer.add_scalar("reward_breakdown/achievement", reward_breakdown.achievement, episode)
 
     def log_explained_variance(self, episode: int, returns: list[float], values: list[float]) -> None:
         if self._writer is None or not returns:
@@ -117,6 +118,16 @@ class _TBWriter:
         else:
             ev = 1.0 - np.var(ret - val) / var_ret
         self._writer.add_scalar("optimization/explained_variance", float(ev), episode)
+
+    def log_achievement_score(self, episode: int, total_achievement_delta: int) -> None:
+        if self._writer is None:
+            return
+        self._writer.add_scalar("episode/achievement_score", total_achievement_delta, episode)
+
+    def log_game_score(self, episode: int, game_score: int) -> None:
+        if self._writer is None:
+            return
+        self._writer.add_scalar("episode/game_score", game_score, episode)
 
     def log_wound_metrics(self, episode: int, total_wounds: float, turns_resting: float, wounds_per_combat: float) -> None:
         if self._writer is None:
@@ -159,6 +170,7 @@ def main() -> int:
     parser.add_argument("--wasted-move-penalty", type=float, default=0.0, help="Quadratic penalty per wasted move point at end of turn (e.g. -0.02)")
     parser.add_argument("--backtrack-penalty", type=float, default=0.0, help="Penalty for moving to a hex already visited this turn (e.g. -0.3)")
     parser.add_argument("--wound-shaping-k", type=float, default=0.0, help="Potential-based wound shaping coefficient (e.g. 10.0). Applies continuous penalty proportional to (wounds/deck_size)^2")
+    parser.add_argument("--achievement-reward-scale", type=float, default=0.0, help="Reward scale for achievement deltas (spell/AA/artifact/crystal/unit/site). 0 = disabled, 0.5 = recommended.")
 
     parser.add_argument("--checkpoint-dir", default=None, help="Run directory for checkpoints + logs (default: auto-generated under training/runs/)")
     parser.add_argument("--checkpoint-every", type=int, default=25, help="Save checkpoint every N episodes")
@@ -230,6 +242,7 @@ def main() -> int:
         wasted_move_penalty=args.wasted_move_penalty,
         backtrack_penalty=args.backtrack_penalty,
         wound_shaping_k=args.wound_shaping_k,
+        achievement_reward_scale=args.achievement_reward_scale,
     )
 
     run_dir = _resolve_run_dir(args.checkpoint_dir, args.resume)
@@ -678,6 +691,7 @@ def _train_curriculum(
                     tiles_explored=meta.tiles_explored,
                     phase_name=phase.name, phase_index=phase_idx,
                     reward_breakdown=meta.reward_breakdown,
+                    game_score=meta.game_score,
                 )
 
                 if tb is not None:
@@ -692,6 +706,8 @@ def _train_curriculum(
                         turns_resting=float(meta.turns_resting),
                         wounds_per_combat=wounds_per_combat,
                     )
+                    tb.log_achievement_score(global_ep, meta.total_achievement_delta)
+                    tb.log_game_score(global_ep, meta.game_score)
 
                 bd = meta.reward_breakdown
                 tiles = meta.tiles_explored
@@ -701,6 +717,7 @@ def _train_curriculum(
                     f"ep={global_ep:04d} [{phase.name}] steps={steps:<4} "
                     f"R={total_reward:>7.1f}  "
                     f"fame={meta.total_fame_delta:>3}(t{tiles}/c{combat_fame})  "
+                    f"score={meta.game_score:>3}  "
                     f"wounds={bd.wound_penalty:>5.1f}  "
                     f"ent={opt_stats.entropy:.2f}"
                 )
@@ -828,6 +845,7 @@ def _write_run_manifest(
             "wasted_move_penalty": reward_config.wasted_move_penalty,
             "backtrack_penalty": reward_config.backtrack_penalty,
             "wound_shaping_k": reward_config.wound_shaping_k,
+            "achievement_reward_scale": reward_config.achievement_reward_scale,
         },
         "cli": vars(args),
     }
@@ -887,6 +905,7 @@ def _append_metrics_log(
     phase_name: str | None = None,
     phase_index: int | None = None,
     reward_breakdown: Any = None,
+    game_score: int | None = None,
 ) -> None:
     """Write metrics from EpisodeTrainingStats."""
     explore_fame = tiles_explored * 1
@@ -912,6 +931,8 @@ def _append_metrics_log(
             "critic_loss": stats.optimization.critic_loss,
         },
     }
+    if game_score is not None:
+        record["game_score"] = game_score
     if phase_name is not None:
         record["phase"] = phase_name
         record["phase_index"] = phase_index
@@ -927,6 +948,7 @@ def _append_metrics_log(
             "wasted_move": reward_breakdown.wasted_move_penalty,
             "backtrack": reward_breakdown.backtrack_penalty,
             "wound_shaping": reward_breakdown.wound_shaping,
+            "achievement": reward_breakdown.achievement,
         }
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(record, sort_keys=True) + "\n")

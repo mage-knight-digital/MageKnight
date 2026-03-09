@@ -12,11 +12,11 @@ export function DeckDiscardIndicator({ deckCount, discardCount, isHidden }: Deck
   const { shouldRevealUI, isIntroComplete } = useGameIntro();
 
   // Track intro animation state for the deck/discard
-  // Always start hidden - will reveal after intro completes
-  const [introAnimState, setIntroAnimState] = useState<"hidden" | "revealing" | "visible">("hidden");
+  // If intro is already complete (replay mode, hot reload), start visible
+  const [introAnimState, setIntroAnimState] = useState<"hidden" | "revealing" | "visible">(isIntroComplete ? "visible" : "hidden");
 
   // Track if we've animated in already
-  const hasAnimatedRef = useRef(false);
+  const hasAnimatedRef = useRef(isIntroComplete);
 
   // Trigger reveal animation when shouldRevealUI becomes true
   useEffect(() => {

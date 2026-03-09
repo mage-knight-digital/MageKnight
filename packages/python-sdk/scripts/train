@@ -462,14 +462,15 @@ def fmt_age(dt):
         return f'{days}d ago'
     return dt.strftime('%Y-%m-%d')
 
+nw = max(len('Name'), max((len(r[0]) for r in rows), default=4))
 print('Runs (newest first):')
-print(f'  {\"Name\":<20} {\"Started\":>12} {\"Episodes\":>8}  {\"Avg(100)\":>8}  {\"Max\":>6}  {\"g/s\":>5}  Config')
-print(f'  {\"-\"*20} {\"-\"*12} {\"-\"*8}  {\"-\"*8}  {\"-\"*6}  {\"-\"*5}  {\"-\"*40}')
+print(f'  {\"Name\":<{nw}}  {\"Started\":>12}  {\"Episodes\":>8}  {\"Avg(100)\":>8}  {\"Max\":>6}  {\"g/s\":>7}  Config')
+print(f'  {\"-\"*nw}  {\"-\"*12}  {\"-\"*8}  {\"-\"*8}  {\"-\"*6}  {\"-\"*7}  {\"-\"*40}')
 for name, started_dt, eps, avg_r, max_r, gps, cfg in rows:
     age = fmt_age(started_dt)
     stats = f'{avg_r:>8.1f}  {max_r:>6.1f}' if eps > 0 else f'{\"—\":>8}  {\"—\":>6}'
-    gps_str = f'{gps:>5.1f}' if gps is not None else f'{\"—\":>5}'
-    print(f'  {name:<20} {age:>12} {eps:>8}  {stats}  {gps_str}  {cfg}')
+    gps_str = f'{gps:>7.1f}' if gps is not None else f'{\"—\":>7}'
+    print(f'  {name:<{nw}}  {age:>12}  {eps:>8}  {stats}  {gps_str}  {cfg}')
 
 print()
 print(f'Compare in TensorBoard: tensorboard --logdir {runs_dir}')

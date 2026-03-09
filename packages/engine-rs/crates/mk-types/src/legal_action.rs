@@ -91,6 +91,10 @@ pub enum LegalAction {
     /// Begin interaction with an inhabited site (village, monastery, keep, tower, city).
     /// Gates commerce actions and influence sideways behind IS_INTERACTING flag.
     BeginInteraction,
+    /// Enter Peaceful Moment's healing conversion loop.
+    /// Transitions from the IS_PEACEFUL_MOMENT_HEALING accumulation window
+    /// into the PeacefulMomentConversion pending choice.
+    BeginPeacefulMomentHealing,
     EnterSite,
     InteractSite {
         healing: u32,
@@ -270,6 +274,11 @@ pub enum LegalAction {
     ConvertInfluenceToBlock {
         influence_points: u32,
         element: Option<Element>,
+    },
+    /// Apply a +1 block boost to a chosen element (Spirit Guides / CombatValue::Block modifier).
+    /// Available during Block phase when a CombatValue::Block modifier is active.
+    ApplyBlockBoost {
+        element: Element,
     },
     /// Pay 2 influence to allow Heroes unit to participate in fortified assault.
     PayHeroesAssaultInfluence,

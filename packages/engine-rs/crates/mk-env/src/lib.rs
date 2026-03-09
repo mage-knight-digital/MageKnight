@@ -14,10 +14,12 @@ use rayon::prelude::*;
 use mk_engine::action_pipeline::{apply_legal_action, ApplyError};
 use mk_engine::combat_search::{search_combat, CombatSearchConfig};
 use mk_engine::legal_actions::enumerate_legal_actions_with_undo;
+use mk_engine::scoring::{calculate_category_base_points, calculate_final_scores};
 use mk_engine::undo::UndoStack;
 use mk_features::EncodedStep;
 use mk_types::enums::Hero;
 use mk_types::legal_action::{LegalAction, LegalActionSet};
+use mk_types::scoring::AchievementCategory;
 use mk_types::state::GameState;
 
 pub use training_scenario::TrainingScenario;
@@ -27,6 +29,25 @@ use training_scenario::create_training_game;
 fn filter_undo(mut action_set: LegalActionSet) -> LegalActionSet {
     action_set.actions.retain(|a| !matches!(a, LegalAction::Undo));
     action_set
+}
+
+/// Compute achievement score excluding GreatestBeating (wounds).
+///
+/// Wounds are already penalized via `wound_penalty` and `wound_shaping_k`,
+/// so including wound-based achievement scoring would double-penalize.
+fn achievement_score_no_wounds(state: &GameState) -> i32 {
+    let player = &state.players[0];
+    let mut total = 0;
+    for cat in [
+        AchievementCategory::GreatestKnowledge,
+        AchievementCategory::GreatestLoot,
+        AchievementCategory::GreatestLeader,
+        AchievementCategory::GreatestConqueror,
+        AchievementCategory::GreatestAdventurer,
+    ] {
+        total += calculate_category_base_points(cat, player, state);
+    }
+    total
 }
 
 use batch_output::BatchOutput;
@@ -366,6 +387,10 @@ pub struct StepResult {
     pub in_combat: Vec<bool>,
     /// (N,) — whether the player ended a rest turn this step (0 or 1)
     pub rested_turns: Vec<i32>,
+    /// (N,) — change in achievement score (excluding wounds) this step
+    pub achievement_deltas: Vec<i32>,
+    /// (N,) — official Mage Knight game score (fame + achievements); 0 for non-done envs
+    pub game_scores: Vec<i32>,
 }
 
 // =============================================================================
@@ -439,9 +464,10 @@ impl VecEnv {
         let n = self.envs.len();
         assert_eq!(actions.len(), n, "actions length must match num_envs");
 
-        // Capture fames, wounds, hex counts, positions, and move points before stepping
+        // Capture fames, wounds, hex counts, positions, move points, and achievements before stepping
         let fames_before: Vec<i32> = self.envs.iter().map(|e| e.fame() as i32).collect();
         let wounds_before: Vec<i32> = self.envs.iter().map(|e| e.wound_count()).collect();
+        let achievements_before: Vec<i32> = self.envs.iter().map(|e| achievement_score_no_wounds(&e.state)).collect();
         let hexes_before: Vec<usize> = self.envs.iter().map(|e| e.state.map.hexes.len()).collect();
         let move_points_before: Vec<i32> = self.envs.iter().map(|e| e.state.players[0].move_points as i32).collect();
         let positions_before: Vec<Option<(i32, i32)>> = self.envs.iter()
@@ -505,6 +531,7 @@ impl VecEnv {
         let mut total_card_counts = Vec::with_capacity(n);
         let mut in_combat = Vec::with_capacity(n);
         let mut rested_turns = Vec::with_capacity(n);
+        let mut achievement_deltas = Vec::with_capacity(n);
 
         for (i, (game_ended, did_panic)) in results.iter().enumerate() {
             let env = &self.envs[i];
@@ -529,6 +556,18 @@ impl VecEnv {
             in_combat.push(env.state.combat.is_some());
             // A rest turn is detected when EndTurn fires while IS_RESTING or HAS_RESTED_THIS_TURN was set
             rested_turns.push(if is_end_turn[i] && was_resting[i] { 1 } else { 0 });
+            achievement_deltas.push(achievement_score_no_wounds(&env.state) - achievements_before[i]);
+        }
+
+        // Compute official game scores for done envs (before reset wipes state)
+        let mut game_scores = vec![0i32; n];
+        for (i, &done) in dones.iter().enumerate() {
+            if done && !panicked[i] {
+                let result = calculate_final_scores(&self.envs[i].state);
+                if let Some(pr) = result.player_results.first() {
+                    game_scores[i] = pr.total_score;
+                }
+            }
         }
 
         // Auto-reset finished environments
@@ -557,6 +596,8 @@ impl VecEnv {
             total_card_counts,
             in_combat,
             rested_turns,
+            achievement_deltas,
+            game_scores,
         }
     }
 

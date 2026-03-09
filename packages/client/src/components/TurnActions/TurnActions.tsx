@@ -28,13 +28,14 @@ export function TurnActions() {
   // - "hidden": No tactic selected yet, or intro is running
   // - "revealing": Tactic just selected, animating in
   // - "visible": Fully visible
-  // Always start hidden - the useEffect will reveal when appropriate
+  // If intro is already complete and tactic selected (replay mode), start visible
+  const skipIntroAnim = isIntroComplete && hasTactic;
   const [sealAnimState, setSealAnimState] = useState<
     "hidden" | "revealing" | "visible"
-  >("hidden");
+  >(skipIntroAnim ? "visible" : "hidden");
 
   // Track if we've already animated in (to avoid re-animating)
-  const hasAnimatedRef = useRef(false);
+  const hasAnimatedRef = useRef(skipIntroAnim);
 
   // Reveal with animation when tactic is selected (after intro)
   useEffect(() => {

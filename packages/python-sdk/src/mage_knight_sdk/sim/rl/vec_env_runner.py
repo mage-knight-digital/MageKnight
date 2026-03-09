@@ -177,6 +177,7 @@ class RewardBreakdown:
     wasted_move_penalty: float = 0.0
     backtrack_penalty: float = 0.0
     wound_shaping: float = 0.0
+    achievement: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -192,6 +193,8 @@ class CompletedEpisodeMeta:
     total_wounds: int = 0  # Total wounds gained during the episode
     combats_entered: int = 0  # Number of combats entered during the episode
     turns_resting: int = 0  # Number of turns spent resting
+    total_achievement_delta: int = 0  # Cumulative achievement score change (excluding wounds)
+    game_score: int = 0  # Official Mage Knight game score (fame + all achievements)
 
 
 @dataclass
@@ -213,6 +216,8 @@ class EpisodeBuffers:
     reward_wasted_move: list[float] = field(default_factory=list)
     reward_backtrack: list[float] = field(default_factory=list)
     reward_wound_shaping: list[float] = field(default_factory=list)
+    reward_achievement: list[float] = field(default_factory=list)
+    total_achievement_delta: list[int] = field(default_factory=list)
     tiles_explored: list[int] = field(default_factory=list)
     prev_wound_potential: list[float] = field(default_factory=list)
     total_wounds: list[int] = field(default_factory=list)
@@ -235,9 +240,12 @@ class EpisodeBuffers:
                     self.reward_cards_remaining, self.reward_new_hex,
                     self.reward_step_penalty, self.reward_terminal,
                     self.reward_scenario_trigger, self.reward_wasted_move,
-                    self.reward_backtrack, self.reward_wound_shaping):
+                    self.reward_backtrack, self.reward_wound_shaping,
+                    self.reward_achievement):
             while len(lst) < num_envs:
                 lst.append(0.0)
+        while len(self.total_achievement_delta) < num_envs:
+            self.total_achievement_delta.append(0)
         while len(self.tiles_explored) < num_envs:
             self.tiles_explored.append(0)
         while len(self.prev_wound_potential) < num_envs:
@@ -343,6 +351,8 @@ def collect_vecenv_rollout(
         total_card_counts = step_result["total_card_counts"]
         in_combat_flags = step_result["in_combat"]
         rested_turns_step = step_result["rested_turns"]
+        achievement_deltas = step_result["achievement_deltas"]
+        game_scores = step_result["game_scores"]
 
         # 4. Process each env
         for i in range(num_envs):
@@ -388,6 +398,15 @@ def collect_vecenv_rollout(
                 reward += shaping
                 episode_buffers.reward_wound_shaping[i] += shaping
                 episode_buffers.prev_wound_potential[i] = phi_new
+
+            # Achievement-based reward (spell/AA/artifact/crystal/unit/site acquisition)
+            ach_delta = int(achievement_deltas[i])
+            if ach_delta != 0:
+                episode_buffers.total_achievement_delta[i] += ach_delta
+                if reward_config.achievement_reward_scale != 0.0:
+                    ach_reward = reward_config.achievement_reward_scale * float(ach_delta)
+                    reward += ach_reward
+                    episode_buffers.reward_achievement[i] += ach_reward
 
             # Track tiles explored
             if new_tiles[i] > 0:
@@ -448,6 +467,8 @@ def collect_vecenv_rollout(
                     episode_buffers.reward_wasted_move[i] = 0.0
                     episode_buffers.reward_backtrack[i] = 0.0
                     episode_buffers.reward_wound_shaping[i] = 0.0
+                    episode_buffers.reward_achievement[i] = 0.0
+                    episode_buffers.total_achievement_delta[i] = 0
                     episode_buffers.prev_wound_potential[i] = 0.0
                     episode_buffers.total_wounds[i] = 0
                     episode_buffers.combats_entered[i] = 0
@@ -501,6 +522,7 @@ def collect_vecenv_rollout(
                     wasted_move_penalty=episode_buffers.reward_wasted_move[i],
                     backtrack_penalty=episode_buffers.reward_backtrack[i],
                     wound_shaping=episode_buffers.reward_wound_shaping[i],
+                    achievement=episode_buffers.reward_achievement[i],
                 )
                 completed_episodes.append(episode)
                 completed_metas.append(CompletedEpisodeMeta(
@@ -514,6 +536,8 @@ def collect_vecenv_rollout(
                     total_wounds=episode_buffers.total_wounds[i],
                     combats_entered=episode_buffers.combats_entered[i],
                     turns_resting=episode_buffers.turns_resting[i],
+                    total_achievement_delta=episode_buffers.total_achievement_delta[i],
+                    game_score=int(game_scores[i]),
                 ))
                 bufs[i] = []
                 episode_buffers.buffers[i] = bufs[i]
@@ -531,6 +555,8 @@ def collect_vecenv_rollout(
                 episode_buffers.reward_wasted_move[i] = 0.0
                 episode_buffers.reward_backtrack[i] = 0.0
                 episode_buffers.reward_wound_shaping[i] = 0.0
+                episode_buffers.reward_achievement[i] = 0.0
+                episode_buffers.total_achievement_delta[i] = 0
                 episode_buffers.prev_wound_potential[i] = 0.0
                 episode_buffers.total_wounds[i] = 0
                 episode_buffers.combats_entered[i] = 0

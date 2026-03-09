@@ -852,6 +852,7 @@ fn format_action(action: &LegalAction, state: &GameState, player_idx: usize) -> 
             let site_name = player_site_name(state, player_idx);
             format!("Begin interaction with {}", site_name)
         }
+        LegalAction::BeginPeacefulMomentHealing => "Begin Peaceful Moment healing".into(),
         LegalAction::EnterSite => {
             let site_name = player_site_name(state, player_idx);
             format!("Enter {}", site_name)
@@ -1051,6 +1052,9 @@ fn format_action(action: &LegalAction, state: &GameState, player_idx: usize) -> 
         }
         LegalAction::ConvertInfluenceToBlock { influence_points, element } => {
             format!("Convert {} influence → {:?} block", influence_points, element)
+        }
+        LegalAction::ApplyBlockBoost { element } => {
+            format!("Apply +1 block boost to {:?}", element)
         }
         LegalAction::PayHeroesAssaultInfluence => {
             "Pay 2 influence for Heroes assault".into()

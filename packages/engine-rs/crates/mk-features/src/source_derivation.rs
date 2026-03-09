@@ -172,6 +172,7 @@ pub fn derive_source_str(action: &LegalAction, state: &GameState, player_idx: us
         LegalAction::ResolveCircletOfProficiency { .. } => "circlet_of_proficiency.card",
         LegalAction::ConvertMoveToAttack { .. } => "combat.convert_move_to_attack",
         LegalAction::ConvertInfluenceToBlock { .. } => "combat.convert_influence_to_block",
+        LegalAction::ApplyBlockBoost { .. } => "combat.apply_block_boost",
         LegalAction::PayHeroesAssaultInfluence => "combat.heroes_assault_payment",
         LegalAction::PayThugsDamageInfluence { .. } => "combat.thugs_payment",
         LegalAction::ResolveUnitMaintenance { keep_unit, .. } => {
@@ -183,6 +184,7 @@ pub fn derive_source_str(action: &LegalAction, state: &GameState, player_idx: us
         LegalAction::ForfeitUnitReward => "unit_reward.forfeit",
         LegalAction::DisbandUnitForReward { .. } => "unit_reward.disband",
         LegalAction::BeginInteraction => "normal.site.begin_interaction",
+        LegalAction::BeginPeacefulMomentHealing => "normal.begin_peaceful_moment_healing",
     }
 }
 

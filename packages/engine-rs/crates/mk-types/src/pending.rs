@@ -209,6 +209,19 @@ pub struct ShapeshiftCardOption {
     pub element: Option<Element>,
 }
 
+/// Which action a Peaceful Moment conversion option maps to.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum PeacefulMomentOption {
+    /// Stop converting — keep remaining influence.
+    Done,
+    /// Remove 1 wound from hand (costs 2 influence = 1 healing point).
+    HealWound,
+    /// Refresh a spent unit (costs level × 2 influence). Powered only.
+    RefreshUnit,
+    /// Heal a wounded unit (costs level × 2 influence = level healing points).
+    HealUnit { unit_index: usize },
+}
+
 /// How a pending choice should be resolved beyond just enqueueing the chosen effect.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ChoiceResolution {
@@ -396,11 +409,13 @@ pub enum ChoiceResolution {
         is_second: bool,
         first_spell_index: Option<usize>,
     },
-    /// Peaceful Moment: conversion loop choice (heal, refresh, done).
+    /// Peaceful Moment: conversion loop choice (heal wound, heal unit, refresh, done).
+    /// `option_map` maps each choice index to the concrete action.
     PeacefulMomentConversion {
         influence_remaining: u32,
         allow_refresh: bool,
         refreshed: bool,
+        option_map: Vec<PeacefulMomentOption>,
     },
     /// Blood of Ancients basic: pay mana → filter AAs by color.
     /// Each option index maps to a (mana_source, mana_color) pair.

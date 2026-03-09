@@ -15,7 +15,7 @@ export function TopBar() {
 
   // Track intro animation state - start hidden unless intro already complete (replay mode)
   const [introAnimState, setIntroAnimState] = useState<"hidden" | "revealing" | "visible">(isIntroComplete ? "visible" : "hidden");
-  const hasAnimatedRef = useRef(false);
+  const hasAnimatedRef = useRef(isIntroComplete);
 
   // Trigger reveal animation when shouldRevealUI becomes true
   useEffect(() => {

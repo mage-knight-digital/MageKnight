@@ -23,3 +23,4 @@ class RewardConfig:
     wasted_move_penalty: float = 0.0
     backtrack_penalty: float = 0.0
     wound_shaping_k: float = 0.0
+    achievement_reward_scale: float = 0.0
