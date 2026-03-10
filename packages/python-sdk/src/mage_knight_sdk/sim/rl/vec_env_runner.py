@@ -369,8 +369,8 @@ def collect_vecenv_rollout(
                 reward += hex_bonus
                 episode_buffers.reward_new_hex[i] += hex_bonus
 
-            # Wound penalty for gaining wounds
-            if wound_deltas[i] > 0 and reward_config.wound_penalty != 0.0:
+            # Wound penalty/reward for gaining/healing wounds
+            if wound_deltas[i] != 0 and reward_config.wound_penalty != 0.0:
                 wound_pen = reward_config.wound_penalty * float(wound_deltas[i])
                 reward += wound_pen
                 episode_buffers.reward_wound_penalty[i] += wound_pen
@@ -412,8 +412,8 @@ def collect_vecenv_rollout(
             if new_tiles[i] > 0:
                 episode_buffers.tiles_explored[i] += int(new_tiles[i])
 
-            # Track wound gains
-            if wound_deltas[i] > 0:
+            # Track wound changes (gains and healing)
+            if wound_deltas[i] != 0:
                 episode_buffers.total_wounds[i] += int(wound_deltas[i])
 
             # Track combat entries (transition from not-in-combat to in-combat)

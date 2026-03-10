@@ -159,7 +159,7 @@ def run_native_rl_game(
 
             # Wound penalty
             wound_delta = engine.wound_count() - wounds_before
-            if wound_delta > 0 and reward_config.wound_penalty != 0.0:
+            if wound_delta != 0 and reward_config.wound_penalty != 0.0:
                 reward += reward_config.wound_penalty * float(wound_delta)
 
             # Potential-based wound shaping: γ·φ(s') - φ(s)
@@ -277,7 +277,7 @@ def run_native_rl_game_ppo(
 
             # Wound penalty
             wound_delta = engine.wound_count() - wounds_before
-            if wound_delta > 0 and reward_config.wound_penalty != 0.0:
+            if wound_delta != 0 and reward_config.wound_penalty != 0.0:
                 reward += reward_config.wound_penalty * float(wound_delta)
 
             # Potential-based wound shaping: γ·φ(s') - φ(s)

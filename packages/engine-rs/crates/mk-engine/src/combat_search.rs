@@ -677,6 +677,13 @@ mod tests {
         let mut state = create_solo_game(42, Hero::Arythea);
         state.round_phase = RoundPhase::PlayerTurns;
         state.players[0].hand = hand.into_iter().map(CardId::from).collect();
+        // Ensure deterministic mana dice (red + blue available) so tests
+        // don't depend on RNG sequence from tile deck creation.
+        state.source.dice = vec![
+            mk_types::state::SourceDie { id: mk_types::ids::SourceDieId::from("die_0"), color: mk_types::enums::ManaColor::Red, is_depleted: false, taken_by_player_id: None },
+            mk_types::state::SourceDie { id: mk_types::ids::SourceDieId::from("die_1"), color: mk_types::enums::ManaColor::Blue, is_depleted: false, taken_by_player_id: None },
+            mk_types::state::SourceDie { id: mk_types::ids::SourceDieId::from("die_2"), color: mk_types::enums::ManaColor::Green, is_depleted: false, taken_by_player_id: None },
+        ];
         let tokens: Vec<EnemyTokenId> = enemy_ids
             .iter()
             .map(|id| EnemyTokenId::from(*id))

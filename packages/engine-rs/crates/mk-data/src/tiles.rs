@@ -440,14 +440,15 @@ pub fn is_core_tile(tile_id: TileId) -> bool {
 
 /// Create a tile deck from scenario config.
 ///
-/// Shuffles the countryside and core pools, takes the specified counts.
+/// Countryside tiles are taken in numerical order (sorted by number per rules).
+/// Core and city pools are shuffled to randomize which tiles appear.
 /// City tiles go at the bottom of the core deck (drawn last).
 pub fn create_tile_deck(
     config: &mk_types::state::ScenarioConfig,
     rng: &mut mk_types::rng::RngState,
 ) -> mk_types::state::TileDeck {
-    let mut countryside_pool = all_countryside_tiles();
-    rng.shuffle(&mut countryside_pool);
+    // Countryside: sorted by number (rules: "sorted by numbers"), take first N
+    let countryside_pool = all_countryside_tiles();
     let countryside = countryside_pool[..config.countryside_tile_count as usize].to_vec();
 
     let mut non_city_pool = all_non_city_core_tiles();
@@ -746,6 +747,21 @@ mod tests {
 
         assert_eq!(deck.countryside.len(), 8, "8 countryside tiles");
         assert_eq!(deck.core.len(), 3, "2 non-city + 1 city = 3 core tiles");
+    }
+
+    #[test]
+    fn create_tile_deck_countryside_sorted_by_number() {
+        let config = crate::scenarios::first_reconnaissance();
+        let mut rng = mk_types::rng::RngState::new(42);
+        let deck = create_tile_deck(&config, &mut rng);
+
+        // Countryside tiles should be in numerical order (rules: "sorted by numbers")
+        let expected = vec![
+            TileId::Countryside1, TileId::Countryside2, TileId::Countryside3,
+            TileId::Countryside4, TileId::Countryside5, TileId::Countryside6,
+            TileId::Countryside7, TileId::Countryside8,
+        ];
+        assert_eq!(deck.countryside, expected);
     }
 
     #[test]

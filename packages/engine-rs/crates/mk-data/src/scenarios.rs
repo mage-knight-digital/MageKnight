@@ -49,11 +49,11 @@ pub fn first_reconnaissance() -> ScenarioConfig {
 
 /// First Reconnaissance — 2-player variant.
 ///
-/// Map: Open 3 shape, 6 countryside + 2 core + 1 city tile.
+/// Map: Open 3 shape, 8 countryside + 2 core + 1 city tile.
 /// 3 rounds (2 day + 1 night). No dummy player.
 pub fn first_reconnaissance_2p() -> ScenarioConfig {
     ScenarioConfig {
-        countryside_tile_count: 6,
+        countryside_tile_count: 8,
         core_tile_count: 2,
         city_tile_count: 1,
         map_shape: MapShape::Open3,
@@ -82,12 +82,12 @@ pub fn first_reconnaissance_2p() -> ScenarioConfig {
 
 /// First Reconnaissance — 3-player variant.
 ///
-/// Map: Open 4 shape, 8 countryside + 3 core + 1 city tile.
+/// Map: Open 4 shape, 9 countryside + 2 core + 1 city tile.
 /// 3 rounds (2 day + 1 night). No dummy player.
 pub fn first_reconnaissance_3p() -> ScenarioConfig {
     ScenarioConfig {
-        countryside_tile_count: 8,
-        core_tile_count: 3,
+        countryside_tile_count: 9,
+        core_tile_count: 2,
         city_tile_count: 1,
         map_shape: MapShape::Open4,
         day_rounds: 2,
@@ -115,12 +115,12 @@ pub fn first_reconnaissance_3p() -> ScenarioConfig {
 
 /// First Reconnaissance — 4-player variant.
 ///
-/// Map: Open 5 shape, 10 countryside + 4 core + 1 city tile.
+/// Map: Open 5 shape, 11 countryside + 2 core + 1 city tile.
 /// 3 rounds (2 day + 1 night). No dummy player.
 pub fn first_reconnaissance_4p() -> ScenarioConfig {
     ScenarioConfig {
-        countryside_tile_count: 10,
-        core_tile_count: 4,
+        countryside_tile_count: 11,
+        core_tile_count: 2,
         city_tile_count: 1,
         map_shape: MapShape::Open5,
         day_rounds: 2,
