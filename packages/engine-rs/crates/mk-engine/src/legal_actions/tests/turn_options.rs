@@ -592,3 +592,62 @@ fn healing_window_suppresses_site_interaction() {
         .any(|a| matches!(a, LegalAction::BeginInteraction));
     assert!(!has_begin_interaction, "BeginInteraction should be suppressed during healing window");
 }
+
+// =========================================================================
+// Rule 5a exception: empty hand with cards in deck
+// =========================================================================
+
+/// Rule 5a: "you have to play or discard at least one card during or at the
+/// end of your turn (except if your hand is empty but there are still cards
+/// in your Deed deck at the beginning of your turn)."
+///
+/// Reproduces the deadlock from crash seed 42048: player on a time-bent extra
+/// turn with empty hand, cards in deck, IS_INTERACTING at a conquered mage
+/// tower. EndTurn must be available per the rule 5a exception.
+#[test]
+fn end_turn_available_with_empty_hand_and_cards_in_deck() {
+    let mut state = setup_game(vec![]); // empty hand
+    state.players[0].deck = vec![
+        CardId::from("crystallize"),
+        CardId::from("ambush"),
+        CardId::from("march"),
+        CardId::from("stamina"),
+        CardId::from("determination"),
+    ];
+    // Simulate time-bent extra turn interacting at a conquered mage tower
+    state.players[0].flags.insert(PlayerFlags::IS_TIME_BENT_TURN);
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
+
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let has_end = legal
+        .actions
+        .iter()
+        .any(|a| matches!(a, LegalAction::EndTurn));
+    assert!(
+        has_end,
+        "EndTurn should be available when hand is empty but deck has cards (rule 5a exception). \
+         Got {} actions: {:?}",
+        legal.actions.len(),
+        legal.actions
+    );
+}
+
+/// Same rule 5a exception but without IS_INTERACTING — just empty hand, cards
+/// in deck, no flags set that would normally gate EndTurn.
+#[test]
+fn end_turn_available_empty_hand_cards_in_deck_no_interaction() {
+    let mut state = setup_game(vec![]); // empty hand
+    state.players[0].deck = vec![CardId::from("march"), CardId::from("rage")];
+
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let has_end = legal
+        .actions
+        .iter()
+        .any(|a| matches!(a, LegalAction::EndTurn));
+    assert!(
+        has_end,
+        "EndTurn should be available when hand is empty but deck has cards (rule 5a exception)"
+    );
+}

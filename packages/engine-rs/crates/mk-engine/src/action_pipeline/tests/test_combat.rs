@@ -116,6 +116,42 @@ fn end_combat_phase_full_cycle() {
 }
 
 #[test]
+fn end_ranged_siege_clears_normal_attack_accumulator() {
+    let mut state = setup_playing_game(vec!["march"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::RangedSiege,
+        ..CombatState::default()
+    }));
+
+    // Simulate normal (melee) attack accumulated during ranged/siege phase
+    state.players[0].combat_accumulator.attack.normal = 6;
+    state.players[0].combat_accumulator.attack.normal_elements.physical = 6;
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+
+    // Transition RangedSiege → Block
+    apply_legal_action(
+        &mut state,
+        &mut undo,
+        0,
+        &LegalAction::EndCombatPhase,
+        epoch,
+    )
+    .unwrap();
+
+    assert_eq!(state.combat.as_ref().unwrap().phase, CombatPhase::Block);
+
+    // Normal attack should be cleared — rules say "You may not save Attack points for later use"
+    let acc = &state.players[0].combat_accumulator;
+    assert_eq!(acc.attack.normal, 0, "normal attack should be cleared after ranged/siege phase");
+    assert_eq!(
+        acc.attack.normal_elements.physical, 0,
+        "normal attack elements should be cleared after ranged/siege phase"
+    );
+}
+
+#[test]
 fn explore_sets_checkpoint() {
     let mut state = setup_playing_game(vec!["march"]);
     state.players[0].move_points = 5;
@@ -1572,14 +1608,15 @@ fn challenge_orc_marauder_defeat_grants_rep_plus_1() {
     );
     let initial_rep = state.players[0].reputation;
 
-    // Give enough attack to defeat prowlers (armor 3)
-    state.players[0].combat_accumulator.attack.normal_elements.physical = 10;
-
     // Skip to Attack phase
     for _ in 0..3 {
         let epoch = state.action_epoch;
         apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
     }
+
+    // Give enough attack to defeat prowlers (armor 3) — must be set after
+    // reaching Attack phase since EndCombatPhase clears all attack pools.
+    state.players[0].combat_accumulator.attack.normal_elements.physical = 10;
 
     // Declare attack on the enemy
     execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
@@ -2127,14 +2164,15 @@ fn challenge_draconum_defeat_grants_rep_plus_2() {
     );
     let initial_rep = state.players[0].reputation;
 
-    // Give enough attack to defeat swamp_dragon (armor 9)
-    state.players[0].combat_accumulator.attack.normal_elements.physical = 20;
-
     // Skip to Attack phase
     for _ in 0..3 {
         let epoch = state.action_epoch;
         apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
     }
+
+    // Give enough attack to defeat swamp_dragon (armor 9) — must be set after
+    // reaching Attack phase since EndCombatPhase clears all attack pools.
+    state.players[0].combat_accumulator.attack.normal_elements.physical = 20;
 
     execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
 
@@ -2159,12 +2197,11 @@ fn rampaging_type_slot_cleared_after_defeat() {
         hex_coord,
     );
 
-    state.players[0].combat_accumulator.attack.normal_elements.physical = 10;
-
     for _ in 0..3 {
         let epoch = state.action_epoch;
         apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
     }
+    state.players[0].combat_accumulator.attack.normal_elements.physical = 10;
     execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
     let epoch = state.action_epoch;
     apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
@@ -2190,12 +2227,11 @@ fn hex_unblocked_after_rampaging_defeat() {
         hex_coord,
     );
 
-    state.players[0].combat_accumulator.attack.normal_elements.physical = 10;
-
     for _ in 0..3 {
         let epoch = state.action_epoch;
         apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
     }
+    state.players[0].combat_accumulator.attack.normal_elements.physical = 10;
     execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
     let epoch = state.action_epoch;
     apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
@@ -2255,12 +2291,11 @@ fn rampaging_rep_clamped_at_max_7() {
     // Set rep to 6, defeating Draconum should give +2 but clamp at 7
     state.players[0].reputation = 6;
 
-    state.players[0].combat_accumulator.attack.normal_elements.physical = 20;
-
     for _ in 0..3 {
         let epoch = state.action_epoch;
         apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
     }
+    state.players[0].combat_accumulator.attack.normal_elements.physical = 20;
     execute_attack(&mut state, &mut undo, CombatType::Melee, 1);
     let epoch = state.action_epoch;
     apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();

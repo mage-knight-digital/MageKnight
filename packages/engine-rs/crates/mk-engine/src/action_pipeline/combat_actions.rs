@@ -846,16 +846,10 @@ pub(super) fn apply_end_combat_phase(
 
     match combat.phase {
         CombatPhase::RangedSiege => {
-            // Clear ranged/siege attack pools (consumed by this phase)
+            // Clear all attack pools — rules: "You may not save Attack points for later use"
             let accumulator = &mut state.players[player_idx].combat_accumulator;
-            accumulator.attack.ranged = 0;
-            accumulator.attack.siege = 0;
-            accumulator.attack.ranged_elements = ElementalValues::default();
-            accumulator.attack.siege_elements = ElementalValues::default();
-            accumulator.assigned_attack.ranged = 0;
-            accumulator.assigned_attack.siege = 0;
-            accumulator.assigned_attack.ranged_elements = ElementalValues::default();
-            accumulator.assigned_attack.siege_elements = ElementalValues::default();
+            accumulator.attack = AccumulatedAttack::default();
+            accumulator.assigned_attack = AccumulatedAttack::default();
 
             // Hook: BowPhaseFameTracking — award fame for enemies defeated in ranged/siege phase
             {

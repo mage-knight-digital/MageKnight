@@ -52,11 +52,15 @@ pub(super) fn enumerate_turn_options(
     }
 
     // Category 9: EndTurn — available after playing a card, resting, or completing combat.
+    // Rule 5a exception: if hand is empty but deed deck has cards, EndTurn is
+    // available even without playing/discarding a card.
+    let rule_5a_exception = player.hand.is_empty() && !player.deck.is_empty();
     if !is_resting
         && !player.pending.has_active()
-        && (player
-            .flags
-            .contains(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN)
+        && (rule_5a_exception
+            || player
+                .flags
+                .contains(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN)
             || player.flags.contains(PlayerFlags::HAS_RESTED_THIS_TURN)
             || player.flags.contains(PlayerFlags::HAS_COMBATTED_THIS_TURN)
             || player

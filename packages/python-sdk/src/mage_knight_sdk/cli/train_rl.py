@@ -105,6 +105,7 @@ class _TBWriter:
             self._writer.add_scalar("reward_breakdown/backtrack", reward_breakdown.backtrack_penalty, episode)
             self._writer.add_scalar("reward_breakdown/wound_shaping", reward_breakdown.wound_shaping, episode)
             self._writer.add_scalar("reward_breakdown/achievement", reward_breakdown.achievement, episode)
+            self._writer.add_scalar("reward_breakdown/tile_explore", reward_breakdown.tile_explore, episode)
 
     def log_explained_variance(self, episode: int, returns: list[float], values: list[float]) -> None:
         if self._writer is None or not returns:
@@ -171,6 +172,7 @@ def main() -> int:
     parser.add_argument("--backtrack-penalty", type=float, default=0.0, help="Penalty for moving to a hex already visited this turn (e.g. -0.3)")
     parser.add_argument("--wound-shaping-k", type=float, default=0.0, help="Potential-based wound shaping coefficient (e.g. 10.0). Applies continuous penalty proportional to (wounds/deck_size)^2")
     parser.add_argument("--achievement-reward-scale", type=float, default=0.0, help="Reward scale for achievement deltas (spell/AA/artifact/crystal/unit/site). 0 = disabled, 0.5 = recommended.")
+    parser.add_argument("--tile-explore-bonus", type=float, default=1.0, help="Progressive tile exploration bonus: Nth tile gives N * this value. E.g. 1.0 gives 1+2+3+...+N total.")
 
     parser.add_argument("--checkpoint-dir", default=None, help="Run directory for checkpoints + logs (default: auto-generated under training/runs/)")
     parser.add_argument("--checkpoint-every", type=int, default=25, help="Save checkpoint every N episodes")
@@ -243,6 +245,7 @@ def main() -> int:
         backtrack_penalty=args.backtrack_penalty,
         wound_shaping_k=args.wound_shaping_k,
         achievement_reward_scale=args.achievement_reward_scale,
+        tile_explore_bonus=args.tile_explore_bonus,
     )
 
     run_dir = _resolve_run_dir(args.checkpoint_dir, args.resume)
@@ -846,6 +849,7 @@ def _write_run_manifest(
             "backtrack_penalty": reward_config.backtrack_penalty,
             "wound_shaping_k": reward_config.wound_shaping_k,
             "achievement_reward_scale": reward_config.achievement_reward_scale,
+            "tile_explore_bonus": reward_config.tile_explore_bonus,
         },
         "cli": vars(args),
     }
@@ -949,6 +953,7 @@ def _append_metrics_log(
             "backtrack": reward_breakdown.backtrack_penalty,
             "wound_shaping": reward_breakdown.wound_shaping,
             "achievement": reward_breakdown.achievement,
+            "tile_explore": reward_breakdown.tile_explore,
         }
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(record, sort_keys=True) + "\n")

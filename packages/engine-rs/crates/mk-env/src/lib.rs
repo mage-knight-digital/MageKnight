@@ -52,20 +52,48 @@ fn achievement_score_no_wounds(state: &GameState) -> i32 {
 
 use batch_output::BatchOutput;
 
-/// Dump a game state to `training/crashes/crash_{seed}_{step}.json` for reproduction.
-fn dump_crash_state(state: &GameState, seed: u32, step: u64) {
+/// Dump a game state + action history to `training/crashes/` for reproduction.
+///
+/// Writes two files:
+/// - `crash_{seed}_{step}_state.json` — full game state at the point of failure
+/// - `crash_{seed}_{step}_actions.json` — seed, hero, and the exact LegalAction
+///   sequence applied (for replaying in a Rust test)
+fn dump_crash_replay(
+    state: &GameState,
+    seed: u32,
+    step: u64,
+    action_history: &[LegalAction],
+) {
     let dir = PathBuf::from("training/crashes");
     if let Err(e) = std::fs::create_dir_all(&dir) {
         eprintln!("[VecEnv] failed to create crash dir: {e}");
         return;
     }
-    let path = dir.join(format!("crash_{seed}_{step}.json"));
+
+    // Dump game state
+    let state_path = dir.join(format!("crash_{seed}_{step}_state.json"));
     match serde_json::to_string(state) {
-        Ok(json) => match std::fs::write(&path, json) {
-            Ok(()) => eprintln!("[VecEnv] state dumped to {}", path.display()),
-            Err(e) => eprintln!("[VecEnv] failed to write crash dump: {e}"),
+        Ok(json) => match std::fs::write(&state_path, &json) {
+            Ok(()) => eprintln!("[VecEnv] state dumped to {}", state_path.display()),
+            Err(e) => eprintln!("[VecEnv] failed to write state dump: {e}"),
         },
         Err(e) => eprintln!("[VecEnv] failed to serialize state: {e}"),
+    }
+
+    // Dump action replay (seed + action history as JSON)
+    let replay_path = dir.join(format!("crash_{seed}_{step}_actions.json"));
+    let replay = serde_json::json!({
+        "seed": seed,
+        "step": step,
+        "action_count": action_history.len(),
+        "actions": action_history,
+    });
+    match serde_json::to_string_pretty(&replay) {
+        Ok(json) => match std::fs::write(&replay_path, &json) {
+            Ok(()) => eprintln!("[VecEnv] action replay dumped to {}", replay_path.display()),
+            Err(e) => eprintln!("[VecEnv] failed to write replay dump: {e}"),
+        },
+        Err(e) => eprintln!("[VecEnv] failed to serialize replay: {e}"),
     }
 }
 
@@ -90,6 +118,8 @@ struct SingleEnv {
     combat_oracle: bool,
     /// If > 0, terminate early when fame == 0 after this many steps.
     early_term_fame_step: u64,
+    /// History of actual LegalActions applied (for crash reproduction).
+    action_history: Vec<LegalAction>,
 }
 
 impl SingleEnv {
@@ -122,6 +152,7 @@ impl SingleEnv {
             turn_hexes,
             combat_oracle,
             early_term_fame_step,
+            action_history: Vec::new(),
         }
     }
 
@@ -138,6 +169,7 @@ impl SingleEnv {
             self.visited_hexes.insert((pos.q, pos.r));
             self.turn_hexes.insert((pos.q, pos.r));
         }
+        self.action_history.clear();
     }
 
     fn fame(&self) -> u32 {
@@ -276,10 +308,11 @@ impl SingleEnv {
         mk_features::encode_step(&self.state, 0, &self.action_set)
     }
 
-    /// Apply an action by index. Returns (game_ended, panicked).
-    fn step(&mut self, action_index: usize) -> (bool, bool) {
+    /// Apply an action by index. Returns (game_ended, panicked, clamped_index).
+    fn step(&mut self, action_index: usize) -> (bool, bool, usize) {
         let idx = action_index.min(self.action_set.actions.len().saturating_sub(1));
         let action = self.action_set.actions[idx].clone();
+        self.action_history.push(action.clone());
         let epoch = self.action_set.epoch;
 
         let result = catch_unwind(AssertUnwindSafe(|| {
@@ -308,21 +341,30 @@ impl SingleEnv {
                     self.state.game_ended = true;
                 }
 
-                (apply_result.game_ended || self.state.game_ended || combat_drill_done, false)
+                // Detect 0 legal actions (engine bug) and dump for reproduction
+                if self.action_set.actions.is_empty()
+                    && !apply_result.game_ended
+                    && !self.state.game_ended
+                    && !combat_drill_done
+                {
+                    dump_crash_replay(&self.state, self.seed, self.step_count, &self.action_history);
+                }
+
+                (apply_result.game_ended || self.state.game_ended || combat_drill_done, false, idx)
             }
             Ok(Err(e)) => {
                 eprintln!(
                     "[VecEnv] error at seed={} step={} action={:?}: {:?}",
                     self.seed, self.step_count, action, e
                 );
-                dump_crash_state(&self.state, self.seed, self.step_count);
+                dump_crash_replay(&self.state, self.seed, self.step_count, &self.action_history);
                 self.state.game_ended = true;
                 self.action_set = LegalActionSet {
                     actions: vec![],
                     epoch: self.action_set.epoch + 1,
                     player_idx: 0,
                 };
-                (true, true)
+                (true, true, idx)
             }
             Err(panic_info) => {
                 let msg = if let Some(s) = panic_info.downcast_ref::<&str>() {
@@ -336,14 +378,14 @@ impl SingleEnv {
                     "[VecEnv] panic at seed={} step={} action={:?}: {}",
                     self.seed, self.step_count, action, msg
                 );
-                dump_crash_state(&self.state, self.seed, self.step_count);
+                dump_crash_replay(&self.state, self.seed, self.step_count, &self.action_history);
                 self.state.game_ended = true;
                 self.action_set = LegalActionSet {
                     actions: vec![],
                     epoch: self.action_set.epoch + 1,
                     player_idx: 0,
                 };
-                (true, true)
+                (true, true, idx)
             }
         }
     }
@@ -391,6 +433,8 @@ pub struct StepResult {
     pub achievement_deltas: Vec<i32>,
     /// (N,) — official Mage Knight game score (fame + achievements); 0 for non-done envs
     pub game_scores: Vec<i32>,
+    /// (N,) — actual action indices applied (post-clamping), for faithful replay logging
+    pub applied_actions: Vec<i32>,
 }
 
 // =============================================================================
@@ -485,14 +529,14 @@ impl VecEnv {
         }).collect();
 
         // Step all envs in parallel
-        let results: Vec<(bool, bool)> = self
+        let results: Vec<(bool, bool, usize)> = self
             .envs
             .par_iter_mut()
             .zip(actions.par_iter())
             .map(|(env, &action)| {
                 if env.is_done() {
                     // Already done — don't step, will be reset below
-                    (true, false)
+                    (true, false, action as usize)
                 } else {
                     env.step(action as usize)
                 }
@@ -532,8 +576,10 @@ impl VecEnv {
         let mut in_combat = Vec::with_capacity(n);
         let mut rested_turns = Vec::with_capacity(n);
         let mut achievement_deltas = Vec::with_capacity(n);
+        let mut applied_actions = Vec::with_capacity(n);
 
-        for (i, (game_ended, did_panic)) in results.iter().enumerate() {
+        for (i, (game_ended, did_panic, clamped_idx)) in results.iter().enumerate() {
+            applied_actions.push(*clamped_idx as i32);
             let env = &self.envs[i];
             let done = *game_ended || env.is_done();
             let fame_now = env.fame() as i32;
@@ -598,6 +644,7 @@ impl VecEnv {
             rested_turns,
             achievement_deltas,
             game_scores,
+            applied_actions,
         }
     }
 
@@ -639,7 +686,7 @@ mod tests {
                 "step {i:>3}: idx={action_idx:<3} action={action:?}  hand={} flags={:?}",
                 p.hand.len(), p.flags
             );
-            let (game_ended, panicked) = env.step(action_idx);
+            let (game_ended, panicked, _) = env.step(action_idx);
             assert!(!panicked, "Engine panicked at step {i}");
             if game_ended {
                 return; // Game ended normally, no bug
@@ -685,7 +732,7 @@ mod tests {
                 "step {i:>3}: idx={action_idx:<3} action={action:?}  hand={} flags={:?}",
                 p.hand.len(), p.flags
             );
-            let (game_ended, panicked) = env.step(action_idx);
+            let (game_ended, panicked, _) = env.step(action_idx);
             assert!(!panicked, "Engine panicked at step {i}");
             if game_ended {
                 return;
@@ -733,7 +780,7 @@ mod tests {
                 "step {i:>3}: idx={action_idx:<3} action={action:?}  hand={} flags={:?}",
                 p.hand.len(), p.flags
             );
-            let (game_ended, panicked) = env.step(action_idx);
+            let (game_ended, panicked, _) = env.step(action_idx);
             assert!(!panicked, "Engine panicked at step {i}");
             if game_ended {
                 return;
@@ -780,7 +827,7 @@ mod tests {
                 "step {i:>3}: idx={action_idx:<3} action={action:?}  hand={} flags={:?}",
                 p.hand.len(), p.flags
             );
-            let (game_ended, panicked) = env.step(action_idx);
+            let (game_ended, panicked, _) = env.step(action_idx);
             assert!(!panicked, "Engine panicked at step {i}");
             if game_ended {
                 return;
@@ -829,7 +876,7 @@ mod tests {
                 "step {i:>3}: idx={action_idx:<3} action={action:?}  hand={} flags={:?}",
                 p.hand.len(), p.flags
             );
-            let (game_ended, panicked) = env.step(action_idx);
+            let (game_ended, panicked, _) = env.step(action_idx);
             assert!(!panicked, "Engine panicked at step {i}");
             if game_ended {
                 return;
@@ -1052,7 +1099,7 @@ mod tests {
         );
 
         // Step once — oracle should auto-resolve the entire combat
-        let (game_ended, panicked) = env.step(0);
+        let (game_ended, panicked, _) = env.step(0);
         assert!(!panicked, "Oracle step should not panic");
 
         // After oracle resolution, combat should be gone
@@ -1082,6 +1129,99 @@ mod tests {
         assert_eq!(env.state.players[0].fame, 0, "Expected 0 fame after 10 random steps");
         assert!(env.is_done(), "Expected early termination when fame == 0 after 10 steps");
         assert!(!env.state.game_ended, "Game should not have ended naturally");
+    }
+
+    /// Reproduce: seed=42048 with 53 LegalActions yields 0 legal actions.
+    /// Last action is BeginInteraction at a conquered mage tower with empty hand.
+    #[test]
+    fn replay_seed_42048_zero_actions() {
+        let actions_json = r#"[
+            {"SelectTactic":{"tactic_id":"great_start"}},
+            {"PlayCardPowered":{"card_id":"march","hand_index":5,"mana_color":"green"}},
+            {"Move":{"cost":3,"target":{"q":1,"r":-1}}},
+            {"PlayCardSideways":{"card_id":"arythea_mana_pull","hand_index":4,"sideways_as":"move"}},
+            {"Move":{"cost":2,"target":{"q":1,"r":-2}}},
+            {"PlayCardSideways":{"card_id":"tranquility","hand_index":3,"sideways_as":"move"}},
+            {"PlayCardBasic":{"card_id":"stamina","hand_index":0}},
+            {"Move":{"cost":3,"target":{"q":1,"r":-3}}},
+            {"PlayCardBasic":{"card_id":"swiftness","hand_index":1}},
+            {"Move":{"cost":2,"target":{"q":2,"r":-3}}},
+            "EndTurn",
+            "PlunderSite",
+            {"ChallengeRampaging":{"hex":{"q":3,"r":-3}}},
+            "EndTurn",
+            {"PlayCardPowered":{"card_id":"march","hand_index":3,"mana_color":"green"}},
+            {"Explore":{"direction":"E"}},
+            {"PlayCardSideways":{"card_id":"improvisation","hand_index":0,"sideways_as":"move"}},
+            {"Move":{"cost":3,"target":{"q":1,"r":-3}}},
+            "EndTurn",
+            {"ChooseLevelUpReward":{"advanced_action_id":"ambush","from_common_pool":false,"skill_index":0}},
+            {"ChallengeRampaging":{"hex":{"q":1,"r":-4}}},
+            {"UseSkill":{"skill_id":"arythea_dark_fire_magic"}},
+            {"ResolveChoice":{"choice_index":0}},
+            {"PlayCardBasic":{"card_id":"crystallize","hand_index":0}},
+            "EndTurn",
+            {"PlayCardPowered":{"card_id":"stamina","hand_index":1,"mana_color":"blue"}},
+            {"ResolveChoice":{"choice_index":2}},
+            {"Move":{"cost":3,"target":{"q":1,"r":-4}}},
+            {"PlayCardSideways":{"card_id":"rage","hand_index":0,"sideways_as":"move"}},
+            {"Explore":{"direction":"NE"}},
+            {"PlayCardSideways":{"card_id":"threaten","hand_index":0,"sideways_as":"move"}},
+            "ForfeitTurn",
+            {"SelectTactic":{"tactic_id":"preparation"}},
+            {"ResolveTacticDecision":{"data":{"deck_card_index":8,"type":"preparation"}}},
+            {"PlayCardPowered":{"card_id":"march","hand_index":4,"mana_color":"green"}},
+            {"Move":{"cost":3,"target":{"q":1,"r":-5}}},
+            {"ChallengeRampaging":{"hex":{"q":1,"r":-6}}},
+            {"PlayCardBasic":{"card_id":"swiftness","hand_index":0}},
+            {"UseSkill":{"skill_id":"arythea_dark_fire_magic"}},
+            {"ResolveChoice":{"choice_index":0}},
+            "EndTurn",
+            {"PlayCardPowered":{"card_id":"stamina","hand_index":3,"mana_color":"blue"}},
+            {"Move":{"cost":3,"target":{"q":2,"r":-6}}},
+            {"SelectReward":{"card_id":"space_bending","reward_index":1,"unit_id":null}},
+            "EndTurn",
+            "DeclareRest",
+            {"PlayCardPowered":{"card_id":"space_bending","hand_index":3,"mana_color":"blue"}},
+            {"CompleteRest":{"discard_hand_index":3}},
+            {"SubsetSelect":{"index":1}},
+            {"SubsetSelect":{"index":2}},
+            {"SubsetSelect":{"index":0}},
+            "EndTurn",
+            "BeginInteraction"
+        ]"#;
+
+        let actions: Vec<LegalAction> = serde_json::from_str(actions_json).unwrap();
+
+        let mut env = SingleEnv::new(42048, Hero::Arythea, 500, TrainingScenario::default(), true, 0);
+        for (i, action) in actions.iter().enumerate() {
+            assert!(
+                !env.action_set.actions.is_empty(),
+                "0 legal actions at step {i} (before applying {action:?})"
+            );
+            // Find this action in the legal action set
+            let idx = env.action_set.actions.iter().position(|a| a == action)
+                .unwrap_or_else(|| panic!(
+                    "Action {action:?} not found in legal actions at step {i}. \
+                     Available: {:?}", env.action_set.actions
+                ));
+            let (game_ended, panicked, _) = env.step(idx);
+            assert!(!panicked, "Engine panicked at step {i}");
+            if game_ended {
+                return;
+            }
+        }
+        // After all actions, should still have legal actions
+        assert!(
+            !env.action_set.actions.is_empty(),
+            "0 legal actions after replaying all {} actions. \
+             pending={:?}, flags={:?}, hand={}, position={:?}",
+            actions.len(),
+            env.state.players[0].pending.active,
+            env.state.players[0].flags,
+            env.state.players[0].hand.len(),
+            env.state.players[0].position,
+        );
     }
 
     #[test]

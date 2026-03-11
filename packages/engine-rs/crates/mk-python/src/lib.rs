@@ -573,9 +573,7 @@ impl GameEngine {
     ///
     /// Does NOT apply the action — call apply_action() with the result.
     fn combat_oracle_action(&self) -> Option<usize> {
-        if self.state.combat.is_none() {
-            return None;
-        }
+        self.state.combat.as_ref()?;
 
         let config = CombatSearchConfig {
             node_limit: 1_000_000,
@@ -932,6 +930,7 @@ impl PyVecEnv {
         dict.set_item("rested_turns", vec_i32_to_numpy(py, &np, &result.rested_turns, &[n])?)?;
         dict.set_item("achievement_deltas", vec_i32_to_numpy(py, &np, &result.achievement_deltas, &[n])?)?;
         dict.set_item("game_scores", vec_i32_to_numpy(py, &np, &result.game_scores, &[n])?)?;
+        dict.set_item("applied_actions", vec_i32_to_numpy(py, &np, &result.applied_actions, &[n])?)?;
 
         Ok(dict.to_object(py))
     }

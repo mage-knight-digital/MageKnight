@@ -178,6 +178,7 @@ class RewardBreakdown:
     backtrack_penalty: float = 0.0
     wound_shaping: float = 0.0
     achievement: float = 0.0
+    tile_explore: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -217,6 +218,7 @@ class EpisodeBuffers:
     reward_backtrack: list[float] = field(default_factory=list)
     reward_wound_shaping: list[float] = field(default_factory=list)
     reward_achievement: list[float] = field(default_factory=list)
+    reward_tile_explore: list[float] = field(default_factory=list)
     total_achievement_delta: list[int] = field(default_factory=list)
     tiles_explored: list[int] = field(default_factory=list)
     prev_wound_potential: list[float] = field(default_factory=list)
@@ -241,7 +243,7 @@ class EpisodeBuffers:
                     self.reward_step_penalty, self.reward_terminal,
                     self.reward_scenario_trigger, self.reward_wasted_move,
                     self.reward_backtrack, self.reward_wound_shaping,
-                    self.reward_achievement):
+                    self.reward_achievement, self.reward_tile_explore):
             while len(lst) < num_envs:
                 lst.append(0.0)
         while len(self.total_achievement_delta) < num_envs:
@@ -319,16 +321,18 @@ def collect_vecenv_rollout(
         # 1. Encode all envs → batched numpy dict
         batch_dict = vec_env.encode_batch()
 
-        # Check for envs with 0 legal actions (engine bug)
+        # Check for envs with 0 legal actions (engine bug).
+        # The Rust side already dumped crash files to training/crashes/ with the
+        # game state and full LegalAction history for reproduction.
         if "action_counts" in batch_dict:
             for i in range(num_envs):
                 if batch_dict["action_counts"][i] == 0:
                     seed = episode_buffers.seeds[i]
                     step = len(episode_buffers.action_indices[i])
-                    acts = episode_buffers.action_indices[i]
                     raise RuntimeError(
                         f"Engine bug: env {i} has 0 legal actions at step {step}. "
-                        f"seed={seed}, actions_so_far={acts}"
+                        f"seed={seed}. Check training/crashes/crash_{seed}_*_actions.json "
+                        f"for the full LegalAction replay sequence."
                     )
 
         # 2. Batched forward pass
@@ -353,6 +357,7 @@ def collect_vecenv_rollout(
         rested_turns_step = step_result["rested_turns"]
         achievement_deltas = step_result["achievement_deltas"]
         game_scores = step_result["game_scores"]
+        applied_actions = step_result["applied_actions"]
 
         # 4. Process each env
         for i in range(num_envs):
@@ -408,9 +413,16 @@ def collect_vecenv_rollout(
                     reward += ach_reward
                     episode_buffers.reward_achievement[i] += ach_reward
 
-            # Track tiles explored
+            # Track tiles explored + progressive tile exploration bonus
             if new_tiles[i] > 0:
+                tiles_before = episode_buffers.tiles_explored[i]
                 episode_buffers.tiles_explored[i] += int(new_tiles[i])
+                if reward_config.tile_explore_bonus != 0.0:
+                    # Nth tile explored gives N * tile_explore_bonus
+                    tile_num = tiles_before + 1
+                    tile_reward = reward_config.tile_explore_bonus * float(tile_num)
+                    reward += tile_reward
+                    episode_buffers.reward_tile_explore[i] += tile_reward
 
             # Track wound changes (gains and healing)
             if wound_deltas[i] != 0:
@@ -428,8 +440,10 @@ def collect_vecenv_rollout(
 
             episode_buffers.fame_deltas[i] += int(fame_deltas[i])
 
-            action_idx = int(actions[i])
-            episode_buffers.action_indices[i].append(action_idx)
+            # Record the actual clamped action index (what the engine applied),
+            # not the raw policy output, so replays are faithful.
+            applied_idx = int(applied_actions[i])
+            episode_buffers.action_indices[i].append(applied_idx)
 
             # One-time scenario trigger bonus (on first detection)
             if scenario_flags[i] and not episode_buffers.scenario_end_triggered[i]:
@@ -437,6 +451,8 @@ def collect_vecenv_rollout(
                 episode_buffers.reward_scenario_trigger[i] += reward_config.scenario_trigger_bonus
                 episode_buffers.scenario_end_triggered[i] = True
 
+            # Use raw policy action for gradient computation (matches log_prob)
+            action_idx = int(actions[i])
             vt = _extract_vec_transition(
                 batch_dict, i,
                 action_index=action_idx,
@@ -468,6 +484,7 @@ def collect_vecenv_rollout(
                     episode_buffers.reward_backtrack[i] = 0.0
                     episode_buffers.reward_wound_shaping[i] = 0.0
                     episode_buffers.reward_achievement[i] = 0.0
+                    episode_buffers.reward_tile_explore[i] = 0.0
                     episode_buffers.total_achievement_delta[i] = 0
                     episode_buffers.prev_wound_potential[i] = 0.0
                     episode_buffers.total_wounds[i] = 0
@@ -523,6 +540,7 @@ def collect_vecenv_rollout(
                     backtrack_penalty=episode_buffers.reward_backtrack[i],
                     wound_shaping=episode_buffers.reward_wound_shaping[i],
                     achievement=episode_buffers.reward_achievement[i],
+                    tile_explore=episode_buffers.reward_tile_explore[i],
                 )
                 completed_episodes.append(episode)
                 completed_metas.append(CompletedEpisodeMeta(
@@ -556,6 +574,7 @@ def collect_vecenv_rollout(
                 episode_buffers.reward_backtrack[i] = 0.0
                 episode_buffers.reward_wound_shaping[i] = 0.0
                 episode_buffers.reward_achievement[i] = 0.0
+                episode_buffers.reward_tile_explore[i] = 0.0
                 episode_buffers.total_achievement_delta[i] = 0
                 episode_buffers.prev_wound_potential[i] = 0.0
                 episode_buffers.total_wounds[i] = 0
