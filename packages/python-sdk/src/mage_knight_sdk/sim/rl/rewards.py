@@ -24,4 +24,4 @@ class RewardConfig:
     backtrack_penalty: float = 0.0
     wound_shaping_k: float = 0.0
     achievement_reward_scale: float = 0.0
-    tile_explore_bonus: float = 1.0  # Progressive tile bonus: Nth tile = N * this value
+    tile_explore_bonus: float = 3.0  # Progressive tile bonus: Nth tile = N * this value

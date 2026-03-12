@@ -172,7 +172,7 @@ def main() -> int:
     parser.add_argument("--backtrack-penalty", type=float, default=0.0, help="Penalty for moving to a hex already visited this turn (e.g. -0.3)")
     parser.add_argument("--wound-shaping-k", type=float, default=0.0, help="Potential-based wound shaping coefficient (e.g. 10.0). Applies continuous penalty proportional to (wounds/deck_size)^2")
     parser.add_argument("--achievement-reward-scale", type=float, default=0.0, help="Reward scale for achievement deltas (spell/AA/artifact/crystal/unit/site). 0 = disabled, 0.5 = recommended.")
-    parser.add_argument("--tile-explore-bonus", type=float, default=1.0, help="Progressive tile exploration bonus: Nth tile gives N * this value. E.g. 1.0 gives 1+2+3+...+N total.")
+    parser.add_argument("--tile-explore-bonus", type=float, default=3.0, help="Progressive tile exploration bonus: Nth tile gives N * this value. E.g. 3.0 gives 3+6+9+...+3N total.")
 
     parser.add_argument("--checkpoint-dir", default=None, help="Run directory for checkpoints + logs (default: auto-generated under training/runs/)")
     parser.add_argument("--checkpoint-every", type=int, default=25, help="Save checkpoint every N episodes")
@@ -275,12 +275,46 @@ def main() -> int:
         print(f"PPO: batch_episodes={args.batch_episodes} ppo_epochs={args.ppo_epochs} clip={args.clip_epsilon} gae_lambda={args.gae_lambda}")
 
     if args.curriculum:
-        from mage_knight_sdk.sim.rl.curriculum import CURRICULA
+        from dataclasses import replace
+
+        from mage_knight_sdk.sim.rl.curriculum import CURRICULA, CurriculumSchedule
         schedule = CURRICULA.get(args.curriculum)
         if schedule is None:
             print(f"Unknown curriculum: {args.curriculum!r}. Available: {', '.join(CURRICULA)}", file=sys.stderr)
             return 2
         schedule = schedule()
+
+        # CLI reward args override curriculum phase defaults.
+        # Map CLI arg names to RewardConfig field names.
+        _CLI_REWARD_OVERRIDES = {
+            "fame_delta_scale": "fame_delta_scale",
+            "step_penalty": "step_penalty",
+            "terminal_end_bonus": "terminal_end_bonus",
+            "terminal_max_steps_penalty": "terminal_max_steps_penalty",
+            "terminal_failure_penalty": "terminal_failure_penalty",
+            "new_hex_bonus": "new_hex_bonus",
+            "wound_penalty": "wound_penalty",
+            "cards_remaining_bonus": "cards_remaining_bonus",
+            "wasted_move_penalty": "wasted_move_penalty",
+            "backtrack_penalty": "backtrack_penalty",
+            "wound_shaping_k": "wound_shaping_k",
+            "achievement_reward_scale": "achievement_reward_scale",
+            "tile_explore_bonus": "tile_explore_bonus",
+        }
+        # Detect which CLI args were explicitly set by comparing to parser defaults
+        explicit_overrides = {}
+        for cli_name, field_name in _CLI_REWARD_OVERRIDES.items():
+            default_val = parser.get_default(cli_name)
+            actual_val = getattr(args, cli_name)
+            if actual_val != default_val:
+                explicit_overrides[field_name] = actual_val
+        if explicit_overrides:
+            print(f"  CLI reward overrides: {explicit_overrides}")
+            schedule = CurriculumSchedule(phases=[
+                replace(phase, reward_config=replace(phase.reward_config, **explicit_overrides))
+                for phase in schedule.phases
+            ])
+
         total_episodes = sum(p.episodes for p in schedule.phases)
         phase_names = [p.name for p in schedule.phases]
         print(f"Curriculum: {args.curriculum} ({len(schedule.phases)} phases, {total_episodes} total episodes)")
