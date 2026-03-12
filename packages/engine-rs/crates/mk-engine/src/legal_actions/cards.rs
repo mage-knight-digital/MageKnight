@@ -58,6 +58,7 @@ pub(super) fn enumerate_normal_cards(
                 player_idx,
                 hand_index,
                 &card_def.basic_effect,
+                None,
             ) {
                 let dominated = (!is_interacting && is_influence_only(&card_def.basic_effect))
                     || (is_interacting && is_move_only(&card_def.basic_effect))
@@ -87,6 +88,7 @@ pub(super) fn enumerate_normal_cards(
                         player_idx,
                         hand_index,
                         &card_def.powered_effect,
+                        None,
                     )
                     && can_afford_powered(state, player_idx, color)
                 {
@@ -104,6 +106,7 @@ pub(super) fn enumerate_normal_cards(
                         player_idx,
                         hand_index,
                         &card_def.powered_effect,
+                        None,
                     )
                 {
                     for &color in &ALL_BASIC_MANA_COLORS {
@@ -226,6 +229,7 @@ pub(super) fn enumerate_combat_cards(
                     player_idx,
                     hand_index,
                     &card_def.basic_effect,
+                    Some(combat_phase),
                 )
             {
                 basic_actions.push(LegalAction::PlayCardBasic {
@@ -247,6 +251,7 @@ pub(super) fn enumerate_combat_cards(
                                 player_idx,
                                 hand_index,
                                 &card_def.powered_effect,
+                                Some(combat_phase),
                             )
                             && can_afford_powered(state, player_idx, color)
                         {
@@ -264,6 +269,7 @@ pub(super) fn enumerate_combat_cards(
                                 player_idx,
                                 hand_index,
                                 &card_def.powered_effect,
+                                Some(combat_phase),
                             )
                         {
                             for &color in &ALL_BASIC_MANA_COLORS {
@@ -340,10 +346,11 @@ fn is_effect_playable_for_enumeration(
     player_idx: usize,
     source_hand_index: usize,
     effect: &CardEffect,
+    combat_phase: Option<CombatPhase>,
 ) -> bool {
     match effect {
         CardEffect::CardBoost { .. } => {
-            has_playable_card_boost_target(state, player_idx, source_hand_index)
+            has_playable_card_boost_target(state, player_idx, source_hand_index, combat_phase)
         }
         _ => is_resolvable(state, player_idx, effect),
     }
@@ -353,6 +360,7 @@ fn has_playable_card_boost_target(
     state: &GameState,
     player_idx: usize,
     source_hand_index: usize,
+    combat_phase: Option<CombatPhase>,
 ) -> bool {
     let player = &state.players[player_idx];
 
@@ -384,6 +392,18 @@ fn has_playable_card_boost_target(
             // Powered target effect itself must be resolvable in current context.
             if !is_resolvable(state, player_idx, &target_def.powered_effect) {
                 return false;
+            }
+
+            // In combat, the target's powered effect must not be dominated in the current phase.
+            if let Some(phase) = combat_phase {
+                if is_dominated_in_combat_phase(
+                    state,
+                    player_idx,
+                    phase,
+                    &target_def.powered_effect,
+                ) {
+                    return false;
+                }
             }
 
             // For discard-cost targets, both source and target leave hand before

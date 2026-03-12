@@ -345,7 +345,7 @@ pub(crate) fn reputation_influence_bonus(reputation: i8) -> i32 {
         -4 => -2,
         -3 => -1,
         -2 => -1,
-        -1 | 0 | 1 => 0,
+        -1..=1 => 0,
         2 => 1,
         3 => 1,
         4 => 2,

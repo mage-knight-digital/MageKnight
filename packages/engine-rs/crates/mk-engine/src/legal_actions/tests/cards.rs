@@ -311,6 +311,80 @@ fn whirlwind_powered_playable_in_attack_phase() {
 }
 
 #[test]
+fn concentration_powered_filtered_in_ranged_siege_when_only_melee_targets() {
+    // Concentration (powered) = CardBoost { bonus: 2 }. If the only boost target
+    // in hand is Rage (pure melee attack), Concentration should be filtered out
+    // in RangedSiege phase because melee attack is useless there.
+    let (mut state, _undo) = setup_card_combat("concentration", &["prowlers"]);
+    state.players[0].hand = vec![CardId::from("concentration"), CardId::from("rage")];
+    state.players[0].pure_mana.push(ManaToken {
+        color: ManaColor::Green,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+
+    assert_eq!(state.combat.as_ref().unwrap().phase, CombatPhase::RangedSiege);
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &_undo);
+    let has_concentration_powered = legal.actions.iter().any(|a| matches!(a,
+        LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "concentration"
+    ));
+    assert!(
+        !has_concentration_powered,
+        "concentration powered should NOT be offered in RangedSiege when only boost target is melee-only rage"
+    );
+}
+
+#[test]
+fn concentration_powered_available_in_ranged_siege_with_ranged_target() {
+    // If hand has a card with a ranged attack powered effect (wolfhawk_swift_reflexes),
+    // Concentration should still be offered in RangedSiege.
+    let (mut state, _undo) = setup_card_combat("concentration", &["prowlers"]);
+    state.players[0].hand = vec![
+        CardId::from("concentration"),
+        CardId::from("wolfhawk_swift_reflexes"),
+    ];
+    state.players[0].pure_mana.push(ManaToken {
+        color: ManaColor::Green,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+
+    assert_eq!(state.combat.as_ref().unwrap().phase, CombatPhase::RangedSiege);
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &_undo);
+    let has_concentration_powered = legal.actions.iter().any(|a| matches!(a,
+        LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "concentration"
+    ));
+    assert!(
+        has_concentration_powered,
+        "concentration powered should be available in RangedSiege when a boost target has ranged attack"
+    );
+}
+
+#[test]
+fn concentration_powered_available_in_attack_phase_with_melee_target() {
+    // Melee attack targets should be valid in the Attack phase.
+    let (mut state, _undo) = setup_card_combat("concentration", &["prowlers"]);
+    state.players[0].hand = vec![CardId::from("concentration"), CardId::from("rage")];
+    state.players[0].pure_mana.push(ManaToken {
+        color: ManaColor::Green,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+    state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &_undo);
+    let has_concentration_powered = legal.actions.iter().any(|a| matches!(a,
+        LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "concentration"
+    ));
+    assert!(
+        has_concentration_powered,
+        "concentration powered should be available in Attack phase with melee target"
+    );
+}
+
+#[test]
 fn whirlwind_basic_multiple_enemies_creates_pending() {
     // Two enemies → pending choice needed
     let (mut state, mut undo) = setup_card_combat("whirlwind", &["prowlers", "diggers"]);

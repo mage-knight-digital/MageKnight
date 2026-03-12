@@ -15,6 +15,9 @@ use mk_types::enums::{CombatPhase, Hero};
 use mk_types::legal_action::{LegalAction, LegalActionSet};
 use mk_types::state::GameState;
 
+type PhaseState = (GameState, LegalActionSet, Vec<LegalAction>);
+type TerminalState = (GameState, Vec<LegalAction>);
+
 // =============================================================================
 // Evaluation (shared by both search methods)
 // =============================================================================
@@ -321,10 +324,10 @@ fn upper_bound(state: &GameState, pre: &PreCombatSnapshot, _total_possible_fame:
         for mask in 0..(1u32 << n) {
             let mut total_armor = 0u32;
             let mut total_fame = 0u32;
-            for i in 0..n {
+            for (i, &(armor, fame)) in remaining.iter().enumerate().take(n) {
                 if mask & (1 << i) != 0 {
-                    total_armor += remaining[i].0;
-                    total_fame += remaining[i].1;
+                    total_armor += armor;
+                    total_fame += fame;
                 }
             }
             if max_attack >= total_armor && total_fame > best_remaining_fame {
@@ -378,7 +381,7 @@ fn greedy_seed(
 
     for _ in 0..num_rollouts {
         let (score, path) = nmcs_rollout(state, actions, pre, &mut rng, &mut stats);
-        if best.as_ref().map_or(true, |(b, _)| score.total > b.total) {
+        if best.as_ref().is_none_or(|(b, _)| score.total > b.total) {
             best = Some((score, path));
         }
     }
@@ -397,7 +400,7 @@ fn dfs(
     if stats.nodes_visited >= node_limit { return; }
     stats.nodes_visited += 1;
 
-    if stats.nodes_visited % 500_000 == 0 {
+    if stats.nodes_visited.is_multiple_of(500_000) {
         let best = stats.best_score.map(|s| s.total).unwrap_or(f64::NEG_INFINITY);
         eprint!("\r  [DFS] nodes: {}k, pruned: {}k, transpos: {}k, unique: {}k, best: {:.0}    ",
             stats.nodes_visited / 1000, stats.nodes_pruned / 1000,
@@ -497,7 +500,7 @@ fn action_weight(action: &LegalAction) -> u32 {
 /// Pick an action using weighted random selection.
 /// Prefers card plays and blocks over skipping.
 fn heuristic_pick<'a>(actions: &'a LegalActionSet, rng: &mut u32) -> &'a LegalAction {
-    let weights: Vec<u32> = actions.actions.iter().map(|a| action_weight(a)).collect();
+    let weights: Vec<u32> = actions.actions.iter().map(action_weight).collect();
     let total: u32 = weights.iter().sum();
 
     // Simple LCG-style RNG
@@ -878,7 +881,7 @@ fn beam_search(
         score: f64,
     }
 
-    let initial_score = CombatScore::evaluate(pre, &initial_state);
+    let initial_score = CombatScore::evaluate(pre, initial_state);
     let mut beam = vec![BeamEntry {
         state: initial_state.clone(),
         actions: initial_actions.clone(),
@@ -936,7 +939,7 @@ fn beam_search(
         candidates.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
         candidates.truncate(beam_width);
 
-        if depth % 5 == 0 {
+        if depth.is_multiple_of(5) {
             eprint!("  [Beam] depth: {depth}, candidates: {}, best: {:.0}      \r",
                 candidates.len(), candidates[0].score);
         }
@@ -1074,14 +1077,14 @@ fn phase_score(state: &GameState, pre: &PreCombatSnapshot, phase: Option<CombatP
 ///
 /// Returns (phase_exit_states, terminal_states, total_states_evaluated)
 fn beam_search_single_phase(
-    entries: Vec<(GameState, LegalActionSet, Vec<LegalAction>)>,
+    entries: Vec<PhaseState>,
     pre: &PreCombatSnapshot,
     beam_width: usize,
     phase_name: &str,
 ) -> (
-    Vec<(GameState, LegalActionSet, Vec<LegalAction>)>, // states that exited to next phase
-    Vec<(GameState, Vec<LegalAction>)>,                  // terminal states (combat ended)
-    u64,                                                  // states evaluated
+    Vec<PhaseState>,    // states that exited to next phase
+    Vec<TerminalState>, // terminal states (combat ended)
+    u64,                // states evaluated
 ) {
     struct BeamEntry {
         state: GameState,
@@ -1152,7 +1155,7 @@ fn beam_search_single_phase(
         candidates.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
         candidates.truncate(beam_width);
 
-        if depth % 5 == 0 {
+        if depth.is_multiple_of(5) {
             eprint!("  [Phase:{phase_name}] depth: {depth}, beam: {}, exits: {}      \r",
                 candidates.len(), phase_exits.len());
         }
@@ -1191,7 +1194,7 @@ fn mini_dfs(
     let num_actions = actions.actions.len();
     if is_combat_terminal(state, num_actions) {
         let score = CombatScore::evaluate(pre, state);
-        if best.as_ref().map_or(true, |(b, _)| score.total > b.total) {
+        if best.as_ref().is_none_or(|(b, _)| score.total > b.total) {
             *best = Some((score, path.clone()));
         }
         return;
@@ -1513,7 +1516,6 @@ fn heuristic_solve(state: &GameState, _pre: &PreCombatSnapshot) -> HeuristicResu
 
     let hero_armor = state.players[0].armor.max(1); // avoid div by zero
     let total_enemy_armor: u32 = enemies.iter().map(|e| e.armor).sum();
-    let total_enemy_attack: u32 = enemies.iter().map(|e| e.attack).sum();
     let total_fame: u32 = enemies.iter().map(|e| e.fame).sum();
     let num_cards = profiles.len();
 
@@ -1615,7 +1617,7 @@ fn heuristic_solve(state: &GameState, _pre: &PreCombatSnapshot) -> HeuristicResu
                 // Not fully blocked — takes full attack as damage
                 // wounds = ceil(attack / armor)
                 let damage = enemy.attack;
-                wounds += (damage + hero_armor - 1) / hero_armor;
+                wounds += damage.div_ceil(hero_armor);
                 block_remaining = 0;
             }
         }
@@ -1650,7 +1652,7 @@ fn heuristic_solve(state: &GameState, _pre: &PreCombatSnapshot) -> HeuristicResu
             block_remaining -= enemy.attack;
         } else {
             let damage = enemy.attack;
-            wounds += (damage + hero_armor - 1) / hero_armor;
+            wounds += damage.div_ceil(hero_armor);
             block_remaining = 0;
         }
     }
@@ -1930,8 +1932,7 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     let dfs_only = args.iter().any(|a| a == "--dfs-only");
     let dfs_limit: u64 = args.iter()
-        .filter(|a| a.parse::<u64>().is_ok())
-        .next()
+        .find(|a| a.parse::<u64>().is_ok())
         .and_then(|s| s.parse().ok())
         .unwrap_or(10_000_000);
 
