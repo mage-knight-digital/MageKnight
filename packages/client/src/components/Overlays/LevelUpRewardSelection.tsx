@@ -1,7 +1,7 @@
 /**
  * LevelUpRewardSelection - Displays level up reward selection for even levels
  *
- * Shows when player has pendingLevelUpRewards from reaching an even level (2, 4, 6, 8, 10).
+ * Shows when player has pending level_up_reward state.
  * Player must select one skill and one advanced action.
  *
  * Skill selection mechanics:
@@ -9,16 +9,18 @@
  * - Common pool skills available as alternatives
  * - If picking from drawn pair: other skill goes to common pool
  * - If picking from common pool: BOTH drawn skills go to common pool
+ *
+ * AA selection mechanics:
+ * - Drawn skills: free choice of any AA from offer
+ * - Common pool skills: forced to take lowest-position AA only
  */
 
 import { useState } from "react";
-import {
-  CHOOSE_LEVEL_UP_REWARDS_ACTION,
-  type CardId,
-  type SkillId,
-} from "@mage-knight/shared";
+import type { SkillId } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
+import { extractLevelUpRewardOptions } from "../../rust/legalActionUtils";
+import type { LegalAction } from "../../rust/types";
 
 // Format skill/card ID for display (convert snake_case to Title Case)
 function formatName(id: string): string {
@@ -51,7 +53,7 @@ function SkillOption({ skillId, isSelected, onSelect, isFromCommonPool }: SkillO
 }
 
 interface AAOptionProps {
-  cardId: CardId;
+  cardId: string;
   isSelected: boolean;
   onSelect: () => void;
 }
@@ -69,74 +71,72 @@ function AAOption({ cardId, isSelected, onSelect }: AAOptionProps) {
 }
 
 export function LevelUpRewardSelection() {
-  const { state, sendAction } = useGame();
+  const { legalActions, sendAction } = useGame();
   const player = useMyPlayer();
 
   // Track selected skill and AA
   const [selectedSkill, setSelectedSkill] = useState<{
-    skillId: SkillId;
+    index: number;
     fromCommonPool: boolean;
   } | null>(null);
-  const [selectedAA, setSelectedAA] = useState<CardId | null>(null);
+  const [selectedAA, setSelectedAA] = useState<string | null>(null);
 
-  // Check if we have level up rewards to show
-  const levelUpRewards =
-    state?.validActions?.mode === "pending_level_up"
-      ? state.validActions.levelUpRewards
-      : undefined;
+  // Get level-up data from pending state
+  const levelUpData = player?.pending?.kind === "level_up_reward"
+    ? player.pending.levelUpData
+    : undefined;
 
-  // Don't show if no pending level up rewards
-  if (!player || !levelUpRewards) {
+  if (!player || !levelUpData) {
     return null;
   }
 
-  const { level, drawnSkills, commonPoolSkills, availableAAs } = levelUpRewards;
+  const { level, drawnSkills, commonPoolSkills } = levelUpData;
+  const rewardOptions = extractLevelUpRewardOptions(legalActions);
 
-  const handleSelectDrawnSkill = (skillId: SkillId) => {
-    setSelectedSkill({ skillId, fromCommonPool: false });
+  // Derive available AAs for the selected skill
+  const availableAAs = selectedSkill
+    ? [...new Set(
+        rewardOptions
+          .filter(o => o.skillIndex === selectedSkill.index && o.fromCommonPool === selectedSkill.fromCommonPool)
+          .map(o => o.advancedActionId)
+      )]
+    : [...new Set(rewardOptions.map(o => o.advancedActionId))];
+
+  const handleSelectDrawnSkill = (index: number) => {
+    setSelectedSkill({ index, fromCommonPool: false });
+    setSelectedAA(null); // Reset AA since available options may change
   };
 
-  const handleSelectCommonPoolSkill = (skillId: SkillId) => {
-    setSelectedSkill({ skillId, fromCommonPool: true });
+  const handleSelectCommonPoolSkill = (index: number) => {
+    setSelectedSkill({ index, fromCommonPool: true });
+    setSelectedAA(null);
   };
 
-  const handleSelectAA = (cardId: CardId) => {
+  const handleSelectAA = (cardId: string) => {
     setSelectedAA(cardId);
   };
 
   const handleConfirm = () => {
-    if (!selectedSkill || !selectedAA) {
-      return;
+    if (!selectedSkill || !selectedAA) return;
+
+    // Find the matching legal action
+    const matchingAction = rewardOptions.find(
+      o => o.skillIndex === selectedSkill.index
+        && o.fromCommonPool === selectedSkill.fromCommonPool
+        && o.advancedActionId === selectedAA
+    );
+
+    if (matchingAction) {
+      sendAction(matchingAction.action as LegalAction);
+      setSelectedSkill(null);
+      setSelectedAA(null);
     }
-
-    sendAction({
-      type: CHOOSE_LEVEL_UP_REWARDS_ACTION,
-      level,
-      skillChoice: {
-        skillId: selectedSkill.skillId,
-        fromCommonPool: selectedSkill.fromCommonPool,
-      },
-      advancedActionId: selectedAA,
-    });
-
-    // Reset state for next level up if there is one
-    setSelectedSkill(null);
-    setSelectedAA(null);
   };
-
-  // Count remaining level ups
-  const pendingCount = player.pendingLevelUpRewards?.length ?? 0;
 
   return (
     <div className="overlay">
       <div className="overlay__content level-up">
         <h2 className="level-up__title">Level {level} Rewards</h2>
-
-        {pendingCount > 1 && (
-          <p className="level-up__remaining">
-            {pendingCount - 1} more level up{pendingCount > 2 ? "s" : ""} after this
-          </p>
-        )}
 
         {/* Skill Selection */}
         <section className="level-up__section">
@@ -150,15 +150,15 @@ export function LevelUpRewardSelection() {
                 Pick one of these, or choose from the common pool below
               </p>
               <div className="level-up__skills">
-                {drawnSkills.map((skillId) => (
+                {drawnSkills.map((skillId, index) => (
                   <SkillOption
                     key={skillId}
                     skillId={skillId}
                     isSelected={
-                      selectedSkill?.skillId === skillId &&
+                      selectedSkill?.index === index &&
                       !selectedSkill.fromCommonPool
                     }
-                    onSelect={() => handleSelectDrawnSkill(skillId)}
+                    onSelect={() => handleSelectDrawnSkill(index)}
                     isFromCommonPool={false}
                   />
                 ))}
@@ -174,15 +174,15 @@ export function LevelUpRewardSelection() {
                 Choosing from here sends BOTH drawn skills to the common pool
               </p>
               <div className="level-up__skills level-up__skills--common">
-                {commonPoolSkills.map((skillId) => (
+                {commonPoolSkills.map((skillId, index) => (
                   <SkillOption
                     key={skillId}
                     skillId={skillId}
                     isSelected={
-                      selectedSkill?.skillId === skillId &&
+                      selectedSkill?.index === index &&
                       selectedSkill.fromCommonPool
                     }
-                    onSelect={() => handleSelectCommonPoolSkill(skillId)}
+                    onSelect={() => handleSelectCommonPoolSkill(index)}
                     isFromCommonPool={true}
                   />
                 ))}
@@ -213,7 +213,9 @@ export function LevelUpRewardSelection() {
               ))}
             </div>
           ) : (
-            <p className="level-up__empty">No advanced actions available.</p>
+            <p className="level-up__empty">
+              {selectedSkill ? "No advanced actions available for this skill." : "Select a skill first to see available advanced actions."}
+            </p>
           )}
         </section>
 

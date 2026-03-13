@@ -59,6 +59,15 @@ export interface ClientPendingInfo {
   readonly options: readonly string[];
   /** For subset-selection pendings, the currently selected indices. */
   readonly selected?: readonly number[];
+  /** Extra data for level-up reward selection. */
+  readonly levelUpData?: ClientLevelUpData;
+}
+
+/** Level-up reward data for the selection UI. */
+export interface ClientLevelUpData {
+  readonly level: number;
+  readonly drawnSkills: readonly SkillId[];
+  readonly commonPoolSkills: readonly SkillId[];
 }
 
 // Pending choice - when a card or skill requires player selection

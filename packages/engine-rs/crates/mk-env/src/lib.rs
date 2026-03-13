@@ -1199,8 +1199,18 @@ mod tests {
                 !env.action_set.actions.is_empty(),
                 "0 legal actions at step {i} (before applying {action:?})"
             );
-            // Find this action in the legal action set
-            let idx = env.action_set.actions.iter().position(|a| a == action)
+            // Find this action in the legal action set.
+            // For Explore actions, match by direction only (from_tile_center
+            // is derived at enumeration time and not in the hardcoded JSON).
+            let idx = env.action_set.actions.iter().position(|a| {
+                match (a, action) {
+                    (
+                        LegalAction::Explore { direction: d1, .. },
+                        LegalAction::Explore { direction: d2, .. },
+                    ) => d1 == d2,
+                    _ => a == action,
+                }
+            })
                 .unwrap_or_else(|| panic!(
                     "Action {action:?} not found in legal actions at step {i}. \
                      Available: {:?}", env.action_set.actions

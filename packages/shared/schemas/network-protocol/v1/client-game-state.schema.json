@@ -939,6 +939,33 @@
       ],
       "type": "object"
     },
+    "ClientLevelUpData": {
+      "additionalProperties": false,
+      "description": "Level-up reward data for the selection UI.",
+      "properties": {
+        "commonPoolSkills": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "drawnSkills": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "level": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "commonPoolSkills",
+        "drawnSkills",
+        "level"
+      ],
+      "type": "object"
+    },
     "ClientManaSource": {
       "additionalProperties": false,
       "properties": {
@@ -1079,6 +1106,10 @@
         },
         "label": {
           "type": "string"
+        },
+        "levelUpData": {
+          "$ref": "#/definitions/ClientLevelUpData",
+          "description": "Extra data for level-up reward selection."
         },
         "options": {
           "items": {

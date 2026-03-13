@@ -7,7 +7,7 @@
 use mk_engine::action_pipeline::push_passive_skill_modifiers;
 use mk_engine::combat::{execute_enter_combat, EnterCombatOptions};
 use mk_engine::legal_actions::enumerate_legal_actions_with_undo;
-use mk_engine::setup::{create_solo_game, place_initial_tiles};
+use mk_engine::setup::{create_solo_game, generate_tile_slots, place_initial_tiles};
 use mk_engine::undo::UndoStack;
 use mk_types::enums::{Hero, RoundPhase, ScenarioEndTrigger, UnitState};
 use mk_types::ids::{EnemyTokenId, SkillId, UnitId, UnitInstanceId};
@@ -60,6 +60,23 @@ pub enum TrainingScenario {
         #[serde(default)]
         crystals: Option<Crystals>,
     },
+
+    /// Exploration-only drill: no enemies, agent reveals the city tile to end the episode.
+    ///
+    /// Uses `countryside_count` countryside tiles + 1 city tile in a wedge map.
+    /// All enemy token piles are drained so no enemies ever appear.
+    /// End trigger is CityRevealed.
+    ExplorationDrill {
+        /// Countryside tile count (default 4). City tile always appended.
+        #[serde(default)]
+        countryside_count: Option<u32>,
+        /// Override starting hand with specific card IDs.
+        #[serde(default)]
+        hand_override: Option<Vec<String>>,
+        /// Extra card IDs added to the deck before hand draw.
+        #[serde(default)]
+        extra_cards: Option<Vec<String>>,
+    },
 }
 
 impl Default for TrainingScenario {
@@ -111,6 +128,17 @@ pub fn create_training_game(
             };
             setup_combat_drill(seed, hero, &config)
         }
+        TrainingScenario::ExplorationDrill {
+            countryside_count,
+            hand_override,
+            extra_cards,
+        } => setup_exploration_drill(
+            seed,
+            hero,
+            countryside_count.unwrap_or(4),
+            hand_override.as_deref(),
+            extra_cards.as_deref(),
+        ),
     }
 }
 
@@ -245,6 +273,96 @@ fn setup_combat_drill(seed: u32, hero: Hero, config: &CombatDrillConfig<'_>) -> 
                 player.hand.push(card);
             } else {
                 eprintln!("[CombatDrill] hand_override: card {name:?} not found in deck, skipping");
+            }
+        }
+    }
+
+    let undo_stack = UndoStack::new();
+    let action_set = filter_undo(enumerate_legal_actions_with_undo(&state, 0, &undo_stack));
+    ScenarioSetupResult {
+        state,
+        undo_stack,
+        action_set,
+    }
+}
+
+// =============================================================================
+// Exploration drill
+// =============================================================================
+
+fn setup_exploration_drill(
+    seed: u32,
+    hero: Hero,
+    countryside_count: u32,
+    hand_override: Option<&[String]>,
+    extra_cards: Option<&[String]>,
+) -> ScenarioSetupResult {
+    let mut state = create_solo_game(seed, hero);
+
+    // Override scenario config for a smaller exploration-only map.
+    state.scenario_config.countryside_tile_count = countryside_count;
+    state.scenario_config.core_tile_count = 0;
+    state.scenario_config.city_tile_count = 1;
+    state.scenario_config.end_trigger = ScenarioEndTrigger::CityRevealed;
+
+    // Rebuild tile deck + slots for the reduced map.
+    state.map.tile_deck =
+        mk_data::tiles::create_tile_deck(&state.scenario_config, &mut state.rng);
+    let total_tiles = 1 + countryside_count + 1; // starting + countryside + city
+    state.map.tile_slots =
+        generate_tile_slots(state.scenario_config.map_shape, total_tiles);
+
+    // Skip tactic selection — auto-select a tactic so the UI shows end-turn.
+    state.round_phase = RoundPhase::PlayerTurns;
+    state.players[0].selected_tactic =
+        Some(mk_types::ids::TacticId::from(mk_data::tactics::DAY_TACTIC_IDS[0]));
+
+    // Drain all enemy token piles — no enemies will appear on revealed tiles.
+    let t = &mut state.enemy_tokens;
+    t.green_draw.clear();
+    t.green_discard.clear();
+    t.red_draw.clear();
+    t.red_discard.clear();
+    t.brown_draw.clear();
+    t.brown_discard.clear();
+    t.violet_draw.clear();
+    t.violet_discard.clear();
+    t.gray_draw.clear();
+    t.gray_discard.clear();
+    t.white_draw.clear();
+    t.white_discard.clear();
+
+    // Place initial tiles (with empty enemy piles, no enemies are drawn).
+    place_initial_tiles(&mut state);
+
+    // Extra cards: return hand → add extras → reshuffle → redraw 5.
+    if let Some(card_names) = extra_cards {
+        let player = &mut state.players[0];
+        player.deck.append(&mut player.hand);
+        for name in card_names {
+            player.deck.push(mk_types::ids::CardId::from(name.as_str()));
+        }
+        state.rng.shuffle(&mut state.players[0].deck);
+        let draw_count = state.players[0].deck.len().min(5);
+        for _ in 0..draw_count {
+            if let Some(card) = state.players[0].deck.pop() {
+                state.players[0].hand.push(card);
+            }
+        }
+    }
+
+    // Hand override: pull specific cards from deck into hand.
+    if let Some(card_names) = hand_override {
+        let player = &mut state.players[0];
+        player.deck.append(&mut player.hand);
+        for name in card_names {
+            if let Some(pos) = player.deck.iter().position(|c| c.as_str() == name.as_str()) {
+                let card = player.deck.remove(pos);
+                player.hand.push(card);
+            } else {
+                eprintln!(
+                    "[ExplorationDrill] hand_override: {name:?} not in deck, skipping"
+                );
             }
         }
     }
@@ -550,6 +668,149 @@ mod tests {
         assert_eq!(result.state.players[0].crystals.green, 3);
         assert_eq!(result.state.players[0].crystals.white, 0);
     }
+
+    // =========================================================================
+    // ExplorationDrill tests
+    // =========================================================================
+
+    #[test]
+    fn exploration_drill_produces_valid_state() {
+        let scenario = TrainingScenario::ExplorationDrill {
+            countryside_count: Some(4),
+            hand_override: None,
+            extra_cards: None,
+        };
+        let result = create_training_game(42, Hero::Arythea, &scenario);
+        assert!(!result.state.game_ended);
+        assert!(!result.action_set.actions.is_empty());
+    }
+
+    #[test]
+    fn exploration_drill_no_combat() {
+        let scenario = TrainingScenario::ExplorationDrill {
+            countryside_count: Some(4),
+            hand_override: None,
+            extra_cards: None,
+        };
+        let result = create_training_game(42, Hero::Arythea, &scenario);
+        assert!(result.state.combat.is_none(), "Should not be in combat");
+    }
+
+    #[test]
+    fn exploration_drill_empty_enemy_piles() {
+        let scenario = TrainingScenario::ExplorationDrill {
+            countryside_count: Some(4),
+            hand_override: None,
+            extra_cards: None,
+        };
+        let result = create_training_game(42, Hero::Arythea, &scenario);
+        let t = &result.state.enemy_tokens;
+        assert!(t.green_draw.is_empty());
+        assert!(t.green_discard.is_empty());
+        assert!(t.red_draw.is_empty());
+        assert!(t.red_discard.is_empty());
+        assert!(t.brown_draw.is_empty());
+        assert!(t.brown_discard.is_empty());
+        assert!(t.violet_draw.is_empty());
+        assert!(t.violet_discard.is_empty());
+        assert!(t.gray_draw.is_empty());
+        assert!(t.gray_discard.is_empty());
+        assert!(t.white_draw.is_empty());
+        assert!(t.white_discard.is_empty());
+    }
+
+    #[test]
+    fn exploration_drill_city_revealed_trigger() {
+        let scenario = TrainingScenario::ExplorationDrill {
+            countryside_count: Some(4),
+            hand_override: None,
+            extra_cards: None,
+        };
+        let result = create_training_game(42, Hero::Arythea, &scenario);
+        assert_eq!(
+            result.state.scenario_config.end_trigger,
+            ScenarioEndTrigger::CityRevealed
+        );
+    }
+
+    #[test]
+    fn exploration_drill_tile_deck_size() {
+        let scenario = TrainingScenario::ExplorationDrill {
+            countryside_count: Some(2),
+            hand_override: None,
+            extra_cards: None,
+        };
+        let result = create_training_game(42, Hero::Arythea, &scenario);
+        // 2 countryside + 1 city in deck, minus whatever was placed as initial tiles
+        let total_deck = result.state.map.tile_deck.countryside.len()
+            + result.state.map.tile_deck.core.len();
+        // Starting tile is pre-placed, so deck should have the remaining tiles
+        assert!(total_deck <= 3, "Deck should be small: got {total_deck}");
+    }
+
+    #[test]
+    fn exploration_drill_default_countryside_count() {
+        let scenario = TrainingScenario::ExplorationDrill {
+            countryside_count: None, // defaults to 4
+            hand_override: None,
+            extra_cards: None,
+        };
+        let result = create_training_game(42, Hero::Arythea, &scenario);
+        assert_eq!(result.state.scenario_config.countryside_tile_count, 4);
+    }
+
+    #[test]
+    fn exploration_drill_deserializes_from_json() {
+        let json = r#"{"type":"ExplorationDrill"}"#;
+        let scenario: TrainingScenario = serde_json::from_str(json).unwrap();
+        match scenario {
+            TrainingScenario::ExplorationDrill {
+                countryside_count,
+                hand_override,
+                extra_cards,
+            } => {
+                assert!(countryside_count.is_none());
+                assert!(hand_override.is_none());
+                assert!(extra_cards.is_none());
+            }
+            _ => panic!("Expected ExplorationDrill"),
+        }
+    }
+
+    #[test]
+    fn exploration_drill_deserializes_with_params() {
+        let json = r#"{"type":"ExplorationDrill","countryside_count":2,"hand_override":["rage","stamina"]}"#;
+        let scenario: TrainingScenario = serde_json::from_str(json).unwrap();
+        match scenario {
+            TrainingScenario::ExplorationDrill {
+                countryside_count,
+                hand_override,
+                ..
+            } => {
+                assert_eq!(countryside_count, Some(2));
+                assert_eq!(
+                    hand_override,
+                    Some(vec!["rage".to_string(), "stamina".to_string()])
+                );
+            }
+            _ => panic!("Expected ExplorationDrill"),
+        }
+    }
+
+    #[test]
+    fn exploration_drill_skips_tactic_selection() {
+        let scenario = TrainingScenario::ExplorationDrill {
+            countryside_count: Some(4),
+            hand_override: None,
+            extra_cards: None,
+        };
+        let result = create_training_game(42, Hero::Arythea, &scenario);
+        assert_eq!(result.state.round_phase, RoundPhase::PlayerTurns);
+    }
+
+    // =========================================================================
+    // Backward compatibility tests
+    // =========================================================================
 
     #[test]
     fn scenario_backward_compat_no_new_fields() {

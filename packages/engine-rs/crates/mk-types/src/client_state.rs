@@ -147,6 +147,7 @@ pub struct ClientPlayerUnit {
 
 /// Description of pending state for UI display.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClientPendingInfo {
     /// Machine-readable kind, e.g. "rethink", "midnight_meditation", "choice".
     /// Allows the client to show the correct overlay without string-matching `label`.
@@ -158,6 +159,18 @@ pub struct ClientPendingInfo {
     /// For subset-selection pendings, the currently selected indices.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub selected: Vec<usize>,
+    /// Extra data for level-up reward selection.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub level_up_data: Option<ClientLevelUpData>,
+}
+
+/// Level-up reward data sent to the client for the selection UI.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientLevelUpData {
+    pub level: u8,
+    pub drawn_skills: Vec<SkillId>,
+    pub common_pool_skills: Vec<SkillId>,
 }
 
 // =============================================================================
@@ -170,6 +183,18 @@ pub struct ClientPendingInfo {
 pub struct ClientMapState {
     pub hexes: std::collections::BTreeMap<String, ClientHexState>,
     pub tiles: Vec<ClientTilePlacement>,
+    /// Available tile slot positions (wedge shape ghost outlines), keyed by hex coord string.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub tile_slots: std::collections::BTreeMap<String, ClientTileSlot>,
+}
+
+/// A tile slot position for rendering ghost outlines on the map.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientTileSlot {
+    pub coord: HexCoord,
+    pub row: u32,
+    pub filled: bool,
 }
 
 /// Filtered hex state.

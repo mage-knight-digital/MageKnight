@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 
-use mk_types::hex::HexCoord;
 use mk_types::legal_action::LegalAction;
 use mk_types::state::GameState;
 
@@ -88,24 +87,18 @@ pub(super) fn project_move_targets(actions: &[LegalAction]) -> Vec<MoveTarget> {
 
 /// Project Explore actions into ExploreDirection structs.
 ///
-/// We need the state to compute `target_center` from the direction, since
-/// `LegalAction::Explore` only carries the direction.
+/// Each `LegalAction::Explore` now carries `from_tile_center`, so we can
+/// compute `target_center` directly without looking up the player's tile.
 pub(super) fn project_explore_directions(
     actions: &[LegalAction],
-    state: &GameState,
-    player_idx: usize,
+    _state: &GameState,
+    _player_idx: usize,
 ) -> Vec<ExploreDirection> {
-    let player_pos = state.players.get(player_idx).and_then(|p| p.position);
-
-    let tile_center = player_pos.and_then(|pos| crate::movement::find_tile_center(&state.map, pos));
-
     actions
         .iter()
         .filter_map(|a| match a {
-            LegalAction::Explore { direction } => {
-                let target_center = tile_center
-                    .map(|tc| crate::movement::calculate_tile_placement(tc, *direction))
-                    .unwrap_or_else(|| HexCoord::new(0, 0));
+            LegalAction::Explore { direction, from_tile_center } => {
+                let target_center = crate::movement::calculate_tile_placement(*from_tile_center, *direction);
                 Some(ExploreDirection {
                     direction: *direction,
                     target_center,

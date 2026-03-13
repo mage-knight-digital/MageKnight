@@ -21,12 +21,14 @@ const MODE_REPLAY = "replay" as const;
 const DEFAULT_RUST_SERVER_URL = "ws://localhost:3030/ws" as const;
 const HERO_PARAM = "hero" as const;
 const SEED_PARAM = "seed" as const;
+const SCENARIO_PARAM = "scenario" as const;
 
 interface RuntimeRustConfig {
   serverUrl: string;
   hero: string;
   seed?: number;
   playerId?: string;
+  scenario?: string;
 }
 
 function isReplayModeRequested(): boolean {
@@ -42,12 +44,14 @@ function getRuntimeRustConfig(): RuntimeRustConfig {
   const playerId = urlParams.get(PLAYER_ID_PARAM) ?? undefined;
   const seedParam = urlParams.get(SEED_PARAM);
   const seed = seedParam ? parseInt(seedParam, 10) : undefined;
+  const scenario = urlParams.get(SCENARIO_PARAM) ?? undefined;
 
   return {
     serverUrl,
     hero,
     seed: seed && !isNaN(seed) ? seed : undefined,
     playerId,
+    scenario,
   };
 }
 
@@ -108,6 +112,7 @@ export function App() {
       hero={RUNTIME_RUST_CONFIG.hero}
       seed={RUNTIME_RUST_CONFIG.seed}
       playerId={RUNTIME_RUST_CONFIG.playerId}
+      scenario={RUNTIME_RUST_CONFIG.scenario}
     >
       {gameShell}
     </GameProvider>

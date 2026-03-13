@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Axial hex coordinate.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct HexCoord {
     pub q: i32,
     pub r: i32,

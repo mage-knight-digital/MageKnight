@@ -735,7 +735,6 @@ pub struct ScenarioConfig {
     pub fame_per_tile_explored: u32,
     pub cities_can_be_entered: bool,
     pub default_city_level: u32,
-
     // Tactic handling
     pub tactic_removal_mode: TacticRemovalMode,
     pub dummy_tactic_order: DummyTacticOrder,

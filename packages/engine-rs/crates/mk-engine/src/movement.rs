@@ -993,6 +993,7 @@ pub fn execute_explore(
     state: &mut GameState,
     player_idx: usize,
     direction: HexDirection,
+    from_tile_center: HexCoord,
 ) -> Result<TileId, ExploreError> {
     // Validate direction is allowed by map shape
     let allowed = state.scenario_config.map_shape.expansion_directions();
@@ -1009,8 +1010,8 @@ pub fn execute_explore(
         return Err(ExploreError::InsufficientMovePoints);
     }
 
-    // Find which tile the player is currently on
-    let tile_center = find_tile_center(&state.map, pos).ok_or(ExploreError::NoPosition)?;
+    // Use the from_tile_center passed from enumerate_explores.
+    let tile_center = from_tile_center;
 
     // Validate player is on the edge of their tile facing the explore direction
     let explore_distance = if crate::card_play::is_rule_active(state, player_idx, mk_types::modifier::RuleOverride::ExtendedExplore) { 2 } else { 1 };
@@ -1440,13 +1441,24 @@ mod tests {
         state.players[0].position = Some(HexCoord::new(1, -1));
     }
 
+    /// Test helper: derive from_tile_center from player 0's position.
+    fn test_explore(
+        state: &mut GameState,
+        player_idx: usize,
+        direction: HexDirection,
+    ) -> Result<TileId, ExploreError> {
+        let pos = state.players[player_idx].position.unwrap();
+        let tile_center = find_tile_center(&state.map, pos).unwrap();
+        execute_explore(state, player_idx, direction, tile_center)
+    }
+
     #[test]
     fn explore_places_new_tile() {
         let mut state = setup_game_with_move_points(5);
         move_to_east_edge(&mut state);
         state.map.tile_deck.countryside.push(TileId::Countryside1);
 
-        execute_explore(&mut state, 0, HexDirection::E).unwrap();
+        test_explore(&mut state, 0, HexDirection::E).unwrap();
 
         // Verify new tile was placed
         assert_eq!(state.map.tiles.len(), 2);
@@ -1466,7 +1478,7 @@ mod tests {
         move_to_east_edge(&mut state);
         state.map.tile_deck.countryside.push(TileId::Countryside1);
 
-        let result = execute_explore(&mut state, 0, HexDirection::E);
+        let result = test_explore(&mut state, 0, HexDirection::E);
         assert_eq!(result.unwrap_err(), ExploreError::InsufficientMovePoints);
     }
 
@@ -1475,7 +1487,7 @@ mod tests {
         let mut state = setup_game_with_move_points(5);
         move_to_east_edge(&mut state);
         // Empty tile decks
-        let result = execute_explore(&mut state, 0, HexDirection::E);
+        let result = test_explore(&mut state, 0, HexDirection::E);
         assert_eq!(result.unwrap_err(), ExploreError::NoTilesAvailable);
     }
 
@@ -1486,7 +1498,7 @@ mod tests {
         state.map.tile_deck.countryside.push(TileId::Countryside1);
         // Countryside 1 has an orc marauder on its NW hex
 
-        execute_explore(&mut state, 0, HexDirection::E).unwrap();
+        test_explore(&mut state, 0, HexDirection::E).unwrap();
 
         // New tile center at (3,-2). NW hex offset is (0,-1), so NW = (3,-3)
         let nw_hex = state.map.hexes.get("3,-3").unwrap();
@@ -1501,7 +1513,7 @@ mod tests {
         state.map.tile_deck.countryside.push(TileId::Countryside2);
         // Countryside 2 has a green mine on its SW hex
 
-        execute_explore(&mut state, 0, HexDirection::E).unwrap();
+        test_explore(&mut state, 0, HexDirection::E).unwrap();
 
         // New tile center at (3,-2). SW hex offset is (-1,1), so SW = (2,-1)
         let sw_hex = state.map.hexes.get("2,-1").unwrap();
@@ -1518,7 +1530,7 @@ mod tests {
         state.map.tile_deck.countryside.push(TileId::Countryside1);
         state.map.tile_deck.countryside.push(TileId::Countryside2);
 
-        execute_explore(&mut state, 0, HexDirection::E).unwrap();
+        test_explore(&mut state, 0, HexDirection::E).unwrap();
 
         // First tile drawn, second remains
         assert_eq!(state.map.tile_deck.countryside.len(), 1);
@@ -1532,7 +1544,7 @@ mod tests {
         // No countryside tiles; use core deck
         state.map.tile_deck.core.push(TileId::Countryside3);
 
-        execute_explore(&mut state, 0, HexDirection::E).unwrap();
+        test_explore(&mut state, 0, HexDirection::E).unwrap();
 
         assert!(state.map.tile_deck.core.is_empty());
         assert_eq!(state.map.tiles.len(), 2);
@@ -1545,7 +1557,7 @@ mod tests {
         state.map.tile_deck.countryside.push(TileId::Countryside1);
 
         // Explore east from edge hex (1,-1)
-        execute_explore(&mut state, 0, HexDirection::E).unwrap();
+        test_explore(&mut state, 0, HexDirection::E).unwrap();
         assert_eq!(state.players[0].move_points, 8);
 
         // Move to a hex on the new tile.
@@ -1564,11 +1576,11 @@ mod tests {
         state.map.tile_deck.countryside.push(TileId::Countryside2);
 
         // Explore east
-        execute_explore(&mut state, 0, HexDirection::E).unwrap();
+        test_explore(&mut state, 0, HexDirection::E).unwrap();
         assert_eq!(state.map.tiles.len(), 2);
 
         // Explore northeast — player at (1,-1) is also near NE tile edge
-        execute_explore(&mut state, 0, HexDirection::NE).unwrap();
+        test_explore(&mut state, 0, HexDirection::NE).unwrap();
         assert_eq!(state.map.tiles.len(), 3);
         assert_eq!(state.map.hexes.len(), 21); // 7 + 7 + 7
         assert_eq!(state.players[0].move_points, 6); // 10 - 2 - 2
@@ -1581,7 +1593,7 @@ mod tests {
         state.players[0].position = Some(HexCoord::new(0, 0));
         state.map.tile_deck.countryside.push(TileId::Countryside1);
 
-        let result = execute_explore(&mut state, 0, HexDirection::E);
+        let result = test_explore(&mut state, 0, HexDirection::E);
         assert_eq!(result.unwrap_err(), ExploreError::NotOnTileEdge);
     }
 
@@ -1593,7 +1605,7 @@ mod tests {
         move_to_east_edge(&mut state);
         state.map.tile_deck.countryside.push(TileId::Countryside1);
 
-        let result = execute_explore(&mut state, 0, HexDirection::W);
+        let result = test_explore(&mut state, 0, HexDirection::W);
         assert_eq!(result.unwrap_err(), ExploreError::DirectionNotAllowed);
     }
 
@@ -1606,7 +1618,7 @@ mod tests {
         // Countryside 1 has an OrcMarauder on NW hex
         state.map.tile_deck.countryside.push(TileId::Countryside1);
 
-        execute_explore(&mut state, 0, HexDirection::E).unwrap();
+        test_explore(&mut state, 0, HexDirection::E).unwrap();
 
         // New tile center at (3,-2). NW offset = (0,-1), so NW = (3,-3)
         let nw_hex = state.map.hexes.get("3,-3").unwrap();
@@ -1622,7 +1634,7 @@ mod tests {
         // Countryside 1: center is MagicalGlade (no rampaging, no defenders)
         state.map.tile_deck.countryside.push(TileId::Countryside1);
 
-        execute_explore(&mut state, 0, HexDirection::E).unwrap();
+        test_explore(&mut state, 0, HexDirection::E).unwrap();
 
         // Center hex at (3,-2) has no rampaging and MagicalGlade has no site defenders
         let center_hex = state.map.hexes.get("3,-2").unwrap();
@@ -1636,7 +1648,7 @@ mod tests {
         // Countryside 11 has MageTower at CENTER — draws 1 violet enemy, face-down
         state.map.tile_deck.countryside.push(TileId::Countryside11);
 
-        execute_explore(&mut state, 0, HexDirection::E).unwrap();
+        test_explore(&mut state, 0, HexDirection::E).unwrap();
 
         let center_hex = state.map.hexes.get("3,-2").unwrap();
         assert_eq!(center_hex.enemies.len(), 1, "MageTower should have 1 defender");
@@ -2236,7 +2248,7 @@ mod tests {
         // Explore a tile to have distant hexes
         state.players[0].position = Some(HexCoord::new(1, -1));
         state.map.tile_deck.countryside.push(TileId::Countryside1);
-        execute_explore(&mut state, 0, HexDirection::E).unwrap();
+        test_explore(&mut state, 0, HexDirection::E).unwrap();
         state.players[0].position = Some(HexCoord::new(0, 0));
         state.players[0].move_points = 10;
 
@@ -2257,7 +2269,7 @@ mod tests {
         // Explore a tile
         state.players[0].position = Some(HexCoord::new(1, -1));
         state.map.tile_deck.countryside.push(TileId::Countryside1);
-        execute_explore(&mut state, 0, HexDirection::E).unwrap();
+        test_explore(&mut state, 0, HexDirection::E).unwrap();
         state.players[0].position = Some(HexCoord::new(0, 0));
         state.players[0].move_points = 10;
 
@@ -2486,7 +2498,7 @@ mod tests {
 
         let initial_monastery_count = state.offers.monastery_advanced_actions.len();
 
-        execute_explore(&mut state, 0, HexDirection::E).unwrap();
+        test_explore(&mut state, 0, HexDirection::E).unwrap();
 
         assert_eq!(
             state.offers.monastery_advanced_actions.len(),
@@ -2508,7 +2520,7 @@ mod tests {
 
         let initial_count = state.offers.monastery_advanced_actions.len();
 
-        execute_explore(&mut state, 0, HexDirection::E).unwrap();
+        test_explore(&mut state, 0, HexDirection::E).unwrap();
 
         assert_eq!(
             state.offers.monastery_advanced_actions.len(),
@@ -2529,7 +2541,7 @@ mod tests {
         let initial_count = state.offers.monastery_advanced_actions.len();
 
         // Should not panic
-        execute_explore(&mut state, 0, HexDirection::E).unwrap();
+        test_explore(&mut state, 0, HexDirection::E).unwrap();
 
         assert_eq!(
             state.offers.monastery_advanced_actions.len(),
@@ -2549,7 +2561,7 @@ mod tests {
         state.players[0].position = Some(HexCoord::new(-1, 1));
         state.map.tile_deck.countryside.push(TileId::Countryside1);
 
-        let result = execute_explore(&mut state, 0, HexDirection::SW);
+        let result = test_explore(&mut state, 0, HexDirection::SW);
         assert_eq!(result.unwrap_err(), ExploreError::DirectionNotAllowed);
     }
 
@@ -2574,7 +2586,7 @@ mod tests {
             "Slot should start unfilled"
         );
 
-        execute_explore(&mut state, 0, HexDirection::E).unwrap();
+        test_explore(&mut state, 0, HexDirection::E).unwrap();
 
         assert!(
             state.map.tile_slots.get("3,-2").unwrap().filled,

@@ -55,6 +55,9 @@ pub enum LegalAction {
     },
     Explore {
         direction: HexDirection,
+        /// Which tile center this explore originates from.
+        #[serde(default)]
+        from_tile_center: HexCoord,
     },
     ResolveChoice {
         choice_index: usize,

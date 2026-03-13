@@ -25,7 +25,7 @@ export class RustGameConnection {
   private options: RustGameConnectionOptions;
   private reconnectAttempts = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  private pendingNewGame: { hero: string; seed?: number } | null = null;
+  private pendingNewGame: { hero: string; seed?: number; scenario?: string } | null = null;
 
   constructor(options: RustGameConnectionOptions) {
     this.options = options;
@@ -44,6 +44,7 @@ export class RustGameConnection {
           type: "new_game",
           hero: this.pendingNewGame.hero,
           seed: this.pendingNewGame.seed,
+          scenario: this.pendingNewGame.scenario,
         });
       }
     };
@@ -80,10 +81,10 @@ export class RustGameConnection {
     this.options.onStatusChange("disconnected");
   }
 
-  sendNewGame(hero: string, seed?: number): void {
-    this.pendingNewGame = { hero, seed };
+  sendNewGame(hero: string, seed?: number, scenario?: string): void {
+    this.pendingNewGame = { hero, seed, scenario };
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.sendRaw({ type: "new_game", hero, seed });
+      this.sendRaw({ type: "new_game", hero, seed, scenario });
     }
   }
 

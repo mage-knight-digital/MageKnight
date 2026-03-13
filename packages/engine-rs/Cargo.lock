@@ -879,6 +879,7 @@ dependencies = [
  "metrics-exporter-prometheus",
  "mk-data",
  "mk-engine",
+ "mk-env",
  "mk-types",
  "serde",
  "serde_json",

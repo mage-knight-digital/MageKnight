@@ -59,9 +59,10 @@ pub(super) fn apply_explore(
     state: &mut GameState,
     player_idx: usize,
     direction: mk_types::hex::HexDirection,
+    from_tile_center: mk_types::hex::HexCoord,
 ) -> Result<ApplyResult, ApplyError> {
     let player_id = state.players[player_idx].id.clone();
-    movement::execute_explore(state, player_idx, direction)
+    movement::execute_explore(state, player_idx, direction, from_tile_center)
         .map(|tile_id| ApplyResult {
             needs_reenumeration: true,
             game_ended: false,

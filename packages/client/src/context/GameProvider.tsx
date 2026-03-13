@@ -16,12 +16,13 @@ interface GameProviderProps {
   hero: string;
   seed?: number;
   playerId?: string;
+  scenario?: string;
 }
 
 let nextLogId = 1;
 
 export function GameProvider(props: GameProviderProps) {
-  const { children, serverUrl, hero, seed, playerId } = props;
+  const { children, serverUrl, hero, seed, playerId, scenario } = props;
   const [state, setState] = useState<ClientGameState | null>(null);
   const [events, setEvents] = useState<readonly GameEvent[]>([]);
   const [actionLog, setActionLog] = useState<ActionLogEntry[]>([]);
@@ -83,13 +84,13 @@ export function GameProvider(props: GameProviderProps) {
 
     rustConnectionRef.current = connection;
     connection.connect();
-    connection.sendNewGame(hero, seed);
+    connection.sendNewGame(hero, seed, scenario);
 
     return () => {
       connection.disconnect();
       rustConnectionRef.current = null;
     };
-  }, [serverUrl, hero, seed]);
+  }, [serverUrl, hero, seed, scenario]);
 
   const sendAction = useCallback((action: GameAction) => {
     if (isActionLogEnabledRef.current) {

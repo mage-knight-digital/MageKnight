@@ -480,6 +480,155 @@ export function extractManaStealOptions(actions: LegalAction[]): ManaStealOption
 }
 
 // =============================================================================
+// Site interaction actions
+// =============================================================================
+
+export interface SiteActionInfo {
+  canBeginInteraction: boolean;
+  beginInteractionAction?: LegalAction;
+  canEnter: boolean;
+  enterAction?: LegalAction;
+  healOptions: { healing: number; action: LegalAction }[];
+  buySpellActions: { cardId: string; offerIndex: number; manaColor: string; action: LegalAction }[];
+  learnAAActions: { cardId: string; offerIndex: number; action: LegalAction }[];
+  buyCityAAActions: { cardId: string; offerIndex: number; action: LegalAction }[];
+  canBurnMonastery: boolean;
+  burnAction?: LegalAction;
+  canPlunder: boolean;
+  plunderAction?: LegalAction;
+  canBuyArtifact: boolean;
+  buyArtifactAction?: LegalAction;
+  canAddElite: boolean;
+  addEliteAction?: LegalAction;
+  canBuyCityAAFromDeck: boolean;
+  buyCityAAFromDeckAction?: LegalAction;
+  recruitActions: { unitId: string; offerIndex: number; influenceCost: number; action: LegalAction }[];
+  /** True if any site-related action is available */
+  hasSiteActions: boolean;
+}
+
+export function extractSiteActions(actions: LegalAction[]): SiteActionInfo {
+  const info: SiteActionInfo = {
+    canBeginInteraction: false,
+    canEnter: false,
+    healOptions: [],
+    buySpellActions: [],
+    learnAAActions: [],
+    buyCityAAActions: [],
+    canBurnMonastery: false,
+    canPlunder: false,
+    canBuyArtifact: false,
+    canAddElite: false,
+    canBuyCityAAFromDeck: false,
+    recruitActions: [],
+    hasSiteActions: false,
+  };
+
+  for (const action of actions) {
+    const type = actionType(action);
+    const data = actionData(action);
+
+    switch (type) {
+      case "BeginInteraction":
+        info.canBeginInteraction = true;
+        info.beginInteractionAction = action;
+        break;
+      case "EnterSite":
+        info.canEnter = true;
+        info.enterAction = action;
+        break;
+      case "InteractSite":
+        info.healOptions.push({ healing: data!["healing"] as number, action });
+        break;
+      case "BuySpell":
+        info.buySpellActions.push({
+          cardId: data!["card_id"] as string,
+          offerIndex: data!["offer_index"] as number,
+          manaColor: data!["mana_color"] as string,
+          action,
+        });
+        break;
+      case "LearnAdvancedAction":
+        info.learnAAActions.push({
+          cardId: data!["card_id"] as string,
+          offerIndex: data!["offer_index"] as number,
+          action,
+        });
+        break;
+      case "BuyCityAdvancedAction":
+        info.buyCityAAActions.push({
+          cardId: data!["card_id"] as string,
+          offerIndex: data!["offer_index"] as number,
+          action,
+        });
+        break;
+      case "BurnMonastery":
+        info.canBurnMonastery = true;
+        info.burnAction = action;
+        break;
+      case "PlunderSite":
+        info.canPlunder = true;
+        info.plunderAction = action;
+        break;
+      case "BuyArtifact":
+        info.canBuyArtifact = true;
+        info.buyArtifactAction = action;
+        break;
+      case "AddEliteToOffer":
+        info.canAddElite = true;
+        info.addEliteAction = action;
+        break;
+      case "BuyCityAdvancedActionFromDeck":
+        info.canBuyCityAAFromDeck = true;
+        info.buyCityAAFromDeckAction = action;
+        break;
+      case "RecruitUnit":
+        info.recruitActions.push({
+          unitId: data!["unit_id"] as string,
+          offerIndex: data!["offer_index"] as number,
+          influenceCost: data!["influence_cost"] as number,
+          action,
+        });
+        break;
+    }
+  }
+
+  info.hasSiteActions = info.canBeginInteraction || info.canEnter
+    || info.healOptions.length > 0 || info.buySpellActions.length > 0
+    || info.learnAAActions.length > 0 || info.buyCityAAActions.length > 0
+    || info.canBurnMonastery || info.canPlunder || info.canBuyArtifact
+    || info.canAddElite || info.canBuyCityAAFromDeck || info.recruitActions.length > 0;
+
+  return info;
+}
+
+// =============================================================================
+// Level-up reward options
+// =============================================================================
+
+export interface LevelUpRewardOption {
+  skillIndex: number;
+  fromCommonPool: boolean;
+  advancedActionId: string;
+  action: LegalAction;
+}
+
+export function extractLevelUpRewardOptions(actions: LegalAction[]): LevelUpRewardOption[] {
+  const result: LevelUpRewardOption[] = [];
+  for (const action of actions) {
+    if (actionType(action) !== "ChooseLevelUpReward") continue;
+    const data = actionData(action)!;
+    result.push({
+      skillIndex: data["skill_index"] as number,
+      fromCommonPool: data["from_common_pool"] as boolean,
+      advancedActionId: data["advanced_action_id"] as string,
+      action,
+    });
+  }
+  return result;
+}
+
+// =============================================================================
 // Generic action presence check
 // =============================================================================
 

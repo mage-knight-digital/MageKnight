@@ -145,9 +145,13 @@ export function PixiTacticCarousel({ viewMode, isActive = true }: PixiTacticCaro
   }, [availableTactics.length, cardWidth, containerWidth, containerHeight]);
 
   // Listen for mana-source-complete event (tactics show after mana dice are revealed)
+  // If no tactics available (e.g. ExplorationDrill), skip straight to tactics-complete
   useOnAnimationEvent("mana-source-complete", useCallback(() => {
     setManaSourceComplete(true);
-  }, []));
+    if (availableTactics.length === 0) {
+      emitAnimationEvent("tactics-complete");
+    }
+  }, [availableTactics.length, emitAnimationEvent]));
 
   // Reset selection state when tactics change (new round)
   useEffect(() => {

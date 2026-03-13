@@ -158,7 +158,7 @@ struct DieSnapshot {
 // =============================================================================
 
 impl ActionRecord {
-    fn to_legal_action(&self) -> LegalAction {
+    fn to_legal_action(&self, state: &GameState) -> LegalAction {
         match self {
             ActionRecord::SelectTactic { tactic_id } => LegalAction::SelectTactic {
                 tactic_id: TacticId::from(tactic_id.as_str()),
@@ -192,9 +192,17 @@ impl ActionRecord {
                 target: HexCoord::new(target.q, target.r),
                 cost: *cost,
             },
-            ActionRecord::Explore { direction } => LegalAction::Explore {
-                direction: parse_hex_direction(direction),
-            },
+            ActionRecord::Explore { direction } => {
+                let dir = parse_hex_direction(direction);
+                // Derive from_tile_center from player 0's position (parity traces
+                // were recorded with the old single-tile exploration logic).
+                let pos = state.players[0].position.unwrap();
+                let tile_center = crate::movement::find_tile_center(&state.map, pos).unwrap();
+                LegalAction::Explore {
+                    direction: dir,
+                    from_tile_center: tile_center,
+                }
+            }
             ActionRecord::ResolveChoice { choice_index } => LegalAction::ResolveChoice {
                 choice_index: *choice_index,
             },
@@ -541,7 +549,7 @@ fn run_parity_test(fixture_name: &str) {
             .action
             .as_ref()
             .unwrap_or_else(|| panic!("Step {} has no action", step.step));
-        let action = action_record.to_legal_action();
+        let action = action_record.to_legal_action(&state);
         let epoch = state.action_epoch;
 
         apply_legal_action(&mut state, &mut undo_stack, 0, &action, epoch).unwrap_or_else(|e| {

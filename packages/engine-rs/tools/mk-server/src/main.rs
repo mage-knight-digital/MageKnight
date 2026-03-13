@@ -26,8 +26,8 @@ use tower_http::cors::CorsLayer;
 use mk_engine::action_pipeline::{apply_legal_action, initial_events, ApplyError};
 use mk_engine::client_state::to_client_state;
 use mk_engine::legal_actions::enumerate_legal_actions_with_undo;
-use mk_engine::setup::{create_solo_game, place_initial_tiles};
 use mk_engine::undo::UndoStack;
+use mk_env::training_scenario::{create_training_game, TrainingScenario};
 use mk_types::client_state::ClientGameState;
 use mk_types::enums::Hero;
 use mk_types::events::GameEvent;
@@ -45,6 +45,9 @@ enum ClientMessage {
         hero: Hero,
         #[serde(default = "default_seed")]
         seed: u32,
+        /// Optional JSON string for TrainingScenario (e.g. ExplorationDrill).
+        #[serde(default)]
+        scenario: Option<String>,
     },
     Action {
         action: LegalAction,
@@ -55,6 +58,24 @@ enum ClientMessage {
 
 fn default_seed() -> u32 {
     42
+}
+
+/// Parse a scenario string: either a named preset or raw JSON.
+fn parse_scenario_string(s: &str) -> Result<TrainingScenario, String> {
+    match s {
+        "exploration" => Ok(TrainingScenario::ExplorationDrill {
+            countryside_count: Some(4),
+            hand_override: None,
+            extra_cards: None,
+        }),
+        "exploration_tiny" => Ok(TrainingScenario::ExplorationDrill {
+            countryside_count: Some(2),
+            hand_override: None,
+            extra_cards: None,
+        }),
+        _ => serde_json::from_str(s)
+            .map_err(|e| format!("Unknown preset '{s}' and invalid JSON: {e}")),
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -84,13 +105,12 @@ struct GameSession {
 }
 
 impl GameSession {
-    fn new(seed: u32, hero: Hero) -> Self {
-        let mut state = create_solo_game(seed, hero);
-        place_initial_tiles(&mut state);
-        let events = initial_events(&state, seed, hero);
+    fn new(seed: u32, hero: Hero, scenario: &TrainingScenario) -> Self {
+        let result = create_training_game(seed, hero, scenario);
+        let events = initial_events(&result.state, seed, hero);
         Self {
-            state,
-            undo_stack: UndoStack::new(),
+            state: result.state,
+            undo_stack: result.undo_stack,
             player_idx: 0,
             pending_events: events,
         }
@@ -174,8 +194,24 @@ async fn handle_socket(mut socket: WebSocket) {
         };
 
         let response = match client_msg {
-            ClientMessage::NewGame { hero, seed } => {
-                let mut s = GameSession::new(seed, hero);
+            ClientMessage::NewGame { hero, seed, scenario } => {
+                let training_scenario = match scenario.as_deref() {
+                    None | Some("") => TrainingScenario::FullGame,
+                    Some(s) => match parse_scenario_string(s) {
+                        Ok(ts) => ts,
+                        Err(e) => {
+                            let _ = send_json(
+                                &mut socket,
+                                &ServerMessage::Error {
+                                    message: format!("Invalid scenario: {e}"),
+                                },
+                            )
+                            .await;
+                            continue;
+                        }
+                    },
+                };
+                let mut s = GameSession::new(seed, hero, &training_scenario);
                 let update = s.make_update();
                 session = Some(s);
                 update

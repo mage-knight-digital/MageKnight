@@ -40,57 +40,74 @@ pub(super) fn enumerate_explores(
 
     let pos = player.position.unwrap();
 
-    let tile_center = match crate::movement::find_tile_center(&state.map, pos) {
-        Some(center) => center,
-        None => return,
-    };
-
     let next_tile_is_core = state.map.tile_deck.countryside.is_empty();
+
+    let explore_distance = if is_rule_active(state, player_idx, RuleOverride::ExtendedExplore) { 2 } else { 1 };
 
     // Use expansion_directions() to constrain which directions are valid.
     let allowed_directions = state.scenario_config.map_shape.expansion_directions();
 
-    for dir in allowed_directions {
-        let target_center = crate::movement::calculate_tile_placement(tile_center, *dir);
+    // Deduplicate explores: a given (direction, target_center) pair should only appear once,
+    // even if reachable from multiple placed tiles.
+    let mut seen_targets: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
 
-        let tile_exists = state
-            .map
-            .tiles
-            .iter()
-            .any(|t| t.center_coord == target_center);
+    // Iterate ALL placed tiles — exploration is allowed from any hex on any tile
+    // that borders empty table space, not just the player's current tile.
+    for tile_placement in &state.map.tiles {
+        let tile_center = tile_placement.center_coord;
 
-        if tile_exists {
-            continue;
-        }
+        for dir in allowed_directions {
+            let target_center = crate::movement::calculate_tile_placement(tile_center, *dir);
 
-        let explore_distance = if is_rule_active(state, player_idx, RuleOverride::ExtendedExplore) { 2 } else { 1 };
-        if !crate::movement::is_player_near_explore_edge(pos, tile_center, *dir, explore_distance) {
-            continue;
-        }
+            // Skip if this target was already checked from another tile.
+            let target_key = target_center.key();
+            if seen_targets.contains(&target_key) {
+                continue;
+            }
 
-        // Tile slot validation: if slots are populated, target must exist and be unfilled.
-        if !state.map.tile_slots.is_empty() {
-            match state.map.tile_slots.get(&target_center.key()) {
-                None => continue,            // no slot exists for this position
-                Some(slot) if slot.filled => continue, // already filled
-                Some(slot) => {
-                    // Coastline filtering: core (brown) tiles cannot be placed on
-                    // coastline slots (leftmost/rightmost column in row > 0).
-                    if next_tile_is_core && is_coastline_slot(slot, &state.map.tile_slots) {
-                        continue;
+            let tile_exists = state
+                .map
+                .tiles
+                .iter()
+                .any(|t| t.center_coord == target_center);
+
+            if tile_exists {
+                continue;
+            }
+
+            // Player must be near the edge of this tile facing the explore direction.
+            if !crate::movement::is_player_near_explore_edge(pos, tile_center, *dir, explore_distance) {
+                continue;
+            }
+
+            // Tile slot validation: if slots are populated, target must exist and be unfilled.
+            if !state.map.tile_slots.is_empty() {
+                match state.map.tile_slots.get(&target_key) {
+                    None => continue,            // no slot exists for this position
+                    Some(slot) if slot.filled => continue, // already filled
+                    Some(slot) => {
+                        // Coastline filtering: core (brown) tiles cannot be placed on
+                        // coastline slots (leftmost/rightmost column in row > 0).
+                        if next_tile_is_core && is_coastline_slot(slot, &state.map.tile_slots) {
+                            continue;
+                        }
                     }
                 }
             }
-        }
 
-        let would_overlap = TILE_HEX_OFFSETS.iter().any(|offset| {
-            let hex_coord =
-                HexCoord::new(target_center.q + offset.q, target_center.r + offset.r);
-            state.map.hexes.contains_key(&hex_coord.key())
-        });
+            let would_overlap = TILE_HEX_OFFSETS.iter().any(|offset| {
+                let hex_coord =
+                    HexCoord::new(target_center.q + offset.q, target_center.r + offset.r);
+                state.map.hexes.contains_key(&hex_coord.key())
+            });
 
-        if !would_overlap {
-            actions.push(LegalAction::Explore { direction: *dir });
+            if !would_overlap {
+                seen_targets.insert(target_key);
+                actions.push(LegalAction::Explore {
+                    direction: *dir,
+                    from_tile_center: tile_center,
+                });
+            }
         }
     }
 }

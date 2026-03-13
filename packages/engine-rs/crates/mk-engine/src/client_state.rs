@@ -28,7 +28,7 @@ pub fn to_client_state(state: &GameState, for_player_id: &PlayerId) -> ClientGam
         players: state
             .players
             .iter()
-            .map(|p| to_client_player(p, p.id == *for_player_id))
+            .map(|p| to_client_player(p, p.id == *for_player_id, state))
             .collect(),
 
         map: to_client_map(&state.map),
@@ -70,7 +70,7 @@ fn resolve_current_player_id(state: &GameState) -> PlayerId {
 // Player filtering
 // =============================================================================
 
-fn to_client_player(player: &PlayerState, is_self: bool) -> ClientPlayer {
+fn to_client_player(player: &PlayerState, is_self: bool, state: &GameState) -> ClientPlayer {
     let hand_count = player.hand.len();
     let hand = if is_self {
         player.hand.clone()
@@ -156,7 +156,7 @@ fn to_client_player(player: &PlayerState, is_self: bool) -> ClientPlayer {
             .pending
             .active
             .as_ref()
-            .map(|active| to_client_pending(active, player)),
+            .map(|active| to_client_pending(active, player, state)),
     }
 }
 
@@ -164,7 +164,11 @@ fn to_client_player(player: &PlayerState, is_self: bool) -> ClientPlayer {
 // Pending state description
 // =============================================================================
 
-fn to_client_pending(active: &ActivePending, player: &PlayerState) -> ClientPendingInfo {
+fn to_client_pending(
+    active: &ActivePending,
+    player: &PlayerState,
+    state: &GameState,
+) -> ClientPendingInfo {
     let kind = pending_kind(active).to_string();
     let label = pending_label(active).to_string();
     let options = pending_options(active, player);
@@ -172,11 +176,20 @@ fn to_client_pending(active: &ActivePending, player: &PlayerState) -> ClientPend
         ActivePending::SubsetSelection(ss) => ss.selected.clone(),
         _ => Vec::new(),
     };
+    let level_up_data = match active {
+        ActivePending::LevelUpReward(reward) => Some(ClientLevelUpData {
+            level: reward.level,
+            drawn_skills: reward.drawn_skills.to_vec(),
+            common_pool_skills: state.offers.common_skills.clone(),
+        }),
+        _ => None,
+    };
     ClientPendingInfo {
         kind,
         label,
         options,
         selected,
+        level_up_data,
     }
 }
 
@@ -379,6 +392,21 @@ fn to_client_map(map: &MapState) -> ClientMapState {
                 } else {
                     None
                 },
+            })
+            .collect(),
+
+        tile_slots: map
+            .tile_slots
+            .iter()
+            .map(|(key, s)| {
+                (
+                    key.clone(),
+                    ClientTileSlot {
+                        coord: s.coord,
+                        row: s.row,
+                        filled: s.filled,
+                    },
+                )
             })
             .collect(),
     }

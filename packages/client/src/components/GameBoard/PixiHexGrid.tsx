@@ -20,7 +20,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Application, Container } from "pixi.js";
 import type { HexCoord } from "@mage-knight/shared";
-import { hexKey, ENTER_SITE_ACTION, BURN_MONASTERY_ACTION, PLUNDER_VILLAGE_ACTION } from "@mage-knight/shared";
+import { hexKey } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { useIsMyTurn } from "../../hooks/useIsMyTurn";
@@ -34,6 +34,7 @@ import { useHexHover } from "../../hooks/useHexHover";
 import { HexTooltip } from "../HexTooltip";
 import { SitePanel } from "../SitePanel";
 import { SiteActionList, type SiteAction } from "../SiteActionList";
+import { extractSiteActions } from "../../rust/legalActionUtils";
 
 import { useCameraControl } from "./hooks/useCameraControl";
 import { hexToPixel } from "./pixi/hexMath";
@@ -184,34 +185,23 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
     // Block interaction if not player's turn
     if (!isMyTurn) return;
 
-    switch (action) {
-      case "enter":
-        sendAction({ type: ENTER_SITE_ACTION });
+    switch (action.kind) {
+      case "legalAction":
+        sendAction(action.action);
         break;
-      case "details":
+      case "openDetails":
         if (player?.position) {
           handleOpenSitePanel(player.position);
         }
         break;
-      case "heal":
-        // TODO: Implement healing UI
-        console.log("Heal action - not yet implemented");
-        break;
-      case "recruit":
+      case "openUnitOffer":
         onNavigateToUnitOffer?.();
         break;
-      case "buySpell":
+      case "openSpellOffer":
         onNavigateToSpellOffer?.();
         break;
-      case "buyAA":
-        // Monastery AAs are shown in the units pane alongside regular units
+      case "openAAOffer":
         onNavigateToUnitOffer?.();
-        break;
-      case "burn":
-        sendAction({ type: BURN_MONASTERY_ACTION });
-        break;
-      case "plunder":
-        sendAction({ type: PLUNDER_VILLAGE_ACTION });
         break;
     }
     handleCloseSiteActionList();
@@ -240,13 +230,10 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
     };
   }, [player?.position]);
 
-  // Site options only available during normal_turn
-  const siteOptions = useMemo(
-    () =>
-      state?.validActions?.mode === "normal_turn"
-        ? state.validActions.sites ?? null
-        : null,
-    [state?.validActions]
+  // Derive site action info from legal actions
+  const siteInfo = useMemo(
+    () => extractSiteActions(legalActions),
+    [legalActions]
   );
 
   // Enhanced keyboard handler that intercepts Space for site actions
@@ -257,8 +244,8 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
       return;
     }
 
-    // Space - toggle site action list (only if it's my turn and we have site options)
-    if (event.code === "Space" && isMyTurn && siteOptions) {
+    // Space - toggle site action list (only if it's my turn and we have site actions)
+    if (event.code === "Space" && isMyTurn && siteInfo.hasSiteActions) {
       event.preventDefault();
       if (showSiteActionList) {
         handleCloseSiteActionList();
@@ -277,7 +264,7 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
     handleKeyDown(event);
   }, [
     isMyTurn,
-    siteOptions,
+    siteInfo.hasSiteActions,
     showSiteActionList,
     isOverlayActive,
     isSitePanelOpen,
@@ -532,15 +519,10 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
         onMouseLeave={handleTooltipMouseLeave}
       />
 
-      {/* Site Panel - detailed site information panel */}
+      {/* Site Panel - detailed site information panel (scouting mode — info derived from hex data) */}
       <SitePanel
         isOpen={isSitePanelOpen}
-        siteOptions={
-          sitePanelHex && player?.position &&
-          sitePanelHex.q === player.position.q && sitePanelHex.r === player.position.r
-            ? siteOptions
-            : null
-        }
+        siteOptions={null}
         hex={sitePanelHex ? state?.map.hexes[hexKey(sitePanelHex)] ?? null : null}
         onClose={handleCloseSitePanel}
         isArrivalMode={false}
@@ -549,9 +531,9 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
       />
 
       {/* Site Action List - compact action menu on Space key */}
-      {showSiteActionList && actionListPosition && siteOptions && (
+      {showSiteActionList && actionListPosition && siteInfo.hasSiteActions && (
         <SiteActionList
-          siteOptions={siteOptions}
+          siteInfo={siteInfo}
           position={actionListPosition}
           onAction={handleSiteAction}
           onClose={handleCloseSiteActionList}

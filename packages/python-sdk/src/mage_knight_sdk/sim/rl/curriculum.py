@@ -62,6 +62,21 @@ class TrainingScenario:
             params=params,
         )
 
+    @staticmethod
+    def exploration_drill(
+        countryside_count: int | None = None,
+        hand_override: list[str] | None = None,
+        extra_cards: list[str] | None = None,
+    ) -> TrainingScenario:
+        params: dict = {}
+        if countryside_count is not None:
+            params["countryside_count"] = countryside_count
+        if hand_override is not None:
+            params["hand_override"] = hand_override
+        if extra_cards is not None:
+            params["extra_cards"] = extra_cards
+        return TrainingScenario(kind="exploration_drill", params=params)
+
     def to_rust_json(self) -> str | None:
         """Serialize to JSON for PyVecEnv(scenario=...).
 
@@ -76,6 +91,13 @@ class TrainingScenario:
                 "is_fortified": self.params.get("is_fortified", False),
             }
             for key in ("hand_override", "extra_cards", "units", "skills", "crystals"):
+                value = self.params.get(key)
+                if value is not None:
+                    obj[key] = value
+            return json.dumps(obj)
+        if self.kind == "exploration_drill":
+            obj: dict = {"type": "ExplorationDrill"}
+            for key in ("countryside_count", "hand_override", "extra_cards"):
                 value = self.params.get(key)
                 if value is not None:
                     obj[key] = value
@@ -369,9 +391,44 @@ def combat_to_full_game_curriculum() -> CurriculumSchedule:
     ])
 
 
+def exploration_curriculum() -> CurriculumSchedule:
+    """Exploration-only diagnostic — no enemies, just map traversal.
+
+    Tests whether the agent can learn pure movement/exploration without
+    combat distractions. Two phases: tiny map for fast iteration, then
+    default-sized map.
+    """
+    explore_reward = RewardConfig(
+        fame_delta_scale=0.0,
+        new_hex_bonus=0.5,
+        tile_explore_bonus=5.0,
+        scenario_trigger_bonus=20.0,
+        wasted_move_penalty=-0.05,
+    )
+    return CurriculumSchedule(phases=[
+        # Phase 1: tiny map (2 countryside + city) — easy to solve
+        CurriculumPhase(
+            name="explore_tiny",
+            scenario=TrainingScenario.exploration_drill(countryside_count=2),
+            reward_config=explore_reward,
+            episodes=50000,
+            max_steps=500,
+        ),
+        # Phase 2: default map (4 countryside + city) — full exploration
+        CurriculumPhase(
+            name="explore_default",
+            scenario=TrainingScenario.exploration_drill(countryside_count=4),
+            reward_config=explore_reward,
+            episodes=200000,
+            max_steps=2000,
+        ),
+    ])
+
+
 CURRICULA: dict[str, callable] = {
     "default": default_combat_curriculum,
     "guardsmen": guardsmen_combat_curriculum,
     "progressive": progressive_combat_curriculum,
     "full_game": combat_to_full_game_curriculum,
+    "exploration": exploration_curriculum,
 }

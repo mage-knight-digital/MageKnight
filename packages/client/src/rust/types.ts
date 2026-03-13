@@ -97,6 +97,8 @@ export type LegalAction =
   // Cooperative assault
   | { ProposeCooperativeAssault: { hex_coord: { q: number; r: number }; invited_player_idxs: number[]; distribution: [number, number][] } }
   | { RespondToCooperativeProposal: { accept: boolean } }
+  // Site interaction (begins commerce)
+  | "BeginInteraction"
   // Unit variants (no data)
   | "ActivateTactic"
   | "EndTurn"

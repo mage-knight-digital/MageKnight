@@ -204,10 +204,10 @@ pub fn apply_legal_action(
             turn_flow::apply_move(state, player_idx, *target)?
         }
 
-        LegalAction::Explore { direction } => {
+        LegalAction::Explore { direction, from_tile_center } => {
             // Irreversible: set checkpoint (tile reveal + RNG)
             undo_stack.set_checkpoint();
-            turn_flow::apply_explore(state, player_idx, *direction)?
+            turn_flow::apply_explore(state, player_idx, *direction, *from_tile_center)?
         }
 
         LegalAction::ChallengeRampaging { hex } => {
