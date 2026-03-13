@@ -20,7 +20,7 @@ use mk_types::state::*;
 use crate::legal_actions::enumerate_legal_actions_with_undo;
 use crate::undo::UndoStack;
 
-use self::projection::{project_explore_directions, project_move_targets, project_playable_cards};
+use self::projection::{project_explore_targets, project_move_targets, project_playable_cards};
 
 /// Top-level valid actions — discriminated union matching TS `ValidActions`.
 #[derive(Debug)]
@@ -56,7 +56,7 @@ pub struct NormalTurnActions {
     pub turn: TurnOptions,
     pub playable_cards: Vec<PlayableCard>,
     pub move_targets: Vec<MoveTarget>,
-    pub explore_directions: Vec<ExploreDirection>,
+    pub explore_targets: Vec<ExploreTarget>,
 }
 
 /// Turn-level options (end turn, rest, undo).
@@ -89,7 +89,7 @@ pub struct MoveTarget {
 
 /// A target the player can explore.
 #[derive(Debug, Clone)]
-pub struct ExploreDirection {
+pub struct ExploreTarget {
     pub target_center: HexCoord,
 }
 
@@ -173,7 +173,7 @@ pub fn get_valid_actions_with_undo(
 
     let playable_cards = project_playable_cards(&legal.actions, false);
     let move_targets = project_move_targets(&legal.actions);
-    let explore_directions = project_explore_directions(&legal.actions, state, player_idx);
+    let explore_targets = project_explore_targets(&legal.actions, state, player_idx);
 
     let can_end_turn = legal
         .actions
@@ -204,6 +204,6 @@ pub fn get_valid_actions_with_undo(
         turn,
         playable_cards,
         move_targets,
-        explore_directions,
+        explore_targets,
     })
 }

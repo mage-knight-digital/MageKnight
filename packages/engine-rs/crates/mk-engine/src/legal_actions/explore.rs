@@ -70,7 +70,7 @@ fn enumerate_explores_open(
             let target_center = crate::movement::calculate_tile_placement(tile_center, *dir);
 
             let target_key = target_center.key();
-            if seen_targets.contains(&target_key) {
+            if !seen_targets.insert(target_key) {
                 continue;
             }
 
@@ -95,7 +95,6 @@ fn enumerate_explores_open(
             });
 
             if !would_overlap {
-                seen_targets.insert(target_key);
                 actions.push(LegalAction::Explore { target_center });
             }
         }

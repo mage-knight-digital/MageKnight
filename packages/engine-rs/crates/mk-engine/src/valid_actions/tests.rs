@@ -260,7 +260,7 @@ fn no_move_after_action() {
 // =========================================================================
 
 #[test]
-fn explore_directions_with_tiles_available() {
+fn explore_targets_with_tiles_available() {
     let mut state = setup_game(vec!["march"]);
     state.players[0].move_points = 5;
     // Position player on an edge hex (1,0) east of center
@@ -272,7 +272,7 @@ fn explore_directions_with_tiles_available() {
     if let ValidActions::NormalTurn(actions) = va {
         // Should have at least one explore direction from the east edge
         assert!(
-            !actions.explore_directions.is_empty(),
+            !actions.explore_targets.is_empty(),
             "Should have explore directions from edge hex with tiles available"
         );
     }
@@ -289,7 +289,7 @@ fn no_explore_without_tiles() {
 
     let va = get_valid_actions(&state, 0);
     if let ValidActions::NormalTurn(actions) = va {
-        assert!(actions.explore_directions.is_empty());
+        assert!(actions.explore_targets.is_empty());
     }
 }
 
@@ -302,7 +302,7 @@ fn no_explore_insufficient_move_points() {
 
     let va = get_valid_actions(&state, 0);
     if let ValidActions::NormalTurn(actions) = va {
-        assert!(actions.explore_directions.is_empty());
+        assert!(actions.explore_targets.is_empty());
     }
 }
 
@@ -320,7 +320,7 @@ fn explore_from_center_not_possible() {
         // so explore should actually be possible from center for some directions
         // This depends on the geometry — let's just verify it doesn't crash
         // and returns a valid result
-        let _ = actions.explore_directions;
+        let _ = actions.explore_targets;
     }
 }
 
@@ -449,7 +449,7 @@ fn must_slow_recover_blocks_movement() {
     let va = get_valid_actions(&state, 0);
     if let ValidActions::NormalTurn(actions) = va {
         assert!(actions.move_targets.is_empty());
-        assert!(actions.explore_directions.is_empty());
+        assert!(actions.explore_targets.is_empty());
     }
 }
 

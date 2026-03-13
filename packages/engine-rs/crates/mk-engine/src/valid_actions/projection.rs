@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use mk_types::legal_action::LegalAction;
 use mk_types::state::GameState;
 
-use super::{ExploreDirection, MoveTarget, PlayableCard};
+use super::{ExploreTarget, MoveTarget, PlayableCard};
 
 /// Group card-related LegalActions into PlayableCard structs.
 ///
@@ -86,16 +86,16 @@ pub(super) fn project_move_targets(actions: &[LegalAction]) -> Vec<MoveTarget> {
 }
 
 /// Project Explore actions into ExploreTarget structs.
-pub(super) fn project_explore_directions(
+pub(super) fn project_explore_targets(
     actions: &[LegalAction],
     _state: &GameState,
     _player_idx: usize,
-) -> Vec<ExploreDirection> {
+) -> Vec<ExploreTarget> {
     actions
         .iter()
         .filter_map(|a| match a {
             LegalAction::Explore { target_center } => {
-                Some(ExploreDirection {
+                Some(ExploreTarget {
                     target_center: *target_center,
                 })
             }

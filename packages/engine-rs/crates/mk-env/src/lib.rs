@@ -1151,7 +1151,7 @@ mod tests {
             {"ChallengeRampaging":{"hex":{"q":3,"r":-3}}},
             "EndTurn",
             {"PlayCardPowered":{"card_id":"march","hand_index":3,"mana_color":"green"}},
-            {"Explore":{"direction":"E"}},
+            {"Explore":{"target_center":{"q":4,"r":-5}}},
             {"PlayCardSideways":{"card_id":"improvisation","hand_index":0,"sideways_as":"move"}},
             {"Move":{"cost":3,"target":{"q":1,"r":-3}}},
             "EndTurn",
@@ -1165,7 +1165,7 @@ mod tests {
             {"ResolveChoice":{"choice_index":2}},
             {"Move":{"cost":3,"target":{"q":1,"r":-4}}},
             {"PlayCardSideways":{"card_id":"rage","hand_index":0,"sideways_as":"move"}},
-            {"Explore":{"direction":"NE"}},
+            {"Explore":{"target_center":{"q":2,"r":-6}}},
             {"PlayCardSideways":{"card_id":"threaten","hand_index":0,"sideways_as":"move"}},
             "ForfeitTurn",
             {"SelectTactic":{"tactic_id":"preparation"}},
@@ -1200,17 +1200,7 @@ mod tests {
                 "0 legal actions at step {i} (before applying {action:?})"
             );
             // Find this action in the legal action set.
-            // For Explore actions from old replay JSON (which had direction field),
-            // match any available Explore action since target_center wasn't recorded.
-            let idx = env.action_set.actions.iter().position(|a| {
-                match (a, action) {
-                    (
-                        LegalAction::Explore { .. },
-                        LegalAction::Explore { .. },
-                    ) => true,
-                    _ => a == action,
-                }
-            })
+            let idx = env.action_set.actions.iter().position(|a| a == action)
                 .unwrap_or_else(|| panic!(
                     "Action {action:?} not found in legal actions at step {i}. \
                      Available: {:?}", env.action_set.actions
