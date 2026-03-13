@@ -84,7 +84,7 @@ fn parse_scenario_string(s: &str) -> Result<TrainingScenario, String> {
             core_tile_count: Some(2),
             hand_override: Some(vec!["march".into(); 5]),
             extra_cards: Some(vec!["march".into(); 20]),
-            starting_move_points: Some(100),
+            starting_move_points: Some(1000),
         }),
         _ => serde_json::from_str(s)
             .map_err(|e| format!("Unknown preset '{s}' and invalid JSON: {e}")),

@@ -648,6 +648,11 @@ fn generate_wedge_slots(total_tiles: u32) -> BTreeMap<String, TileSlot> {
         cumulative += max_row + 1;
     }
 
+    // Add 2 extra rows so core/city tiles always have interior (non-coastline)
+    // slots available, even if the player fills all interior slots in earlier
+    // rows with countryside tiles first. The wedge has no row limit per rules.
+    max_row += 2;
+
     // Generate rows 1..max_row. For each row, column 0 is the NE-most
     // position and column N is the E-most.
     for row in 1..=max_row {
