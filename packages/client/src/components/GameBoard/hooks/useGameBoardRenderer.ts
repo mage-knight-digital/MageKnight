@@ -158,7 +158,7 @@ export function useGameBoardRenderer({
       const camera = cameraRef.current;
       for (const tile of newTiles) {
         const tileCenter = hexToPixel(tile.centerCoord);
-        const TILE_PADDING = 200;
+        const TILE_PADDING = 450;
         camera.bounds.minX = Math.min(camera.bounds.minX, tileCenter.x - TILE_PADDING);
         camera.bounds.maxX = Math.max(camera.bounds.maxX, tileCenter.x + TILE_PADDING);
         camera.bounds.minY = Math.min(camera.bounds.minY, tileCenter.y - TILE_PADDING);
@@ -289,7 +289,7 @@ export function useGameBoardRenderer({
         }
         const currentBounds = calculateBounds(hexPositions);
 
-        const GRID_PADDING = 150;
+        const GRID_PADDING = 400;
         const paddedBounds = {
           minX: currentBounds.minX - GRID_PADDING,
           maxX: currentBounds.maxX + GRID_PADDING,

@@ -399,7 +399,7 @@ pub type MineColor = BasicManaColor;
 // Tile Identifiers
 // =============================================================================
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum TileId {
     // Starting tiles
     #[serde(rename = "starting_a")]
