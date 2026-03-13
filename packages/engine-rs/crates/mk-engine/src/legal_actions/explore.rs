@@ -1,4 +1,4 @@
-use mk_types::hex::{HexCoord, TILE_HEX_OFFSETS};
+use mk_types::hex::{HexCoord, HexDirection, TILE_HEX_OFFSETS};
 use mk_types::legal_action::LegalAction;
 use mk_types::modifier::RuleOverride;
 use mk_types::state::{GameState, PlayerFlags};
@@ -44,22 +44,31 @@ pub(super) fn enumerate_explores(
 
     let explore_distance = if is_rule_active(state, player_idx, RuleOverride::ExtendedExplore) { 2 } else { 1 };
 
-    // Use expansion_directions() to constrain which directions are valid.
-    let allowed_directions = state.scenario_config.map_shape.expansion_directions();
+    if state.map.tile_slots.is_empty() {
+        // Open maps: no tile_slots, use directional approach from placed tiles.
+        enumerate_explores_open(state, pos, explore_distance, actions);
+    } else {
+        // Slot-based maps (Wedge): iterate unfilled slots.
+        enumerate_explores_slotted(state, pos, next_tile_is_core, explore_distance, actions);
+    }
+}
 
-    // Deduplicate explores: a given (direction, target_center) pair should only appear once,
-    // even if reachable from multiple placed tiles.
+/// Open map exploration: iterate placed tiles, check directional targets.
+fn enumerate_explores_open(
+    state: &GameState,
+    pos: HexCoord,
+    explore_distance: u32,
+    actions: &mut Vec<LegalAction>,
+) {
+    let allowed_directions = state.scenario_config.map_shape.expansion_directions();
     let mut seen_targets: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
 
-    // Iterate ALL placed tiles — exploration is allowed from any hex on any tile
-    // that borders empty table space, not just the player's current tile.
     for tile_placement in &state.map.tiles {
         let tile_center = tile_placement.center_coord;
 
         for dir in allowed_directions {
             let target_center = crate::movement::calculate_tile_placement(tile_center, *dir);
 
-            // Skip if this target was already checked from another tile.
             let target_key = target_center.key();
             if seen_targets.contains(&target_key) {
                 continue;
@@ -75,24 +84,8 @@ pub(super) fn enumerate_explores(
                 continue;
             }
 
-            // Player must be near the edge of this tile facing the explore direction.
-            if !crate::movement::is_player_near_explore_edge(pos, tile_center, *dir, explore_distance) {
+            if !is_player_near_target_tile(pos, target_center, explore_distance) {
                 continue;
-            }
-
-            // Tile slot validation: if slots are populated, target must exist and be unfilled.
-            if !state.map.tile_slots.is_empty() {
-                match state.map.tile_slots.get(&target_key) {
-                    None => continue,            // no slot exists for this position
-                    Some(slot) if slot.filled => continue, // already filled
-                    Some(slot) => {
-                        // Coastline filtering: core (brown) tiles cannot be placed on
-                        // coastline slots (leftmost/rightmost column in row > 0).
-                        if next_tile_is_core && is_coastline_slot(slot, &state.map.tile_slots) {
-                            continue;
-                        }
-                    }
-                }
             }
 
             let would_overlap = TILE_HEX_OFFSETS.iter().any(|offset| {
@@ -103,13 +96,73 @@ pub(super) fn enumerate_explores(
 
             if !would_overlap {
                 seen_targets.insert(target_key);
-                actions.push(LegalAction::Explore {
-                    direction: *dir,
-                    from_tile_center: tile_center,
-                });
+                actions.push(LegalAction::Explore { target_center });
             }
         }
     }
+}
+
+/// Slot-based exploration (Wedge maps): iterate unfilled slots, check physical
+/// adjacency to existing map hexes.
+fn enumerate_explores_slotted(
+    state: &GameState,
+    pos: HexCoord,
+    next_tile_is_core: bool,
+    explore_distance: u32,
+    actions: &mut Vec<LegalAction>,
+) {
+    for slot in state.map.tile_slots.values() {
+        if slot.filled {
+            continue;
+        }
+
+        // Coastline filtering: core tiles cannot be placed on coastline slots.
+        if next_tile_is_core && is_coastline_slot(slot, &state.map.tile_slots) {
+            continue;
+        }
+
+        let target_center = slot.coord;
+
+        // Check: no hex overlap with existing map.
+        let would_overlap = TILE_HEX_OFFSETS.iter().any(|offset| {
+            let hex = HexCoord::new(target_center.q + offset.q, target_center.r + offset.r);
+            state.map.hexes.contains_key(&hex.key())
+        });
+        if would_overlap {
+            continue;
+        }
+
+        // Check: at least one hex of the target tile is adjacent to an existing map hex.
+        let adjacent_to_map = TILE_HEX_OFFSETS.iter().any(|offset| {
+            let hex = HexCoord::new(target_center.q + offset.q, target_center.r + offset.r);
+            HexDirection::ALL.iter().any(|dir| {
+                let neighbor = hex.neighbor(*dir);
+                state.map.hexes.contains_key(&neighbor.key())
+            })
+        });
+        if !adjacent_to_map {
+            continue;
+        }
+
+        // Check: player is close enough to explore.
+        if !is_player_near_target_tile(pos, target_center, explore_distance) {
+            continue;
+        }
+
+        actions.push(LegalAction::Explore { target_center });
+    }
+}
+
+/// Check if the player is near enough to any hex of a target tile to explore.
+fn is_player_near_target_tile(
+    player_pos: HexCoord,
+    target_center: HexCoord,
+    explore_distance: u32,
+) -> bool {
+    TILE_HEX_OFFSETS.iter().any(|offset| {
+        let hex = HexCoord::new(target_center.q + offset.q, target_center.r + offset.r);
+        player_pos.distance(hex) <= explore_distance
+    })
 }
 
 /// Check if a tile slot is on the coastline (leftmost or rightmost column in its row).

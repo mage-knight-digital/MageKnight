@@ -58,18 +58,17 @@ pub(super) fn apply_move(
 pub(super) fn apply_explore(
     state: &mut GameState,
     player_idx: usize,
-    direction: mk_types::hex::HexDirection,
-    from_tile_center: mk_types::hex::HexCoord,
+    target_center: mk_types::hex::HexCoord,
 ) -> Result<ApplyResult, ApplyError> {
     let player_id = state.players[player_idx].id.clone();
-    movement::execute_explore(state, player_idx, direction, from_tile_center)
+    movement::execute_explore(state, player_idx, target_center)
         .map(|tile_id| ApplyResult {
             needs_reenumeration: true,
             game_ended: false,
             events: vec![GameEvent::TileExplored {
                 player_id,
-                direction,
                 tile_id,
+                center: target_center,
             }],
         })
         .map_err(|e| ApplyError::InternalError(format!("execute_explore failed: {:?}", e)))

@@ -85,10 +85,7 @@ pub(super) fn project_move_targets(actions: &[LegalAction]) -> Vec<MoveTarget> {
         .collect()
 }
 
-/// Project Explore actions into ExploreDirection structs.
-///
-/// Each `LegalAction::Explore` now carries `from_tile_center`, so we can
-/// compute `target_center` directly without looking up the player's tile.
+/// Project Explore actions into ExploreTarget structs.
 pub(super) fn project_explore_directions(
     actions: &[LegalAction],
     _state: &GameState,
@@ -97,11 +94,9 @@ pub(super) fn project_explore_directions(
     actions
         .iter()
         .filter_map(|a| match a {
-            LegalAction::Explore { direction, from_tile_center } => {
-                let target_center = crate::movement::calculate_tile_placement(*from_tile_center, *direction);
+            LegalAction::Explore { target_center } => {
                 Some(ExploreDirection {
-                    direction: *direction,
-                    target_center,
+                    target_center: *target_center,
                 })
             }
             _ => None,

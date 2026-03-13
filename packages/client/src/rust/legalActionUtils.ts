@@ -88,17 +88,17 @@ export function extractMoveTargets(actions: LegalAction[]): MoveOption[] {
 // =============================================================================
 
 export interface ExploreOption {
-  direction: string;
+  targetCenter: { q: number; r: number };
   action: LegalAction;
 }
 
-export function extractExploreDirections(actions: LegalAction[]): ExploreOption[] {
+export function extractExploreTargets(actions: LegalAction[]): ExploreOption[] {
   const result: ExploreOption[] = [];
   for (const action of actions) {
     if (actionType(action) !== "Explore") continue;
     const data = actionData(action)!;
     result.push({
-      direction: data["direction"] as string,
+      targetCenter: data["target_center"] as { q: number; r: number },
       action,
     });
   }

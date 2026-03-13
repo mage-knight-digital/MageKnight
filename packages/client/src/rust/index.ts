@@ -2,7 +2,7 @@ export { type LegalAction, actionType, actionData, isAction } from "./types";
 export {
   groupCardActions,
   extractMoveTargets,
-  extractExploreDirections,
+  extractExploreTargets,
   extractTacticOptions,
   extractTurnOptions,
   extractChoiceOptions,

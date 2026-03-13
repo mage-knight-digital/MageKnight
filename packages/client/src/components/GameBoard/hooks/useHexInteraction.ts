@@ -140,7 +140,8 @@ export function useHexInteraction({
       // Block interaction if not player's turn
       if (!isMyTurn) return;
 
-      const action = rustExploreActions?.get(target.direction);
+      const key = `${target.coord.q},${target.coord.r}`;
+      const action = rustExploreActions?.get(key);
       if (action) sendAction(action);
     },
     [isMyTurn, sendAction, rustExploreActions]

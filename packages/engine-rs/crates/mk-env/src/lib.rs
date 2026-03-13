@@ -1200,14 +1200,14 @@ mod tests {
                 "0 legal actions at step {i} (before applying {action:?})"
             );
             // Find this action in the legal action set.
-            // For Explore actions, match by direction only (from_tile_center
-            // is derived at enumeration time and not in the hardcoded JSON).
+            // For Explore actions from old replay JSON (which had direction field),
+            // match any available Explore action since target_center wasn't recorded.
             let idx = env.action_set.actions.iter().position(|a| {
                 match (a, action) {
                     (
-                        LegalAction::Explore { direction: d1, .. },
-                        LegalAction::Explore { direction: d2, .. },
-                    ) => d1 == d2,
+                        LegalAction::Explore { .. },
+                        LegalAction::Explore { .. },
+                    ) => true,
                     _ => a == action,
                 }
             })

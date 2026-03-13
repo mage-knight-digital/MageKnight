@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::action::ManaSourceInfo;
 use crate::enums::{BasicManaColor, Element, GladeWoundChoice, SidewaysAs, Terrain};
-use crate::hex::{HexCoord, HexDirection};
+use crate::hex::HexCoord;
 use crate::ids::{CardId, CombatInstanceId, SkillId, TacticId, UnitId, UnitInstanceId};
 use crate::modifier::CombatValueType;
 
@@ -54,10 +54,8 @@ pub enum LegalAction {
         cost: u32,
     },
     Explore {
-        direction: HexDirection,
-        /// Which tile center this explore originates from.
         #[serde(default)]
-        from_tile_center: HexCoord,
+        target_center: HexCoord,
     },
     ResolveChoice {
         choice_index: usize,

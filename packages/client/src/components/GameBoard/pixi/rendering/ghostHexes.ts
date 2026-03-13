@@ -13,7 +13,7 @@
 
 import { Graphics, Text, TextStyle, Container } from "pixi.js";
 import type { Ticker } from "pixi.js";
-import type { HexCoord, HexDirection, ClientTileSlot } from "@mage-knight/shared";
+import type { HexCoord, ClientTileSlot } from "@mage-knight/shared";
 import { hexKey } from "@mage-knight/shared";
 import { hexToPixel, rotatePoint } from "../hexMath";
 import type { WorldLayers } from "../types";
@@ -27,8 +27,6 @@ import type { Particle } from "../particles/types";
  */
 export interface ExploreTarget {
   coord: HexCoord;
-  direction: HexDirection;
-  fromTileCoord: HexCoord;
 }
 
 /**

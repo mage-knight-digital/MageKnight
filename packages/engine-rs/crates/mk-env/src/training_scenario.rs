@@ -76,6 +76,9 @@ pub enum TrainingScenario {
         /// Extra card IDs added to the deck before hand draw.
         #[serde(default)]
         extra_cards: Option<Vec<String>>,
+        /// Grant this many move points at start of each turn (0 = normal card-based movement).
+        #[serde(default)]
+        starting_move_points: Option<u32>,
     },
 }
 
@@ -132,12 +135,14 @@ pub fn create_training_game(
             countryside_count,
             hand_override,
             extra_cards,
+            starting_move_points,
         } => setup_exploration_drill(
             seed,
             hero,
             countryside_count.unwrap_or(4),
             hand_override.as_deref(),
             extra_cards.as_deref(),
+            *starting_move_points,
         ),
     }
 }
@@ -296,6 +301,7 @@ fn setup_exploration_drill(
     countryside_count: u32,
     hand_override: Option<&[String]>,
     extra_cards: Option<&[String]>,
+    starting_move_points: Option<u32>,
 ) -> ScenarioSetupResult {
     let mut state = create_solo_game(seed, hero);
 
@@ -316,6 +322,11 @@ fn setup_exploration_drill(
     state.round_phase = RoundPhase::PlayerTurns;
     state.players[0].selected_tactic =
         Some(mk_types::ids::TacticId::from(mk_data::tactics::DAY_TACTIC_IDS[0]));
+
+    // Grant starting move points if configured.
+    if let Some(mp) = starting_move_points {
+        state.players[0].move_points = mp;
+    }
 
     // Drain all enemy token piles — no enemies will appear on revealed tiles.
     let t = &mut state.enemy_tokens;
@@ -679,6 +690,7 @@ mod tests {
             countryside_count: Some(4),
             hand_override: None,
             extra_cards: None,
+            starting_move_points: None,
         };
         let result = create_training_game(42, Hero::Arythea, &scenario);
         assert!(!result.state.game_ended);
@@ -691,6 +703,7 @@ mod tests {
             countryside_count: Some(4),
             hand_override: None,
             extra_cards: None,
+            starting_move_points: None,
         };
         let result = create_training_game(42, Hero::Arythea, &scenario);
         assert!(result.state.combat.is_none(), "Should not be in combat");
@@ -702,6 +715,7 @@ mod tests {
             countryside_count: Some(4),
             hand_override: None,
             extra_cards: None,
+            starting_move_points: None,
         };
         let result = create_training_game(42, Hero::Arythea, &scenario);
         let t = &result.state.enemy_tokens;
@@ -725,6 +739,7 @@ mod tests {
             countryside_count: Some(4),
             hand_override: None,
             extra_cards: None,
+            starting_move_points: None,
         };
         let result = create_training_game(42, Hero::Arythea, &scenario);
         assert_eq!(
@@ -739,6 +754,7 @@ mod tests {
             countryside_count: Some(2),
             hand_override: None,
             extra_cards: None,
+            starting_move_points: None,
         };
         let result = create_training_game(42, Hero::Arythea, &scenario);
         // 2 countryside + 1 city in deck, minus whatever was placed as initial tiles
@@ -754,6 +770,7 @@ mod tests {
             countryside_count: None, // defaults to 4
             hand_override: None,
             extra_cards: None,
+            starting_move_points: None,
         };
         let result = create_training_game(42, Hero::Arythea, &scenario);
         assert_eq!(result.state.scenario_config.countryside_tile_count, 4);
@@ -768,6 +785,7 @@ mod tests {
                 countryside_count,
                 hand_override,
                 extra_cards,
+                ..
             } => {
                 assert!(countryside_count.is_none());
                 assert!(hand_override.is_none());
@@ -803,6 +821,7 @@ mod tests {
             countryside_count: Some(4),
             hand_override: None,
             extra_cards: None,
+            starting_move_points: None,
         };
         let result = create_training_game(42, Hero::Arythea, &scenario);
         assert_eq!(result.state.round_phase, RoundPhase::PlayerTurns);

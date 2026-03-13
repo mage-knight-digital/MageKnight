@@ -194,14 +194,12 @@ impl ActionRecord {
             },
             ActionRecord::Explore { direction } => {
                 let dir = parse_hex_direction(direction);
-                // Derive from_tile_center from player 0's position (parity traces
-                // were recorded with the old single-tile exploration logic).
+                // Derive target_center from player 0's position + direction
+                // (parity traces were recorded with the old directional logic).
                 let pos = state.players[0].position.unwrap();
                 let tile_center = crate::movement::find_tile_center(&state.map, pos).unwrap();
-                LegalAction::Explore {
-                    direction: dir,
-                    from_tile_center: tile_center,
-                }
+                let target_center = crate::movement::calculate_tile_placement(tile_center, dir);
+                LegalAction::Explore { target_center }
             }
             ActionRecord::ResolveChoice { choice_index } => LegalAction::ResolveChoice {
                 choice_index: *choice_index,

@@ -810,8 +810,8 @@ fn format_action(action: &LegalAction, state: &GameState, player_idx: usize) -> 
                 .unwrap_or_else(|| "?".into());
             format!("Move to ({},{}) {} [cost:{}]", target.q, target.r, terrain, cost)
         }
-        LegalAction::Explore { direction, from_tile_center } => {
-            format!("Explore {:?} from ({},{})", direction, from_tile_center.q, from_tile_center.r)
+        LegalAction::Explore { target_center } => {
+            format!("Explore to ({},{})", target_center.q, target_center.r)
         }
         LegalAction::ResolveChoice { choice_index } => {
             format_resolve_choice(*choice_index, state, player_idx)

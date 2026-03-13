@@ -107,8 +107,6 @@ pub enum ExploreError {
     AreaAlreadyOccupied,
     /// Player is not on the edge of their tile facing the explore direction.
     NotOnTileEdge,
-    /// Direction is not allowed by the map shape constraints.
-    DirectionNotAllowed,
 }
 
 /// Info about rampaging enemies provoked by skirting past them.
@@ -799,28 +797,6 @@ pub fn calculate_tile_placement(tile_center: HexCoord, direction: HexDirection) 
     HexCoord::new(tile_center.q + offset.q, tile_center.r + offset.r)
 }
 
-/// Check if the player is near enough to the tile edge to explore in a direction.
-///
-/// The player must be on one of the hexes adjacent to where the new tile's
-/// hexes would connect. Specifically, at least one hex in the new tile placement
-/// must be within `explore_distance` of the player's position.
-pub fn is_player_near_explore_edge(
-    player_pos: HexCoord,
-    tile_center: HexCoord,
-    direction: HexDirection,
-    explore_distance: u32,
-) -> bool {
-    let target_center = calculate_tile_placement(tile_center, direction);
-
-    for offset in TILE_HEX_OFFSETS {
-        let new_hex = HexCoord::new(target_center.q + offset.q, target_center.r + offset.r);
-        if player_pos.distance(new_hex) <= explore_distance {
-            return true;
-        }
-    }
-    false
-}
-
 /// Place a tile's hexes onto the map at a given center coordinate.
 pub(crate) fn place_tile_on_map(
     map: &mut MapState,
@@ -992,15 +968,8 @@ pub(crate) fn draw_ruins_tokens_on_tile(
 pub fn execute_explore(
     state: &mut GameState,
     player_idx: usize,
-    direction: HexDirection,
-    from_tile_center: HexCoord,
+    target_center: HexCoord,
 ) -> Result<TileId, ExploreError> {
-    // Validate direction is allowed by map shape
-    let allowed = state.scenario_config.map_shape.expansion_directions();
-    if !allowed.contains(&direction) {
-        return Err(ExploreError::DirectionNotAllowed);
-    }
-
     let pos = state.players[player_idx]
         .position
         .ok_or(ExploreError::NoPosition)?;
@@ -1010,12 +979,13 @@ pub fn execute_explore(
         return Err(ExploreError::InsufficientMovePoints);
     }
 
-    // Use the from_tile_center passed from enumerate_explores.
-    let tile_center = from_tile_center;
-
-    // Validate player is on the edge of their tile facing the explore direction
+    // Validate player is near the target tile
     let explore_distance = if crate::card_play::is_rule_active(state, player_idx, mk_types::modifier::RuleOverride::ExtendedExplore) { 2 } else { 1 };
-    if !is_player_near_explore_edge(pos, tile_center, direction, explore_distance) {
+    let player_nearby = TILE_HEX_OFFSETS.iter().any(|offset| {
+        let hex = HexCoord::new(target_center.q + offset.q, target_center.r + offset.r);
+        pos.distance(hex) <= explore_distance
+    });
+    if !player_nearby {
         return Err(ExploreError::NotOnTileEdge);
     }
 
@@ -1028,8 +998,7 @@ pub fn execute_explore(
         return Err(ExploreError::NoTilesAvailable);
     };
 
-    // Calculate new tile center from current tile center + direction
-    let new_center = calculate_tile_placement(tile_center, direction);
+    let new_center = target_center;
 
     // Verify no overlap with existing hexes
     for offset in &TILE_HEX_OFFSETS {
@@ -1449,7 +1418,8 @@ mod tests {
     ) -> Result<TileId, ExploreError> {
         let pos = state.players[player_idx].position.unwrap();
         let tile_center = find_tile_center(&state.map, pos).unwrap();
-        execute_explore(state, player_idx, direction, tile_center)
+        let target_center = calculate_tile_placement(tile_center, direction);
+        execute_explore(state, player_idx, target_center)
     }
 
     #[test]
@@ -1601,12 +1571,12 @@ mod tests {
     fn explore_wrong_direction_from_edge_rejected() {
         let mut state = setup_game_with_move_points(5);
         // Player at NE edge (1,-1) — but trying to explore West (opposite direction).
-        // Solo game uses Wedge shape, so W is not in expansion_directions.
+        // Target would be behind the player, so they're not near it.
         move_to_east_edge(&mut state);
         state.map.tile_deck.countryside.push(TileId::Countryside1);
 
         let result = test_explore(&mut state, 0, HexDirection::W);
-        assert_eq!(result.unwrap_err(), ExploreError::DirectionNotAllowed);
+        assert_eq!(result.unwrap_err(), ExploreError::NotOnTileEdge);
     }
 
     // ---- Enemy drawing on explore tests ----
@@ -2556,13 +2526,16 @@ mod tests {
 
     #[test]
     fn explore_direction_rejected_for_wedge() {
+        // Direction filtering is now handled by enumerate_explores (slot-based
+        // for wedge maps), not by execute_explore. Verify that enumerate_explores
+        // does not produce SW targets in a wedge map.
         let mut state = setup_game_with_move_points(5);
-        // Move to SW edge — could explore SW in an Open map, but not Wedge
         state.players[0].position = Some(HexCoord::new(-1, 1));
         state.map.tile_deck.countryside.push(TileId::Countryside1);
 
-        let result = test_explore(&mut state, 0, HexDirection::SW);
-        assert_eq!(result.unwrap_err(), ExploreError::DirectionNotAllowed);
+        let legal = crate::legal_actions::enumerate_legal_actions(&state, 0);
+        let has_explore = legal.actions.iter().any(|a| matches!(a, mk_types::legal_action::LegalAction::Explore { .. }));
+        assert!(!has_explore, "Wedge map should not offer SW explore");
     }
 
     #[test]

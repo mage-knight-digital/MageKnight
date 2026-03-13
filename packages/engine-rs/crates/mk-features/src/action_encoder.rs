@@ -387,12 +387,9 @@ fn extract_action_scalars(
             );
             scalars[27] = if provoked.is_empty() { 0.0 } else { 1.0 };
         }
-        LegalAction::Explore { direction, from_tile_center } => {
-            let (dq, dr) = direction.offset();
-            scalars[4] = scale(dq as f32, 10.0);
-            scalars[5] = scale(dr as f32, 10.0);
-            scalars[6] = scale(from_tile_center.q as f32, 10.0);
-            scalars[7] = scale(from_tile_center.r as f32, 10.0);
+        LegalAction::Explore { target_center } => {
+            scalars[4] = scale(target_center.q as f32, 10.0);
+            scalars[5] = scale(target_center.r as f32, 10.0);
         }
         LegalAction::ResolveChoice { choice_index } => {
             scalars[19] = scale(*choice_index as f32, 5.0);

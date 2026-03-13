@@ -33,7 +33,7 @@ export type LegalAction =
   | { PlayCardSideways: { hand_index: number; card_id: string; sideways_as: string } }
   // Movement & exploration
   | { Move: { target: { q: number; r: number }; cost: number } }
-  | { Explore: { direction: string } }
+  | { Explore: { target_center: { q: number; r: number } } }
   // Choice resolution
   | { ResolveChoice: { choice_index: number } }
   | { ResolveDiscardForBonus: { choice_index: number; discard_count: number } }

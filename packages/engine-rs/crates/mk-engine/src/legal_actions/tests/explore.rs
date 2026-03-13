@@ -28,12 +28,10 @@ fn explore_with_tiles_available() {
 // =========================================================================
 
 #[test]
-fn explore_wedge_only_ne_e() {
-    use mk_types::hex::HexDirection;
-
+fn explore_wedge_targets_valid() {
     let mut state = setup_game(vec!["march"]);
     state.players[0].move_points = 10;
-    // Place player at NE edge — can explore both NE and E directions
+    // Place player at NE edge — can explore both NE and E targets
     state.players[0].position = Some(HexCoord::new(1, -1));
     // Clear existing tiles beyond starting tile
     state.map = crate::setup::place_starting_tile(TileId::StartingA);
@@ -47,29 +45,28 @@ fn explore_wedge_only_ne_e() {
     state.map.tile_slots = crate::setup::generate_tile_slots(state.scenario_config.map_shape, total);
 
     let legal = enumerate_legal_actions(&state, 0);
-    let explore_dirs: Vec<HexDirection> = legal
+    let explore_targets: Vec<HexCoord> = legal
         .actions
         .iter()
         .filter_map(|a| match a {
-            LegalAction::Explore { direction, .. } => Some(*direction),
+            LegalAction::Explore { target_center } => Some(*target_center),
             _ => None,
         })
         .collect();
 
-    // Should only contain NE and/or E, never SE/SW/W/NW
-    for dir in &explore_dirs {
+    // Valid wedge targets from origin: NE=(1,-3), E=(3,-2)
+    let valid_targets = vec![HexCoord::new(1, -3), HexCoord::new(3, -2)];
+    for target in &explore_targets {
         assert!(
-            *dir == HexDirection::NE || *dir == HexDirection::E,
-            "Wedge should only allow NE or E explores, got {:?}",
-            dir
+            valid_targets.contains(target),
+            "Wedge should only allow valid slot targets, got ({},{})",
+            target.q, target.r
         );
     }
 }
 
 #[test]
 fn coastline_blocks_core_tile() {
-    use mk_types::hex::HexDirection;
-
     let mut state = setup_game(vec!["march"]);
     state.players[0].move_points = 10;
     state.map = crate::setup::place_starting_tile(TileId::StartingA);
@@ -87,27 +84,25 @@ fn coastline_blocks_core_tile() {
     state.players[0].position = Some(HexCoord::new(1, -1));
 
     let legal = enumerate_legal_actions(&state, 0);
-    let explore_dirs: Vec<HexDirection> = legal
+    let explore_targets: Vec<HexCoord> = legal
         .actions
         .iter()
         .filter_map(|a| match a {
-            LegalAction::Explore { direction, .. } => Some(*direction),
+            LegalAction::Explore { target_center } => Some(*target_center),
             _ => None,
         })
         .collect();
 
     // Core tiles should not be placed on coastline
     assert!(
-        explore_dirs.is_empty(),
+        explore_targets.is_empty(),
         "Core tiles should not be placeable on coastline slots, but got {:?}",
-        explore_dirs
+        explore_targets
     );
 }
 
 #[test]
 fn coastline_allows_countryside() {
-    use mk_types::hex::HexDirection;
-
     let mut state = setup_game(vec!["march"]);
     state.players[0].move_points = 10;
     state.map = crate::setup::place_starting_tile(TileId::StartingA);
@@ -123,19 +118,97 @@ fn coastline_allows_countryside() {
     state.players[0].position = Some(HexCoord::new(1, -1));
 
     let legal = enumerate_legal_actions(&state, 0);
-    let explore_dirs: Vec<HexDirection> = legal
+    let explore_targets: Vec<HexCoord> = legal
         .actions
         .iter()
         .filter_map(|a| match a {
-            LegalAction::Explore { direction, .. } => Some(*direction),
+            LegalAction::Explore { target_center } => Some(*target_center),
             _ => None,
         })
         .collect();
 
     // Countryside tiles CAN be placed on coastline
     assert!(
-        !explore_dirs.is_empty(),
+        !explore_targets.is_empty(),
         "Countryside tiles should be allowed on coastline slots"
+    );
+}
+
+/// Regression: player at (7,-8) adjacent to unfilled slot (5,-8) but no placed
+/// tile produces (5,-8) via NE/E direction.
+///
+/// The player explored along the east edge of the wedge, skipping slots
+/// (4,-5) and (2,-6). Slot (5,-8) is physically adjacent to placed tiles
+/// (7,-7) and (3,-9) — their hexes share edges — but the OLD code only
+/// checked tile-center-to-tile-center directional relationships (NE/E), so
+/// (5,-8) never appeared as a target.
+///
+/// Placed tiles: (0,0), (1,-3), (3,-2), (6,-4), (7,-7), (9,-6), (8,-10), (10,-9)
+/// NOT placed: (4,-5), (2,-6) → no tile NE/E produces (5,-8)
+/// Player hex (7,-8) is distance 1 from target hex (6,-8).
+#[test]
+fn explore_gap_slot_adjacent_to_player() {
+    let mut state = setup_game(vec!["march"]);
+    state.players[0].move_points = 3;
+    state.map = crate::setup::place_starting_tile(TileId::StartingA);
+
+    // Tiles placed along the east edge, then NE, skipping (4,-5) and (2,-6).
+    let placed_centers = [
+        (TileId::Countryside1, HexCoord::new(1, -3)),   // NE from origin (initial)
+        (TileId::Countryside2, HexCoord::new(3, -2)),   // E from origin (initial)
+        (TileId::Countryside3, HexCoord::new(6, -4)),   // E from (3,-2)
+        (TileId::Countryside4, HexCoord::new(7, -7)),   // NE from (6,-4)
+        (TileId::Countryside5, HexCoord::new(9, -6)),   // E from (6,-4)
+        (TileId::Countryside6, HexCoord::new(8, -10)),  // NE from (7,-7)
+        (TileId::Countryside7, HexCoord::new(10, -9)),  // E from (7,-7)
+    ];
+
+    for (tile_id, center) in &placed_centers {
+        let tile_hexes = mk_data::tiles::get_tile_hexes(*tile_id).unwrap();
+        crate::movement::place_tile_on_map(&mut state.map, *tile_id, *center, tile_hexes);
+        state.map.tiles.push(mk_types::state::TilePlacement {
+            tile_id: *tile_id,
+            center_coord: *center,
+            revealed: true,
+        });
+    }
+
+    // Countryside tiles still available
+    state.map.tile_deck.countryside = vec![TileId::Countryside8, TileId::Countryside9];
+
+    // Generate wedge slots for recon_explore: 1 starting + 10 countryside + 1 city = 12
+    let total_tiles = 12u32;
+    state.map.tile_slots =
+        crate::setup::generate_tile_slots(state.scenario_config.map_shape, total_tiles);
+
+    // Mark all placed tiles as filled in the slot map
+    let starting_key = HexCoord::new(0, 0).key();
+    if let Some(slot) = state.map.tile_slots.get_mut(&starting_key) {
+        slot.filled = true;
+    }
+    for (_, center) in &placed_centers {
+        if let Some(slot) = state.map.tile_slots.get_mut(&center.key()) {
+            slot.filled = true;
+        }
+    }
+
+    // Player at (7,-8) — bottom-left hex of tile (7,-7).
+    // Distance 1 from target hex (6,-8) which would be part of tile at (5,-8).
+    state.players[0].position = Some(HexCoord::new(7, -8));
+
+    let legal = enumerate_legal_actions(&state, 0);
+    let explore_actions: Vec<_> = legal
+        .actions
+        .iter()
+        .filter(|a| matches!(a, LegalAction::Explore { .. }))
+        .collect();
+
+    // Slot (5,-8) is physically adjacent to placed tile (7,-7) — hex (6,-7) of
+    // tile (7,-7) borders hex (6,-8) of target (5,-8). The explore should be offered.
+    assert!(
+        !explore_actions.is_empty(),
+        "Player at (7,-8) should be able to explore slot (5,-8) — tile (7,-7) is \
+         physically adjacent to it even though no placed tile directionally produces it"
     );
 }
 
@@ -150,8 +223,6 @@ fn coastline_allows_countryside() {
 /// and would miss this valid explore.
 #[test]
 fn explore_from_adjacent_tile_edge() {
-    use mk_types::hex::HexDirection;
-
     let mut state = setup_game(vec!["march"]);
     state.players[0].move_points = 10;
     // Start with starting tile + one countryside tile placed E
@@ -195,4 +266,3 @@ fn explore_from_adjacent_tile_edge() {
          which is reachable as NE from the starting tile (0,0)"
     );
 }
-

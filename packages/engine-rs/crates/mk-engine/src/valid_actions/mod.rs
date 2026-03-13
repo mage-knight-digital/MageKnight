@@ -13,7 +13,7 @@ mod projection;
 mod tests;
 
 use mk_types::enums::*;
-use mk_types::hex::{HexCoord, HexDirection};
+use mk_types::hex::HexCoord;
 use mk_types::ids::{CardId, TacticId};
 use mk_types::state::*;
 
@@ -87,10 +87,9 @@ pub struct MoveTarget {
     pub cost: u32,
 }
 
-/// A direction the player can explore.
+/// A target the player can explore.
 #[derive(Debug, Clone)]
 pub struct ExploreDirection {
-    pub direction: HexDirection,
     pub target_center: HexCoord,
 }
 

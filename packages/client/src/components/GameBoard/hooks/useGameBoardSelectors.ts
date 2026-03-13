@@ -6,14 +6,13 @@
  */
 
 import { useMemo } from "react";
-import type { HexCoord, HexDirection, MoveTarget, ReachableHex } from "@mage-knight/shared";
-import { findTileCenterForHex, calculateTilePlacementPosition } from "@mage-knight/shared";
+import type { HexCoord, MoveTarget, ReachableHex } from "@mage-knight/shared";
 import type { ExploreTarget } from "../pixi/rendering";
 import { findPath } from "../pixi/pathfinding";
 import type { LegalAction } from "../../../rust/types";
 import {
   extractMoveTargets,
-  extractExploreDirections,
+  extractExploreTargets,
   extractChallengeTargets,
 } from "../../../rust/legalActionUtils";
 
@@ -34,7 +33,7 @@ interface UseGameBoardSelectorsReturn {
   isPathTerminal: boolean;
   /** Maps hex key "q,r" to the LegalAction for that move. */
   rustMoveActions: Map<string, LegalAction>;
-  /** Maps direction to the LegalAction for that explore. */
+  /** Maps hex key "q,r" to the LegalAction for that explore. */
   rustExploreActions: Map<string, LegalAction>;
   /** Maps hex key "q,r" to the LegalAction for that challenge. */
   rustChallengeActions: Map<string, LegalAction>;
@@ -53,7 +52,7 @@ export function useGameBoardSelectors({
   );
 
   const exploreOptions = useMemo(
-    () => extractExploreDirections(legalActions),
+    () => extractExploreTargets(legalActions),
     [legalActions]
   );
 
@@ -86,23 +85,10 @@ export function useGameBoardSelectors({
   }, []);
 
   const exploreTargets = useMemo<ExploreTarget[]>(() => {
-    if (!playerPosition || !state?.map?.tiles) return [];
-
-    const tiles = state.map.tiles;
-    const tileCenters: HexCoord[] = Array.isArray(tiles)
-      ? tiles.map((t: { centerCoord: HexCoord }) => t.centerCoord)
-      : Object.values(tiles).map((t: unknown) =>
-          (t as { centerCoord: HexCoord }).centerCoord);
-
-    const fromTileCoord = findTileCenterForHex(playerPosition, tileCenters)
-      ?? playerPosition;
-
     return exploreOptions.map(opt => ({
-      coord: calculateTilePlacementPosition(fromTileCoord, opt.direction as HexDirection),
-      direction: opt.direction as HexDirection,
-      fromTileCoord,
+      coord: opt.targetCenter,
     }));
-  }, [exploreOptions, state?.map?.tiles, playerPosition]);
+  }, [exploreOptions]);
 
   // Maps for action dispatch
   const rustMoveActions = useMemo(() => {
@@ -116,7 +102,7 @@ export function useGameBoardSelectors({
   const rustExploreActions = useMemo(() => {
     const map = new Map<string, LegalAction>();
     for (const opt of exploreOptions) {
-      map.set(opt.direction, opt.action);
+      map.set(`${opt.targetCenter.q},${opt.targetCenter.r}`, opt.action);
     }
     return map;
   }, [exploreOptions]);

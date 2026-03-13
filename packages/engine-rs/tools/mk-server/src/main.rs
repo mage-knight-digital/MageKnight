@@ -67,11 +67,21 @@ fn parse_scenario_string(s: &str) -> Result<TrainingScenario, String> {
             countryside_count: Some(4),
             hand_override: None,
             extra_cards: None,
+            starting_move_points: None,
         }),
         "exploration_tiny" => Ok(TrainingScenario::ExplorationDrill {
             countryside_count: Some(2),
             hand_override: None,
             extra_cards: None,
+            starting_move_points: None,
+        }),
+        // First Recon tile layout (8 countryside + 2 core + 1 city), no enemies,
+        // deck full of march cards for unlimited movement.
+        "recon_explore" => Ok(TrainingScenario::ExplorationDrill {
+            countryside_count: Some(10),
+            hand_override: Some(vec!["march".into(); 5]),
+            extra_cards: Some(vec!["march".into(); 20]),
+            starting_move_points: Some(100),
         }),
         _ => serde_json::from_str(s)
             .map_err(|e| format!("Unknown preset '{s}' and invalid JSON: {e}")),

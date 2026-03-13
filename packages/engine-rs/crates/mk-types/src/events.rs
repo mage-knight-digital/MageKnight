@@ -11,7 +11,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::enums::{BasicManaColor, CombatPhase, Hero, SidewaysAs, SiteType, TileId, TimeOfDay};
-use crate::hex::{HexCoord, HexDirection};
+use crate::hex::HexCoord;
 use crate::ids::{CardId, EnemyId, PlayerId, SkillId, TacticId, UnitId};
 
 /// A game event emitted by the engine.
@@ -61,8 +61,8 @@ pub enum GameEvent {
     /// A new map tile was explored and placed.
     TileExplored {
         player_id: PlayerId,
-        direction: HexDirection,
         tile_id: TileId,
+        center: HexCoord,
     },
 
     /// Combat has started at a site.
