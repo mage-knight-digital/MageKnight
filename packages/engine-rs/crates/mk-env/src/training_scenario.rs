@@ -70,6 +70,9 @@ pub enum TrainingScenario {
         /// Countryside tile count (default 4). City tile always appended.
         #[serde(default)]
         countryside_count: Option<u32>,
+        /// Core (brown) tile count (default 0). Placed between countryside and city.
+        #[serde(default)]
+        core_tile_count: Option<u32>,
         /// Override starting hand with specific card IDs.
         #[serde(default)]
         hand_override: Option<Vec<String>>,
@@ -133,6 +136,7 @@ pub fn create_training_game(
         }
         TrainingScenario::ExplorationDrill {
             countryside_count,
+            core_tile_count,
             hand_override,
             extra_cards,
             starting_move_points,
@@ -140,6 +144,7 @@ pub fn create_training_game(
             seed,
             hero,
             countryside_count.unwrap_or(4),
+            core_tile_count.unwrap_or(0),
             hand_override.as_deref(),
             extra_cards.as_deref(),
             *starting_move_points,
@@ -299,6 +304,7 @@ fn setup_exploration_drill(
     seed: u32,
     hero: Hero,
     countryside_count: u32,
+    core_tile_count: u32,
     hand_override: Option<&[String]>,
     extra_cards: Option<&[String]>,
     starting_move_points: Option<u32>,
@@ -307,14 +313,14 @@ fn setup_exploration_drill(
 
     // Override scenario config for a smaller exploration-only map.
     state.scenario_config.countryside_tile_count = countryside_count;
-    state.scenario_config.core_tile_count = 0;
+    state.scenario_config.core_tile_count = core_tile_count;
     state.scenario_config.city_tile_count = 1;
     state.scenario_config.end_trigger = ScenarioEndTrigger::CityRevealed;
 
     // Rebuild tile deck + slots for the reduced map.
     state.map.tile_deck =
         mk_data::tiles::create_tile_deck(&state.scenario_config, &mut state.rng);
-    let total_tiles = 1 + countryside_count + 1; // starting + countryside + city
+    let total_tiles = 1 + countryside_count + core_tile_count + 1; // starting + countryside + core + city
     state.map.tile_slots =
         generate_tile_slots(state.scenario_config.map_shape, total_tiles);
 
@@ -688,6 +694,7 @@ mod tests {
     fn exploration_drill_produces_valid_state() {
         let scenario = TrainingScenario::ExplorationDrill {
             countryside_count: Some(4),
+            core_tile_count: None,
             hand_override: None,
             extra_cards: None,
             starting_move_points: None,
@@ -701,6 +708,7 @@ mod tests {
     fn exploration_drill_no_combat() {
         let scenario = TrainingScenario::ExplorationDrill {
             countryside_count: Some(4),
+            core_tile_count: None,
             hand_override: None,
             extra_cards: None,
             starting_move_points: None,
@@ -713,6 +721,7 @@ mod tests {
     fn exploration_drill_empty_enemy_piles() {
         let scenario = TrainingScenario::ExplorationDrill {
             countryside_count: Some(4),
+            core_tile_count: None,
             hand_override: None,
             extra_cards: None,
             starting_move_points: None,
@@ -737,6 +746,7 @@ mod tests {
     fn exploration_drill_city_revealed_trigger() {
         let scenario = TrainingScenario::ExplorationDrill {
             countryside_count: Some(4),
+            core_tile_count: None,
             hand_override: None,
             extra_cards: None,
             starting_move_points: None,
@@ -752,6 +762,7 @@ mod tests {
     fn exploration_drill_tile_deck_size() {
         let scenario = TrainingScenario::ExplorationDrill {
             countryside_count: Some(2),
+            core_tile_count: None,
             hand_override: None,
             extra_cards: None,
             starting_move_points: None,
@@ -768,6 +779,7 @@ mod tests {
     fn exploration_drill_default_countryside_count() {
         let scenario = TrainingScenario::ExplorationDrill {
             countryside_count: None, // defaults to 4
+            core_tile_count: None,
             hand_override: None,
             extra_cards: None,
             starting_move_points: None,
@@ -819,6 +831,7 @@ mod tests {
     fn exploration_drill_skips_tactic_selection() {
         let scenario = TrainingScenario::ExplorationDrill {
             countryside_count: Some(4),
+            core_tile_count: None,
             hand_override: None,
             extra_cards: None,
             starting_move_points: None,
