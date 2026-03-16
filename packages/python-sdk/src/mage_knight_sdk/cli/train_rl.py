@@ -162,7 +162,7 @@ def main() -> int:
     parser.add_argument("--num-hidden-layers", type=int, default=1, help="Number of hidden layers in state/action encoders (default: 1)")
     parser.add_argument("--d-model", type=int, default=64, help="Attention dimension for entity pool encoders (default: 64)")
 
-    parser.add_argument("--fame-delta-scale", type=float, default=1.0, help="Reward multiplier for fame deltas")
+    parser.add_argument("--fame-delta-scale", type=float, default=3.0, help="Reward multiplier for fame deltas")
     parser.add_argument("--step-penalty", type=float, default=0.0, help="Per-step reward penalty")
     parser.add_argument("--terminal-end-bonus", type=float, default=0.0, help="Bonus when game ends normally")
     parser.add_argument("--terminal-max-steps-penalty", type=float, default=-0.5, help="Penalty when episode hits max steps")
@@ -174,7 +174,7 @@ def main() -> int:
     parser.add_argument("--backtrack-penalty", type=float, default=0.0, help="Penalty for moving to a hex already visited this turn (e.g. -0.3)")
     parser.add_argument("--wound-shaping-k", type=float, default=0.0, help="Potential-based wound shaping coefficient (e.g. 10.0). Applies continuous penalty proportional to (wounds/deck_size)^2")
     parser.add_argument("--achievement-reward-scale", type=float, default=0.0, help="Reward scale for achievement deltas (spell/AA/artifact/crystal/unit/site). 0 = disabled, 0.5 = recommended.")
-    parser.add_argument("--tile-explore-bonus", type=float, default=1.0, help="Progressive tile exploration bonus: Nth tile gives N * this value. E.g. 1.0 gives 1+2+3+...+N total.")
+    parser.add_argument("--tile-explore-bonus", type=float, default=0.2, help="Progressive tile exploration bonus: Nth tile gives N * this value. E.g. 0.2 gives 0.2+0.4+...+N*0.2 total.")
 
     parser.add_argument("--checkpoint-dir", default=None, help="Run directory for checkpoints + logs (default: auto-generated under training/runs/)")
     parser.add_argument("--checkpoint-every", type=int, default=25, help="Save checkpoint every N episodes")
