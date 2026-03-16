@@ -944,11 +944,34 @@ impl PyVecEnv {
 // Module registration
 // =============================================================================
 
+/// Return a dict of vocab name → size for all 9 vocabularies.
+///
+/// Used by Python tests to verify vocab sync without hardcoding sizes.
+#[pyfunction]
+fn get_vocab_sizes() -> std::collections::HashMap<String, usize> {
+    use mk_features::vocab::*;
+    [
+        ("card", CARD_VOCAB.size()),
+        ("unit", UNIT_VOCAB.size()),
+        ("enemy", ENEMY_VOCAB.size()),
+        ("action_type", ACTION_TYPE_VOCAB.size()),
+        ("mode", MODE_VOCAB.size()),
+        ("source", SOURCE_VOCAB.size()),
+        ("site", SITE_VOCAB.size()),
+        ("terrain", TERRAIN_VOCAB.size()),
+        ("skill", SKILL_VOCAB.size()),
+    ]
+    .into_iter()
+    .map(|(k, v)| (k.to_string(), v))
+    .collect()
+}
+
 #[pymodule]
 fn mk_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", "0.1.0")?;
     m.add_class::<GameEngine>()?;
     m.add_class::<PyEncodedStep>()?;
     m.add_class::<PyVecEnv>()?;
+    m.add_function(wrap_pyfunction!(get_vocab_sizes, m)?)?;
     Ok(())
 }
