@@ -143,6 +143,8 @@ pub fn apply_legal_action(
         .collect();
     let pre_skills: Vec<SkillId> = state.players[player_idx].skills.clone();
     let pre_combat_phase = state.combat.as_ref().map(|c| c.phase);
+    // Capture combat summary for CombatEnded event (combat state is consumed by action handler)
+    let pre_combat_enemy_count: usize = state.combat.as_ref().map(|c| c.enemies.len()).unwrap_or(0);
 
     let mut events = Vec::new();
 
@@ -160,10 +162,14 @@ pub fn apply_legal_action(
         LegalAction::PlayCardBasic { hand_index, card_id } => {
             // Reversible: save snapshot
             undo_stack.save(state);
+            let effect_desc = mk_data::cards::get_card(card_id.as_str())
+                .and_then(|def| def.basic_effect.describe());
             events.push(GameEvent::CardPlayed {
                 player_id: player_id.clone(),
                 card_id: card_id.clone(),
                 mode: CardPlayMode::Basic,
+                effect_description: effect_desc,
+                mana_color: None,
             });
             turn_flow::apply_play_card(state, player_idx, *hand_index, false, None)?
         }
@@ -175,10 +181,14 @@ pub fn apply_legal_action(
         } => {
             // Reversible: save snapshot
             undo_stack.save(state);
+            let effect_desc = mk_data::cards::get_card(card_id.as_str())
+                .and_then(|def| def.powered_effect.describe());
             events.push(GameEvent::CardPlayed {
                 player_id: player_id.clone(),
                 card_id: card_id.clone(),
                 mode: CardPlayMode::Powered,
+                effect_description: effect_desc,
+                mana_color: Some(*mana_color),
             });
             turn_flow::apply_play_card(state, player_idx, *hand_index, true, Some(*mana_color))?
         }
@@ -194,6 +204,8 @@ pub fn apply_legal_action(
                 player_id: player_id.clone(),
                 card_id: card_id.clone(),
                 mode: CardPlayMode::Sideways(*sideways_as),
+                effect_description: None,
+                mana_color: None,
             });
             turn_flow::apply_play_card_sideways(state, player_idx, *hand_index, *sideways_as)?
         }
@@ -229,17 +241,19 @@ pub fn apply_legal_action(
             // Reversible: save snapshot
             undo_stack.save(state);
             // Extract source context from the pending choice before it's consumed
-            let (source_card, source_skill) = match &state.players[player_idx].pending.active {
+            let (source_card, source_skill, chosen_desc) = match &state.players[player_idx].pending.active {
                 Some(mk_types::pending::ActivePending::Choice(pc)) => {
-                    (pc.card_id.clone(), pc.skill_id.clone())
+                    let desc = pc.options.get(*choice_index).and_then(|e| e.describe());
+                    (pc.card_id.clone(), pc.skill_id.clone(), desc)
                 }
-                _ => (None, None),
+                _ => (None, None, None),
             };
             events.push(GameEvent::ChoiceResolved {
                 player_id: player_id.clone(),
                 choice_index: *choice_index,
                 card_id: source_card,
                 skill_id: source_skill,
+                chosen_description: chosen_desc,
             });
             choices::apply_resolve_choice(state, player_idx, *choice_index)?
         }
@@ -822,14 +836,24 @@ pub fn apply_legal_action(
     let post_combat = state.combat.is_some();
     if !pre_combat && post_combat {
         if let Some(hex) = post_position {
+            let enemy_ids = state.combat.as_ref().map(|c| {
+                c.enemies.iter().map(|e| e.enemy_id.clone()).collect()
+            });
             events.push(GameEvent::CombatStarted {
                 player_id: player_id.clone(),
                 hex,
+                enemy_ids,
             });
         }
     } else if pre_combat && !post_combat {
+        // Combat ended — use player fame delta for accurate total (includes final kill fame)
+        let post_fame_combat = state.players[player_idx].fame;
+        let combat_fame = post_fame_combat.saturating_sub(pre_fame);
         events.push(GameEvent::CombatEnded {
             player_id: player_id.clone(),
+            victory: Some(true), // combat only ends when all enemies defeated
+            total_fame_gained: Some(combat_fame),
+            enemies_defeated: Some(pre_combat_enemy_count as u32),
         });
     }
 
@@ -867,9 +891,12 @@ pub fn apply_legal_action(
     if let Some(combat) = &state.combat {
         for enemy in &combat.enemies {
             if enemy.is_defeated && !pre_defeated.contains(&enemy.instance_id) {
+                let fame = mk_data::enemies::get_enemy(enemy.enemy_id.as_str())
+                    .map(|def| def.fame);
                 events.push(GameEvent::EnemyDefeated {
                     player_id: player_id.clone(),
                     enemy_id: enemy.enemy_id.clone(),
+                    fame_gained: fame,
                 });
             }
         }

@@ -637,6 +637,71 @@ pub enum CardEffect {
     },
 }
 
+impl CardEffect {
+    /// Short human-readable description of this effect for event narration.
+    ///
+    /// Returns `None` for complex effects that don't have a concise description.
+    pub fn describe(&self) -> Option<String> {
+        match self {
+            CardEffect::GainMove { amount } => Some(format!("Move {amount}")),
+            CardEffect::GainInfluence { amount } => Some(format!("Influence {amount}")),
+            CardEffect::GainAttack { amount, element, combat_type } => {
+                let combat = match combat_type {
+                    CombatType::Melee => "",
+                    CombatType::Ranged => "Ranged ",
+                    CombatType::Siege => "Siege ",
+                };
+                let elem = match element {
+                    Element::Physical => "",
+                    Element::Fire => " Fire",
+                    Element::Ice => " Ice",
+                    Element::ColdFire => " ColdFire",
+                };
+                Some(format!("{combat}Attack {amount}{elem}"))
+            }
+            CardEffect::GainBlock { amount, element } => {
+                let elem = match element {
+                    Element::Physical => "",
+                    Element::Fire => " Fire",
+                    Element::Ice => " Ice",
+                    Element::ColdFire => " ColdFire",
+                };
+                Some(format!("Block {amount}{elem}"))
+            }
+            CardEffect::GainHealing { amount } => Some(format!("Healing {amount}")),
+            CardEffect::GainMana { color, amount } => {
+                let color_name = match color {
+                    ManaColor::White => "White",
+                    ManaColor::Red => "Red",
+                    ManaColor::Blue => "Blue",
+                    ManaColor::Green => "Green",
+                    ManaColor::Gold => "Gold",
+                    ManaColor::Black => "Black",
+                };
+                Some(format!("{color_name} Mana {amount}"))
+            }
+            CardEffect::DrawCards { count } => Some(format!("Draw {count}")),
+            CardEffect::GainFame { amount } => Some(format!("Fame {amount}")),
+            CardEffect::ChangeReputation { amount } => {
+                if *amount >= 0 { Some(format!("Reputation +{amount}")) }
+                else { Some(format!("Reputation {amount}")) }
+            }
+            CardEffect::TakeWound => Some("Take wound".to_string()),
+            CardEffect::Noop => None,
+            CardEffect::Compound { effects } => {
+                let descs: Vec<String> = effects.iter().filter_map(|e| e.describe()).collect();
+                if descs.is_empty() { None } else { Some(descs.join(", ")) }
+            }
+            CardEffect::Choice { options } => {
+                let descs: Vec<String> = options.iter().filter_map(|e| e.describe()).collect();
+                if descs.is_empty() { None } else { Some(descs.join(" OR ")) }
+            }
+            CardEffect::Conditional { then_effect, .. } => then_effect.describe(),
+            _ => None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

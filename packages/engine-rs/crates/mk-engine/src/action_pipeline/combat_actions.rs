@@ -447,7 +447,7 @@ pub(super) fn apply_declare_attack_inner(
                     enemy.instance_id.as_str(),
                 );
                 if armor_change != 0 {
-                    let base_for_phase = combat_resolution::get_enemy_armor_for_phase(def, combat.phase);
+                    let base_for_phase = combat_resolution::get_enemy_armor_for_phase(def, combat.phase, enemy.is_blocked);
                     let adjusted_total = (base_for_phase as i32 + base_bonus + armor_change)
                         .max(armor_min as i32);
                     let adjusted_bonus = adjusted_total - base_for_phase as i32;

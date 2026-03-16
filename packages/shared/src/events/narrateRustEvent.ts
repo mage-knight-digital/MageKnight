@@ -286,12 +286,15 @@ export function narrateRustEvent(
       const name = pid ? heroName(players, pid) : "Hero";
       const cardId = field(event, "card_id", "cardId") as string | undefined;
       const mode = event["mode"] as string | { sideways: string } | undefined;
+      const effectDesc = field(event, "effect_description", "effectDescription") as string | undefined;
+      const manaColor = field(event, "mana_color", "manaColor") as string | undefined;
       const cardLabel = cardId ? formatId(cardId) : "a card";
       let modeLabel = "";
       if (mode === "basic") {
-        // no label for basic
+        modeLabel = effectDesc ? ` — ${effectDesc}` : "";
       } else if (mode === "powered") {
-        modeLabel = " (powered)";
+        const colorLabel = manaColor ? ` by ${formatId(manaColor)}` : "";
+        modeLabel = effectDesc ? ` (powered${colorLabel}) — ${effectDesc}` : ` (powered${colorLabel})`;
       } else if (typeof mode === "object" && mode !== null && "sideways" in mode) {
         const sidewaysAs = (mode as { sideways: string }).sideways;
         modeLabel = ` → ${formatId(sidewaysAs)} 1`;
@@ -329,12 +332,20 @@ export function narrateRustEvent(
     case "combatStarted": {
       const name = pid ? heroName(players, pid) : "Hero";
       const hex = event["hex"] as { q: number; r: number } | undefined;
+      const enemyIds = field(event, "enemy_ids", "enemyIds") as string[] | undefined;
       const hexLabel = hex ? ` at (${hex.q}, ${hex.r})` : "";
-      return msg(`${name} enters combat${hexLabel}!`, EVENT_CATEGORY.COMBAT, pid);
+      const enemyList = enemyIds?.length ? ` vs ${enemyIds.map(formatId).join(", ")}` : "";
+      return msg(`${name} enters combat${hexLabel}${enemyList}!`, EVENT_CATEGORY.COMBAT, pid);
     }
 
-    case "combatEnded":
-      return msg("Combat ended", EVENT_CATEGORY.COMBAT, pid);
+    case "combatEnded": {
+      const totalFame = field(event, "total_fame_gained", "totalFameGained") as number | undefined;
+      const defeated = field(event, "enemies_defeated", "enemiesDefeated") as number | undefined;
+      let summary = "Combat ended";
+      if (totalFame != null && totalFame > 0) summary += ` — +${totalFame} fame`;
+      if (defeated != null) summary += ` (${defeated} defeated)`;
+      return msg(summary, EVENT_CATEGORY.COMBAT, pid);
+    }
 
     case "combatPhaseChanged": {
       const phase = event["phase"] as string | undefined;
@@ -345,7 +356,9 @@ export function narrateRustEvent(
     case "enemyDefeated": {
       const enemyId = field(event, "enemy_id", "enemyId") as string | undefined;
       const enemyLabel = enemyId ? formatId(enemyId) : "Enemy";
-      return msg(`${enemyLabel} defeated!`, EVENT_CATEGORY.COMBAT, pid);
+      const fameGained = field(event, "fame_gained", "fameGained") as number | undefined;
+      const fameSuffix = fameGained != null && fameGained > 0 ? ` (+${fameGained} fame)` : "";
+      return msg(`${enemyLabel} defeated!${fameSuffix}`, EVENT_CATEGORY.COMBAT, pid);
     }
 
     // ---- Sites ----
@@ -383,7 +396,9 @@ export function narrateRustEvent(
       } else if (choiceSkillId) {
         source = ` (${formatId(choiceSkillId)})`;
       }
-      return msg(`${name} resolved a choice${source}`, EVENT_CATEGORY.LIFECYCLE, pid);
+      const chosenDesc = field(event, "chosen_description", "chosenDescription") as string | undefined;
+      const choiceSuffix = chosenDesc ? `: ${chosenDesc}` : "";
+      return msg(`${name} resolved a choice${source}${choiceSuffix}`, EVENT_CATEGORY.LIFECYCLE, pid);
     }
 
     // ---- Progression ----

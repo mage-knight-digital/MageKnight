@@ -158,12 +158,19 @@ pub fn calculate_effective_block(
 // =============================================================================
 
 /// Get the effective armor for an enemy in the given combat phase.
-/// Elusive enemies use `armor_elusive` (higher) in the Attack phase.
-pub fn get_enemy_armor_for_phase(def: &EnemyDefinition, phase: CombatPhase) -> u32 {
-    if phase == CombatPhase::Attack {
-        if let Some(elusive_armor) = def.armor_elusive {
-            return elusive_armor;
+///
+/// Elusive enemies have two armor values. The higher (`armor_elusive`) is used
+/// in Ranged/Siege and in the Attack phase when NOT all attacks were blocked.
+/// The lower (`armor`) is used in the Attack phase only when ALL attacks were
+/// successfully blocked.
+pub fn get_enemy_armor_for_phase(def: &EnemyDefinition, phase: CombatPhase, is_blocked: bool) -> u32 {
+    if let Some(elusive_armor) = def.armor_elusive {
+        // Attack phase with all attacks blocked → use lower armor
+        if phase == CombatPhase::Attack && is_blocked {
+            return def.armor;
         }
+        // All other phases (Ranged/Siege) or Attack without full block → higher armor
+        return elusive_armor;
     }
     def.armor
 }
@@ -179,8 +186,9 @@ pub fn get_effective_armor(
     phase: CombatPhase,
     vampiric_bonus: u32,
     defend_bonus: u32,
+    is_blocked: bool,
 ) -> u32 {
-    get_enemy_armor_for_phase(def, phase) + vampiric_bonus + defend_bonus
+    get_enemy_armor_for_phase(def, phase, is_blocked) + vampiric_bonus + defend_bonus
 }
 
 /// Get attack info for a specific attack index.
@@ -300,8 +308,9 @@ pub fn get_effective_armor_with_city(
     vampiric_bonus: u32,
     defend_bonus: u32,
     city_color: Option<BasicManaColor>,
+    is_blocked: bool,
 ) -> u32 {
-    get_effective_armor(def, phase, vampiric_bonus, defend_bonus) + city_armor_bonus(city_color)
+    get_effective_armor(def, phase, vampiric_bonus, defend_bonus, is_blocked) + city_armor_bonus(city_color)
 }
 
 /// Get attack info with city bonus applied to damage.
@@ -478,7 +487,7 @@ pub fn resolve_attack_with_city(
                 .get(enemy.instance_id.as_str())
                 .copied()
                 .unwrap_or(0);
-            (get_enemy_armor_for_phase(def, phase) as i32 + bonus + city_armor as i32).max(0) as u32
+            (get_enemy_armor_for_phase(def, phase, enemy.is_blocked) as i32 + bonus + city_armor as i32).max(0) as u32
         })
         .sum();
 
@@ -1177,11 +1186,34 @@ mod tests {
     // ---- get_enemy_armor_for_phase ----
 
     #[test]
-    fn elusive_armor_in_attack_phase() {
+    fn elusive_armor_uses_higher_value_in_ranged_siege() {
         // Orc Tracker: armor=3, armor_elusive=6
+        // Per rulebook: elusive enemies always use the HIGHER armor in Ranged/Siege
         let def = get_enemy("orc_tracker").unwrap();
-        assert_eq!(get_enemy_armor_for_phase(def, CombatPhase::RangedSiege), 3);
-        assert_eq!(get_enemy_armor_for_phase(def, CombatPhase::Attack), 6);
+        assert_eq!(get_enemy_armor_for_phase(def, CombatPhase::RangedSiege, false), 6);
+    }
+
+    #[test]
+    fn elusive_armor_uses_lower_value_in_attack_when_blocked() {
+        // Per rulebook: if ALL attacks were blocked, use the lower armor in Attack phase
+        let def = get_enemy("orc_tracker").unwrap();
+        assert_eq!(get_enemy_armor_for_phase(def, CombatPhase::Attack, true), 3);
+    }
+
+    #[test]
+    fn elusive_armor_uses_higher_value_in_attack_when_not_blocked() {
+        // Per rulebook: if NOT all attacks were blocked, keep the higher armor
+        let def = get_enemy("orc_tracker").unwrap();
+        assert_eq!(get_enemy_armor_for_phase(def, CombatPhase::Attack, false), 6);
+    }
+
+    #[test]
+    fn non_elusive_enemy_armor_unaffected_by_blocked_flag() {
+        // Non-elusive enemies always use base armor regardless of phase/blocked
+        let def = get_enemy("prowlers").unwrap(); // armor 3
+        assert_eq!(get_enemy_armor_for_phase(def, CombatPhase::RangedSiege, false), 3);
+        assert_eq!(get_enemy_armor_for_phase(def, CombatPhase::Attack, false), 3);
+        assert_eq!(get_enemy_armor_for_phase(def, CombatPhase::Attack, true), 3);
     }
 
     // ---- calculate_hero_wounds ----
@@ -1332,17 +1364,21 @@ mod tests {
     #[test]
     fn effective_armor_includes_vampiric_and_defend() {
         let def = get_enemy("prowlers").unwrap(); // armor 3
-        assert_eq!(get_effective_armor(def, CombatPhase::Attack, 0, 0), 3);
-        assert_eq!(get_effective_armor(def, CombatPhase::Attack, 2, 0), 5);
-        assert_eq!(get_effective_armor(def, CombatPhase::Attack, 0, 1), 4);
-        assert_eq!(get_effective_armor(def, CombatPhase::Attack, 2, 1), 6);
+        assert_eq!(get_effective_armor(def, CombatPhase::Attack, 0, 0, false), 3);
+        assert_eq!(get_effective_armor(def, CombatPhase::Attack, 2, 0, false), 5);
+        assert_eq!(get_effective_armor(def, CombatPhase::Attack, 0, 1, false), 4);
+        assert_eq!(get_effective_armor(def, CombatPhase::Attack, 2, 1, false), 6);
     }
 
     #[test]
     fn effective_armor_elusive_plus_bonuses() {
         let def = get_enemy("orc_tracker").unwrap(); // armor 3, elusive armor 6
-        assert_eq!(get_effective_armor(def, CombatPhase::RangedSiege, 1, 0), 4);
-        assert_eq!(get_effective_armor(def, CombatPhase::Attack, 1, 0), 7);
+        // Ranged/Siege: always higher armor (6) + bonuses
+        assert_eq!(get_effective_armor(def, CombatPhase::RangedSiege, 1, 0, false), 7);
+        // Attack not blocked: higher armor (6) + bonuses
+        assert_eq!(get_effective_armor(def, CombatPhase::Attack, 1, 0, false), 7);
+        // Attack blocked: lower armor (3) + bonuses
+        assert_eq!(get_effective_armor(def, CombatPhase::Attack, 1, 0, true), 4);
     }
 
     // ---- resolve_attack with bonus armor ----
@@ -1676,7 +1712,7 @@ mod tests {
     fn white_city_effective_armor_includes_bonus() {
         // Prowlers: armor 3, White city: +1 → 4
         let def = get_enemy("prowlers").unwrap();
-        let armor = get_effective_armor_with_city(def, CombatPhase::Block, 0, 0, Some(BasicManaColor::White));
+        let armor = get_effective_armor_with_city(def, CombatPhase::Block, 0, 0, Some(BasicManaColor::White), false);
         assert_eq!(armor, 4);
     }
 
@@ -1789,8 +1825,8 @@ mod tests {
         let (dmg_c, elem_c, swift_c) = get_enemy_attack_info_with_city(def, 0, None);
         assert_eq!((dmg, elem, swift), (dmg_c, elem_c, swift_c));
 
-        let armor = get_effective_armor(def, CombatPhase::Block, 0, 0);
-        let armor_c = get_effective_armor_with_city(def, CombatPhase::Block, 0, 0, None);
+        let armor = get_effective_armor(def, CombatPhase::Block, 0, 0, false);
+        let armor_c = get_effective_armor_with_city(def, CombatPhase::Block, 0, 0, None, false);
         assert_eq!(armor, armor_c);
     }
 

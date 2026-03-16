@@ -43,6 +43,9 @@ packages/engine-rs/target/
 # Simulation artifacts (large binary data, training checkpoints)
 sim-artifacts/
 
+# Training crash dumps
+**/training/crashes/
+
 # Generated eval replays
 packages/python-sdk/eval_replays/
 

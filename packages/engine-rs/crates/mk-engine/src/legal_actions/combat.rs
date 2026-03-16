@@ -456,6 +456,7 @@ pub(crate) fn compute_total_target_armor(
                 vampiric,
                 defend,
                 enemy_city_color,
+                enemy.is_blocked,
             );
             let (armor_change, armor_min) =
                 crate::combat_resolution::get_enemy_armor_modifier(

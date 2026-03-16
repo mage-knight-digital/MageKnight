@@ -49,6 +49,12 @@ pub enum GameEvent {
         player_id: PlayerId,
         card_id: CardId,
         mode: CardPlayMode,
+        /// Human-readable effect description (e.g. "Attack 4 Fire").
+        #[serde(skip_serializing_if = "Option::is_none")]
+        effect_description: Option<String>,
+        /// Mana color used for powered plays.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        mana_color: Option<BasicManaColor>,
     },
 
     /// A player moved to a new hex.
@@ -69,11 +75,23 @@ pub enum GameEvent {
     CombatStarted {
         player_id: PlayerId,
         hex: HexCoord,
+        /// Enemy IDs in this combat.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        enemy_ids: Option<Vec<EnemyId>>,
     },
 
     /// Combat has ended.
     CombatEnded {
         player_id: PlayerId,
+        /// Whether all enemies were defeated.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        victory: Option<bool>,
+        /// Total fame earned during this combat.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        total_fame_gained: Option<u32>,
+        /// Number of enemies defeated.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        enemies_defeated: Option<u32>,
     },
 
     /// A player entered a site (monastery, village, etc.).
@@ -92,6 +110,9 @@ pub enum GameEvent {
         /// Source skill that created this choice, if any.
         #[serde(skip_serializing_if = "Option::is_none")]
         skill_id: Option<SkillId>,
+        /// Human-readable description of the chosen option.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        chosen_description: Option<String>,
     },
 
     /// A round has ended (day/night transition).
@@ -103,6 +124,9 @@ pub enum GameEvent {
     EnemyDefeated {
         player_id: PlayerId,
         enemy_id: EnemyId,
+        /// Fame earned from defeating this enemy.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        fame_gained: Option<u32>,
     },
 
     /// A player gained fame.
