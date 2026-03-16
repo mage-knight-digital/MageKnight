@@ -190,7 +190,7 @@ def default_combat_curriculum() -> CurriculumSchedule:
                 scenario_trigger_bonus=10.0,
                 achievement_reward_scale=0.5,
                 wasted_move_penalty=-0.02,
-                tile_explore_bonus=3.0,
+                tile_explore_bonus=1.0,
             ),
             episodes=500000,
             max_steps=2000,

@@ -47,7 +47,11 @@ DEFAULT_FLAGS=(
     --mini-batch-size 256
     --checkpoint-every 10000
     --learning-rate 3e-4
-    --entropy-coef 0.01
+    --entropy-coef 0.03
+    --target-kl 0.02
+    --lr-decay
+    --entropy-floor 0.6
+    --max-critic-loss 2.0
 )
 
 # --- Helpers ---

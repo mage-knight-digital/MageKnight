@@ -35,7 +35,7 @@ from .vocabularies import (
 class PolicyGradientConfig:
     gamma: float = 0.99
     learning_rate: float = 3e-4
-    entropy_coefficient: float = 0.01
+    entropy_coefficient: float = 0.03
     critic_coefficient: float = 0.5
     hidden_size: int = 128
     normalize_returns: bool = True
@@ -53,6 +53,45 @@ class OptimizationStats:
     entropy: float
     action_count: int
     critic_loss: float = 0.0
+    epochs_used: int = 0
+    approx_kl: float = 0.0
+    effective_entropy_coef: float = 0.0
+
+
+class ValueNormalizer:
+    """Running mean/std normalizer for value targets (Welford's algorithm)."""
+
+    def __init__(self) -> None:
+        self._mean = 0.0
+        self._var = 1.0
+        self._count = 0
+
+    def update(self, values: torch.Tensor) -> None:
+        batch_mean = float(values.mean().item())
+        batch_var = float(values.var(unbiased=False).item())
+        batch_count = values.numel()
+
+        delta = batch_mean - self._mean
+        total = self._count + batch_count
+        new_mean = self._mean + delta * batch_count / max(total, 1)
+        m_a = self._var * self._count
+        m_b = batch_var * batch_count
+        m2 = m_a + m_b + delta ** 2 * self._count * batch_count / max(total, 1)
+        self._mean = new_mean
+        self._var = m2 / max(total, 1)
+        self._count = total
+
+    def normalize(self, values: torch.Tensor) -> torch.Tensor:
+        std = max(self._var ** 0.5, 1e-6)
+        return (values - self._mean) / std
+
+    def state_dict(self) -> dict[str, float]:
+        return {"mean": self._mean, "var": self._var, "count": float(self._count)}
+
+    def load_state_dict(self, d: dict[str, float]) -> None:
+        self._mean = d["mean"]
+        self._var = d["var"]
+        self._count = int(d["count"])
 
 
 @dataclass(frozen=True)
@@ -1057,6 +1096,7 @@ class ReinforcePolicy:
         self._episode_values: list[torch.Tensor] = []
         self._next_reward_index = 0
         self.last_step_info: StepInfo | None = None
+        self._value_normalizer = ValueNormalizer()
 
     def choose_action_from_encoded(
         self,
@@ -1230,6 +1270,9 @@ class ReinforcePolicy:
         ppo_epochs: int = 4,
         max_grad_norm: float = 0.5,
         mini_batch_size: int = 256,
+        target_kl: float | None = None,
+        entropy_floor: float = 0.0,
+        max_critic_loss: float = 0.0,
     ) -> OptimizationStats:
         """Run PPO clipped surrogate update over collected transitions."""
         n = len(transitions)
@@ -1241,6 +1284,11 @@ class ReinforcePolicy:
 
         adv_t = torch.tensor(advantages, dtype=torch.float32, device=self._device)
         ret_t = torch.tensor(returns, dtype=torch.float32, device=self._device)
+
+        # Value target normalization: update running stats, normalize targets
+        self._value_normalizer.update(ret_t)
+        norm_ret_t = self._value_normalizer.normalize(ret_t)
+
         old_lp = torch.tensor(
             [t.log_prob for t in transitions], dtype=torch.float32, device=self._device,
         )
@@ -1291,8 +1339,13 @@ class ReinforcePolicy:
         # ---- Precompute raw tensors ONCE (Python→tensor, no embeddings) ----
         raw_state = net._precompute_state_raw_tensors(transitions, self._device)
 
+        epochs_used = 0
+        epoch_kl = 0.0
+
         for _epoch in range(ppo_epochs):
             random.shuffle(indices)
+            epoch_kl_sum = 0.0
+            epoch_kl_count = 0
 
             for start in range(0, n, mini_batch_size):
                 batch = indices[start : start + mini_batch_size]
@@ -1388,13 +1441,24 @@ class ReinforcePolicy:
                 b_entropy = per_sample_entropy.sum()
 
                 b_critic = nn.functional.mse_loss(
-                    values, ret_t[batch_t], reduction="sum",
+                    values, norm_ret_t[batch_t], reduction="sum",
                 )
+
+                # Cap critic loss to prevent gradient spikes through shared backbone
+                if max_critic_loss > 0:
+                    b_critic = torch.clamp(b_critic / bs, max=max_critic_loss) * bs
+
+                # Adaptive entropy coefficient: boost when entropy drops below floor
+                ent_coef = self.config.entropy_coefficient
+                if entropy_floor > 0:
+                    avg_entropy = float(b_entropy.detach().item()) / bs
+                    if avg_entropy < entropy_floor:
+                        ent_coef = ent_coef * (entropy_floor / max(avg_entropy, 1e-6))
 
                 loss = (
                     b_policy / bs
                     + self.config.critic_coefficient * b_critic / bs
-                    - self.config.entropy_coefficient * b_entropy / bs
+                    - ent_coef * b_entropy / bs
                 )
                 loss.backward()
                 nn.utils.clip_grad_norm_(self._network.parameters(), max_norm=max_grad_norm)
@@ -1405,8 +1469,26 @@ class ReinforcePolicy:
                 total_entropy += float(b_entropy.detach().cpu().item()) / bs
                 num_batches += 1
 
+                # Track KL divergence for early stopping
+                with torch.no_grad():
+                    log_ratio = new_lps - old_lp[batch_t]
+                    approx_kl_batch = float(((torch.exp(log_ratio) - 1) - log_ratio).mean().item())
+                    epoch_kl_sum += approx_kl_batch * bs
+                    epoch_kl_count += bs
+
+            epochs_used = _epoch + 1
+            if epoch_kl_count > 0:
+                epoch_kl = epoch_kl_sum / epoch_kl_count
+            if target_kl is not None and epoch_kl > target_kl:
+                break
+
         d = max(num_batches, 1)
         total_reward = sum(t.reward for t in transitions)
+        # Compute effective entropy coef for logging (last batch value)
+        final_entropy = total_entropy / d if d > 0 else 0.0
+        effective_ent_coef = self.config.entropy_coefficient
+        if entropy_floor > 0 and final_entropy < entropy_floor:
+            effective_ent_coef = self.config.entropy_coefficient * (entropy_floor / max(final_entropy, 1e-6))
         return OptimizationStats(
             loss=total_loss / d,
             total_reward=total_reward,
@@ -1414,6 +1496,9 @@ class ReinforcePolicy:
             entropy=total_entropy / d,
             action_count=n,
             critic_loss=total_critic / d,
+            epochs_used=epochs_used,
+            approx_kl=epoch_kl,
+            effective_entropy_coef=effective_ent_coef,
         )
 
     def extract_gradients(self) -> dict[str, torch.Tensor]:
@@ -1444,6 +1529,12 @@ class ReinforcePolicy:
         """Load weights (from main process broadcast)."""
         self._network.load_state_dict(state_dict)
 
+    def update_learning_rate(self, progress_remaining: float) -> None:
+        """Linearly decay learning rate. progress_remaining goes from 1.0 → 0.0."""
+        new_lr = self.config.learning_rate * max(progress_remaining, 0.0)
+        for pg in self._optimizer.param_groups:
+            pg["lr"] = new_lr
+
     def save_checkpoint(self, path: str | Path, metadata: dict[str, Any] | None = None) -> None:
         target = Path(path)
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -1451,6 +1542,7 @@ class ReinforcePolicy:
             "config": asdict(self.config),
             "model_state_dict": self._network.state_dict(),
             "optimizer_state_dict": self._optimizer.state_dict(),
+            "value_normalizer": self._value_normalizer.state_dict(),
         }
         if metadata is not None:
             payload["metadata"] = metadata
@@ -1474,6 +1566,8 @@ class ReinforcePolicy:
         policy._network.load_state_dict(payload["model_state_dict"], strict=False)
         if "optimizer_state_dict" in payload:
             policy._optimizer.load_state_dict(payload["optimizer_state_dict"])
+        if "value_normalizer" in payload:
+            policy._value_normalizer.load_state_dict(payload["value_normalizer"])
         metadata = payload.get("metadata")
         if not isinstance(metadata, dict):
             metadata = {}

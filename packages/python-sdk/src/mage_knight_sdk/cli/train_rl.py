@@ -93,6 +93,8 @@ class _TBWriter:
         self._writer.add_scalar("optimization/entropy", stats.optimization.entropy, episode)
         self._writer.add_scalar("optimization/critic_loss", stats.optimization.critic_loss, episode)
         self._writer.add_scalar("optimization/action_count", stats.optimization.action_count, episode)
+        if hasattr(stats.optimization, "effective_entropy_coef") and stats.optimization.effective_entropy_coef > 0:
+            self._writer.add_scalar("optimization/effective_entropy_coef", stats.optimization.effective_entropy_coef, episode)
         if reward_breakdown is not None:
             self._writer.add_scalar("reward_breakdown/fame", reward_breakdown.fame, episode)
             self._writer.add_scalar("reward_breakdown/wound_penalty", reward_breakdown.wound_penalty, episode)
@@ -152,7 +154,7 @@ def main() -> int:
 
     parser.add_argument("--learning-rate", type=float, default=3e-4, help="Adam learning rate")
     parser.add_argument("--gamma", type=float, default=0.99, help="Discount factor")
-    parser.add_argument("--entropy-coef", type=float, default=0.01, help="Entropy regularization coefficient")
+    parser.add_argument("--entropy-coef", type=float, default=0.03, help="Entropy regularization coefficient")
     parser.add_argument("--critic-coef", type=float, default=0.5, help="Critic (value) loss coefficient")
     parser.add_argument("--hidden-size", type=int, default=128, help="Hidden size for action scoring network")
     parser.add_argument("--device", default="auto", help="Torch device (auto, cpu, cuda, mps)")
@@ -172,7 +174,7 @@ def main() -> int:
     parser.add_argument("--backtrack-penalty", type=float, default=0.0, help="Penalty for moving to a hex already visited this turn (e.g. -0.3)")
     parser.add_argument("--wound-shaping-k", type=float, default=0.0, help="Potential-based wound shaping coefficient (e.g. 10.0). Applies continuous penalty proportional to (wounds/deck_size)^2")
     parser.add_argument("--achievement-reward-scale", type=float, default=0.0, help="Reward scale for achievement deltas (spell/AA/artifact/crystal/unit/site). 0 = disabled, 0.5 = recommended.")
-    parser.add_argument("--tile-explore-bonus", type=float, default=3.0, help="Progressive tile exploration bonus: Nth tile gives N * this value. E.g. 3.0 gives 3+6+9+...+3N total.")
+    parser.add_argument("--tile-explore-bonus", type=float, default=1.0, help="Progressive tile exploration bonus: Nth tile gives N * this value. E.g. 1.0 gives 1+2+3+...+N total.")
 
     parser.add_argument("--checkpoint-dir", default=None, help="Run directory for checkpoints + logs (default: auto-generated under training/runs/)")
     parser.add_argument("--checkpoint-every", type=int, default=25, help="Save checkpoint every N episodes")
@@ -187,6 +189,10 @@ def main() -> int:
     parser.add_argument("--gae-lambda", type=float, default=0.95, help="GAE lambda (default: 0.95)")
     parser.add_argument("--max-grad-norm", type=float, default=0.5, help="Gradient clipping max norm (default: 0.5)")
     parser.add_argument("--mini-batch-size", type=int, default=256, help="PPO mini-batch size (default: 256)")
+    parser.add_argument("--target-kl", type=float, default=None, help="KL divergence target for PPO early stopping (default: None = disabled, recommended: 0.02)")
+    parser.add_argument("--lr-decay", action="store_true", help="Linearly decay learning rate to 0 over training")
+    parser.add_argument("--entropy-floor", type=float, default=0.0, help="Minimum entropy threshold; entropy_coef is boosted when entropy drops below this (default: 0 = disabled, recommended: 0.6)")
+    parser.add_argument("--max-critic-loss", type=float, default=0.0, help="Cap per-sample critic loss to prevent gradient spikes (default: 0 = disabled, recommended: 2.0)")
 
     # Curriculum learning
     parser.add_argument("--curriculum", default=None, help="Curriculum schedule name (e.g. 'default'). Overrides --episodes, reward args, and --max-steps with per-phase values.")
@@ -524,12 +530,21 @@ def _train_ppo_native(
                 normalized_episodes, args.gamma, args.gae_lambda,
                 terminated=batch_terminated,
             )
+
+            # Linear LR decay
+            if getattr(args, "lr_decay", False):
+                progress_remaining = 1.0 - (resume_episode_offset + episode_num) / (resume_episode_offset + args.episodes)
+                policy.update_learning_rate(progress_remaining)
+
             opt_stats = policy.optimize_ppo(
                 transitions_flat, advantages, returns,
                 clip_epsilon=args.clip_epsilon,
                 ppo_epochs=args.ppo_epochs,
                 max_grad_norm=args.max_grad_norm,
                 mini_batch_size=args.mini_batch_size,
+                target_kl=getattr(args, "target_kl", None),
+                entropy_floor=getattr(args, "entropy_floor", 0.0),
+                max_critic_loss=getattr(args, "max_critic_loss", 0.0),
             )
         else:
             opt_stats = OptimizationStats(
@@ -694,12 +709,22 @@ def _train_curriculum(
                     normalized_episodes, args.gamma, args.gae_lambda,
                     terminated=terminated_flags,
                 )
+
+                # Linear LR decay (based on total progress across all phases)
+                if getattr(args, "lr_decay", False):
+                    total_episodes = sum(p.episodes for p in schedule.phases)
+                    progress_remaining = 1.0 - global_ep / (resume_episode_offset + total_episodes)
+                    policy.update_learning_rate(progress_remaining)
+
                 opt_stats = policy.optimize_ppo(
                     transitions_flat, advantages, returns,
                     clip_epsilon=args.clip_epsilon,
                     ppo_epochs=args.ppo_epochs,
                     max_grad_norm=args.max_grad_norm,
                     mini_batch_size=args.mini_batch_size,
+                    target_kl=getattr(args, "target_kl", None),
+                    entropy_floor=getattr(args, "entropy_floor", 0.0),
+                    max_critic_loss=getattr(args, "max_critic_loss", 0.0),
                 )
             else:
                 opt_stats = OptimizationStats(
@@ -967,6 +992,9 @@ def _append_metrics_log(
             "entropy": stats.optimization.entropy,
             "action_count": stats.optimization.action_count,
             "critic_loss": stats.optimization.critic_loss,
+            "epochs_used": getattr(stats.optimization, "epochs_used", 0),
+            "approx_kl": getattr(stats.optimization, "approx_kl", 0.0),
+            "effective_entropy_coef": getattr(stats.optimization, "effective_entropy_coef", 0.0),
         },
     }
     if game_score is not None:
