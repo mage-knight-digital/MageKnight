@@ -197,7 +197,7 @@ function AccumulatorDisplay() {
             <span className="combat-hud__accumulator-value">{totalSiege}</span>
             <span className="combat-hud__accumulator-label">Siege</span>
             {hasFortifiedEnemy && totalSiege === 0 && (
-              <span className="combat-hud__siege-hint">needed for \uD83C\uDFF0</span>
+              <span className="combat-hud__siege-hint">needed for 🏰</span>
             )}
           </div>
 

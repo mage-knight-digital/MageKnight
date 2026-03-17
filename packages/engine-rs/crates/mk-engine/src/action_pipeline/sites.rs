@@ -555,6 +555,11 @@ pub(super) fn apply_burn_monastery(
         is_revealed: true,
     });
 
+    // Interaction is over — player is now in combat, not shopping
+    state.players[player_idx]
+        .flags
+        .remove(PlayerFlags::IS_INTERACTING);
+
     // Enter combat: units NOT allowed, combat_context = BurnMonastery
     let options = combat::EnterCombatOptions {
         units_allowed: false,

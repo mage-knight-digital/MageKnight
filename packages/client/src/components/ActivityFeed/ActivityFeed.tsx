@@ -14,7 +14,7 @@ const MAX_MESSAGES = 50;
 export function ActivityFeed() {
   const { state, events } = useGame();
   const [collapsed, setCollapsed] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const prevMessageCountRef = useRef(0);
 
   // Build players list for narration from state
@@ -38,8 +38,9 @@ export function ActivityFeed() {
 
   // Auto-scroll to bottom when new messages appear
   useEffect(() => {
-    if (messages.length > prevMessageCountRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = messagesContainerRef.current;
+    if (el && messages.length > prevMessageCountRef.current) {
+      el.scrollTop = el.scrollHeight;
     }
     prevMessageCountRef.current = messages.length;
   }, [messages.length]);
@@ -76,7 +77,7 @@ export function ActivityFeed() {
       <button className="activity-feed__toggle" onClick={toggle}>
         Log [L]
       </button>
-      <div className="activity-feed__messages">
+      <div className="activity-feed__messages" ref={messagesContainerRef}>
         {messages.length === 0 ? (
           <div className="activity-feed__empty">No events yet</div>
         ) : (
@@ -95,7 +96,6 @@ export function ActivityFeed() {
             );
           })
         )}
-        <div ref={messagesEndRef} />
       </div>
     </div>
   );

@@ -144,9 +144,10 @@ pub fn derive_source_str(action: &LegalAction, state: &GameState, player_idx: us
         LegalAction::MeditationDoneSelecting => "meditation.done",
 
         // === Level-up ===
-        LegalAction::ChooseLevelUpReward { from_common_pool, .. } => {
+        LegalAction::ChooseLevelUpSkill { from_common_pool, .. } => {
             if *from_common_pool { "level_up.common" } else { "level_up.drawn" }
         }
+        LegalAction::ChooseLevelUpAdvancedAction { .. } => "level_up.aa",
 
         // === Cooperative assault ===
         LegalAction::ProposeCooperativeAssault { .. } => "cooperative.propose",
@@ -368,7 +369,7 @@ mod tests {
             "banner_protection.remove", "banner_protection.skip",
             "meditation.place.top", "meditation.place.bottom", "meditation.select",
             "meditation.done",
-            "level_up.common", "level_up.drawn",
+            "level_up.aa", "level_up.common", "level_up.drawn",
             "cooperative.propose", "cooperative.respond", "cooperative.cancel",
             "normal.site.buy_spell", "normal.site.buy_aa",
             "normal.site.buy_artifact", "normal.site.buy_city_aa",

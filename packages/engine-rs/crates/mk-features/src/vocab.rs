@@ -308,7 +308,7 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
         "BEGIN_INTERACTION", "BEGIN_PEACEFUL_MOMENT_HEALING",
         "BURN_MONASTERY", "BUY_SPELL",
         "CANCEL_COOPERATIVE_PROPOSAL", "CHALLENGE_RAMPAGING",
-        "CHOOSE_LEVEL_UP_REWARDS", "COMPLETE_REST",
+        "CHOOSE_LEVEL_UP_AA", "CHOOSE_LEVEL_UP_SKILL", "COMPLETE_REST",
         "CONVERT_INFLUENCE_TO_BLOCK", "CONVERT_MOVE_TO_ATTACK",
         "DEBUG_ADD_FAME", "DEBUG_TRIGGER_LEVEL_UP",
         "DECLARE_ATTACK", "DECLARE_ATTACK_TARGETS", "DECLARE_BLOCK", "DECLARE_BLOCK_TARGET", "DECLARE_REST",
@@ -358,7 +358,7 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
         "BUY_CITY_ADVANCED_ACTION", "BUY_CITY_ADVANCED_ACTION_FROM_DECK",
         "BUY_SPELL",
         "CANCEL_COOPERATIVE_PROPOSAL", "CHALLENGE_RAMPAGING",
-        "CHOOSE_LEVEL_UP_REWARDS", "COMPLETE_REST",
+        "CHOOSE_LEVEL_UP_AA", "CHOOSE_LEVEL_UP_SKILL", "COMPLETE_REST",
         "CONVERT_INFLUENCE_TO_BLOCK", "CONVERT_MOVE_TO_ATTACK",
         "DEBUG_ADD_FAME", "DEBUG_TRIGGER_LEVEL_UP",
         "DECLARE_ATTACK", "DECLARE_ATTACK_TARGETS", "DECLARE_BLOCK",
@@ -481,7 +481,7 @@ define_vocab!(SOURCE_VOCAB, "source",
         "discard_for_crystal.card", "discard_for_crystal.skip",
         "glade.discard", "glade.hand", "glade.skip",
         "hex_cost_reduction.coordinate",
-        "level_up.common", "level_up.drawn",
+        "level_up.aa", "level_up.common", "level_up.drawn",
         "maximal_effect.card",
         "meditation.done",
         "meditation.place.bottom", "meditation.place.top", "meditation.select",
@@ -573,7 +573,7 @@ define_vocab!(SOURCE_VOCAB, "source",
         "discard_for_crystal.card", "discard_for_crystal.skip",
         "glade.discard", "glade.hand", "glade.skip",
         "hex_cost_reduction.coordinate",
-        "level_up.common", "level_up.drawn",
+        "level_up.aa", "level_up.common", "level_up.drawn",
         "maximal_effect.card",
         "meditation.done",
         "meditation.place.bottom", "meditation.place.top", "meditation.select",
@@ -787,7 +787,7 @@ mod tests {
 
     #[test]
     fn action_type_vocab_size() {
-        assert_eq!(ACTION_TYPE_VOCAB.size(), 91); // 90 entries + UNK
+        assert_eq!(ACTION_TYPE_VOCAB.size(), 92); // 91 entries + UNK
     }
 
     #[test]
@@ -798,7 +798,7 @@ mod tests {
     #[test]
     fn source_vocab_size() {
         // Count the ordered entries
-        assert_eq!(SOURCE_VOCAB.size(), 153); // 152 entries + UNK
+        assert_eq!(SOURCE_VOCAB.size(), 154); // 153 entries + UNK
     }
 
     #[test]
@@ -956,7 +956,7 @@ mod tests {
             "BUY_ARTIFACT", "BUY_CITY_ADVANCED_ACTION",
             "BUY_CITY_ADVANCED_ACTION_FROM_DECK", "BUY_SPELL",
             "CANCEL_COOPERATIVE_PROPOSAL", "CHALLENGE_RAMPAGING",
-            "CHOOSE_LEVEL_UP_REWARDS", "COMPLETE_REST",
+            "CHOOSE_LEVEL_UP_AA", "CHOOSE_LEVEL_UP_SKILL", "COMPLETE_REST",
             "CONVERT_INFLUENCE_TO_BLOCK", "CONVERT_MOVE_TO_ATTACK",
             "DECLARE_ATTACK", "DECLARE_ATTACK_TARGETS", "DECLARE_BLOCK",
             "DECLARE_REST", "DECLINE_PLUNDER",

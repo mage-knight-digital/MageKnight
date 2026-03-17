@@ -625,11 +625,28 @@ fn default_keep_count() -> usize {
     1
 }
 
+/// Phase of the level-up reward selection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LevelUpRewardPhase {
+    /// Step 1: Choose a skill from drawn pair or common pool.
+    SelectSkill,
+    /// Step 2: Choose an AA from the offer (only if skill was from drawn pair).
+    SelectAdvancedAction,
+}
+
 /// Level-up reward for even levels.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PendingLevelUpReward {
     pub level: u8,
     pub drawn_skills: ArrayVec<SkillId, MAX_DRAWN_SKILLS>,
+    /// Current phase of the two-step selection.
+    #[serde(default = "default_level_up_phase")]
+    pub phase: LevelUpRewardPhase,
+}
+
+fn default_level_up_phase() -> LevelUpRewardPhase {
+    LevelUpRewardPhase::SelectSkill
 }
 
 /// What kind of subset selection is in progress.

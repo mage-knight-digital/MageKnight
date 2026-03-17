@@ -69,7 +69,8 @@ export type LegalAction =
   // Rewards & level up
   | { SelectReward: { card_id: string; reward_index: number; unit_id: string | null } }
   | { SelectArtifact: { card_id: string } }
-  | { ChooseLevelUpReward: { skill_index: number; from_common_pool: boolean; advanced_action_id: string } }
+  | { ChooseLevelUpSkill: { skill_index: number; from_common_pool: boolean } }
+  | { ChooseLevelUpAdvancedAction: { advanced_action_id: string } }
   // Skills
   | { UseSkill: { skill_id: string } }
   | { ReturnInteractiveSkill: { skill_id: string } }

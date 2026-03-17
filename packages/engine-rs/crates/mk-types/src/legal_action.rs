@@ -123,12 +123,15 @@ pub enum LegalAction {
         attack_index: usize,
         unit_instance_id: UnitInstanceId,
     },
-    ChooseLevelUpReward {
+    /// Step 1 of level-up: pick a skill from drawn pair or common pool.
+    ChooseLevelUpSkill {
         /// Index into drawn_skills (if from_common_pool=false) or common_skills (if true).
         skill_index: usize,
         /// True if picking from common_skills instead of the drawn pair.
         from_common_pool: bool,
-        /// AA to take from the offer row.
+    },
+    /// Step 2 of level-up: pick an AA from the offer (only when skill was from drawn pair).
+    ChooseLevelUpAdvancedAction {
         advanced_action_id: CardId,
     },
     /// Pick one item in an ongoing subset selection.

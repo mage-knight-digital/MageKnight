@@ -1,5 +1,6 @@
 //! Choice resolution handlers (training, book of wisdom, tome, circlet, meditation, etc.).
 
+use arrayvec::ArrayVec;
 use mk_types::ids::CardId;
 use mk_types::pending::ActivePending;
 use mk_types::state::*;
@@ -702,58 +703,71 @@ pub(super) fn apply_resolve_discard_for_bonus(
 }
 
 
-pub(super) fn apply_choose_level_up_reward(
+/// Step 1: Choose a skill from drawn pair or common pool.
+/// If from common pool, the AA is auto-resolved (forced lowest position).
+/// If from drawn pair, transitions to SelectAdvancedAction phase.
+pub(super) fn apply_choose_level_up_skill(
     state: &mut GameState,
     player_idx: usize,
     skill_index: usize,
     from_common_pool: bool,
-    advanced_action_id: &CardId,
 ) -> Result<ApplyResult, ApplyError> {
-    // 1. Extract the active PendingLevelUpReward
     let reward = match state.players[player_idx].pending.active.take() {
-        Some(mk_types::pending::ActivePending::LevelUpReward(r)) => r,
+        Some(mk_types::pending::ActivePending::LevelUpReward(r))
+            if r.phase == mk_types::pending::LevelUpRewardPhase::SelectSkill => r,
         other => {
             state.players[player_idx].pending.active = other;
             return Err(ApplyError::InternalError(
-                "ChooseLevelUpReward: no active LevelUpReward pending".into(),
+                "ChooseLevelUpSkill: no active LevelUpReward in SelectSkill phase".into(),
             ));
         }
     };
 
-    // 2. Skill selection
     if from_common_pool {
         // Pick from common pool — add BOTH drawn skills back to common pool
         if skill_index >= state.offers.common_skills.len() {
             return Err(ApplyError::InternalError(format!(
-                "ChooseLevelUpReward: common pool index {} out of range (len {})",
+                "ChooseLevelUpSkill: common pool index {} out of range (len {})",
                 skill_index,
                 state.offers.common_skills.len()
             )));
         }
         let chosen_skill = state.offers.common_skills.remove(skill_index);
         state.players[player_idx].skills.push(chosen_skill.clone());
-        // Push passive modifiers for the newly acquired skill
         skills::push_passive_skill_modifiers(state, player_idx, &chosen_skill);
-        // Initialize Master of Chaos wheel position
         skills_interactive::init_master_of_chaos_if_needed(state, player_idx, &chosen_skill);
-        // Return both drawn skills to common pool
         for skill in reward.drawn_skills.iter() {
             state.offers.common_skills.push(skill.clone());
         }
+
+        // Auto-resolve AA: forced lowest position
+        let mut events = Vec::new();
+        if let Some(aa) = state.offers.advanced_actions.pop() {
+            events.push(mk_types::events::GameEvent::CardGained {
+                player_id: state.players[player_idx].id.clone(),
+                card_id: aa.clone(),
+            });
+            state.players[player_idx].deck.insert(0, aa);
+            if !state.decks.advanced_action_deck.is_empty() {
+                let new_card = state.decks.advanced_action_deck.remove(0);
+                state.offers.advanced_actions.insert(0, new_card);
+            }
+        }
+
+        // Done — check for more rewards or advance turn
+        finish_level_up(state, player_idx, events)
     } else {
-        // Pick from drawn pair — add the OTHER skill to common pool
+        // Pick from drawn pair — transition to SelectAdvancedAction phase
         if skill_index >= reward.drawn_skills.len() {
             return Err(ApplyError::InternalError(format!(
-                "ChooseLevelUpReward: drawn skill index {} out of range (len {})",
+                "ChooseLevelUpSkill: drawn skill index {} out of range (len {})",
                 skill_index,
                 reward.drawn_skills.len()
             )));
         }
         let chosen_skill = reward.drawn_skills[skill_index].clone();
         state.players[player_idx].skills.push(chosen_skill.clone());
-        // Push passive modifiers for the newly acquired skill
         skills::push_passive_skill_modifiers(state, player_idx, &chosen_skill);
-        // Initialize Master of Chaos wheel position
         skills_interactive::init_master_of_chaos_if_needed(state, player_idx, &chosen_skill);
         // Add unchosen drawn skills to common pool
         for (i, skill) in reward.drawn_skills.iter().enumerate() {
@@ -761,9 +775,44 @@ pub(super) fn apply_choose_level_up_reward(
                 state.offers.common_skills.push(skill.clone());
             }
         }
+
+        // Transition to AA selection phase
+        state.players[player_idx].pending.active =
+            Some(mk_types::pending::ActivePending::LevelUpReward(
+                mk_types::pending::PendingLevelUpReward {
+                    level: reward.level,
+                    drawn_skills: ArrayVec::new(), // no longer needed
+                    phase: mk_types::pending::LevelUpRewardPhase::SelectAdvancedAction,
+                },
+            ));
+
+        Ok(ApplyResult {
+            needs_reenumeration: true,
+            game_ended: false,
+            events: Vec::new(),
+        })
+    }
+}
+
+/// Step 2: Choose an AA from the offer (only when skill was from drawn pair).
+pub(super) fn apply_choose_level_up_advanced_action(
+    state: &mut GameState,
+    player_idx: usize,
+    advanced_action_id: &CardId,
+) -> Result<ApplyResult, ApplyError> {
+    // Validate we're in the right phase
+    match state.players[player_idx].pending.active.take() {
+        Some(mk_types::pending::ActivePending::LevelUpReward(r))
+            if r.phase == mk_types::pending::LevelUpRewardPhase::SelectAdvancedAction => {}
+        other => {
+            state.players[player_idx].pending.active = other;
+            return Err(ApplyError::InternalError(
+                "ChooseLevelUpAdvancedAction: no active SelectAdvancedAction pending".into(),
+            ));
+        }
     }
 
-    // 3. AA selection — remove from offer, push to front of player's deck, replenish
+    // Take the AA from the offer
     if let Some(offer_idx) = state
         .offers
         .advanced_actions
@@ -772,24 +821,29 @@ pub(super) fn apply_choose_level_up_reward(
     {
         let aa = state.offers.advanced_actions.remove(offer_idx);
         state.players[player_idx].deck.insert(0, aa);
-        // Replenish offer from deck
         if !state.decks.advanced_action_deck.is_empty() {
             let new_card = state.decks.advanced_action_deck.remove(0);
             state.offers.advanced_actions.insert(0, new_card);
         }
     }
 
-    // 4. Check for more rewards — promote next from deferred
+    finish_level_up(state, player_idx, Vec::new())
+}
+
+/// Shared finish: check for more level-up rewards or advance turn.
+fn finish_level_up(
+    state: &mut GameState,
+    player_idx: usize,
+    events: Vec<mk_types::events::GameEvent>,
+) -> Result<ApplyResult, ApplyError> {
     if end_turn::promote_level_up_reward_pub(state, player_idx) {
-        // More rewards to resolve
         return Ok(ApplyResult {
             needs_reenumeration: true,
             game_ended: false,
-            events: Vec::new(),
+            events,
         });
     }
 
-    // 5. No more rewards — process card flow and advance turn
     end_turn::process_card_flow_pub(state, player_idx);
     let turn_result = end_turn::advance_turn_pub(state, player_idx);
 

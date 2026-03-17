@@ -7,11 +7,11 @@ This is the primary Mage Knight game engine, a ground-up Rust implementation. Th
 ```bash
 cd packages/engine-rs
 cargo check    # Verify compilation
-cargo test     # Run all tests (~2100 tests)
+cargo test     # Run all tests (~2300 tests)
 cargo clippy   # Lint
 ```
 
-## Architecture: 6-Crate Workspace + 2 Tool Binaries
+## Architecture: 6-Crate Workspace + 3 Tool Binaries
 
 ```
 packages/engine-rs/
@@ -26,6 +26,7 @@ packages/engine-rs/
   tools/
     mk-cli/               # CLI game runner (random/human play modes)
     mk-server/            # WebSocket server for client communication
+    mk-combat-search/     # Exhaustive combat tree search benchmark (DFS vs MCTS)
 ```
 
 ### Crate Dependency Graph
@@ -36,12 +37,12 @@ mk-types → mk-data → mk-engine → mk-features → mk-env → mk-python
 
 ## Current Status
 
-**2100+ tests** across all crates (33 mk-types + 245 mk-data + ~1794 mk-engine + 45 mk-features).
+**2300+ tests** across all crates.
 
 All core game systems are implemented:
-- 70+ card definitions (basic actions, advanced actions, artifacts, spells)
+- 120+ card definitions (basic actions, advanced actions, artifacts, spells)
 - 31 unit definitions with 16 ability variants
-- 100+ enemy definitions
+- 72 enemy definitions
 - 70/70 skills implemented
 - 25/25 artifact cards
 - 4-phase combat system with city defender bonuses
@@ -49,6 +50,7 @@ All core game systems are implemented:
 - Cooperative assaults (multiplayer)
 - RL feature encoding with PyO3 bindings
 - Solo mode with dummy player
+- Combat oracle (exhaustive search for optimal combat resolution)
 
 ### mk-types Module Guide
 
@@ -58,8 +60,8 @@ All core game systems are implemented:
 | `enums.rs` | All game enums (ManaColor, Element, Terrain, GamePhase, CombatPhase, Hero, EnemyColor, SiteType, TileId, etc.) |
 | `hex.rs` | HexCoord {q,r}, HexDirection, tile placement offsets |
 | `action.rs` | PlayerAction enum (~70 variants), helper structs (ManaSourceInfo, BlockSource, etc.) |
-| `state.rs` | GameState, PlayerState, CombatState, MapState, PlayerFlags bitfield (17 bools → u32) |
-| `pending.rs` | ActivePending (21 variants) + DeferredPending (4 variants) + PendingQueue |
+| `state.rs` | GameState, PlayerState, CombatState, MapState, PlayerFlags bitfield (22 bools → u32) |
+| `pending.rs` | ActivePending (28 variants) + DeferredPending (4 variants) + PendingQueue |
 | `effect.rs` | EffectType enum (100+ discriminants), CardEffect enum, EffectCondition, ScalingFactor |
 | `modifier.rs` | ModifierEffect union (50+ variants), ActiveModifier, ModifierDuration/Scope/Source, RuleOverride (21 variants) |
 | `rng.rs` | RngState + Mulberry32 PRNG (parity-verified against TS), shuffle, random_int, random_index |
@@ -68,7 +70,7 @@ All core game systems are implemented:
 
 | Module | What's in it |
 |--------|-------------|
-| `effect_queue.rs` | EffectQueue (VecDeque-based), all atomic resolvers, Compound/Choice/Conditional/Scaling handlers, `resolve_pending_choice()`, is_resolvable filter |
+| `effect_queue/` | EffectQueue (VecDeque-based), all atomic resolvers, Compound/Choice/Conditional/Scaling handlers, `resolve_pending_choice()`, is_resolvable filter |
 | `setup.rs` | `create_solo_game()`, `create_mana_source()`, `create_player()`, `place_starting_tile()` |
 | `card_play.rs` | `play_card(basic/powered)`, `play_card_sideways()`, `consume_mana_payment()` (token > gold > crystal priority) |
 | `movement.rs` | `evaluate_move_entry()`, `execute_move()`, `execute_explore()`, terrain costs, provocation, tile placement |
@@ -86,7 +88,7 @@ All core game systems are implemented:
 | `cards/` | Basic actions (by color), advanced actions, artifact cards, spell definitions |
 | `heroes.rs` | Standard deck, per-hero replacements, `build_starting_deck()`, starting stats |
 | `tiles.rs` | Tile hex layouts (starting, countryside, core), portals, rampaging enemies |
-| `enemies.rs` | 100+ enemy definitions with abilities, resistances, attacks |
+| `enemies.rs` | 72 enemy definitions with abilities, resistances, attacks |
 | `units.rs` | 31 unit definitions with recruitment costs, abilities, activation effects |
 | `skills/` | 70 skill definitions with passive modifiers, effects, interactive behavior |
 | `site_properties.rs` | Site types, combat contexts, reward mappings |
@@ -107,7 +109,7 @@ The TS `Player` had 20+ separate `pending*` Option fields. In Rust these are con
 - `PendingQueue` — owns both, with `has_active()`, `is_empty()` helpers
 
 ### 3. PlayerFlags Bitfield
-17 boolean fields packed into `PlayerFlags(u32)` using `bitflags!`. Manual serde implementation (serialize as u32).
+22 boolean fields packed into `PlayerFlags(u32)` using `bitflags!`. Manual serde implementation (serialize as u32).
 
 ### 4. Boxed CombatState
 `GameState.combat` is `Option<Box<CombatState>>` — boxed because CombatState is large and combat is the uncommon path.

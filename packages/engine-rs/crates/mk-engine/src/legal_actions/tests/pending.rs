@@ -95,27 +95,23 @@ fn level_up_at_level_2_queues_reward() {
 }
 
 #[test]
-fn level_up_reward_enumerates_skill_x_aa_options() {
+fn level_up_reward_enumerates_skill_options() {
     let mut state = setup_level_up_game(3); // level 2
     crate::card_play::play_card(&mut state, 0, 0, false, None).unwrap();
     crate::end_turn::end_turn(&mut state, 0).unwrap();
 
     let legal = enumerate_legal_actions(&state, 0);
-    // 2 drawn skills × 3 AAs in offer = 6 options (no common pool skills yet)
-    let level_up_actions: Vec<_> = legal
+    // Step 1: 2 drawn skills (no common pool yet)
+    let skill_actions: Vec<_> = legal
         .actions
         .iter()
-        .filter(|a| matches!(a, LegalAction::ChooseLevelUpReward { .. }))
+        .filter(|a| matches!(a, LegalAction::ChooseLevelUpSkill { .. }))
         .collect();
-    assert_eq!(
-        level_up_actions.len(),
-        2 * state.offers.advanced_actions.len(),
-        "Should enumerate drawn_skills × AA_offer options"
-    );
+    assert_eq!(skill_actions.len(), 2, "Should enumerate 2 drawn skill options");
 }
 
 #[test]
-fn level_up_common_pool_forces_lowest_aa() {
+fn level_up_common_pool_enumerates_skills() {
     let mut state = setup_level_up_game(3);
     // Pre-populate common pool with 2 skills
     state
@@ -130,24 +126,15 @@ fn level_up_common_pool_forces_lowest_aa() {
     crate::card_play::play_card(&mut state, 0, 0, false, None).unwrap();
     crate::end_turn::end_turn(&mut state, 0).unwrap();
 
-    let lowest_aa = state.offers.advanced_actions.last().unwrap().clone();
     let legal = enumerate_legal_actions(&state, 0);
     let common_pool_actions: Vec<_> = legal
         .actions
         .iter()
-        .filter(|a| matches!(a, LegalAction::ChooseLevelUpReward { from_common_pool: true, .. }))
+        .filter(|a| matches!(a, LegalAction::ChooseLevelUpSkill { from_common_pool: true, .. }))
         .collect();
 
-    // 2 common skills, each forced to lowest AA = 2 actions (not 2 × N AAs)
+    // 2 common skills
     assert_eq!(common_pool_actions.len(), 2);
-    for action in &common_pool_actions {
-        if let LegalAction::ChooseLevelUpReward { advanced_action_id, .. } = action {
-            assert_eq!(
-                advanced_action_id, &lowest_aa,
-                "Common pool pick must take lowest-position AA"
-            );
-        }
-    }
 }
 
 #[test]
@@ -163,15 +150,13 @@ fn choose_skill_from_drawn_pair() {
     };
     let skill_0 = reward.drawn_skills[0].clone();
     let skill_1 = reward.drawn_skills[1].clone();
-    let aa_id = state.offers.advanced_actions[0].clone();
 
-    // Choose skill_0 from drawn pair
+    // Step 1: Choose skill_0 from drawn pair
     let mut undo = UndoStack::new();
     let legal = enumerate_legal_actions(&state, 0);
-    let action = LegalAction::ChooseLevelUpReward {
+    let action = LegalAction::ChooseLevelUpSkill {
         skill_index: 0,
         from_common_pool: false,
-        advanced_action_id: aa_id.clone(),
     };
     apply_legal_action(&mut state, &mut undo, 0, &action, legal.epoch).unwrap();
 
@@ -184,6 +169,15 @@ fn choose_skill_from_drawn_pair() {
     assert!(
         state.offers.common_skills.contains(&skill_1),
         "Unchosen skill should go to common pool"
+    );
+    // Should now be in SelectAdvancedAction phase
+    assert!(
+        matches!(
+            state.players[0].pending.active,
+            Some(ActivePending::LevelUpReward(ref r))
+                if r.phase == mk_types::pending::LevelUpRewardPhase::SelectAdvancedAction
+        ),
+        "Should be in SelectAdvancedAction phase"
     );
 }
 
@@ -206,13 +200,12 @@ fn choose_skill_from_common_pool() {
     // Common pool pick is forced to take lowest-position AA per rules.
     let lowest_aa_id = state.offers.advanced_actions.last().unwrap().clone();
 
-    // Choose from common pool (index 0 = test_common_skill)
+    // Choose from common pool (index 0 = test_common_skill) — AA auto-resolved
     let mut undo = UndoStack::new();
     let legal = enumerate_legal_actions(&state, 0);
-    let action = LegalAction::ChooseLevelUpReward {
+    let action = LegalAction::ChooseLevelUpSkill {
         skill_index: 0,
         from_common_pool: true,
-        advanced_action_id: lowest_aa_id,
     };
     apply_legal_action(&mut state, &mut undo, 0, &action, legal.epoch).unwrap();
 
@@ -243,13 +236,19 @@ fn aa_placed_on_deck_top() {
     let old_deck_top = state.decks.advanced_action_deck[0].clone();
 
     let mut undo = UndoStack::new();
+    // Step 1: pick skill
     let legal = enumerate_legal_actions(&state, 0);
-    let action = LegalAction::ChooseLevelUpReward {
+    let action = LegalAction::ChooseLevelUpSkill {
         skill_index: 0,
         from_common_pool: false,
-        advanced_action_id: aa_id.clone(),
     };
     apply_legal_action(&mut state, &mut undo, 0, &action, legal.epoch).unwrap();
+    // Step 2: pick AA
+    let legal2 = enumerate_legal_actions(&state, 0);
+    let action2 = LegalAction::ChooseLevelUpAdvancedAction {
+        advanced_action_id: aa_id.clone(),
+    };
+    apply_legal_action(&mut state, &mut undo, 0, &action2, legal2.epoch).unwrap();
 
     // AA should be at front of deck (card draw hasn't happened yet from deck perspective)
     // But after card_flow runs, cards are drawn from deck.
@@ -294,16 +293,20 @@ fn card_draw_after_last_reward() {
     // but process_card_flow was skipped.
     let hand_before = state.players[0].hand.len();
 
-    // Resolve the level-up reward
+    // Resolve the level-up reward (two steps)
     let aa_id = state.offers.advanced_actions[0].clone();
     let mut undo = UndoStack::new();
     let legal = enumerate_legal_actions(&state, 0);
-    let action = LegalAction::ChooseLevelUpReward {
+    let action = LegalAction::ChooseLevelUpSkill {
         skill_index: 0,
         from_common_pool: false,
-        advanced_action_id: aa_id,
     };
     apply_legal_action(&mut state, &mut undo, 0, &action, legal.epoch).unwrap();
+    let legal2 = enumerate_legal_actions(&state, 0);
+    let action2 = LegalAction::ChooseLevelUpAdvancedAction {
+        advanced_action_id: aa_id,
+    };
+    apply_legal_action(&mut state, &mut undo, 0, &action2, legal2.epoch).unwrap();
 
     // After resolving the last reward, card_flow should have run.
     // Hand should now be drawn up to hand_limit (5 at level 2).
@@ -376,16 +379,21 @@ fn multiple_level_ups_chain_rewards() {
     };
     assert_eq!(first_reward.level, 2);
 
-    // Resolve first reward
+    // Resolve first reward (two steps)
     let aa_id = state.offers.advanced_actions[0].clone();
     let mut undo = UndoStack::new();
     let legal = enumerate_legal_actions(&state, 0);
-    let action = LegalAction::ChooseLevelUpReward {
-        skill_index: 0,
-        from_common_pool: false,
-        advanced_action_id: aa_id,
-    };
-    apply_legal_action(&mut state, &mut undo, 0, &action, legal.epoch).unwrap();
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::ChooseLevelUpSkill { skill_index: 0, from_common_pool: false },
+        legal.epoch,
+    ).unwrap();
+    let legal_aa = enumerate_legal_actions(&state, 0);
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::ChooseLevelUpAdvancedAction { advanced_action_id: aa_id },
+        legal_aa.epoch,
+    ).unwrap();
 
     // Second reward should now be active (level 4)
     let second_reward = match &state.players[0].pending.active {
@@ -394,15 +402,20 @@ fn multiple_level_ups_chain_rewards() {
     };
     assert_eq!(second_reward.level, 4);
 
-    // Resolve second reward
+    // Resolve second reward (two steps)
     let aa_id2 = state.offers.advanced_actions[0].clone();
     let legal2 = enumerate_legal_actions(&state, 0);
-    let action2 = LegalAction::ChooseLevelUpReward {
-        skill_index: 0,
-        from_common_pool: false,
-        advanced_action_id: aa_id2,
-    };
-    apply_legal_action(&mut state, &mut undo, 0, &action2, legal2.epoch).unwrap();
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::ChooseLevelUpSkill { skill_index: 0, from_common_pool: false },
+        legal2.epoch,
+    ).unwrap();
+    let legal2_aa = enumerate_legal_actions(&state, 0);
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::ChooseLevelUpAdvancedAction { advanced_action_id: aa_id2 },
+        legal2_aa.epoch,
+    ).unwrap();
 
     // No more pending — card draw should have happened
     assert!(

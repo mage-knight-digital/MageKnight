@@ -113,11 +113,12 @@ pub fn apply_legal_action(
     let pre_fame = state.players[player_idx].fame;
     let pre_combat = state.combat.is_some();
     let pre_level = state.players[player_idx].level;
-    let pre_wound_count = state.players[player_idx]
-        .hand
-        .iter()
-        .filter(|c| c.as_str() == "wound")
-        .count();
+    let pre_wound_count = {
+        let p = &state.players[player_idx];
+        p.hand.iter().chain(p.deck.iter()).chain(p.discard.iter()).chain(p.play_area.iter())
+            .filter(|c| c.as_str() == "wound")
+            .count()
+    };
     let pre_crystals = state.players[player_idx].crystals;
     let pre_defeated: Vec<CombatInstanceId> = state
         .combat
@@ -402,18 +403,29 @@ pub fn apply_legal_action(
             combat_actions::apply_assign_damage_to_unit(state, player_idx, *enemy_index, *attack_index, unit_instance_id)?
         }
 
-        LegalAction::ChooseLevelUpReward {
+        LegalAction::ChooseLevelUpSkill {
             skill_index,
             from_common_pool,
-            advanced_action_id,
         } => {
-            // Irreversible: affects offers and skill pools
+            // Irreversible: affects skill pools
             undo_stack.set_checkpoint();
-            choices::apply_choose_level_up_reward(
+            choices::apply_choose_level_up_skill(
                 state,
                 player_idx,
                 *skill_index,
                 *from_common_pool,
+            )?
+        }
+
+        LegalAction::ChooseLevelUpAdvancedAction { advanced_action_id } => {
+            undo_stack.set_checkpoint();
+            events.push(GameEvent::CardGained {
+                player_id: player_id.clone(),
+                card_id: advanced_action_id.clone(),
+            });
+            choices::apply_choose_level_up_advanced_action(
+                state,
+                player_idx,
                 advanced_action_id,
             )?
         }
@@ -707,6 +719,10 @@ pub fn apply_legal_action(
         LegalAction::SelectReward { card_id, unit_id, .. } => {
             // Irreversible: modifies offers
             undo_stack.set_checkpoint();
+            events.push(GameEvent::RewardSelected {
+                player_id: player_id.clone(),
+                card_id: card_id.clone(),
+            });
             sites::apply_select_reward(state, player_idx, card_id, unit_id.as_ref())?
         }
 
@@ -866,12 +882,13 @@ pub fn apply_legal_action(
         });
     }
 
-    // Detect wound gain
-    let post_wound_count = state.players[player_idx]
-        .hand
-        .iter()
-        .filter(|c| c.as_str() == "wound")
-        .count();
+    // Detect wound gain (count across all zones so drawing a wound from deck doesn't trigger)
+    let post_wound_count = {
+        let p = &state.players[player_idx];
+        p.hand.iter().chain(p.deck.iter()).chain(p.discard.iter()).chain(p.play_area.iter())
+            .filter(|c| c.as_str() == "wound")
+            .count()
+    };
     for _ in pre_wound_count..post_wound_count {
         events.push(GameEvent::WoundTaken {
             player_id: player_id.clone(),
@@ -1057,7 +1074,8 @@ fn action_type_label(action: &LegalAction) -> String {
         LegalAction::ActivateUnit { .. } => "ActivateUnit".to_string(),
         LegalAction::AssignDamageToHero { .. } => "AssignDamageToHero".to_string(),
         LegalAction::AssignDamageToUnit { .. } => "AssignDamageToUnit".to_string(),
-        LegalAction::ChooseLevelUpReward { .. } => "ChooseLevelUpReward".to_string(),
+        LegalAction::ChooseLevelUpSkill { .. } => "ChooseLevelUpSkill".to_string(),
+        LegalAction::ChooseLevelUpAdvancedAction { .. } => "ChooseLevelUpAdvancedAction".to_string(),
         LegalAction::EndTurn => "EndTurn".to_string(),
         LegalAction::DeclareRest => "DeclareRest".to_string(),
         LegalAction::CompleteRest { .. } => "CompleteRest".to_string(),

@@ -606,21 +606,37 @@ export function extractSiteActions(actions: LegalAction[]): SiteActionInfo {
 // Level-up reward options
 // =============================================================================
 
-export interface LevelUpRewardOption {
+export interface LevelUpSkillOption {
   skillIndex: number;
   fromCommonPool: boolean;
-  advancedActionId: string;
   action: LegalAction;
 }
 
-export function extractLevelUpRewardOptions(actions: LegalAction[]): LevelUpRewardOption[] {
-  const result: LevelUpRewardOption[] = [];
+export function extractLevelUpSkillOptions(actions: LegalAction[]): LevelUpSkillOption[] {
+  const result: LevelUpSkillOption[] = [];
   for (const action of actions) {
-    if (actionType(action) !== "ChooseLevelUpReward") continue;
+    if (actionType(action) !== "ChooseLevelUpSkill") continue;
     const data = actionData(action)!;
     result.push({
       skillIndex: data["skill_index"] as number,
       fromCommonPool: data["from_common_pool"] as boolean,
+      action,
+    });
+  }
+  return result;
+}
+
+export interface LevelUpAAOption {
+  advancedActionId: string;
+  action: LegalAction;
+}
+
+export function extractLevelUpAAOptions(actions: LegalAction[]): LevelUpAAOption[] {
+  const result: LevelUpAAOption[] = [];
+  for (const action of actions) {
+    if (actionType(action) !== "ChooseLevelUpAdvancedAction") continue;
+    const data = actionData(action)!;
+    result.push({
       advancedActionId: data["advanced_action_id"] as string,
       action,
     });

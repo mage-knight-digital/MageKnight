@@ -882,18 +882,15 @@ fn format_action(action: &LegalAction, state: &GameState, player_idx: usize) -> 
         LegalAction::UseSkill { skill_id } => {
             format!("Use skill: {}", skill_id.as_str())
         }
-        LegalAction::ChooseLevelUpReward {
+        LegalAction::ChooseLevelUpSkill {
             skill_index,
             from_common_pool,
-            advanced_action_id,
         } => {
             let source = if *from_common_pool { "common" } else { "drawn" };
-            format!(
-                "Level up: skill #{} ({}) + AA {}",
-                skill_index + 1,
-                source,
-                card_name(advanced_action_id.as_str())
-            )
+            format!("Level up: pick skill #{} ({})", skill_index + 1, source)
+        }
+        LegalAction::ChooseLevelUpAdvancedAction { advanced_action_id } => {
+            format!("Level up: pick AA {}", card_name(advanced_action_id.as_str()))
         }
         LegalAction::EndTurn => "End turn".into(),
         LegalAction::DeclareRest => "Declare rest".into(),

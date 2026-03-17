@@ -494,6 +494,7 @@ fn process_level_ups(state: &mut GameState, player_idx: usize) {
             rewards.push(PendingLevelUpReward {
                 level: level as u8,
                 drawn_skills: drawn,
+                phase: mk_types::pending::LevelUpRewardPhase::SelectSkill,
             });
         }
     }

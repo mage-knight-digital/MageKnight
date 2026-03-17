@@ -570,25 +570,31 @@ fn enumerate_level_up_reward(
     state: &mk_types::state::GameState,
     actions: &mut Vec<LegalAction>,
 ) {
-    // Option A: Choose from drawn hero skills — free AA choice.
-    for (i, _skill) in reward.drawn_skills.iter().enumerate() {
-        for aa in &state.offers.advanced_actions {
-            actions.push(LegalAction::ChooseLevelUpReward {
-                skill_index: i,
-                from_common_pool: false,
-                advanced_action_id: aa.clone(),
-            });
+    use mk_types::pending::LevelUpRewardPhase;
+    match reward.phase {
+        LevelUpRewardPhase::SelectSkill => {
+            // Option A: Choose from drawn hero skills (then pick any AA next).
+            for (i, _skill) in reward.drawn_skills.iter().enumerate() {
+                actions.push(LegalAction::ChooseLevelUpSkill {
+                    skill_index: i,
+                    from_common_pool: false,
+                });
+            }
+            // Option B: Choose from common skill pool (forced lowest AA, auto-resolved).
+            for (i, _skill) in state.offers.common_skills.iter().enumerate() {
+                actions.push(LegalAction::ChooseLevelUpSkill {
+                    skill_index: i,
+                    from_common_pool: true,
+                });
+            }
         }
-    }
-    // Option B: Choose from common skill pool — forced to take lowest-position AA.
-    // Per rules: "take the Advanced Action card from the lowest position on the offer."
-    if let Some(lowest_aa) = state.offers.advanced_actions.last() {
-        for (i, _skill) in state.offers.common_skills.iter().enumerate() {
-            actions.push(LegalAction::ChooseLevelUpReward {
-                skill_index: i,
-                from_common_pool: true,
-                advanced_action_id: lowest_aa.clone(),
-            });
+        LevelUpRewardPhase::SelectAdvancedAction => {
+            // Step 2: pick any AA from the offer.
+            for aa in &state.offers.advanced_actions {
+                actions.push(LegalAction::ChooseLevelUpAdvancedAction {
+                    advanced_action_id: aa.clone(),
+                });
+            }
         }
     }
 }

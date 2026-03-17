@@ -910,6 +910,28 @@ fn burn_monastery_sets_flags() {
     assert!(state.players[0].flags.contains(PlayerFlags::HAS_COMBATTED_THIS_TURN));
 }
 
+#[test]
+fn burn_monastery_clears_is_interacting() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_site(&mut state, SiteType::Monastery);
+    state.enemy_tokens.violet_draw = vec![EnemyTokenId::from("monks_1")];
+
+    // Player was interacting with the monastery
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
+
+    let epoch = state.action_epoch;
+    let mut undo = UndoStack::new();
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::BurnMonastery,
+        epoch,
+    ).unwrap();
+
+    // IS_INTERACTING must be cleared — player is now in combat, not shopping
+    assert!(!state.players[0].flags.contains(PlayerFlags::IS_INTERACTING));
+    assert!(state.combat.is_some());
+}
+
 // --- BurnMonastery Victory/Defeat (end_combat integration) ---
 
 /// Helper: set up game, place player on monastery, initiate BurnMonastery, return state.

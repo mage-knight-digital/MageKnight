@@ -82,7 +82,8 @@ fn derive_action_type(action: &LegalAction) -> u16 {
         LegalAction::RecruitUnit { .. } => "RECRUIT_UNIT",
         LegalAction::ActivateUnit { .. } => "ACTIVATE_UNIT",
         LegalAction::AssignDamageToHero { .. } | LegalAction::AssignDamageToUnit { .. } => "ASSIGN_DAMAGE",
-        LegalAction::ChooseLevelUpReward { .. } => "CHOOSE_LEVEL_UP_REWARDS",
+        LegalAction::ChooseLevelUpSkill { .. } => "CHOOSE_LEVEL_UP_SKILL",
+        LegalAction::ChooseLevelUpAdvancedAction { .. } => "CHOOSE_LEVEL_UP_AA",
         LegalAction::SubsetSelect { .. } => "DECLARE_ATTACK_TARGETS",
         LegalAction::SubsetConfirm => "DECLARE_ATTACK_TARGETS",
         LegalAction::ResolveCrystalJoyReclaim { .. } => "RESOLVE_CRYSTAL_JOY_RECLAIM",
@@ -225,10 +226,24 @@ fn extract_entity_ids(
             skill_id = SKILL_VOCAB.encode(sid.as_str());
         }
 
-        LegalAction::ChooseLevelUpReward {
-            advanced_action_id, ..
+        LegalAction::ChooseLevelUpAdvancedAction {
+            advanced_action_id,
         } => {
             card_id = CARD_VOCAB.encode(advanced_action_id.as_str());
+        }
+
+        LegalAction::ChooseLevelUpSkill { skill_index, from_common_pool } => {
+            // Look up the actual skill ID from the pending state
+            if let Some(ActivePending::LevelUpReward(ref reward)) = player.pending.active {
+                let sid = if *from_common_pool {
+                    state.offers.common_skills.get(*skill_index)
+                } else {
+                    reward.drawn_skills.get(*skill_index)
+                };
+                if let Some(sid) = sid {
+                    skill_id = SKILL_VOCAB.encode(sid.as_str());
+                }
+            }
         }
 
         LegalAction::CompleteRest { discard_hand_index: Some(idx) } => {

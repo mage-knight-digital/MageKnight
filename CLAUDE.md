@@ -65,7 +65,7 @@ PRs auto-close issues when merged via `Closes #XX` in PR body.
 ```bash
 cd packages/engine-rs
 cargo check              # Verify compilation
-cargo test               # Run all tests (~2100 tests)
+cargo test               # Run all tests (~2300 tests)
 cargo clippy             # Lint
 cargo test -p mk-engine  # Test specific crate
 ```
@@ -89,24 +89,24 @@ bun run tensorboard      # View metrics
 
 ## Architecture
 
-The game engine is a Rust workspace at `packages/engine-rs/` with 6 crates and 2 tool binaries.
+The game engine is a Rust workspace at `packages/engine-rs/` with 6 crates and 3 tool binaries.
 
 ### Crate Dependency Graph
 
 ```
 mk-types → mk-data → mk-engine → mk-features → mk-env → mk-python
-                                                    tools: mk-cli, mk-server
+                                                    tools: mk-cli, mk-server, mk-combat-search
 ```
 
 ### Crates
 
-- **mk-types**: Core types — 13 branded ID newtypes (`CardId`, `SkillId`, `UnitId`, `EnemyId`, etc.), all game enums (`ManaColor`, `Element`, `Terrain`, `GamePhase`, `CombatPhase`, `Hero`, etc.), hex coordinates, `PlayerAction` enum (~70 variants), `GameState`/`PlayerState`/`CombatState`/`MapState`, `PlayerFlags` bitfield (u32), `ActivePending` (21 variants) + `DeferredPending` (4 variants), `EffectType` (100+ discriminants), `CardEffect` enum, `ModifierEffect` (50+ variants), `ActiveModifier`, Mulberry32 RNG (seed-parity with TS)
+- **mk-types**: Core types — 13 branded ID newtypes (`CardId`, `SkillId`, `UnitId`, `EnemyId`, etc.), all game enums (`ManaColor`, `Element`, `Terrain`, `GamePhase`, `CombatPhase`, `Hero`, etc.), hex coordinates, `PlayerAction` enum (~70 variants), `GameState`/`PlayerState`/`CombatState`/`MapState`, `PlayerFlags` bitfield (u32, 22 flags), `ActivePending` (28 variants) + `DeferredPending` (4 variants), `EffectType` (100+ discriminants), `CardEffect` enum, `ModifierEffect` (50+ variants), `ActiveModifier`, Mulberry32 RNG (seed-parity with TS)
 
-- **mk-data**: Static game data — 70+ card definitions (basic actions, advanced actions, artifacts, spells), 31 unit definitions with 16 ability variants, 100+ enemy definitions, 70 skill definitions with passive modifiers, 25 artifact cards, tile layouts (starting tiles + countryside + core), site properties, ruins tokens, hero decks, fame/level thresholds, tactic IDs
+- **mk-data**: Static game data — 120+ card definitions (basic actions, advanced actions, artifacts, spells), 31 unit definitions with 16 ability variants, 72 enemy definitions, 70 skill definitions with passive modifiers, 25 artifact cards, tile layouts (starting tiles + countryside + core), site properties, ruins tokens, hero decks, fame/level thresholds, tactic IDs
 
 - **mk-engine**: Game logic — action pipeline (`apply_action()` → validate → execute → compute legal actions), effect queue (VecDeque-based, replaces TS recursive resolution), combat system (4-phase: Ranged/Siege → Block → Assign Damage → Attack), movement (terrain costs, provocation, tile exploration), mana operations (die pool, tokens, crystals), card play (basic/powered/sideways with mana payment), end turn/round, valid actions enumeration, card playability evaluation, site interactions (commerce, monastery, ruins), cooperative assaults, modifier system, reward system, undo (snapshot-based)
 
-- **mk-features**: RL integration — state encoder (76 scalars + entity pools), action encoder (6 IDs + 34 scalars per action), 9 vocab tables, mode/source derivation, PyO3 `GameEngine` class with `encode_step()`
+- **mk-features**: RL integration — state encoder (85 scalars + entity pools), action encoder (6 IDs + 34 scalars per action), 9 vocab tables, mode/source derivation, PyO3 `GameEngine` class with `encode_step()`
 
 - **mk-env**: Vectorized RL environment for parallel training via Rayon
 
@@ -116,6 +116,7 @@ mk-types → mk-data → mk-engine → mk-features → mk-env → mk-python
 
 - **mk-cli** (`tools/mk-cli/`): CLI game runner with random and human play modes
 - **mk-server** (`tools/mk-server/`): WebSocket server bridging Rust engine to React client
+- **mk-combat-search** (`tools/mk-combat-search/`): Exhaustive combat tree search benchmark (DFS vs MCTS)
 
 ### Other Packages
 
@@ -128,7 +129,16 @@ mk-types → mk-data → mk-engine → mk-features → mk-env → mk-python
 
 ## Core Systems (Rust Engine)
 
-### Effect Queue (`mk-engine/src/effect_queue.rs`)
+### Combat Oracle (`mk-engine/src/combat_search.rs`)
+
+Exhaustive DFS oracle that finds the optimal combat action sequence. Used in RL training to auto-resolve combat (skipping the ~50-action combat decision tree).
+
+- `CombatSearchConfig { node_limit, seed_rollouts }` — configurable search depth
+- `combat_oracle_action()` exposed via PyO3 on `GameEngine`
+- `combat_oracle: bool` flag on `VecEnv` / `SingleEnv` — when true, combat is auto-resolved on entry
+- `mk-combat-search` tool binary benchmarks DFS vs MCTS performance
+
+### Effect Queue (`mk-engine/src/effect_queue/`)
 
 Queue-based (VecDeque), not recursive. Replaces the TS recursive resolution pattern.
 
@@ -144,7 +154,7 @@ EffectQueue::drain() loop:
 
 When a choice pauses resolution, remaining queue entries become the "continuation" stored in player pending state. On `ResolveChoice`, the chosen option + continuation are pushed to a new queue and draining resumes.
 
-**ChoiceResolution variants**: Standard, CrystallizeConsume, DiscardThenContinue, ManaDrawTakeDie, BoostTarget, UniversalPowerMana, SecretWaysLake, RegenerateMana, DuelingTarget, InvocationDiscard, PolarizationConvert, CurseTarget, CurseMode, CurseAttackIndex, ForkedLightningTarget, KnowYourPreyTarget, KnowYourPreyOption, PuppetMasterSelectToken, PuppetMasterUseMode, ShapeshiftCardSelect, ShapeshiftTypeSelect, RitualOfPainDiscard, NaturesVengeanceTarget, ManaOverloadColorSelect, SourceOpeningDieSelect, MasterOfChaosGoldChoice
+**ChoiceResolution variants** (57 total): Standard, CrystallizeConsume, DiscardThenContinue, ManaDrawTakeDie, BoostTarget, ReadyUnitTarget, HealUnitTarget, PureMagicConsume, UniversalPowerMana, SecretWaysLake, RegenerateMana, DuelingTarget, InvocationDiscard, PolarizationConvert, CurseTarget, CurseMode, CurseAttackIndex, ForkedLightningTarget, KnowYourPreyTarget, KnowYourPreyOption, PuppetMasterSelectToken, PuppetMasterUseMode, ShapeshiftCardSelect, ShapeshiftTypeSelect, RitualOfPainDiscard, NaturesVengeanceTarget, ManaOverloadColorSelect, SourceOpeningDieSelect, MasterOfChaosGoldChoice, DiscardForCrystalSelect, EnergyFlowTarget, ManaBoltTokenSelect, SacrificePairSelect, ManaClaimDieSelect, ManaClaimModeSelect, ManaSourceSelect, SongOfWindLake, SelectUnitModifier, PowerOfCrystalsGainColor, CrystalMasteryGainColor, ManaStormDieSelect, SpellForgeCrystal, PeacefulMomentConversion, BloodBasicManaSelect, BloodBasicAaSelect, BloodPoweredWoundSelect, BloodPoweredAaSelect, MagicTalentSpellSelect, MagicTalentGainSelect, ManaMeltdownColorSelect, MindReadColorSelect, CallToArmsUnitSelect, CallToArmsAbilitySelect, FreeRecruitTarget, WingsOfNightTarget, PossessEnemyTarget, ReadyUnitsBudgetSelect
 
 ### Combat System
 
@@ -153,7 +163,7 @@ When a choice pauses resolution, remaining queue entries become the "continuatio
 - `CombatState` (boxed — large, uncommon) tracks enemies, phase, damage, fortification, city_color, enemy_assignments (cooperative)
 - City defender bonuses by color: White (+1 Armor), Blue (+2 Attack Ice/Fire), Red (Brutal on Physical), Green (Poison on Physical)
 - Dungeons/Tombs: units cannot participate, night mana rules apply
-- Enemy abilities: Vampiric, Defend, Cumbersome, Paralyze, Summon, ArcaneImmunity, Brutal, Poison, Swift, Fortified, Elusive, Poison
+- Enemy abilities: Fortified, Unfortified, Swift, Brutal, Poison, Paralyze, Summon, SummonGreen, Cumbersome, Vampiric, ColdFireAttack, IceAttack, FireAttack, Elusive, ArcaneImmunity, Assassination, Defend, Resistance
 - Instance IDs: `"enemy_0"`, `"enemy_1"` (not token-based)
 
 ### Action Pipeline
@@ -220,7 +230,7 @@ Mulberry32 PRNG with seed-for-seed parity with the TS engine.
 **BTreeMap** everywhere instead of HashMap for deterministic iteration order. `ManaColor` derives `PartialOrd + Ord` for use as BTreeMap key.
 
 ### PlayerFlags Bitfield
-17 boolean fields packed into `PlayerFlags(u32)` using `bitflags!`. Manual serde (serialize as u32).
+22 boolean fields packed into `PlayerFlags(u32)` using `bitflags!`. Manual serde (serialize as u32).
 
 ### Boxed CombatState
 `GameState.combat` is `Option<Box<CombatState>>` — boxed because CombatState is large and combat is uncommon.
@@ -326,7 +336,7 @@ When in doubt, fix the code to satisfy the linter rather than silencing the warn
 | Site properties | `engine-rs/crates/mk-data/src/site_properties.rs` |
 | Tile layouts | `engine-rs/crates/mk-data/src/tiles.rs` |
 | Ruins tokens | `engine-rs/crates/mk-data/src/ruins_tokens.rs` |
-| Effect queue / resolvers | `engine-rs/crates/mk-engine/src/effect_queue.rs` |
+| Effect queue / resolvers | `engine-rs/crates/mk-engine/src/effect_queue/` |
 | Action pipeline | `engine-rs/crates/mk-engine/src/action_pipeline/` |
 | Combat logic | `engine-rs/crates/mk-engine/src/combat/` |
 | Movement | `engine-rs/crates/mk-engine/src/movement.rs` |
