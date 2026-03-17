@@ -771,11 +771,11 @@ fn vec_f32_to_numpy<'py>(
     data: &[f32],
     shape: &[usize],
 ) -> PyResult<PyObject> {
-    let list = pyo3::types::PyList::new_bound(py, data);
+    let list = pyo3::types::PyList::new(py, data)?;
     let arr = np.call_method1("array", (list,))?;
     let arr = arr.call_method1("astype", ("float32",))?;
-    let shape_tuple = pyo3::types::PyTuple::new_bound(py, shape);
-    Ok(arr.call_method1("reshape", (shape_tuple,))?.to_object(py))
+    let shape_tuple = pyo3::types::PyTuple::new(py, shape)?;
+    Ok(arr.call_method1("reshape", (shape_tuple,))?.unbind())
 }
 
 /// Helper: convert a flat Vec<i32> to a numpy array with the given shape.
@@ -785,11 +785,11 @@ fn vec_i32_to_numpy<'py>(
     data: &[i32],
     shape: &[usize],
 ) -> PyResult<PyObject> {
-    let list = pyo3::types::PyList::new_bound(py, data);
+    let list = pyo3::types::PyList::new(py, data)?;
     let arr = np.call_method1("array", (list,))?;
     let arr = arr.call_method1("astype", ("int32",))?;
-    let shape_tuple = pyo3::types::PyTuple::new_bound(py, shape);
-    Ok(arr.call_method1("reshape", (shape_tuple,))?.to_object(py))
+    let shape_tuple = pyo3::types::PyTuple::new(py, shape)?;
+    Ok(arr.call_method1("reshape", (shape_tuple,))?.unbind())
 }
 
 /// Helper: convert a Vec<bool> to a numpy bool array.
@@ -798,10 +798,10 @@ fn vec_bool_to_numpy<'py>(
     np: &Bound<'py, PyAny>,
     data: &[bool],
 ) -> PyResult<PyObject> {
-    let list = pyo3::types::PyList::new_bound(py, data);
+    let list = pyo3::types::PyList::new(py, data)?;
     let arr = np.call_method1("array", (list,))?;
     let arr = arr.call_method1("astype", ("bool",))?;
-    Ok(arr.to_object(py))
+    Ok(arr.unbind())
 }
 
 #[pymethods]
@@ -852,8 +852,8 @@ impl PyVecEnv {
     /// Encode all envs into a dict of numpy arrays.
     fn encode_batch(&self, py: Python<'_>) -> PyResult<PyObject> {
         let batch = self.inner.encode_batch();
-        let np = py.import_bound("numpy")?;
-        let dict = pyo3::types::PyDict::new_bound(py);
+        let np = py.import("numpy")?;
+        let dict = pyo3::types::PyDict::new(py);
         let n = batch.num_envs;
 
         dict.set_item("state_scalars", vec_f32_to_numpy(py, &np, &batch.state_scalars, &[n, batch.state_scalars.len() / n])?)?;
@@ -897,7 +897,7 @@ impl PyVecEnv {
         dict.set_item("fames", vec_i32_to_numpy(py, &np, &batch.fames, &[n])?)?;
         dict.set_item("max_actions", batch.max_actions)?;
 
-        Ok(dict.to_object(py))
+        Ok(dict.into_any().unbind())
     }
 
     /// Step all envs with the given action indices.
@@ -908,8 +908,8 @@ impl PyVecEnv {
     /// Returns a dict with fame_deltas, dones, fames, panicked, truncated, scenario_end_triggered.
     fn step_batch(&mut self, py: Python<'_>, actions: Vec<i32>) -> PyResult<PyObject> {
         let result = self.inner.step_batch(&actions);
-        let np = py.import_bound("numpy")?;
-        let dict = pyo3::types::PyDict::new_bound(py);
+        let np = py.import("numpy")?;
+        let dict = pyo3::types::PyDict::new(py);
         let n = result.fame_deltas.len();
 
         dict.set_item("fame_deltas", vec_i32_to_numpy(py, &np, &result.fame_deltas, &[n])?)?;
@@ -932,7 +932,7 @@ impl PyVecEnv {
         dict.set_item("game_scores", vec_i32_to_numpy(py, &np, &result.game_scores, &[n])?)?;
         dict.set_item("applied_actions", vec_i32_to_numpy(py, &np, &result.applied_actions, &[n])?)?;
 
-        Ok(dict.to_object(py))
+        Ok(dict.into_any().unbind())
     }
 
     fn __repr__(&self) -> String {
