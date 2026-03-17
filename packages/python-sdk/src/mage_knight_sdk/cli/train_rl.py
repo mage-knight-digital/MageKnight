@@ -198,7 +198,8 @@ def main() -> int:
     parser.add_argument("--curriculum", default=None, help="Curriculum schedule name (e.g. 'default'). Overrides --episodes, reward args, and --max-steps with per-phase values.")
 
     # Combat oracle
-    parser.add_argument("--combat-oracle", action="store_true", default=False, help="Auto-resolve combat via exhaustive search oracle (agent skips combat actions)")
+    parser.add_argument("--combat-oracle", action="store_true", default=True, help="Auto-resolve combat via exhaustive search oracle (agent skips combat actions)")
+    parser.add_argument("--no-combat-oracle", dest="combat_oracle", action="store_false", help="Disable combat oracle — agent handles combat actions")
 
     # Early termination
     parser.add_argument("--early-term-fame-step", type=int, default=60, help="Terminate episode early if fame == 0 after this many steps (0 to disable)")
