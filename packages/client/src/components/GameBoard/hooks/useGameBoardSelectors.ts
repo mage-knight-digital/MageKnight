@@ -40,7 +40,7 @@ interface UseGameBoardSelectorsReturn {
 }
 
 export function useGameBoardSelectors({
-  state,
+  state: _state,
   hoveredHex,
   playerPosition,
   legalActions = [],
