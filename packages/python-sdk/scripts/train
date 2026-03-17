@@ -36,7 +36,7 @@ GLOBAL_RUN_FILE="$SDK_DIR/training/.active_run"
 
 # Default training flags
 DEFAULT_FLAGS=(
-    --episodes 100000
+    --episodes 500000
     --seed 1
     --ppo
     --curriculum default
