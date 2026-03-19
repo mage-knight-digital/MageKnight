@@ -535,12 +535,22 @@ fn pending_options(active: &ActivePending, player: &PlayerState, state: &GameSta
             if let ChoiceResolution::BloodBasicAaSelect { color } = &choice.resolution {
                 return state.offers.advanced_actions.iter()
                     .filter(|cid| mk_data::cards::get_card_color(cid.as_str()) == Some(*color))
-                    .map(|cid| format!("Gain {}", cid))
+                    .map(|cid| {
+                        let name = mk_data::cards::get_card(cid.as_str())
+                            .map(|def| def.name.to_string())
+                            .unwrap_or_else(|| cid.to_string());
+                        format!("Gain {}", name)
+                    })
                     .collect();
             }
             if matches!(choice.resolution, ChoiceResolution::BloodPoweredAaSelect) {
                 return state.offers.advanced_actions.iter()
-                    .map(|cid| format!("Use {}", cid))
+                    .map(|cid| {
+                        let name = mk_data::cards::get_card(cid.as_str())
+                            .map(|def| def.name.to_string())
+                            .unwrap_or_else(|| cid.to_string());
+                        format!("Use {}'s powered effect", name)
+                    })
                     .collect();
             }
             if let ChoiceResolution::MagicTalentSpellSelect { spell_entries } = &choice.resolution {
