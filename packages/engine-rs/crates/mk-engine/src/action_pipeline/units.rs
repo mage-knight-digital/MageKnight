@@ -1181,10 +1181,17 @@ pub(super) fn apply_select_enemy_effects(
     }
 
     // bundled_ranged_attack — NOT blocked by ArcaneImmunity (always resolves)
+    // Attack is bound to the specific targeted enemy.
     if template.bundled_ranged_attack > 0 {
-        let acc = &mut state.players[player_idx].combat_accumulator.attack;
-        acc.ranged += template.bundled_ranged_attack;
-        acc.ranged_elements.physical += template.bundled_ranged_attack;
+        let combat = state.combat.as_mut().ok_or_else(|| {
+            ApplyError::InternalError("SelectCombatEnemy: no combat for bundled ranged".into())
+        })?;
+        let entry = combat
+            .per_enemy_attack
+            .entry(enemy_instance_id.to_string())
+            .or_default();
+        entry.ranged += template.bundled_ranged_attack;
+        entry.ranged_elements.physical += template.bundled_ranged_attack;
     }
 
     // remove_fire_resistance — blocked by ArcaneImmunity

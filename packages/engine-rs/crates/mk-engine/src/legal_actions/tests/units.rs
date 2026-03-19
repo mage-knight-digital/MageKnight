@@ -1435,8 +1435,12 @@ fn sorcerers_strip_fort_adds_nullifier_and_ranged() {
         &m.effect,
         mk_types::modifier::ModifierEffect::AbilityNullifier { ability: Some(EnemyAbilityType::Fortified), .. }
     )));
-    // Should add ranged 3
-    assert_eq!(state.players[0].combat_accumulator.attack.ranged, 3);
+    // Should add ranged 3 bound to the targeted enemy (not global accumulator)
+    assert_eq!(state.players[0].combat_accumulator.attack.ranged, 0);
+    let combat = state.combat.as_ref().unwrap();
+    let bonus = combat.per_enemy_attack.get("enemy_0").unwrap();
+    assert_eq!(bonus.ranged, 3);
+    assert_eq!(bonus.ranged_elements.physical, 3);
 }
 
 #[test]
@@ -1463,8 +1467,12 @@ fn sorcerers_strip_resist_adds_remove_resistances_and_ranged() {
     assert!(state.active_modifiers.iter().any(|m|
         matches!(m.effect, mk_types::modifier::ModifierEffect::RemoveResistances)
     ));
-    // Should add ranged 3
-    assert_eq!(state.players[0].combat_accumulator.attack.ranged, 3);
+    // Should add ranged 3 bound to the targeted enemy (not global accumulator)
+    assert_eq!(state.players[0].combat_accumulator.attack.ranged, 0);
+    let combat = state.combat.as_ref().unwrap();
+    let bonus = combat.per_enemy_attack.get("enemy_0").unwrap();
+    assert_eq!(bonus.ranged, 3);
+    assert_eq!(bonus.ranged_elements.physical, 3);
 }
 
 #[test]
@@ -1658,8 +1666,11 @@ fn arcane_immunity_does_not_block_bundled_ranged() {
     ));
     assert!(!has_nullifier, "AbilityNullifier should be blocked by ArcaneImmunity");
 
-    // bundled_ranged should still apply (bypasses AI)
-    assert_eq!(state.players[0].combat_accumulator.attack.ranged, 3, "bundled ranged should bypass AI");
+    // bundled_ranged should still apply (bypasses AI), bound to the targeted enemy
+    assert_eq!(state.players[0].combat_accumulator.attack.ranged, 0);
+    let combat = state.combat.as_ref().unwrap();
+    let bonus = combat.per_enemy_attack.get("enemy_0").unwrap();
+    assert_eq!(bonus.ranged, 3, "bundled ranged should bypass AI");
 }
 
 #[test]

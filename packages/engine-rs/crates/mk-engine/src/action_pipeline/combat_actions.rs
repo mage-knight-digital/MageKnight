@@ -397,6 +397,14 @@ pub(super) fn apply_declare_attack_inner(
             available.physical *= 2;
         }
 
+        // Add per-enemy attack bonuses for declared targets (for resolution only,
+        // not for assigned_attack — these bonuses are not in the global pool).
+        let per_enemy_bonus = crate::legal_actions::combat::sum_per_enemy_attack(
+            combat, target_instance_ids, combat.phase, attack_type,
+            &state.active_modifiers,
+        );
+        let available_with_bonus = combat_resolution::add_elements(&available, &per_enemy_bonus);
+
         // Hook: Build removed resistances from modifiers
         let removed_resistances = build_removed_resistances(
             &state.active_modifiers, &target_pairs, player_idx, &state.players[player_idx].id,
@@ -462,7 +470,7 @@ pub(super) fn apply_declare_attack_inner(
 
         // Pass None for city_color since we baked city armor into bonus_armor per-enemy
         let result = combat_resolution::resolve_attack_with_city(
-            &available, &ref_pairs, combat.phase, &bonus_armor, &removed_resistances,
+            &available_with_bonus, &ref_pairs, combat.phase, &bonus_armor, &removed_resistances,
             None,
         );
         let target_count = target_indices.len();
@@ -607,6 +615,13 @@ pub(super) fn apply_declare_attack_inner(
             CombatType::Siege => &mut accumulator.assigned_attack.siege_elements,
         };
         *assigned = combat_resolution::add_elements(assigned, &available);
+    }
+
+    // Consume per-enemy attack bonuses for resolved targets
+    if let Some(combat) = state.combat.as_mut() {
+        for target_id in target_instance_ids {
+            combat.per_enemy_attack.remove(target_id.as_str());
+        }
     }
 
     Ok(ApplyResult {
@@ -850,6 +865,10 @@ pub(super) fn apply_end_combat_phase(
             let accumulator = &mut state.players[player_idx].combat_accumulator;
             accumulator.attack = AccumulatedAttack::default();
             accumulator.assigned_attack = AccumulatedAttack::default();
+
+            // Clear ranged/siege per-enemy bonuses (Forked Lightning, Sorcerers).
+            // Rules: attack points don't carry across phases.
+            state.combat.as_mut().unwrap().per_enemy_attack.clear();
 
             // Hook: BowPhaseFameTracking — award fame for enemies defeated in ranged/siege phase
             {

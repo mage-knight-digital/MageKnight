@@ -103,6 +103,7 @@ pub fn execute_enter_combat(
         all_damage_blocked_this_phase: false,
         discard_enemies_on_failure: false,
         combat_context: CombatContext::Standard,
+        per_enemy_attack: BTreeMap::new(),
         pending_damage: BTreeMap::new(),
         pending_block: BTreeMap::new(),
         pending_swift_block: BTreeMap::new(),

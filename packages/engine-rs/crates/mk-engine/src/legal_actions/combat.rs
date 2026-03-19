@@ -374,6 +374,10 @@ pub(crate) fn is_declared_attack_sufficient(
         available.physical *= 2;
     }
 
+    // Add per-enemy attack bonuses for declared targets
+    let per_enemy_bonus = sum_per_enemy_attack(combat, target_ids, combat.phase, attack_type, modifiers);
+    available = crate::combat_resolution::add_elements(&available, &per_enemy_bonus);
+
     let mut targets: Vec<(&CombatEnemy, &mk_data::enemies::EnemyDefinition)> = Vec::new();
     for target_id in target_ids {
         let enemy = match combat.enemies.iter().find(|e| e.instance_id == *target_id) {
@@ -470,6 +474,47 @@ pub(crate) fn compute_total_target_armor(
             }
         })
         .sum()
+}
+
+/// Sum per-enemy attack bonuses for the given targets, returning the phase-appropriate
+/// elemental values to add to the available attack pool.
+///
+/// In RangedSiege phase, respects fortification: if any target is fortified, only siege
+/// elements are included (matching global accumulator logic).
+pub(crate) fn sum_per_enemy_attack(
+    combat: &CombatState,
+    target_ids: &[mk_types::ids::CombatInstanceId],
+    phase: CombatPhase,
+    attack_type: CombatType,
+    modifiers: &[mk_types::modifier::ActiveModifier],
+) -> ElementalValues {
+    let mut total = ElementalValues::default();
+    let fortified = phase == CombatPhase::RangedSiege
+        && any_target_fortified(combat, target_ids, modifiers);
+    for target_id in target_ids {
+        if let Some(bonus) = combat.per_enemy_attack.get(target_id.as_str()) {
+            let elements = if phase == CombatPhase::RangedSiege {
+                if fortified {
+                    // Fortified targets → siege only
+                    bonus.siege_elements
+                } else {
+                    // No fortified targets → combine ranged + siege
+                    crate::combat_resolution::add_elements(
+                        &bonus.ranged_elements,
+                        &bonus.siege_elements,
+                    )
+                }
+            } else {
+                match attack_type {
+                    CombatType::Melee => bonus.normal_elements,
+                    CombatType::Ranged => bonus.ranged_elements,
+                    CombatType::Siege => bonus.siege_elements,
+                }
+            };
+            total = crate::combat_resolution::add_elements(&total, &elements);
+        }
+    }
+    total
 }
 
 /// Compute eligible enemy instance IDs for an attack type.

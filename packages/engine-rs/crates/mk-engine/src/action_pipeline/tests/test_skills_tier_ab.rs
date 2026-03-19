@@ -578,11 +578,15 @@ fn dueling_attack_bonus_at_phase_transition() {
         &LegalAction::EndCombatPhase,
         epoch,
     ).unwrap();
-    // Now in Attack phase — dueling attack bonus should have been applied
+    // Now in Attack phase — dueling attack bonus should be in per-enemy map
     assert_eq!(
-        state.players[0].combat_accumulator.attack.normal, 1,
-        "Dueling should grant Attack 1 at AssignDamage→Attack transition"
+        state.players[0].combat_accumulator.attack.normal, 0,
+        "Dueling attack should not be in global accumulator"
     );
+    let combat = state.combat.as_ref().unwrap();
+    let bonus = combat.per_enemy_attack.get("enemy_0").unwrap();
+    assert_eq!(bonus.normal, 1, "Dueling should grant Attack 1 bound to enemy_0");
+    assert_eq!(bonus.normal_elements.physical, 1);
 }
 
 #[test]
@@ -1159,10 +1163,13 @@ fn forked_lightning_single_enemy_auto() {
     assert!(!state.players[0].pending.has_active(),
         "Single enemy should auto-target");
 
-    // Should have +1 Ranged ColdFire Attack
+    // Should have +1 Ranged ColdFire Attack bound to the enemy (not global accumulator)
     let acc = &state.players[0].combat_accumulator;
-    assert_eq!(acc.attack.ranged, 1, "Should have +1 ranged attack");
-    assert_eq!(acc.attack.ranged_elements.cold_fire, 1, "Should have +1 cold_fire");
+    assert_eq!(acc.attack.ranged, 0, "Global accumulator should be 0");
+    let combat = state.combat.as_ref().unwrap();
+    let bonus = combat.per_enemy_attack.get("enemy_0").unwrap();
+    assert_eq!(bonus.ranged, 1, "Should have +1 ranged attack on enemy_0");
+    assert_eq!(bonus.ranged_elements.cold_fire, 1, "Should have +1 cold_fire on enemy_0");
 }
 
 #[test]
@@ -1194,18 +1201,20 @@ fn forked_lightning_three_targets() {
         &LegalAction::ResolveChoice { choice_index: 0 },
         epoch,
     ).unwrap();
-    assert_eq!(state.players[0].combat_accumulator.attack.ranged, 1);
+    let combat = state.combat.as_ref().unwrap();
+    assert_eq!(combat.per_enemy_attack.get("enemy_0").unwrap().ranged, 1);
 
     // Second pick (has "Done" option now)
     assert!(state.players[0].pending.has_active());
-    // Pick enemy 0 (next eligible)
+    // Pick enemy 1 (next eligible, index 0 in remaining list)
     let epoch = state.action_epoch;
     apply_legal_action(
         &mut state, &mut undo, 0,
         &LegalAction::ResolveChoice { choice_index: 0 },
         epoch,
     ).unwrap();
-    assert_eq!(state.players[0].combat_accumulator.attack.ranged, 2);
+    let combat = state.combat.as_ref().unwrap();
+    assert_eq!(combat.per_enemy_attack.get("enemy_1").unwrap().ranged, 1);
 
     // Third pick
     assert!(state.players[0].pending.has_active());
@@ -1215,8 +1224,15 @@ fn forked_lightning_three_targets() {
         &LegalAction::ResolveChoice { choice_index: 0 },
         epoch,
     ).unwrap();
-    assert_eq!(state.players[0].combat_accumulator.attack.ranged, 3);
-    assert_eq!(state.players[0].combat_accumulator.attack.ranged_elements.cold_fire, 3);
+    let combat = state.combat.as_ref().unwrap();
+    assert_eq!(combat.per_enemy_attack.len(), 3, "All 3 enemies should have per-enemy attack");
+    for (_, bonus) in combat.per_enemy_attack.iter() {
+        assert_eq!(bonus.ranged, 1);
+        assert_eq!(bonus.ranged_elements.cold_fire, 1);
+    }
+
+    // Global accumulator should be untouched
+    assert_eq!(state.players[0].combat_accumulator.attack.ranged, 0);
 
     // No more pending (all 3 targets picked)
     assert!(!state.players[0].pending.has_active());
@@ -1264,9 +1280,96 @@ fn forked_lightning_done_early() {
         epoch,
     ).unwrap();
 
-    // Should stop, only 1 hit applied
+    // Should stop, only 1 hit applied to enemy_0
     assert!(!state.players[0].pending.has_active());
-    assert_eq!(state.players[0].combat_accumulator.attack.ranged, 1);
+    let combat = state.combat.as_ref().unwrap();
+    assert_eq!(combat.per_enemy_attack.len(), 1, "Only 1 enemy should have per-enemy attack");
+    assert_eq!(combat.per_enemy_attack.get("enemy_0").unwrap().ranged, 1);
+    assert_eq!(state.players[0].combat_accumulator.attack.ranged, 0);
+}
+
+/// FAQ S3: Against a single enemy, only 1 of the 3 Forked Lightning points applies.
+/// The per-enemy attack is bound to the targeted enemy, so a single enemy gets +1 only.
+#[test]
+fn forked_lightning_single_enemy_only_one_point() {
+    let (mut state, mut undo) = setup_with_skill(Hero::Braevalar, "braevalar_forked_lightning");
+    // Single enemy
+    let tokens = vec![EnemyTokenId::from("prowlers_1")];
+    crate::combat::execute_enter_combat(
+        &mut state, 0, &tokens, false, None, Default::default(),
+    ).unwrap();
+
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("braevalar_forked_lightning") },
+        epoch,
+    ).unwrap();
+
+    // Auto-targets the only enemy — only +1 bound to that enemy
+    let combat = state.combat.as_ref().unwrap();
+    assert_eq!(combat.per_enemy_attack.len(), 1);
+    let bonus = combat.per_enemy_attack.get("enemy_0").unwrap();
+    assert_eq!(bonus.ranged, 1, "FAQ S3: only 1 point against a single enemy");
+    assert_eq!(bonus.ranged_elements.cold_fire, 1);
+    // No additional targeting interaction should exist
+    assert!(!state.players[0].pending.has_active());
+}
+
+/// FAQ S4: Forked Lightning attack points are distributed per-enemy and count
+/// only when that enemy is in the declared attack target set.
+#[test]
+fn forked_lightning_per_enemy_attack_only_counts_for_target() {
+    let (mut state, mut undo) = setup_with_skill(Hero::Braevalar, "braevalar_forked_lightning");
+    let tokens = vec![
+        EnemyTokenId::from("prowlers_1"),
+        EnemyTokenId::from("prowlers_2"),
+    ];
+    crate::combat::execute_enter_combat(
+        &mut state, 0, &tokens, false, None, Default::default(),
+    ).unwrap();
+
+    // Use Forked Lightning, target both enemies
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::UseSkill { skill_id: mk_types::ids::SkillId::from("braevalar_forked_lightning") },
+        epoch,
+    ).unwrap();
+    // Pick enemy_0
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::ResolveChoice { choice_index: 0 },
+        epoch,
+    ).unwrap();
+    // Pick Done (index 1 = Done since only 1 remaining eligible)
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::ResolveChoice { choice_index: 1 },
+        epoch,
+    ).unwrap();
+
+    // enemy_0 has +1 ranged, enemy_1 has none
+    let combat = state.combat.as_ref().unwrap();
+    assert_eq!(combat.per_enemy_attack.get("enemy_0").unwrap().ranged, 1);
+    assert!(combat.per_enemy_attack.get("enemy_1").is_none());
+
+    // Sufficiency check: enemy_0 alone gets the +1 bonus
+    let target_0 = vec![mk_types::ids::CombatInstanceId::from("enemy_0")];
+    let sufficient_0 = crate::legal_actions::combat::is_declared_attack_sufficient(
+        &state, 0, &target_0, mk_types::enums::CombatType::Ranged,
+    );
+    // Prowlers have 3 armor, 1 ranged ColdFire is not sufficient alone
+    assert!(!sufficient_0, "+1 ranged alone should not defeat prowlers (armor 3)");
+
+    // enemy_1 gets no bonus at all
+    let target_1 = vec![mk_types::ids::CombatInstanceId::from("enemy_1")];
+    let sufficient_1 = crate::legal_actions::combat::is_declared_attack_sufficient(
+        &state, 0, &target_1, mk_types::enums::CombatType::Ranged,
+    );
+    assert!(!sufficient_1, "enemy_1 should have 0 ranged attack");
 }
 
 // =============================================================================

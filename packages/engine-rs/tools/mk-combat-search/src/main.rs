@@ -286,7 +286,20 @@ fn max_remaining_attack(state: &GameState) -> u32 {
         }
     }
 
-    current_attack + max_from_hand
+    // Include per-enemy attack bonuses (optimistic: assume all can be used)
+    let per_enemy_total = state
+        .combat
+        .as_ref()
+        .map(|c| {
+            c.per_enemy_attack.values().map(|a| {
+                a.normal_elements.total()
+                    + a.ranged_elements.total()
+                    + a.siege_elements.total()
+            }).sum::<u32>()
+        })
+        .unwrap_or(0);
+
+    current_attack + max_from_hand + per_enemy_total
 }
 
 /// Tight upper bound: compute max fame achievable given remaining attack potential.

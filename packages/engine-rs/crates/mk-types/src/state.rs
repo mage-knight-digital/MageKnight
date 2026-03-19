@@ -417,6 +417,10 @@ pub struct CombatState {
     pub discard_enemies_on_failure: bool,
     pub combat_context: CombatContext,
 
+    // Per-enemy attack bonuses (Forked Lightning, Sorcerers bundled ranged, Dueling).
+    // Attack in these entries only counts when the keyed enemy is in the declared target set.
+    pub per_enemy_attack: BTreeMap<String, AccumulatedAttack>,
+
     // Maps keyed by enemy instance ID
     pub pending_damage: BTreeMap<String, PendingElementalDamage>,
     pub pending_block: BTreeMap<String, PendingElementalDamage>,
@@ -465,6 +469,7 @@ impl Default for CombatState {
             all_damage_blocked_this_phase: false,
             discard_enemies_on_failure: false,
             combat_context: CombatContext::Standard,
+            per_enemy_attack: BTreeMap::new(),
             pending_damage: BTreeMap::new(),
             pending_block: BTreeMap::new(),
             pending_swift_block: BTreeMap::new(),

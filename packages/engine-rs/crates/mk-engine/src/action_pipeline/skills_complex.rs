@@ -814,10 +814,14 @@ pub(crate) fn apply_dueling_attack_bonus(
         *attack_applied = true;
     }
 
-    // Grant Attack 1 Physical
-    let accumulator = &mut state.players[player_idx].combat_accumulator;
-    accumulator.attack.normal += 1;
-    accumulator.attack.normal_elements.physical += 1;
+    // Grant Attack 1 Physical bound to the targeted enemy
+    let combat = state.combat.as_mut().unwrap();
+    let entry = combat
+        .per_enemy_attack
+        .entry(target_id.clone())
+        .or_default();
+    entry.normal += 1;
+    entry.normal_elements.physical += 1;
 }
 
 
@@ -1565,13 +1569,17 @@ pub(super) fn apply_forked_lightning(
 
 pub(super) fn apply_forked_lightning_hit(
     state: &mut GameState,
-    player_idx: usize,
-    _enemy_instance_id: &str,
+    _player_idx: usize,
+    enemy_instance_id: &str,
 ) {
-    // +1 Ranged ColdFire Attack
-    let accumulator = &mut state.players[player_idx].combat_accumulator;
-    accumulator.attack.ranged += 1;
-    accumulator.attack.ranged_elements.cold_fire += 1;
+    // +1 Ranged ColdFire Attack bound to the targeted enemy (FAQ S3)
+    let combat = state.combat.as_mut().unwrap();
+    let entry = combat
+        .per_enemy_attack
+        .entry(enemy_instance_id.to_string())
+        .or_default();
+    entry.ranged += 1;
+    entry.ranged_elements.cold_fire += 1;
 }
 
 
