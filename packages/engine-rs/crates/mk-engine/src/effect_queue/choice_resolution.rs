@@ -70,21 +70,29 @@ pub fn resolve_pending_choice(
     match &resolution {
         ChoiceResolution::Standard => {}
         ChoiceResolution::CrystallizeConsume => {
-            // Consume a mana token matching the chosen crystal color
+            // Consume a mana source (token preferred, die fallback) matching the chosen color
             if let CardEffect::GainCrystal {
                 color: Some(basic_color),
             } = &chosen_effect
             {
-                let target = ManaColor::from(*basic_color);
                 let player = &mut state.players[player_idx];
+                // Try token first
                 if let Some(idx) = player
                     .pure_mana
                     .iter()
                     .position(|t| to_basic_mana_color(t.color) == Some(*basic_color))
                 {
                     player.pure_mana.remove(idx);
+                } else if let Some(source_info) =
+                    super::multi_step::find_crystallizable_die(state, player_idx, *basic_color)
+                {
+                    // Fall back to source die
+                    crate::card_play::consume_specific_mana_source(
+                        state,
+                        player_idx,
+                        &source_info,
+                    );
                 }
-                let _ = target; // used for position lookup above
             }
         }
         ChoiceResolution::DiscardThenContinue { eligible_indices } => {

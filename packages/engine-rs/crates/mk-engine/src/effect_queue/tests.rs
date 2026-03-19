@@ -672,6 +672,144 @@ use mk_types::state::*;
     }
 
     #[test]
+    fn crystallize_from_source_die() {
+        let mut state = test_state();
+        // No tokens, but a red die is available
+        assert!(state.players[0].pure_mana.is_empty());
+        state.source.dice.push(SourceDie {
+            id: SourceDieId::from("die_red"),
+            color: ManaColor::Red,
+            is_depleted: false,
+            taken_by_player_id: None,
+        });
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::ConvertManaToCrystal, None);
+        let result = queue.drain(&mut state, 0);
+        assert!(matches!(result, DrainResult::Complete));
+        assert_eq!(state.players[0].crystals.red, 1);
+        // Die should be taken
+        assert!(state.source.dice[0].taken_by_player_id.is_some());
+        // USED_MANA_FROM_SOURCE flag should be set
+        assert!(state.players[0].flags.contains(PlayerFlags::USED_MANA_FROM_SOURCE));
+    }
+
+    #[test]
+    fn crystallize_prefers_token_over_die() {
+        let mut state = test_state();
+        // Red token + red die
+        state.players[0].pure_mana.push(ManaToken {
+            color: ManaColor::Red,
+            source: ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+        state.source.dice.push(SourceDie {
+            id: SourceDieId::from("die_red"),
+            color: ManaColor::Red,
+            is_depleted: false,
+            taken_by_player_id: None,
+        });
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::ConvertManaToCrystal, None);
+        let result = queue.drain(&mut state, 0);
+        assert!(matches!(result, DrainResult::Complete));
+        assert_eq!(state.players[0].crystals.red, 1);
+        // Token consumed
+        assert!(state.players[0].pure_mana.is_empty());
+        // Die untouched
+        assert!(state.source.dice[0].taken_by_player_id.is_none());
+        // Flag NOT set
+        assert!(!state.players[0].flags.contains(PlayerFlags::USED_MANA_FROM_SOURCE));
+    }
+
+    #[test]
+    fn crystallize_die_plus_token_different_colors() {
+        let mut state = test_state();
+        // Red token + blue die → choice with 2 options
+        state.players[0].pure_mana.push(ManaToken {
+            color: ManaColor::Red,
+            source: ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+        state.source.dice.push(SourceDie {
+            id: SourceDieId::from("die_blue"),
+            color: ManaColor::Blue,
+            is_depleted: false,
+            taken_by_player_id: None,
+        });
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::ConvertManaToCrystal, None);
+        let result = queue.drain(&mut state, 0);
+        match result {
+            DrainResult::NeedsChoice { options, .. } => {
+                assert_eq!(options.len(), 2);
+            }
+            _ => panic!("Expected NeedsChoice for token+die different colors"),
+        }
+    }
+
+    #[test]
+    fn crystallize_used_source_flag_blocks_die() {
+        let mut state = test_state();
+        // No tokens, red die available, but USED_MANA_FROM_SOURCE is set
+        state.players[0].flags.insert(PlayerFlags::USED_MANA_FROM_SOURCE);
+        state.source.dice.push(SourceDie {
+            id: SourceDieId::from("die_red"),
+            color: ManaColor::Red,
+            is_depleted: false,
+            taken_by_player_id: None,
+        });
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::ConvertManaToCrystal, None);
+        let result = queue.drain(&mut state, 0);
+        assert!(matches!(result, DrainResult::Complete)); // Skipped
+        assert_eq!(state.players[0].crystals.red, 0);
+    }
+
+    #[test]
+    fn crystallize_gold_die_excluded() {
+        let mut state = test_state();
+        // No tokens, only a gold die → not crystallizable
+        state.source.dice.push(SourceDie {
+            id: SourceDieId::from("die_gold"),
+            color: ManaColor::Gold,
+            is_depleted: false,
+            taken_by_player_id: None,
+        });
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::ConvertManaToCrystal, None);
+        let result = queue.drain(&mut state, 0);
+        assert!(matches!(result, DrainResult::Complete)); // Skipped
+        assert_eq!(state.players[0].crystals.red, 0);
+    }
+
+    #[test]
+    fn is_resolvable_crystallize_with_die() {
+        let mut state = test_state();
+        // No tokens, but a red die is available
+        state.source.dice.push(SourceDie {
+            id: SourceDieId::from("die_red"),
+            color: ManaColor::Red,
+            is_depleted: false,
+            taken_by_player_id: None,
+        });
+        assert!(super::conditions::is_resolvable(&state, 0, &CardEffect::ConvertManaToCrystal));
+    }
+
+    #[test]
+    fn is_resolvable_crystallize_blocked_by_flag() {
+        let mut state = test_state();
+        // No tokens, red die available, but flag is set
+        state.players[0].flags.insert(PlayerFlags::USED_MANA_FROM_SOURCE);
+        state.source.dice.push(SourceDie {
+            id: SourceDieId::from("die_red"),
+            color: ManaColor::Red,
+            is_depleted: false,
+            taken_by_player_id: None,
+        });
+        assert!(!super::conditions::is_resolvable(&state, 0, &CardEffect::ConvertManaToCrystal));
+    }
+
+    #[test]
     fn card_boost_no_eligible_cards_skips() {
         let mut state = test_state();
         // Hand empty → no eligible cards → skip

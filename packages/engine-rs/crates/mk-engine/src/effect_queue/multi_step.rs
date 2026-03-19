@@ -362,15 +362,71 @@ pub(super) fn pure_magic_effect_for_color(
 // Multi-step / cost effect handlers
 // =============================================================================
 
-/// Convert one mana token to a crystal of the same color.
-/// If no mana tokens, skip. If one color, auto-crystallize. If multiple, offer choice.
+/// Find an available basic-color source die for crystallization.
+///
+/// Returns `Some(ManaSourceInfo)` for the first matching die (basic color, unclaimed
+/// or stolen, `USED_MANA_FROM_SOURCE` not set).
+pub(super) fn find_crystallizable_die(
+    state: &GameState,
+    player_idx: usize,
+    target_color: BasicManaColor,
+) -> Option<mk_types::action::ManaSourceInfo> {
+    let player = &state.players[player_idx];
+    if player.flags.contains(PlayerFlags::USED_MANA_FROM_SOURCE) {
+        return None;
+    }
+    let player_id = &player.id;
+    let stolen_die_id = player
+        .tactic_state
+        .stored_mana_die
+        .as_ref()
+        .map(|s| &s.die_id);
+    let target_mana = ManaColor::from(target_color);
+
+    for die in &state.source.dice {
+        if !crate::card_play::is_die_available_with_overrides(die, state, player_idx) {
+            continue;
+        }
+        let is_available = die.taken_by_player_id.is_none()
+            || (die.taken_by_player_id.as_ref() == Some(player_id)
+                && stolen_die_id == Some(&die.id));
+        if !is_available {
+            continue;
+        }
+        if die.color == target_mana {
+            return Some(mk_types::action::ManaSourceInfo {
+                source_type: ManaSourceType::Die,
+                color: die.color,
+                die_id: Some(die.id.as_str().to_string()),
+            });
+        }
+    }
+    None
+}
+
+/// Consume a crystallize source for the given color: prefer token, fall back to die.
+fn consume_crystallize_source(state: &mut GameState, player_idx: usize, color: BasicManaColor) {
+    // Try token first
+    let token_idx = state.players[player_idx]
+        .pure_mana
+        .iter()
+        .position(|t| to_basic_mana_color(t.color) == Some(color));
+    if let Some(idx) = token_idx {
+        state.players[player_idx].pure_mana.remove(idx);
+        return;
+    }
+    // Fall back to source die
+    if let Some(source_info) = find_crystallizable_die(state, player_idx, color) {
+        crate::card_play::consume_specific_mana_source(state, player_idx, &source_info);
+    }
+}
+
+/// Convert one mana source (token or source die) to a crystal of the same color.
+/// If no sources, skip. If one color, auto-crystallize. If multiple, offer choice.
 pub(super) fn apply_convert_mana_to_crystal(state: &mut GameState, player_idx: usize) -> ResolveResult {
     let player = &state.players[player_idx];
-    if player.pure_mana.is_empty() {
-        return ResolveResult::Skipped;
-    }
 
-    // Collect unique colors from tokens (only basic colors can crystallize)
+    // Collect unique basic colors from tokens
     let mut available_colors: Vec<BasicManaColor> = Vec::new();
     for token in &player.pure_mana {
         if let Some(basic) = to_basic_mana_color(token.color) {
@@ -380,27 +436,46 @@ pub(super) fn apply_convert_mana_to_crystal(state: &mut GameState, player_idx: u
         }
     }
 
+    // Also collect basic colors from available source dice
+    if !player.flags.contains(PlayerFlags::USED_MANA_FROM_SOURCE) {
+        let player_id = &player.id;
+        let stolen_die_id = player
+            .tactic_state
+            .stored_mana_die
+            .as_ref()
+            .map(|s| &s.die_id);
+
+        for die in &state.source.dice {
+            if !crate::card_play::is_die_available_with_overrides(die, state, player_idx) {
+                continue;
+            }
+            let is_available = die.taken_by_player_id.is_none()
+                || (die.taken_by_player_id.as_ref() == Some(player_id)
+                    && stolen_die_id == Some(&die.id));
+            if !is_available {
+                continue;
+            }
+            if let Some(basic) = to_basic_mana_color(die.color) {
+                if !available_colors.contains(&basic) {
+                    available_colors.push(basic);
+                }
+            }
+        }
+    }
+
     if available_colors.is_empty() {
         return ResolveResult::Skipped;
     }
 
     if available_colors.len() == 1 {
-        // Auto-crystallize the only available color
+        // Auto-crystallize the only available color (prefer token over die)
         let color = available_colors[0];
-        let player = &mut state.players[player_idx];
-        // Remove one token of this color
-        if let Some(idx) = player
-            .pure_mana
-            .iter()
-            .position(|t| to_basic_mana_color(t.color) == Some(color))
-        {
-            player.pure_mana.remove(idx);
-        }
+        consume_crystallize_source(state, player_idx, color);
         gain_crystal_color(state, player_idx, color);
         ResolveResult::Applied
     } else {
         // Offer choice: one option per available color
-        // Token consumption is deferred to ChoiceResolution::CrystallizeConsume
+        // Source consumption is deferred to ChoiceResolution::CrystallizeConsume
         // which runs when the player picks a color.
         let options: Vec<CardEffect> = available_colors
             .iter()
