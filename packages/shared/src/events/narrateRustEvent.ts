@@ -397,8 +397,10 @@ export function narrateRustEvent(
         source = ` (${formatId(choiceSkillId)})`;
       }
       const chosenDesc = field(event, "chosen_description", "chosenDescription") as string | undefined;
-      const choiceSuffix = chosenDesc ? `: ${chosenDesc}` : "";
-      return msg(`${name} resolved a choice${source}${choiceSuffix}`, EVENT_CATEGORY.LIFECYCLE, pid);
+      if (chosenDesc) {
+        return msg(`${name} chose ${chosenDesc}${source}`, EVENT_CATEGORY.LIFECYCLE, pid);
+      }
+      return msg(`${name} resolved a choice${source}`, EVENT_CATEGORY.LIFECYCLE, pid);
     }
 
     // ---- Progression ----

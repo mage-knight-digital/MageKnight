@@ -30,7 +30,8 @@ pub(crate) fn is_resolvable(state: &GameState, player_idx: usize, effect: &CardE
         CardEffect::GainAttack { .. }
         | CardEffect::GainBlock { .. }
         | CardEffect::GainBlockElement { .. }
-        | CardEffect::AttackWithDefeatBonus { .. } => state.combat.is_some(),
+        | CardEffect::AttackWithDefeatBonus { .. }
+        | CardEffect::Other { effect_type: EffectType::TerrainBasedBlock } => state.combat.is_some(),
 
         // Need wounds in hand; healing is not usable during combat (MK rules).
         CardEffect::GainHealing { .. } => {

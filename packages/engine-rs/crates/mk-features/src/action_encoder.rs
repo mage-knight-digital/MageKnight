@@ -3,12 +3,15 @@
 //! Each legal action is encoded with vocabulary indices for embedding layers
 //! and scalar features for the scoring network.
 
-use mk_data::cards::get_card;
+use mk_data::cards::{get_card, get_card_color};
 use mk_data::enemies::get_enemy;
 use mk_types::effect::CardEffect;
-use mk_types::enums::{CombatType, Element, ManaColor, SidewaysAs};
+use mk_types::enums::{BasicManaColor, CombatType, Element, ManaColor, ResistanceElement, SidewaysAs};
 use mk_types::legal_action::LegalAction;
-use mk_types::pending::ActivePending;
+use mk_types::pending::{
+    ActivePending, ChoiceResolution, KnowYourPreyApplyOption, PeacefulMomentOption,
+    RegenerateManaSource,
+};
 use mk_types::state::GameState;
 
 use crate::source_derivation::derive_source;
@@ -327,6 +330,140 @@ fn extract_entity_ids(
             }
         }
 
+        LegalAction::ResolveChoice { choice_index } => {
+            if let Some(ActivePending::Choice(ref choice)) = player.pending.active {
+                match &choice.resolution {
+                    ChoiceResolution::ReadyUnitTarget { eligible_unit_indices }
+                    | ChoiceResolution::HealUnitTarget { eligible_unit_indices }
+                    | ChoiceResolution::EnergyFlowTarget { eligible_unit_indices, .. }
+                    | ChoiceResolution::SelectUnitModifier { eligible_unit_indices } => {
+                        if let Some(&idx) = eligible_unit_indices.get(*choice_index) {
+                            if let Some(u) = player.units.get(idx) {
+                                unit_id = UNIT_VOCAB.encode(u.unit_id.as_str());
+                            }
+                        }
+                    }
+                    ChoiceResolution::ReadyUnitsBudgetSelect { eligible_unit_indices, .. } => {
+                        // choice_index 0 = "Done", 1+ maps to eligible_unit_indices[choice_index - 1]
+                        if *choice_index > 0 {
+                            if let Some(&idx) = eligible_unit_indices.get(*choice_index - 1) {
+                                if let Some(u) = player.units.get(idx) {
+                                    unit_id = UNIT_VOCAB.encode(u.unit_id.as_str());
+                                }
+                            }
+                        }
+                    }
+                    ChoiceResolution::CallToArmsUnitSelect { eligible_unit_indices }
+                    | ChoiceResolution::FreeRecruitTarget { eligible_unit_indices } => {
+                        if let Some(&idx) = eligible_unit_indices.get(*choice_index) {
+                            if let Some(uid) = state.offers.units.get(idx) {
+                                unit_id = UNIT_VOCAB.encode(uid.as_str());
+                            }
+                        }
+                    }
+                    ChoiceResolution::DuelingTarget { eligible_enemy_ids }
+                    | ChoiceResolution::CurseTarget { eligible_enemy_ids }
+                    | ChoiceResolution::KnowYourPreyTarget { eligible_enemy_ids }
+                    | ChoiceResolution::NaturesVengeanceTarget { eligible_enemy_ids, .. }
+                    | ChoiceResolution::PossessEnemyTarget { eligible_enemy_ids } => {
+                        if let Some(instance_id) = eligible_enemy_ids.get(*choice_index) {
+                            if let Some(ref combat) = state.combat {
+                                if let Some(e) = combat.enemies.iter().find(|e| e.instance_id.as_str() == instance_id.as_str()) {
+                                    enemy_id = ENEMY_VOCAB.encode(e.enemy_id.as_str());
+                                }
+                            }
+                        }
+                    }
+                    ChoiceResolution::ForkedLightningTarget { already_targeted, .. } => {
+                        // Rebuild eligible: alive enemies not in already_targeted
+                        if let Some(ref combat) = state.combat {
+                            let eligible: Vec<&str> = combat.enemies.iter()
+                                .filter(|e| !e.is_defeated && !already_targeted.contains(&e.instance_id.as_str().to_string()))
+                                .map(|e| e.instance_id.as_str())
+                                .collect();
+                            if *choice_index < eligible.len() {
+                                if let Some(e) = combat.enemies.iter().find(|e| e.instance_id.as_str() == eligible[*choice_index]) {
+                                    enemy_id = ENEMY_VOCAB.encode(e.enemy_id.as_str());
+                                }
+                            }
+                        }
+                    }
+                    ChoiceResolution::WingsOfNightTarget { eligible_enemy_ids, targets_so_far } => {
+                        // When targets_so_far > 0, index 0 = "Done", enemies start at index 1
+                        let done_offset = if *targets_so_far > 0 { 1 } else { 0 };
+                        if *choice_index >= done_offset {
+                            if let Some(instance_id) = eligible_enemy_ids.get(*choice_index - done_offset) {
+                                if let Some(ref combat) = state.combat {
+                                    if let Some(e) = combat.enemies.iter().find(|e| e.instance_id.as_str() == instance_id.as_str()) {
+                                        enemy_id = ENEMY_VOCAB.encode(e.enemy_id.as_str());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // Card-targeting resolutions (hand-indexed)
+                    ChoiceResolution::BoostTarget { eligible_hand_indices } => {
+                        if let Some(&hand_idx) = eligible_hand_indices.get(*choice_index) {
+                            if let Some(cid) = player.hand.get(hand_idx) {
+                                card_id = CARD_VOCAB.encode(cid.as_str());
+                            }
+                        }
+                    }
+                    ChoiceResolution::DiscardThenContinue { eligible_indices } => {
+                        if let Some(&hand_idx) = eligible_indices.get(*choice_index) {
+                            if let Some(cid) = player.hand.get(hand_idx) {
+                                card_id = CARD_VOCAB.encode(cid.as_str());
+                            }
+                        }
+                    }
+                    ChoiceResolution::ShapeshiftCardSelect { options } => {
+                        if let Some(opt) = options.get(*choice_index) {
+                            card_id = CARD_VOCAB.encode(opt.card_id.as_str());
+                        }
+                    }
+                    ChoiceResolution::DiscardForCrystalSelect { eligible_card_ids, optional } => {
+                        // When optional, index 0 = skip
+                        let card_offset = if *optional { 1 } else { 0 };
+                        if *choice_index >= card_offset {
+                            if let Some(cid) = eligible_card_ids.get(*choice_index - card_offset) {
+                                card_id = CARD_VOCAB.encode(cid.as_str());
+                            }
+                        }
+                    }
+                    ChoiceResolution::InvocationDiscard { options } => {
+                        if let Some(opt) = options.get(*choice_index) {
+                            card_id = CARD_VOCAB.encode(opt.card_id.as_str());
+                        }
+                    }
+                    // Card-targeting resolutions (offer-indexed)
+                    ChoiceResolution::BloodBasicAaSelect { color } => {
+                        let matching_aas: Vec<_> = state.offers.advanced_actions.iter()
+                            .filter(|cid| get_card_color(cid.as_str()) == Some(*color))
+                            .collect();
+                        if let Some(cid) = matching_aas.get(*choice_index) {
+                            card_id = CARD_VOCAB.encode(cid.as_str());
+                        }
+                    }
+                    ChoiceResolution::BloodPoweredAaSelect => {
+                        if let Some(cid) = state.offers.advanced_actions.get(*choice_index) {
+                            card_id = CARD_VOCAB.encode(cid.as_str());
+                        }
+                    }
+                    ChoiceResolution::MagicTalentSpellSelect { spell_entries } => {
+                        if let Some((_, spell_id, _)) = spell_entries.get(*choice_index) {
+                            card_id = CARD_VOCAB.encode(spell_id.as_str());
+                        }
+                    }
+                    ChoiceResolution::MagicTalentGainSelect { gain_entries } => {
+                        if let Some((_, spell_id, _)) = gain_entries.get(*choice_index) {
+                            card_id = CARD_VOCAB.encode(spell_id.as_str());
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
         _ => {}
     }
 
@@ -412,7 +549,43 @@ fn extract_action_scalars(
             let player = &state.players[player_idx];
             if let Some(ActivePending::Choice(ref choice)) = player.pending.active {
                 if let Some(option) = choice.options.get(*choice_index) {
-                    enrich_choice_scalars(&mut scalars, option);
+                    enrich_choice_scalars(&mut scalars, option, &choice.resolution, *choice_index);
+                }
+                // State-dependent enrichment for variants needing game state lookups
+                match &choice.resolution {
+                    ChoiceResolution::SourceOpeningDieSelect { die_ids } => {
+                        if *choice_index > 0 {
+                            if let Some(die_id) = die_ids.get(*choice_index - 1) {
+                                if let Some(die) = state.source.dice.iter().find(|d| d.id.as_str() == die_id.as_str()) {
+                                    set_mana_color_one_hot(&mut scalars, 12, die.color);
+                                }
+                            }
+                        }
+                    }
+                    ChoiceResolution::CurseAttackIndex { enemy_instance_id, .. } => {
+                        if let Some(ref combat) = state.combat {
+                            if let Some(e) = combat.enemies.iter().find(|e| e.instance_id.as_str() == enemy_instance_id.as_str()) {
+                                if let Some(def) = get_enemy(e.enemy_id.as_str()) {
+                                    if let Some(attacks) = def.attacks {
+                                        if let Some(atk) = attacks.get(*choice_index) {
+                                            scalars[30] = scale(atk.damage as f32, 10.0);
+                                            set_element_one_hot(&mut scalars, 23, atk.element);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    ChoiceResolution::PuppetMasterSelectToken { token_indices } => {
+                        if let Some(&token_idx) = token_indices.get(*choice_index) {
+                            if let Some(token) = player.kept_enemy_tokens.get(token_idx) {
+                                scalars[7] = 1.0;
+                                scalars[30] = scale(token.attack as f32, 10.0);
+                                scalars[33] = scale(token.armor as f32, 20.0);
+                            }
+                        }
+                    }
+                    _ => {}
                 }
             }
         }
@@ -722,7 +895,7 @@ fn apply_headline_scalars(scalars: &mut [f32], h: &HeadlineValues) {
 /// Enrich scalars for a ResolveChoice action with the chosen CardEffect's parameters.
 /// Uses the same scalar positions as equivalent direct actions so the network
 /// sees consistent semantics (e.g., mana color at [12..18], amount at [0]).
-fn enrich_choice_scalars(scalars: &mut [f32], effect: &CardEffect) {
+fn enrich_choice_scalars(scalars: &mut [f32], effect: &CardEffect, resolution: &ChoiceResolution, choice_index: usize) {
     match effect {
         CardEffect::GainMana { color, amount } => {
             set_mana_color_one_hot(scalars, 12, *color);
@@ -768,7 +941,206 @@ fn enrich_choice_scalars(scalars: &mut [f32], effect: &CardEffect) {
         CardEffect::GainCrystal { color: Some(basic_color) } => {
             set_mana_color_one_hot(scalars, 12, ManaColor::from(*basic_color));
         }
+        CardEffect::Noop => {
+            // Noop options carry no info in the effect — extract from the resolution instead.
+            if let ChoiceResolution::PowerOfCrystalsGainColor { eligible_colors }
+                | ChoiceResolution::CrystalMasteryGainColor { eligible_colors } = resolution
+            {
+                if let Some(&color) = eligible_colors.get(choice_index) {
+                    set_mana_color_one_hot(scalars, 12, ManaColor::from(color));
+                }
+            } else if let ChoiceResolution::ManaMeltdownColorSelect { available_colors }
+                | ChoiceResolution::UniversalPowerMana { available_colors } = resolution
+            {
+                if let Some(&color) = available_colors.get(choice_index) {
+                    set_mana_color_one_hot(scalars, 12, ManaColor::from(color));
+                }
+            } else if let ChoiceResolution::ManaStormDieSelect { die_colors, .. }
+                | ChoiceResolution::ManaClaimDieSelect { die_colors, .. } = resolution
+            {
+                if let Some(&color) = die_colors.get(choice_index) {
+                    set_mana_color_one_hot(scalars, 12, ManaColor::from(color));
+                }
+            } else if let ChoiceResolution::SpellForgeCrystal { spell_entries, .. } = resolution {
+                if let Some((_, color)) = spell_entries.get(choice_index) {
+                    set_mana_color_one_hot(scalars, 12, ManaColor::from(*color));
+                }
+            } else if let ChoiceResolution::RegenerateMana { sources, .. } = resolution {
+                if let Some(src) = sources.get(choice_index) {
+                    let color = match src {
+                        RegenerateManaSource::Token(c) | RegenerateManaSource::SourceDie(c) => *c,
+                        RegenerateManaSource::Crystal(c) => ManaColor::from(*c),
+                    };
+                    set_mana_color_one_hot(scalars, 12, color);
+                }
+            } else if let ChoiceResolution::ManaSourceSelect { sources, .. } = resolution {
+                if let Some(src) = sources.get(choice_index) {
+                    set_mana_color_one_hot(scalars, 12, src.color);
+                }
+            } else if let ChoiceResolution::PolarizationConvert { options } = resolution {
+                if let Some(opt) = options.get(choice_index) {
+                    set_mana_color_one_hot(scalars, 12, opt.source_color);
+                }
+            } else if let ChoiceResolution::BloodBasicManaSelect { mana_options } = resolution {
+                if let Some((_, color)) = mana_options.get(choice_index) {
+                    set_mana_color_one_hot(scalars, 12, ManaColor::from(*color));
+                }
+            // --- Group 1: Color one-hot from resolution metadata ---
+            } else if matches!(resolution, ChoiceResolution::MindReadColorSelect) {
+                let colors = [BasicManaColor::Red, BasicManaColor::Blue, BasicManaColor::Green, BasicManaColor::White];
+                if let Some(&color) = colors.get(choice_index) {
+                    set_mana_color_one_hot(scalars, 12, ManaColor::from(color));
+                }
+            } else if let ChoiceResolution::ManaClaimModeSelect { color, .. } = resolution {
+                set_mana_color_one_hot(scalars, 12, ManaColor::from(*color));
+                scalars[0] = if choice_index == 0 { scale(3.0, 10.0) } else { scale(1.0, 10.0) };
+            } else if matches!(resolution, ChoiceResolution::SecretWaysLake | ChoiceResolution::SongOfWindLake) {
+                if choice_index == 1 {
+                    set_mana_color_one_hot(scalars, 12, ManaColor::Blue);
+                }
+            // --- Group 2: Metadata-driven scalars ---
+            } else if matches!(resolution, ChoiceResolution::RitualOfPainDiscard { .. }) {
+                scalars[0] = scale(choice_index as f32, 5.0);
+            } else if matches!(resolution, ChoiceResolution::BloodPoweredWoundSelect) {
+                scalars[0] = scale(choice_index as f32, 2.0);
+            } else if matches!(resolution, ChoiceResolution::CurseMode { .. }) {
+                if choice_index == 0 {
+                    scalars[28] = scale(2.0, 10.0); // attack reduction
+                } else {
+                    scalars[33] = scale(1.0, 20.0); // armor reduction
+                }
+            } else if let ChoiceResolution::PuppetMasterUseMode { attack_value, attack_element, block_value, block_element, .. } = resolution {
+                if choice_index == 0 {
+                    scalars[28] = scale(*attack_value as f32, 10.0);
+                    set_element_one_hot(scalars, 23, *attack_element);
+                } else {
+                    scalars[0] = scale(*block_value as f32, 10.0);
+                    set_element_one_hot(scalars, 23, *block_element);
+                }
+            } else if let ChoiceResolution::ShapeshiftTypeSelect { amount, element, original_type, .. } = resolution {
+                use mk_types::modifier::ShapeshiftTarget;
+                let all = [ShapeshiftTarget::Move, ShapeshiftTarget::Attack, ShapeshiftTarget::Block];
+                let available: Vec<_> = all.iter().filter(|&&t| t != *original_type).collect();
+                if let Some(target) = available.get(choice_index) {
+                    match target {
+                        ShapeshiftTarget::Move => scalars[18] = scale(*amount as f32, 10.0),
+                        ShapeshiftTarget::Attack => scalars[28] = scale(*amount as f32, 10.0),
+                        ShapeshiftTarget::Block => scalars[0] = scale(*amount as f32, 10.0),
+                    }
+                }
+                scalars[0] = scalars[0].max(scale(*amount as f32, 10.0));
+                if let Some(elem) = element {
+                    set_element_one_hot(scalars, 23, *elem);
+                }
+            } else if let ChoiceResolution::KnowYourPreyOption { options, .. } = resolution {
+                if let Some(opt) = options.get(choice_index) {
+                    match opt {
+                        KnowYourPreyApplyOption::NullifyAbility { .. } => {
+                            scalars[7] = 1.0;
+                        }
+                        KnowYourPreyApplyOption::RemoveResistance { element } => {
+                            match element {
+                                ResistanceElement::Physical => scalars[23] = 1.0,
+                                ResistanceElement::Fire => scalars[24] = 1.0,
+                                ResistanceElement::Ice => scalars[25] = 1.0,
+                            }
+                        }
+                        KnowYourPreyApplyOption::ConvertElement { to, .. } => {
+                            set_element_one_hot(scalars, 23, *to);
+                        }
+                    }
+                }
+            // --- Group 4: Re-route CardEffect from metadata ---
+            } else if let ChoiceResolution::CallToArmsAbilitySelect { ability_entries } = resolution {
+                if let Some((_, ref card_effect)) = ability_entries.get(choice_index) {
+                    let h = extract_headline_values(card_effect);
+                    apply_headline_scalars(scalars, &h);
+                }
+            } else if let ChoiceResolution::PeacefulMomentConversion { option_map, .. } = resolution {
+                if let Some(opt) = option_map.get(choice_index) {
+                    match opt {
+                        PeacefulMomentOption::Done => scalars[11] = 1.0,
+                        PeacefulMomentOption::HealWound => scalars[0] = scale(1.0, 10.0),
+                        PeacefulMomentOption::RefreshUnit => scalars[9] = 1.0,
+                        PeacefulMomentOption::HealUnit { .. } => { scalars[9] = 1.0; scalars[0] = scale(1.0, 10.0); }
+                    }
+                }
+            } else if matches!(
+                resolution,
+                ChoiceResolution::ReadyUnitTarget { .. }
+                | ChoiceResolution::HealUnitTarget { .. }
+                | ChoiceResolution::EnergyFlowTarget { .. }
+                | ChoiceResolution::SelectUnitModifier { .. }
+                | ChoiceResolution::ReadyUnitsBudgetSelect { .. }
+                | ChoiceResolution::CallToArmsUnitSelect { .. }
+                | ChoiceResolution::FreeRecruitTarget { .. }
+            ) {
+                scalars[9] = 1.0; // has_unit
+            } else if matches!(
+                resolution,
+                ChoiceResolution::DuelingTarget { .. }
+                | ChoiceResolution::CurseTarget { .. }
+                | ChoiceResolution::KnowYourPreyTarget { .. }
+                | ChoiceResolution::NaturesVengeanceTarget { .. }
+                | ChoiceResolution::PossessEnemyTarget { .. }
+                | ChoiceResolution::ForkedLightningTarget { .. }
+                | ChoiceResolution::WingsOfNightTarget { .. }
+            ) {
+                scalars[7] = 1.0; // has_enemy_target
+            } else if matches!(
+                resolution,
+                ChoiceResolution::ShapeshiftCardSelect { .. }
+                | ChoiceResolution::DiscardForCrystalSelect { .. }
+                | ChoiceResolution::BloodBasicAaSelect { .. }
+                | ChoiceResolution::BloodPoweredAaSelect
+                | ChoiceResolution::MagicTalentSpellSelect { .. }
+                | ChoiceResolution::MagicTalentGainSelect { .. }
+                | ChoiceResolution::InvocationDiscard { .. }
+            ) {
+                scalars[8] = 1.0; // has_card
+                // Bonus: mana color for variants that carry it
+                if let ChoiceResolution::MagicTalentSpellSelect { spell_entries } = resolution {
+                    if let Some((_, _, color)) = spell_entries.get(choice_index) {
+                        set_mana_color_one_hot(scalars, 12, ManaColor::from(*color));
+                    }
+                } else if let ChoiceResolution::MagicTalentGainSelect { gain_entries } = resolution {
+                    if let Some((_, _, color)) = gain_entries.get(choice_index) {
+                        set_mana_color_one_hot(scalars, 12, ManaColor::from(*color));
+                    }
+                } else if let ChoiceResolution::InvocationDiscard { options } = resolution {
+                    if let Some(opt) = options.get(choice_index) {
+                        set_mana_color_one_hot(scalars, 12, opt.mana_color);
+                    }
+                }
+            }
+        }
         _ => {}
+    }
+
+    // Set has_card flag for card-targeting resolutions with real effects (not Noop)
+    if matches!(
+        resolution,
+        ChoiceResolution::BoostTarget { .. }
+        | ChoiceResolution::DiscardThenContinue { .. }
+    ) {
+        scalars[8] = 1.0; // has_card
+    }
+
+    // Mana color enrichment for mana-targeting resolutions with real effects
+    if let ChoiceResolution::PureMagicConsume { token_colors } = resolution {
+        if let Some(&color) = token_colors.get(choice_index) {
+            set_mana_color_one_hot(scalars, 12, color);
+        }
+    }
+    if let ChoiceResolution::ManaBoltTokenSelect { token_options } = resolution {
+        if let Some((color, ..)) = token_options.get(choice_index) {
+            set_mana_color_one_hot(scalars, 12, *color);
+        }
+    }
+    if let ChoiceResolution::SacrificePairSelect { pair_options } = resolution {
+        if let Some((color_a, ..)) = pair_options.get(choice_index) {
+            set_mana_color_one_hot(scalars, 12, ManaColor::from(*color_a));
+        }
     }
 }
 

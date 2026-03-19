@@ -474,3 +474,71 @@ fn undo_restores_state() {
     assert_eq!(state.players[0].hand.len(), original_hand_len);
 }
 
+#[test]
+fn blood_powered_choice_events_have_descriptions() {
+    use mk_types::pending::{ActivePending, ChoiceResolution, PendingChoice};
+
+    let mut state = setup_playing_game(vec!["march"]);
+    let mut undo = UndoStack::new();
+    // Set up the offer with a known AA
+    state.offers.advanced_actions = vec![CardId::from("blood_rage")];
+    // Set up the pending choice for wound destination
+    state.players[0].pending.active = Some(ActivePending::Choice(PendingChoice {
+        card_id: Some(CardId::from("blood_of_ancients")),
+        skill_id: None,
+        unit_instance_id: None,
+        options: vec![CardEffect::Noop; 2],
+        continuation: vec![],
+        resolution: ChoiceResolution::BloodPoweredWoundSelect,
+        movement_bonus_applied: false,
+    }));
+
+    let epoch = state.action_epoch;
+    let result = apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::ResolveChoice { choice_index: 0 },
+        epoch,
+    ).unwrap();
+
+    // Check that the ChoiceResolved event has a description
+    let choice_event = result.events.iter().find(|e| {
+        matches!(e, GameEvent::ChoiceResolved { .. })
+    });
+    assert!(choice_event.is_some(), "Should have a ChoiceResolved event");
+    match choice_event.unwrap() {
+        GameEvent::ChoiceResolved { chosen_description, .. } => {
+            assert_eq!(
+                chosen_description.as_deref(),
+                Some("Wound to hand"),
+                "BloodPoweredWoundSelect should describe wound destination"
+            );
+        }
+        _ => unreachable!(),
+    }
+
+    // Now the pending should be BloodPoweredAaSelect — resolve it
+    assert!(matches!(
+        &state.players[0].pending.active,
+        Some(ActivePending::Choice(pc)) if matches!(&pc.resolution, ChoiceResolution::BloodPoweredAaSelect)
+    ));
+
+    let epoch = state.action_epoch;
+    let result = apply_legal_action(
+        &mut state, &mut undo, 0,
+        &LegalAction::ResolveChoice { choice_index: 0 },
+        epoch,
+    ).unwrap();
+
+    let choice_event = result.events.iter().find(|e| {
+        matches!(e, GameEvent::ChoiceResolved { .. })
+    });
+    assert!(choice_event.is_some(), "Should have a ChoiceResolved event for AA select");
+    if let Some(GameEvent::ChoiceResolved { chosen_description, .. }) = choice_event {
+        assert_eq!(
+            chosen_description.as_deref(),
+            Some("Use Blood Rage's powered effect"),
+            "BloodPoweredAaSelect should describe the AA being used"
+        );
+    }
+}
+

@@ -257,8 +257,8 @@ fn move_blocked_while_resting() {
 }
 
 #[test]
-fn sideways_influence_only_after_rest() {
-    // After HAS_RESTED_THIS_TURN: only influence sideways, no move sideways.
+fn no_sideways_after_rest_without_site_interaction() {
+    // After HAS_RESTED_THIS_TURN but NOT interacting: no sideways at all.
     let mut state = setup_game(vec!["march"]);
     state.players[0]
         .flags
@@ -270,13 +270,33 @@ fn sideways_influence_only_after_rest() {
         .iter()
         .filter(|a| matches!(a, LegalAction::PlayCardSideways { .. }))
         .collect();
-    assert!(!sideways.is_empty(), "sideways should still be available after rest");
+    assert!(sideways.is_empty(), "no sideways should be available after rest without site interaction");
+}
+
+#[test]
+fn sideways_influence_after_rest_at_site() {
+    // After HAS_RESTED_THIS_TURN while IS_INTERACTING: influence sideways only.
+    let mut state = setup_game(vec!["march"]);
+    state.players[0]
+        .flags
+        .insert(PlayerFlags::HAS_RESTED_THIS_TURN);
+    state.players[0]
+        .flags
+        .insert(PlayerFlags::IS_INTERACTING);
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let sideways: Vec<_> = legal
+        .actions
+        .iter()
+        .filter(|a| matches!(a, LegalAction::PlayCardSideways { .. }))
+        .collect();
+    assert!(!sideways.is_empty(), "sideways should be available after rest at a site");
     for a in &sideways {
         if let LegalAction::PlayCardSideways { sideways_as, .. } = a {
             assert_eq!(
                 *sideways_as,
                 SidewaysAs::Influence,
-                "only Influence sideways should be available after rest"
+                "only Influence sideways should be available after rest at a site"
             );
         }
     }

@@ -171,7 +171,7 @@ def main() -> int:
             artifact=args.artifact,
         )
 
-        out_path = output_dir / f"seed_{seed}.json"
+        out_path = output_dir / f"seed_{seed}_{hero}_{replay['fame']}fame.json"
         with open(out_path, "w") as f:
             json.dump(replay, f)
 
@@ -179,7 +179,9 @@ def main() -> int:
 
     print(f"\nDone!")
     if args.artifact:
-        print(f"Load in UI: drag & drop {output_dir}/seed_1.json into the replay viewer")
+        first_seed = seeds[0]
+        first_hero = resolve_hero(args.hero, first_seed)
+        print(f"Load in UI: drag & drop any artifact from {output_dir}/ into the replay viewer")
     else:
         print(f"Step through with:")
         print(f"  cd packages/engine-rs")

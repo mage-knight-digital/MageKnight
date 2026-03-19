@@ -11,6 +11,7 @@ use mk_types::state::*;
 
 use super::ResolveResult;
 use super::WOUND_CARD_ID;
+use super::atomic::apply_gain_block;
 
 // =============================================================================
 // Artifact effect handlers
@@ -483,6 +484,47 @@ pub(super) fn apply_druidic_staff_powered(
             ],
         },
     ])
+}
+
+// =============================================================================
+// Terrain-based block (Braevalar One With The Land powered)
+// =============================================================================
+
+/// Block equal to the unmodified move cost of the player's current hex.
+/// Fire Block by day, Ice Block by night.
+pub(super) fn apply_terrain_based_block(
+    state: &mut GameState,
+    player_idx: usize,
+) -> ResolveResult {
+    if state.combat.is_none() {
+        return ResolveResult::Skipped;
+    }
+
+    let terrain = state.players[player_idx]
+        .position
+        .as_ref()
+        .and_then(|pos| state.map.hexes.get(&pos.key()))
+        .map(|hex| hex.terrain);
+
+    let Some(terrain) = terrain else {
+        return ResolveResult::Skipped;
+    };
+
+    let cost = match state.time_of_day {
+        TimeOfDay::Day => terrain.day_cost(),
+        TimeOfDay::Night => terrain.night_cost(),
+    };
+
+    let Some(cost) = cost else {
+        return ResolveResult::Skipped;
+    };
+
+    let element = match state.time_of_day {
+        TimeOfDay::Day => Element::Fire,
+        TimeOfDay::Night => Element::Ice,
+    };
+
+    apply_gain_block(state, player_idx, cost as u32, element)
 }
 
 // =============================================================================

@@ -153,13 +153,15 @@ pub(super) fn enumerate_normal_cards(
                 )
             };
             if eff_value > 0 {
-                if has_rested {
-                    // After rest: influence only (FAQ S3 — unchanged by IS_INTERACTING).
+                if has_rested && is_interacting {
+                    // After rest at a site: influence only (FAQ S3).
                     sideways_actions.push(LegalAction::PlayCardSideways {
                         hand_index,
                         card_id: card_id.clone(),
                         sideways_as: SidewaysAs::Influence,
                     });
+                } else if has_rested {
+                    // After rest but not at a site: no sideways at all.
                 } else if is_interacting {
                     // Interacting or healing window: influence only (no movement).
                     sideways_actions.push(LegalAction::PlayCardSideways {

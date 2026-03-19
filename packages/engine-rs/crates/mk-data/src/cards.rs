@@ -702,11 +702,18 @@ fn braevalar_one_with_the_land() -> CardDefinition {
         color: CardColor::Green,
         card_type: DeedCardType::BasicAction,
         powered_by: PoweredBy::Single(BasicManaColor::Green),
-        basic_effect: CardEffect::GainMove { amount: 2 },
-        powered_effect: CardEffect::Compound {
-            effects: vec![
-                CardEffect::GainMove { amount: 4 },
+        basic_effect: CardEffect::Choice {
+            options: vec![
+                CardEffect::GainMove { amount: 2 },
                 CardEffect::GainHealing { amount: 1 },
+                CardEffect::GainBlock { amount: 2, element: Element::Physical },
+            ],
+        },
+        powered_effect: CardEffect::Choice {
+            options: vec![
+                CardEffect::GainMove { amount: 4 },
+                CardEffect::GainHealing { amount: 2 },
+                CardEffect::Other { effect_type: EffectType::TerrainBasedBlock },
             ],
         },
         sideways_value: 1,

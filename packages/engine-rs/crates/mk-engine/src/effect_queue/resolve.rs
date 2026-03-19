@@ -237,6 +237,11 @@ pub(super) fn resolve_one(state: &mut GameState, player_idx: usize, effect: &Car
             element,
         } => apply_gain_attack_bow_resolved(state, player_idx, *amount, *combat_type, *element),
 
+        // === Terrain-based block (Braevalar One With The Land) ===
+        CardEffect::Other { effect_type: EffectType::TerrainBasedBlock } => {
+            apply_terrain_based_block(state, player_idx)
+        }
+
         // === Terrain cost reduction (Druidic Paths) ===
         CardEffect::Other { effect_type: EffectType::SelectHexForCostReduction } => {
             apply_select_hex_for_cost_reduction(state, player_idx)

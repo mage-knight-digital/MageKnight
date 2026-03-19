@@ -244,7 +244,8 @@ pub fn apply_legal_action(
             // Extract source context from the pending choice before it's consumed
             let (source_card, source_skill, chosen_desc) = match &state.players[player_idx].pending.active {
                 Some(mk_types::pending::ActivePending::Choice(pc)) => {
-                    let desc = pc.options.get(*choice_index).and_then(|e| e.describe());
+                    let desc = pc.options.get(*choice_index).and_then(|e| e.describe())
+                        .or_else(|| describe_choice_resolution(&pc.resolution, *choice_index, state, player_idx));
                     (pc.card_id.clone(), pc.skill_id.clone(), desc)
                 }
                 _ => (None, None, None),
@@ -1156,6 +1157,294 @@ pub fn initial_events(state: &GameState, seed: u32, hero: Hero) -> Vec<GameEvent
 // =============================================================================
 // Tests
 // =============================================================================
+
+/// Look up an enemy's display name from its combat instance ID.
+fn enemy_name_for_desc(instance_id: &str, state: &GameState) -> String {
+    state.combat.as_ref()
+        .and_then(|c| c.enemies.iter().find(|e| e.instance_id.as_str() == instance_id))
+        .and_then(|e| mk_data::enemies::get_enemy(e.enemy_id.as_str()))
+        .map(|def| def.name.to_string())
+        .unwrap_or_else(|| instance_id.to_string())
+}
+
+/// Generate a human-readable description for a choice resolution when the
+/// option's `describe()` returns `None` (e.g. `Noop` options in Blood of Ancients).
+fn describe_choice_resolution(
+    resolution: &mk_types::pending::ChoiceResolution,
+    choice_index: usize,
+    state: &GameState,
+    player_idx: usize,
+) -> Option<String> {
+    use mk_types::pending::ChoiceResolution;
+    match resolution {
+        ChoiceResolution::BloodBasicManaSelect { mana_options } => {
+            mana_options.get(choice_index).map(|(_, color)| {
+                format!("Spend {:?} mana", color)
+            })
+        }
+        ChoiceResolution::BloodBasicAaSelect { color } => {
+            let matching_aas: Vec<_> = state.offers.advanced_actions.iter()
+                .filter(|card_id| {
+                    mk_data::cards::get_card_color(card_id.as_str()) == Some(*color)
+                })
+                .collect();
+            matching_aas.get(choice_index).and_then(|card_id| {
+                mk_data::cards::get_card(card_id.as_str())
+                    .map(|def| format!("Gain {}", def.name))
+            })
+        }
+        ChoiceResolution::BloodPoweredWoundSelect => {
+            Some(if choice_index == 0 {
+                "Wound to hand".to_string()
+            } else {
+                "Wound to discard".to_string()
+            })
+        }
+        ChoiceResolution::BloodPoweredAaSelect => {
+            state.offers.advanced_actions.get(choice_index).and_then(|card_id| {
+                mk_data::cards::get_card(card_id.as_str())
+                    .map(|def| format!("Use {}'s powered effect", def.name))
+            })
+        }
+        ChoiceResolution::PowerOfCrystalsGainColor { eligible_colors }
+        | ChoiceResolution::CrystalMasteryGainColor { eligible_colors } => {
+            eligible_colors.get(choice_index).map(|c| format!("Gain {:?} crystal", c))
+        }
+        ChoiceResolution::ManaMeltdownColorSelect { available_colors } => {
+            available_colors.get(choice_index).map(|c| format!("Sacrifice {:?} crystals", c))
+        }
+        ChoiceResolution::UniversalPowerMana { available_colors } => {
+            available_colors.get(choice_index).map(|c| format!("Spend {:?} mana", c))
+        }
+        ChoiceResolution::ManaStormDieSelect { die_colors, .. } => {
+            die_colors.get(choice_index).map(|c| format!("Take {:?} die", c))
+        }
+        ChoiceResolution::ManaClaimDieSelect { die_colors, .. } => {
+            die_colors.get(choice_index).map(|c| format!("Claim {:?} die", c))
+        }
+        ChoiceResolution::SpellForgeCrystal { spell_entries, .. } => {
+            spell_entries.get(choice_index).map(|(_, c)| format!("Gain {:?} crystal", c))
+        }
+        ChoiceResolution::ReadyUnitTarget { eligible_unit_indices } => {
+            eligible_unit_indices.get(choice_index).and_then(|&idx| {
+                state.players[player_idx].units.get(idx)
+                    .map(|u| format!("Ready {}", u.unit_id))
+            })
+        }
+        ChoiceResolution::HealUnitTarget { eligible_unit_indices } => {
+            eligible_unit_indices.get(choice_index).and_then(|&idx| {
+                state.players[player_idx].units.get(idx)
+                    .map(|u| format!("Heal {}", u.unit_id))
+            })
+        }
+        ChoiceResolution::EnergyFlowTarget { eligible_unit_indices, .. }
+        | ChoiceResolution::SelectUnitModifier { eligible_unit_indices } => {
+            eligible_unit_indices.get(choice_index).and_then(|&idx| {
+                state.players[player_idx].units.get(idx)
+                    .map(|u| format!("Select {}", u.unit_id))
+            })
+        }
+        ChoiceResolution::ReadyUnitsBudgetSelect { eligible_unit_indices, .. } => {
+            if choice_index == 0 {
+                Some("Done".to_string())
+            } else {
+                eligible_unit_indices.get(choice_index - 1).and_then(|&idx| {
+                    state.players[player_idx].units.get(idx)
+                        .map(|u| format!("Ready {}", u.unit_id))
+                })
+            }
+        }
+        ChoiceResolution::CallToArmsUnitSelect { eligible_unit_indices }
+        | ChoiceResolution::FreeRecruitTarget { eligible_unit_indices } => {
+            eligible_unit_indices.get(choice_index).and_then(|&idx| {
+                state.offers.units.get(idx).map(|uid| format!("Select {}", uid))
+            })
+        }
+        ChoiceResolution::CallToArmsAbilitySelect { ability_entries } => {
+            ability_entries.get(choice_index).map(|(_, effect)| format!("{:?}", effect))
+        }
+        ChoiceResolution::DuelingTarget { eligible_enemy_ids }
+        | ChoiceResolution::KnowYourPreyTarget { eligible_enemy_ids }
+        | ChoiceResolution::NaturesVengeanceTarget { eligible_enemy_ids, .. } => {
+            eligible_enemy_ids.get(choice_index).map(|id| {
+                format!("Target {}", enemy_name_for_desc(id, state))
+            })
+        }
+        ChoiceResolution::CurseTarget { eligible_enemy_ids } => {
+            eligible_enemy_ids.get(choice_index).map(|id| {
+                format!("Curse {}", enemy_name_for_desc(id, state))
+            })
+        }
+        ChoiceResolution::PossessEnemyTarget { eligible_enemy_ids } => {
+            eligible_enemy_ids.get(choice_index).map(|id| {
+                format!("Possess {}", enemy_name_for_desc(id, state))
+            })
+        }
+        ChoiceResolution::ForkedLightningTarget { remaining, already_targeted } => {
+            if let Some(ref combat) = state.combat {
+                let eligible: Vec<String> = combat.enemies.iter()
+                    .filter(|e| !e.is_defeated && !already_targeted.contains(&e.instance_id.as_str().to_string()))
+                    .map(|e| e.instance_id.as_str().to_string())
+                    .collect();
+                if *remaining < 3 && choice_index == eligible.len() {
+                    Some("Done".to_string())
+                } else {
+                    eligible.get(choice_index).map(|id| {
+                        format!("Target {}", enemy_name_for_desc(id, state))
+                    })
+                }
+            } else {
+                None
+            }
+        }
+        ChoiceResolution::WingsOfNightTarget { eligible_enemy_ids, targets_so_far } => {
+            if *targets_so_far > 0 && choice_index == 0 {
+                Some("Done".to_string())
+            } else {
+                let offset = if *targets_so_far > 0 { 1 } else { 0 };
+                eligible_enemy_ids.get(choice_index - offset).map(|id| {
+                    format!("Target {}", enemy_name_for_desc(id, state))
+                })
+            }
+        }
+        // Card-targeting resolutions
+        ChoiceResolution::BoostTarget { eligible_hand_indices } => {
+            eligible_hand_indices.get(choice_index).and_then(|&idx| {
+                state.players[player_idx].hand.get(idx)
+                    .map(|cid| format!("Boost {}", cid))
+            })
+        }
+        ChoiceResolution::DiscardThenContinue { eligible_indices } => {
+            eligible_indices.get(choice_index).and_then(|&idx| {
+                state.players[player_idx].hand.get(idx)
+                    .map(|cid| format!("Discard {}", cid))
+            })
+        }
+        ChoiceResolution::ShapeshiftCardSelect { options } => {
+            options.get(choice_index).map(|opt| format!("Transform {}", opt.card_id))
+        }
+        ChoiceResolution::DiscardForCrystalSelect { eligible_card_ids, optional } => {
+            if *optional && choice_index == 0 {
+                Some("Skip".to_string())
+            } else {
+                let offset = if *optional { 1 } else { 0 };
+                eligible_card_ids.get(choice_index - offset)
+                    .map(|cid| format!("Discard {}", cid))
+            }
+        }
+        ChoiceResolution::InvocationDiscard { options } => {
+            options.get(choice_index).map(|opt| {
+                format!("Discard {} for {:?} mana", opt.card_id, opt.mana_color)
+            })
+        }
+        ChoiceResolution::MagicTalentSpellSelect { spell_entries } => {
+            spell_entries.get(choice_index).map(|(_, spell_id, _)| {
+                format!("Cast {}", spell_id)
+            })
+        }
+        ChoiceResolution::MagicTalentGainSelect { gain_entries } => {
+            gain_entries.get(choice_index).map(|(_, spell_id, color)| {
+                format!("Gain {} (spend {:?})", spell_id, color)
+            })
+        }
+        // Mana/token-targeting resolutions
+        ChoiceResolution::PureMagicConsume { token_colors } => {
+            token_colors.get(choice_index).map(|c| format!("Spend {:?} mana", c))
+        }
+        ChoiceResolution::ManaBoltTokenSelect { token_options } => {
+            token_options.get(choice_index).map(|(color, ..)| format!("Spend {:?} mana", color))
+        }
+        ChoiceResolution::SacrificePairSelect { pair_options } => {
+            pair_options.get(choice_index).map(|(a, b, ..)| format!("Sacrifice {:?}+{:?}", a, b))
+        }
+        ChoiceResolution::RegenerateMana { sources, .. } => {
+            sources.get(choice_index).map(|src| match src {
+                mk_types::pending::RegenerateManaSource::Token(c) => format!("Spend {:?} token", c),
+                mk_types::pending::RegenerateManaSource::Crystal(c) => format!("Spend {:?} crystal", c),
+                mk_types::pending::RegenerateManaSource::SourceDie(c) => format!("Take {:?} die", c),
+            })
+        }
+        ChoiceResolution::ManaSourceSelect { sources, .. } => {
+            sources.get(choice_index).map(|src| format!("Spend {:?} {:?}", src.color, src.source_type))
+        }
+        ChoiceResolution::PolarizationConvert { options } => {
+            options.get(choice_index).map(|opt| {
+                format!("{:?} {:?} → {:?}", opt.source_type, opt.source_color, opt.target_color)
+            })
+        }
+        ChoiceResolution::MindReadColorSelect => {
+            ["Red", "Blue", "Green", "White"].get(choice_index).map(|c| format!("Gain {} crystal", c))
+        }
+        ChoiceResolution::ManaClaimModeSelect { color, .. } => {
+            Some(if choice_index == 0 {
+                format!("Burst: gain 3 {:?} tokens", color)
+            } else {
+                format!("Sustained: gain 1 {:?} token/turn", color)
+            })
+        }
+        ChoiceResolution::SecretWaysLake | ChoiceResolution::SongOfWindLake => {
+            Some(if choice_index == 0 { "Skip".to_string() } else { "Pay Blue mana for lake movement".to_string() })
+        }
+        ChoiceResolution::RitualOfPainDiscard { .. } => {
+            Some(if choice_index == 0 { "Skip".to_string() } else { format!("Discard {} wound(s)", choice_index) })
+        }
+        ChoiceResolution::CurseMode { .. } => {
+            Some(if choice_index == 0 { "Attack -2".to_string() } else { "Armor -1".to_string() })
+        }
+        ChoiceResolution::CurseAttackIndex { .. } => {
+            Some(format!("Target attack {}", choice_index + 1))
+        }
+        ChoiceResolution::PuppetMasterSelectToken { token_indices } => {
+            token_indices.get(choice_index).and_then(|&idx| {
+                state.players[player_idx].kept_enemy_tokens.get(idx)
+                    .map(|eid| format!("Use {} token", eid.name))
+            })
+        }
+        ChoiceResolution::PuppetMasterUseMode { attack_value, attack_element, block_value, block_element, .. } => {
+            Some(if choice_index == 0 {
+                format!("{} {:?} Attack", attack_value, attack_element)
+            } else {
+                format!("{} {:?} Block", block_value, block_element)
+            })
+        }
+        ChoiceResolution::ShapeshiftTypeSelect { original_type, amount, .. } => {
+            use mk_types::modifier::ShapeshiftTarget;
+            let all = [ShapeshiftTarget::Move, ShapeshiftTarget::Attack, ShapeshiftTarget::Block];
+            let available: Vec<_> = all.iter().filter(|&&t| t != *original_type).collect();
+            available.get(choice_index).map(|t| format!("{} {:?}", amount, t))
+        }
+        ChoiceResolution::KnowYourPreyOption { options, .. } => {
+            options.get(choice_index).map(|opt| match opt {
+                mk_types::pending::KnowYourPreyApplyOption::NullifyAbility { ability } => format!("Nullify {:?}", ability),
+                mk_types::pending::KnowYourPreyApplyOption::RemoveResistance { element } => format!("Remove {:?} resistance", element),
+                mk_types::pending::KnowYourPreyApplyOption::ConvertElement { from, to } => format!("Convert {:?} → {:?}", from, to),
+            })
+        }
+        ChoiceResolution::SourceOpeningDieSelect { die_ids } => {
+            if choice_index == 0 {
+                Some("Skip".to_string())
+            } else {
+                die_ids.get(choice_index - 1).and_then(|die_id| {
+                    state.source.dice.iter().find(|d| d.id.as_str() == die_id.as_str())
+                        .map(|die| format!("Reroll {:?} die", die.color))
+                })
+            }
+        }
+        ChoiceResolution::PeacefulMomentConversion { option_map, .. } => {
+            option_map.get(choice_index).map(|opt| match opt {
+                mk_types::pending::PeacefulMomentOption::Done => "Done".to_string(),
+                mk_types::pending::PeacefulMomentOption::HealWound => "Heal wound".to_string(),
+                mk_types::pending::PeacefulMomentOption::RefreshUnit => "Refresh unit".to_string(),
+                mk_types::pending::PeacefulMomentOption::HealUnit { unit_index } => {
+                    state.players[player_idx].units.get(*unit_index)
+                        .map(|u| format!("Heal {}", u.unit_id))
+                        .unwrap_or_else(|| "Heal unit".to_string())
+                }
+            })
+        }
+        _ => None,
+    }
+}
 
 // Test-only re-exports: private helper functions used directly in tests
 #[cfg(test)]

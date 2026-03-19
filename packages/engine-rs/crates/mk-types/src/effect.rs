@@ -697,6 +697,9 @@ impl CardEffect {
                 if descs.is_empty() { None } else { Some(descs.join(" OR ")) }
             }
             CardEffect::Conditional { then_effect, .. } => then_effect.describe(),
+            CardEffect::Other { effect_type: EffectType::TerrainBasedBlock } => {
+                Some("Block (terrain cost)".to_string())
+            }
             _ => None,
         }
     }
