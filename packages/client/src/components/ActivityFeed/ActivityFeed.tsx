@@ -15,7 +15,6 @@ export function ActivityFeed() {
   const { state, events } = useGame();
   const [collapsed, setCollapsed] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const prevMessageCountRef = useRef(0);
 
   // Build players list for narration from state
   const players: NarrationPlayer[] = useMemo(() => {
@@ -36,14 +35,15 @@ export function ActivityFeed() {
     return result.slice(-MAX_MESSAGES);
   }, [events, players]);
 
-  // Auto-scroll to bottom when new messages appear
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
     const el = messagesContainerRef.current;
-    if (el && messages.length > prevMessageCountRef.current) {
+    if (!el) return;
+    // Use rAF to ensure DOM has rendered new content before scrolling
+    requestAnimationFrame(() => {
       el.scrollTop = el.scrollHeight;
-    }
-    prevMessageCountRef.current = messages.length;
-  }, [messages.length]);
+    });
+  }, [messages]);
 
   // Keyboard shortcut: L to toggle
   useEffect(() => {
