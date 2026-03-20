@@ -1534,3 +1534,50 @@ fn march_powered_pruned_during_rest() {
     );
     assert!(!march_powered, "march powered (Move 4) should be pruned during rest");
 }
+
+#[test]
+fn move_only_cards_pruned_after_combat() {
+    // After combat, HAS_TAKEN_ACTION_THIS_TURN is set. Pure-move cards
+    // (basic and powered) should be pruned since movement is impossible.
+    let mut state = setup_game(vec!["march", "stamina"]);
+    state.players[0]
+        .flags
+        .insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+    state.players[0]
+        .flags
+        .insert(PlayerFlags::HAS_COMBATTED_THIS_TURN);
+    state.players[0].pure_mana.push(mk_types::state::ManaToken {
+        color: ManaColor::Green,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+    state.players[0].pure_mana.push(mk_types::state::ManaToken {
+        color: ManaColor::Blue,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
+
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let march_basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "march"),
+    );
+    let march_powered = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "march"),
+    );
+    let stamina_basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "stamina"),
+    );
+    let stamina_powered = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "stamina"),
+    );
+    let sideways_move = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardSideways { sideways_as: SidewaysAs::Move, .. }),
+    );
+
+    assert!(!march_basic, "march basic (Move 2) should be pruned after combat");
+    assert!(!march_powered, "march powered (Move 4) should be pruned after combat");
+    assert!(!stamina_basic, "stamina basic (Move 2) should be pruned after combat");
+    assert!(!stamina_powered, "stamina powered (Move 4) should be pruned after combat");
+    assert!(!sideways_move, "sideways move should be pruned after combat");
+}

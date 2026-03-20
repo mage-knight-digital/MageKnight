@@ -12,12 +12,13 @@ from dataclasses import dataclass
 # Embedding-based encoding constants
 # ---------------------------------------------------------------------------
 
-STATE_SCALAR_DIM = 85
+STATE_SCALAR_DIM = 91
 ACTION_SCALAR_DIM = 34
-SITE_SCALAR_DIM = 6   # per-site scalars for map pool
+SITE_SCALAR_DIM = 8   # per-site scalars for map pool
 MAP_ENEMY_SCALAR_DIM = 11  # per-enemy scalars for map enemy pool
 COMBAT_ENEMY_SCALAR_DIM = 20  # per-enemy scalars for combat pool
 UNIT_SCALAR_DIM = 2  # per-unit scalars [is_ready, is_wounded]
+HEX_SCALAR_DIM = 7   # per-hex scalars for revealed hex terrain pool
 
 
 # ============================================================================
@@ -46,6 +47,9 @@ class StateFeatures:
     visible_site_scalars: list[list[float]] # SITE_SCALAR_DIM floats per site
     map_enemy_ids: list[int]                # ENEMY_VOCAB indices per map enemy
     map_enemy_scalars: list[list[float]]    # MAP_ENEMY_SCALAR_DIM floats per map enemy
+    # Revealed hex terrain pool (9th entity pool)
+    revealed_hex_terrain_ids: list[int]     # TERRAIN_VOCAB indices per revealed hex
+    revealed_hex_scalars: list[list[float]] # HEX_SCALAR_DIM floats per hex
 
 
 @dataclass(frozen=True)

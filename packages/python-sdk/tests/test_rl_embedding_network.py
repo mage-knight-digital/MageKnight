@@ -10,6 +10,7 @@ import torch
 from mage_knight_sdk.sim.rl.features import (
     ACTION_SCALAR_DIM,
     COMBAT_ENEMY_SCALAR_DIM,
+    HEX_SCALAR_DIM,
     MAP_ENEMY_SCALAR_DIM,
     SITE_SCALAR_DIM,
     STATE_SCALAR_DIM,
@@ -44,6 +45,8 @@ def _make_state_features() -> StateFeatures:
         visible_site_scalars=[[0.0] * SITE_SCALAR_DIM],
         map_enemy_ids=[1],
         map_enemy_scalars=[[0.0] * MAP_ENEMY_SCALAR_DIM],
+        revealed_hex_terrain_ids=[1, 2],
+        revealed_hex_scalars=[[0.0] * HEX_SCALAR_DIM, [0.0] * HEX_SCALAR_DIM],
     )
 
 
@@ -114,8 +117,8 @@ class EmbeddingNetworkForwardTest(unittest.TestCase):
         """Verify the network's actual state input dimension matches formula."""
         emb_dim = 8
         d_model = 32
-        # scalars + 3 fixed embs (mode, terrain, site) + 8 pool summaries
-        expected_dim = STATE_SCALAR_DIM + 3 * emb_dim + 8 * d_model
+        # scalars + 3 fixed embs (mode, terrain, site) + 9 pool summaries
+        expected_dim = STATE_SCALAR_DIM + 3 * emb_dim + 9 * d_model
         net = _EmbeddingActionScoringNetwork(
             hidden_size=64, emb_dim=emb_dim, d_model=d_model,
         )
@@ -282,7 +285,7 @@ class EmbeddingNetworkForwardTest(unittest.TestCase):
         emb_dim = 8
         hidden = 64
         d_model = 32
-        expected_dim = STATE_SCALAR_DIM + 3 * emb_dim + 8 * d_model
+        expected_dim = STATE_SCALAR_DIM + 3 * emb_dim + 9 * d_model
         net1 = _EmbeddingActionScoringNetwork(
             hidden_size=hidden, emb_dim=emb_dim, num_hidden_layers=1, d_model=d_model,
         )
@@ -323,9 +326,9 @@ class EmbeddingNetworkForwardTest(unittest.TestCase):
         step = _make_step()
         device = torch.device("cpu")
         _, entity_seq, entity_mask = net.encode_state(step, device)
-        # hand=3 + deck=3 + discard=2 + unit=1 + combat=0 + skill=2 + site=1 + map_enemy=1 = 13
-        self.assertEqual(int(entity_mask.sum().item()), 13)
-        self.assertEqual(entity_seq.shape[1], 13)
+        # hand=3 + deck=3 + discard=2 + unit=1 + combat=0 + skill=2 + site=1 + map_enemy=1 + hex=2 = 15
+        self.assertEqual(int(entity_mask.sum().item()), 15)
+        self.assertEqual(entity_seq.shape[1], 15)
 
     def test_all_pools_empty_doesnt_crash(self) -> None:
         """State with every pool empty should still produce finite outputs."""
@@ -346,6 +349,8 @@ class EmbeddingNetworkForwardTest(unittest.TestCase):
             visible_site_scalars=[],
             map_enemy_ids=[],
             map_enemy_scalars=[],
+            revealed_hex_terrain_ids=[],
+            revealed_hex_scalars=[],
         )
         step = EncodedStep(state=sf, actions=_make_actions())
         net = _EmbeddingActionScoringNetwork(hidden_size=64, emb_dim=8, d_model=32)

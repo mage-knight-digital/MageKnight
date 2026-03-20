@@ -166,9 +166,9 @@ class VocabSyncWithRustTest(unittest.TestCase):
 
 class DimensionConstantsTest(unittest.TestCase):
     def test_dimensions(self) -> None:
-        self.assertEqual(STATE_SCALAR_DIM, 85)
+        self.assertEqual(STATE_SCALAR_DIM, 91)
         self.assertEqual(ACTION_SCALAR_DIM, 34)
-        self.assertEqual(SITE_SCALAR_DIM, 6)
+        self.assertEqual(SITE_SCALAR_DIM, 8)
         self.assertEqual(MAP_ENEMY_SCALAR_DIM, 11)
         self.assertEqual(COMBAT_ENEMY_SCALAR_DIM, 20)
 

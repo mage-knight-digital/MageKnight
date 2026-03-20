@@ -686,7 +686,74 @@ impl CardEffect {
                 if *amount >= 0 { Some(format!("Reputation +{amount}")) }
                 else { Some(format!("Reputation {amount}")) }
             }
+            CardEffect::GainCrystal { color } => {
+                match color {
+                    Some(c) => Some(format!("{:?} Crystal", c)),
+                    None => Some("Crystal (any color)".to_string()),
+                }
+            }
             CardEffect::TakeWound => Some("Take wound".to_string()),
+            CardEffect::ReadyUnit { .. } => Some("Ready unit".to_string()),
+            CardEffect::HealUnit { .. } => Some("Heal unit".to_string()),
+            CardEffect::Cure { amount } => {
+                if *amount == 1 { Some("Cure 1 wound".to_string()) }
+                else { Some(format!("Cure up to {amount} wounds")) }
+            }
+            CardEffect::CardBoost { bonus } => Some(format!("Card +{bonus}")),
+            CardEffect::HandLimitBonus { bonus } => Some(format!("Hand Limit +{bonus}")),
+            CardEffect::GainBlockElement { amount, element } => {
+                let elem = match element {
+                    Element::Physical => "",
+                    Element::Fire => " Fire",
+                    Element::Ice => " Ice",
+                    Element::ColdFire => " ColdFire",
+                };
+                Some(format!("Block {amount}{elem}"))
+            }
+            CardEffect::ConvertManaToCrystal => Some("Crystallize mana".to_string()),
+            CardEffect::Training { .. } => Some("Train unit".to_string()),
+            CardEffect::Decompose { .. } => Some("Decompose card".to_string()),
+            CardEffect::EnergyFlow { heal } => {
+                if *heal { Some("Ready & heal unit".to_string()) }
+                else { Some("Ready unit".to_string()) }
+            }
+            CardEffect::PureMagic { .. } => Some("Pure Magic".to_string()),
+            CardEffect::Disease => Some("Disease (set armor to 1)".to_string()),
+            CardEffect::DiscardForCrystal { .. } => Some("Discard for crystal".to_string()),
+            CardEffect::Sacrifice => Some("Sacrifice crystals".to_string()),
+            CardEffect::AttackWithDefeatBonus { amount, element, combat_type, .. } => {
+                let combat = match combat_type {
+                    CombatType::Melee => "",
+                    CombatType::Ranged => "Ranged ",
+                    CombatType::Siege => "Siege ",
+                };
+                let elem = match element {
+                    Element::Physical => "",
+                    Element::Fire => " Fire",
+                    Element::Ice => " Ice",
+                    Element::ColdFire => " ColdFire",
+                };
+                Some(format!("{combat}Attack {amount}{elem} (with bonus)"))
+            }
+            CardEffect::ReadyUnitsBudget { total_levels } => {
+                Some(format!("Ready units (up to {total_levels} levels)"))
+            }
+            CardEffect::RollForCrystals { .. } => Some("Roll for crystals".to_string()),
+            CardEffect::ApplyModifier { effect, .. } => {
+                use crate::modifier::ModifierEffect;
+                match effect {
+                    ModifierEffect::LeadershipBonus { bonus_type, amount } => {
+                        use crate::modifier::LeadershipBonusType;
+                        let label = match bonus_type {
+                            LeadershipBonusType::Block => "Block",
+                            LeadershipBonusType::Attack => "Attack",
+                            LeadershipBonusType::RangedAttack => "Ranged Attack",
+                        };
+                        Some(format!("Units {label} +{amount}"))
+                    }
+                    _ => None,
+                }
+            }
             CardEffect::Noop => None,
             CardEffect::Compound { effects } => {
                 let descs: Vec<String> = effects.iter().filter_map(|e| e.describe()).collect();
@@ -697,6 +764,7 @@ impl CardEffect {
                 if descs.is_empty() { None } else { Some(descs.join(" OR ")) }
             }
             CardEffect::Conditional { then_effect, .. } => then_effect.describe(),
+            CardEffect::Scaling { base_effect, .. } => base_effect.describe(),
             CardEffect::Other { effect_type: EffectType::TerrainBasedBlock } => {
                 Some("Block (terrain cost)".to_string())
             }

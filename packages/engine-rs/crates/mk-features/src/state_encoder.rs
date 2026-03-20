@@ -1,8 +1,9 @@
-//! State encoder — produces StateFeatures (85 scalars + entity pools).
+//! State encoder — produces StateFeatures (91 scalars + entity pools).
 //!
 //! Directly accesses Rust structs instead of crawling JSON dicts.
 
 use mk_data::enemies::{get_enemy, EnemyDefinition};
+use mk_engine::movement::evaluate_move_entry;
 use mk_types::enums::{
     CombatPhase, Element, EnemyAbilityType, EnemyColor, ManaColor, ResistanceElement,
     SiteType, Terrain, TimeOfDay,
@@ -27,7 +28,7 @@ pub fn encode_state(state: &GameState, player_idx: usize) -> StateFeatures {
         extract_combat(state, player); // 10
     let (hex_scalars, current_terrain_id, current_site_type_id) =
         extract_current_hex(state, pos); // 3
-    let neighbor_scalars = extract_neighbors(state, pos); // 24
+    let neighbor_scalars = extract_neighbors(state, player_idx, pos); // 30
     let global_spatial = extract_global_spatial(state, pos); // 5
     let mana_source = extract_mana_source(state); // 7
 
@@ -46,7 +47,7 @@ pub fn encode_state(state: &GameState, player_idx: usize) -> StateFeatures {
         0.0
     };
 
-    let mut scalars = Vec::with_capacity(85);
+    let mut scalars = Vec::with_capacity(91);
     scalars.extend_from_slice(&player_core);
     scalars.extend_from_slice(&resources);
     scalars.extend_from_slice(&tempo);
@@ -63,8 +64,11 @@ pub fn encode_state(state: &GameState, player_idx: usize) -> StateFeatures {
     let discard_card_ids = extract_discard_card_ids(player);
     let (unit_ids, unit_scalars) = extract_units(player);
     let skill_ids = extract_skill_ids(player);
-    let (visible_site_ids, visible_site_scalars) = extract_visible_sites(state, pos);
+    let (visible_site_ids, visible_site_scalars) =
+        extract_visible_sites(state, player_idx, pos);
     let (map_enemy_ids, map_enemy_scalars) = extract_map_enemies(state, pos);
+    let (revealed_hex_terrain_ids, revealed_hex_scalars) =
+        extract_revealed_hexes(state, player_idx, pos);
 
     StateFeatures {
         scalars,
@@ -83,6 +87,8 @@ pub fn encode_state(state: &GameState, player_idx: usize) -> StateFeatures {
         visible_site_scalars,
         map_enemy_ids,
         map_enemy_scalars,
+        revealed_hex_terrain_ids,
+        revealed_hex_scalars,
     }
 }
 
@@ -385,12 +391,11 @@ fn extract_current_hex(state: &GameState, pos: HexCoord) -> ([f32; 3], u16, u16)
 }
 
 // =============================================================================
-// Neighbors (24 scalars: 6 directions × 4)
+// Neighbors (30 scalars: 6 directions × 5)
 // =============================================================================
 
-fn extract_neighbors(state: &GameState, pos: HexCoord) -> [f32; 24] {
-    let mut result = [0.0f32; 24];
-    // Use E, NE, NW, W, SW, SE order to match Python _NEIGHBOR_OFFSETS
+fn extract_neighbors(state: &GameState, player_idx: usize, pos: HexCoord) -> [f32; 30] {
+    let mut result = [0.0f32; 30];
     let directions = [
         HexDirection::E,
         HexDirection::NE,
@@ -404,8 +409,15 @@ fn extract_neighbors(state: &GameState, pos: HexCoord) -> [f32; 24] {
         let neighbor = pos.neighbor(*dir);
         let key = neighbor.key();
         if let Some(hex) = state.map.hexes.get(&key) {
-            let base = i * 4;
-            result[base] = terrain_difficulty(hex.terrain);
+            let base = i * 5;
+            let move_result = evaluate_move_entry(state, player_idx, neighbor);
+            if let Some(cost) = move_result.cost {
+                result[base] = scale(cost as f32, 10.0); // actual_cost / 10
+                result[base + 4] = 0.0; // not impassable
+            } else {
+                result[base] = 0.0;
+                result[base + 4] = 1.0; // is_impassable
+            }
             result[base + 1] = if hex.site.is_some() { 1.0 } else { 0.0 };
             result[base + 2] = if !hex.enemies.is_empty() || !hex.rampaging_enemies.is_empty() {
                 1.0
@@ -414,7 +426,7 @@ fn extract_neighbors(state: &GameState, pos: HexCoord) -> [f32; 24] {
             };
             result[base + 3] = 1.0; // hex exists
         }
-        // Else: all zeros (hex doesn't exist)
+        // Else: all zeros (hex doesn't exist / not revealed)
     }
 
     result
@@ -531,6 +543,7 @@ fn extract_skill_ids(player: &PlayerState) -> Vec<u16> {
 
 fn extract_visible_sites(
     state: &GameState,
+    player_idx: usize,
     pos: HexCoord,
 ) -> (Vec<u16>, Vec<Vec<f32>>) {
     let mut site_ids = Vec::new();
@@ -544,6 +557,12 @@ fn extract_visible_sites(
             let enemy_count = hex.enemies.len() as f32 + hex.rampaging_enemies.len() as f32;
             let is_conquered = if site.is_conquered { 1.0 } else { 0.0 };
             let is_rampaging = if !hex.rampaging_enemies.is_empty() { 1.0 } else { 0.0 };
+            let move_result = evaluate_move_entry(state, player_idx, hex.coord);
+            let (move_cost, is_impassable) = if let Some(c) = move_result.cost {
+                (c as f32, 0.0)
+            } else {
+                (0.0, 1.0)
+            };
 
             site_ids.push(SITE_VOCAB.encode(site_type_to_str(site.site_type)));
             site_scalars.push(vec![
@@ -553,6 +572,8 @@ fn extract_visible_sites(
                 scale(enemy_count, 5.0),
                 is_conquered,
                 is_rampaging,
+                scale(move_cost, 10.0),
+                is_impassable,
             ]);
         }
     }
@@ -610,6 +631,50 @@ fn extract_map_enemies(
     }
 
     (enemy_ids, enemy_scalars)
+}
+
+// =============================================================================
+// Revealed Hexes (9th entity pool — all revealed map hexes)
+// =============================================================================
+
+fn extract_revealed_hexes(
+    state: &GameState,
+    player_idx: usize,
+    pos: HexCoord,
+) -> (Vec<u16>, Vec<Vec<f32>>) {
+    let mut terrain_ids = Vec::new();
+    let mut hex_scalars = Vec::new();
+
+    for hex in state.map.hexes.values() {
+        let dist = pos.distance(hex.coord) as f32;
+        let dq = (hex.coord.q - pos.q) as f32;
+        let dr = (hex.coord.r - pos.r) as f32;
+        let move_result = evaluate_move_entry(state, player_idx, hex.coord);
+        let (move_cost, is_impassable) = if let Some(c) = move_result.cost {
+            (c as f32, 0.0)
+        } else {
+            (0.0, 1.0)
+        };
+        let has_site = if hex.site.is_some() { 1.0 } else { 0.0 };
+        let has_enemies = if !hex.enemies.is_empty() || !hex.rampaging_enemies.is_empty() {
+            1.0
+        } else {
+            0.0
+        };
+
+        terrain_ids.push(terrain_str(hex.terrain));
+        hex_scalars.push(vec![
+            scale(dist, 15.0),
+            scale(dq, 10.0),
+            scale(dr, 10.0),
+            scale(move_cost, 10.0),
+            has_site,
+            has_enemies,
+            is_impassable,
+        ]);
+    }
+
+    (terrain_ids, hex_scalars)
 }
 
 // =============================================================================
@@ -688,11 +753,11 @@ mod tests {
     use mk_types::enums::Hero;
 
     #[test]
-    fn encode_state_produces_85_scalars() {
+    fn encode_state_produces_91_scalars() {
         let mut state = create_solo_game(42, Hero::Arythea);
         place_initial_tiles(&mut state);
         let features = encode_state(&state, 0);
-        assert_eq!(features.scalars.len(), 85);
+        assert_eq!(features.scalars.len(), 91);
     }
 
     #[test]

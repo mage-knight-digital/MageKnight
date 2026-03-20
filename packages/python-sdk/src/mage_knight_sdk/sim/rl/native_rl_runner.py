@@ -73,6 +73,8 @@ def py_encoded_to_encoded_step(py_encoded: Any) -> EncodedStep:
         visible_site_scalars=py_encoded.visible_site_scalars(),
         map_enemy_ids=py_encoded.map_enemy_ids(),
         map_enemy_scalars=py_encoded.map_enemy_scalars(),
+        revealed_hex_terrain_ids=py_encoded.revealed_hex_terrain_ids(),
+        revealed_hex_scalars=py_encoded.revealed_hex_scalars(),
     )
     type_ids = py_encoded.action_type_ids()
     source_ids = py_encoded.action_source_ids()

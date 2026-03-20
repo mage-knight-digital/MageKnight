@@ -40,6 +40,8 @@ class VecTransition:
     visible_site_scalars: np.ndarray   # (VS, SITE_SCALAR_DIM) float32
     map_enemy_ids: np.ndarray          # (ME,) int32
     map_enemy_scalars: np.ndarray      # (ME, MAP_ENEMY_SCALAR_DIM) float32
+    revealed_hex_terrain_ids: np.ndarray  # (RH,) int32
+    revealed_hex_scalars: np.ndarray      # (RH, HEX_SCALAR_DIM) float32
 
     # Action: numpy arrays (trimmed to actual count)
     action_ids: np.ndarray             # (A, 6) int32
@@ -70,6 +72,7 @@ def _extract_vec_transition(
     sc = int(batch_dict["skill_counts"][i])
     vsc = int(batch_dict["visible_site_counts"][i])
     mec = int(batch_dict["map_enemy_counts"][i])
+    rhc = int(batch_dict["revealed_hex_counts"][i])
     ac = int(batch_dict["action_counts"][i])
 
     n = batch_dict["state_scalars"].shape[0]
@@ -77,6 +80,7 @@ def _extract_vec_transition(
     max_ce = batch_dict["combat_enemy_ids"].shape[1]
     max_vs = batch_dict["visible_site_ids"].shape[1]
     max_me = batch_dict["map_enemy_ids"].shape[1]
+    max_rh = batch_dict["revealed_hex_terrain_ids"].shape[1]
 
     # Reshape 3D arrays that come as (N*max, dim) → index by env
     u_scalars_raw = batch_dict["unit_scalars"]
@@ -90,6 +94,9 @@ def _extract_vec_transition(
 
     me_scalars_raw = batch_dict["map_enemy_scalars"]
     me_scalars_3d = me_scalars_raw.reshape(n, max_me, -1)
+
+    rh_scalars_raw = batch_dict["revealed_hex_scalars"]
+    rh_scalars_3d = rh_scalars_raw.reshape(n, max_rh, -1)
 
     # Action arrays come as (N*max_M, dim)
     max_m = batch_dict["action_ids"].shape[0] // n
@@ -111,6 +118,8 @@ def _extract_vec_transition(
         visible_site_scalars=vs_scalars_3d[i, :vsc].copy(),
         map_enemy_ids=batch_dict["map_enemy_ids"][i, :mec].copy(),
         map_enemy_scalars=me_scalars_3d[i, :mec].copy(),
+        revealed_hex_terrain_ids=batch_dict["revealed_hex_terrain_ids"][i, :rhc].copy(),
+        revealed_hex_scalars=rh_scalars_3d[i, :rhc].copy(),
         action_ids=action_ids_3d[i, :ac].copy(),
         action_scalars=action_scalars_3d[i, :ac].copy(),
         action_index=action_index,
@@ -139,6 +148,8 @@ def vec_transition_to_transition(vt: VecTransition) -> Transition:
         visible_site_scalars=vt.visible_site_scalars.tolist(),
         map_enemy_ids=vt.map_enemy_ids.tolist(),
         map_enemy_scalars=vt.map_enemy_scalars.tolist(),
+        revealed_hex_terrain_ids=vt.revealed_hex_terrain_ids.tolist(),
+        revealed_hex_scalars=vt.revealed_hex_scalars.tolist(),
     )
     n_actions = vt.action_ids.shape[0]
     actions = []
@@ -521,6 +532,8 @@ def collect_vecenv_rollout(
                     visible_site_scalars=last.visible_site_scalars,
                     map_enemy_ids=last.map_enemy_ids,
                     map_enemy_scalars=last.map_enemy_scalars,
+                    revealed_hex_terrain_ids=last.revealed_hex_terrain_ids,
+                    revealed_hex_scalars=last.revealed_hex_scalars,
                     action_ids=last.action_ids,
                     action_scalars=last.action_scalars,
                     action_index=last.action_index,

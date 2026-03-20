@@ -11,7 +11,7 @@ use mk_types::hex::HexCoord;
 // =============================================================================
 
 /// Number of scalar features per state observation.
-pub const STATE_SCALAR_DIM: usize = 85;
+pub const STATE_SCALAR_DIM: usize = 91;
 
 /// Number of scalar features per action.
 pub const ACTION_SCALAR_DIM: usize = 34;
@@ -20,7 +20,10 @@ pub const ACTION_SCALAR_DIM: usize = 34;
 pub const COMBAT_ENEMY_SCALAR_DIM: usize = 20;
 
 /// Number of scalar features per visible site in the state pool.
-pub const SITE_SCALAR_DIM: usize = 6;
+pub const SITE_SCALAR_DIM: usize = 8;
+
+/// Number of scalar features per revealed hex in the terrain pool.
+pub const HEX_SCALAR_DIM: usize = 7;
 
 /// Number of scalar features per map enemy in the state pool.
 pub const MAP_ENEMY_SCALAR_DIM: usize = 11;
@@ -67,6 +70,10 @@ pub struct StateFeatures {
     pub map_enemy_ids: Vec<u16>,
     /// MAP_ENEMY_SCALAR_DIM floats per map enemy.
     pub map_enemy_scalars: Vec<Vec<f32>>,
+    /// TERRAIN_VOCAB indices for all revealed hexes on the map.
+    pub revealed_hex_terrain_ids: Vec<u16>,
+    /// HEX_SCALAR_DIM floats per revealed hex.
+    pub revealed_hex_scalars: Vec<Vec<f32>>,
 }
 
 /// Per-candidate action features.
@@ -183,11 +190,12 @@ mod tests {
 
     #[test]
     fn dimension_constants() {
-        assert_eq!(STATE_SCALAR_DIM, 85);
+        assert_eq!(STATE_SCALAR_DIM, 91);
         assert_eq!(ACTION_SCALAR_DIM, 34);
         assert_eq!(COMBAT_ENEMY_SCALAR_DIM, 20);
-        assert_eq!(SITE_SCALAR_DIM, 6);
+        assert_eq!(SITE_SCALAR_DIM, 8);
         assert_eq!(MAP_ENEMY_SCALAR_DIM, 11);
         assert_eq!(UNIT_SCALAR_DIM, 2);
+        assert_eq!(HEX_SCALAR_DIM, 7);
     }
 }

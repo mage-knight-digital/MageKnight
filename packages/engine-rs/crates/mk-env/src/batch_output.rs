@@ -1,7 +1,7 @@
 //! Batched output from VecEnv encoding — pre-padded arrays ready for numpy export.
 
 use mk_features::{
-    EncodedStep, ACTION_SCALAR_DIM, COMBAT_ENEMY_SCALAR_DIM,
+    EncodedStep, ACTION_SCALAR_DIM, COMBAT_ENEMY_SCALAR_DIM, HEX_SCALAR_DIM,
     MAP_ENEMY_SCALAR_DIM, SITE_SCALAR_DIM, STATE_SCALAR_DIM, UNIT_SCALAR_DIM,
 };
 
@@ -66,6 +66,13 @@ pub struct BatchOutput {
     /// (N, max_ME, MAP_ENEMY_SCALAR_DIM) f32
     pub map_enemy_scalars: Vec<f32>,
 
+    /// (N, max_RH) i32 — revealed hex terrain IDs
+    pub revealed_hex_terrain_ids: Vec<i32>,
+    pub revealed_hex_counts: Vec<i32>,
+    pub max_revealed_hexes: usize,
+    /// (N, max_RH, HEX_SCALAR_DIM) f32
+    pub revealed_hex_scalars: Vec<f32>,
+
     // ── Action features ────────────────────────────────────────────
     /// (N, max_M, 6) i32 — action vocab IDs, 0-padded
     pub action_ids: Vec<i32>,
@@ -99,6 +106,7 @@ impl BatchOutput {
         let mut max_skills = 0usize;
         let mut max_visible_sites = 0usize;
         let mut max_map_enemies = 0usize;
+        let mut max_revealed_hexes = 0usize;
         let mut max_actions = 0usize;
 
         for step in steps {
@@ -111,6 +119,7 @@ impl BatchOutput {
             max_skills = max_skills.max(s.skill_ids.len());
             max_visible_sites = max_visible_sites.max(s.visible_site_ids.len());
             max_map_enemies = max_map_enemies.max(s.map_enemy_ids.len());
+            max_revealed_hexes = max_revealed_hexes.max(s.revealed_hex_terrain_ids.len());
             max_actions = max_actions.max(step.actions.len());
         }
 
@@ -123,6 +132,7 @@ impl BatchOutput {
         let max_skills = max_skills.max(1);
         let max_visible_sites = max_visible_sites.max(1);
         let max_map_enemies = max_map_enemies.max(1);
+        let max_revealed_hexes = max_revealed_hexes.max(1);
         let max_actions = max_actions.max(1);
 
         // ── Pass 2: allocate and fill ──────────────────────────────
@@ -161,6 +171,11 @@ impl BatchOutput {
         let mut map_enemy_counts = Vec::with_capacity(n);
         let mut map_enemy_scalars_buf =
             vec![0.0f32; n * max_map_enemies * MAP_ENEMY_SCALAR_DIM];
+
+        let mut revealed_hex_terrain_ids_buf = vec![0i32; n * max_revealed_hexes];
+        let mut revealed_hex_counts = Vec::with_capacity(n);
+        let mut revealed_hex_scalars_buf =
+            vec![0.0f32; n * max_revealed_hexes * HEX_SCALAR_DIM];
 
         let mut action_ids_buf = vec![0i32; n * max_actions * 6];
         let mut action_scalars_buf = vec![0.0f32; n * max_actions * ACTION_SCALAR_DIM];
@@ -270,6 +285,20 @@ impl BatchOutput {
                     .copy_from_slice(scalars);
             }
 
+            // Revealed hexes
+            let rh = s.revealed_hex_terrain_ids.len();
+            revealed_hex_counts.push(rh as i32);
+            let rh_off = i * max_revealed_hexes;
+            for (j, &id) in s.revealed_hex_terrain_ids.iter().enumerate() {
+                revealed_hex_terrain_ids_buf[rh_off + j] = id as i32;
+            }
+            let rhs_off = i * max_revealed_hexes * HEX_SCALAR_DIM;
+            for (j, scalars) in s.revealed_hex_scalars.iter().enumerate() {
+                let row = rhs_off + j * HEX_SCALAR_DIM;
+                revealed_hex_scalars_buf[row..row + HEX_SCALAR_DIM]
+                    .copy_from_slice(scalars);
+            }
+
             // Actions
             let na = step.actions.len();
             action_counts_buf.push(na as i32);
@@ -337,6 +366,10 @@ impl BatchOutput {
             map_enemy_counts,
             max_map_enemies,
             map_enemy_scalars: map_enemy_scalars_buf,
+            revealed_hex_terrain_ids: revealed_hex_terrain_ids_buf,
+            revealed_hex_counts,
+            max_revealed_hexes,
+            revealed_hex_scalars: revealed_hex_scalars_buf,
             action_ids: action_ids_buf,
             action_scalars: action_scalars_buf,
             action_counts: action_counts_buf,

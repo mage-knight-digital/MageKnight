@@ -11,6 +11,7 @@ from torch import nn
 from .features import (
     ACTION_SCALAR_DIM,
     COMBAT_ENEMY_SCALAR_DIM,
+    HEX_SCALAR_DIM,
     MAP_ENEMY_SCALAR_DIM,
     SITE_SCALAR_DIM,
     STATE_SCALAR_DIM,
@@ -139,6 +140,8 @@ class TensorizedTransition:
     state_visible_site_scalars: np.ndarray  # (VS, SITE_SCALAR_DIM) float32
     state_map_enemy_ids: np.ndarray      # (ME,) int32
     state_map_enemy_scalars: np.ndarray  # (ME, MAP_ENEMY_SCALAR_DIM) float32
+    state_revealed_hex_terrain_ids: np.ndarray  # (RH,) int32
+    state_revealed_hex_scalars: np.ndarray      # (RH, HEX_SCALAR_DIM) float32
 
     # Action features (per-action, packed)
     action_ids: np.ndarray               # (A, 6) int32  [type, source, card, unit, enemy, skill]
@@ -174,6 +177,8 @@ def tensorize_transition(t: Transition) -> TensorizedTransition:
         state_visible_site_scalars=np.array(sf.visible_site_scalars, dtype=np.float32).reshape(-1, SITE_SCALAR_DIM) if sf.visible_site_scalars else np.empty((0, SITE_SCALAR_DIM), dtype=np.float32),
         state_map_enemy_ids=np.array(sf.map_enemy_ids, dtype=np.int32),
         state_map_enemy_scalars=np.array(sf.map_enemy_scalars, dtype=np.float32).reshape(-1, MAP_ENEMY_SCALAR_DIM) if sf.map_enemy_scalars else np.empty((0, MAP_ENEMY_SCALAR_DIM), dtype=np.float32),
+        state_revealed_hex_terrain_ids=np.array(sf.revealed_hex_terrain_ids, dtype=np.int32),
+        state_revealed_hex_scalars=np.array(sf.revealed_hex_scalars, dtype=np.float32).reshape(-1, HEX_SCALAR_DIM) if sf.revealed_hex_scalars else np.empty((0, HEX_SCALAR_DIM), dtype=np.float32),
         action_ids=np.array(
             [[a.action_type_id, a.source_id, a.card_id, a.unit_id, a.enemy_id, a.skill_id] for a in actions],
             dtype=np.int32,
@@ -209,6 +214,8 @@ def detensorize_transition(tt: TensorizedTransition) -> Transition:
         visible_site_scalars=tt.state_visible_site_scalars.tolist(),
         map_enemy_ids=tt.state_map_enemy_ids.tolist(),
         map_enemy_scalars=tt.state_map_enemy_scalars.tolist(),
+        revealed_hex_terrain_ids=tt.state_revealed_hex_terrain_ids.tolist(),
+        revealed_hex_scalars=tt.state_revealed_hex_scalars.tolist(),
     )
     n_actions = tt.action_ids.shape[0]
     actions = []
@@ -408,6 +415,7 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         self.site_emb = nn.Embedding(SITE_VOCAB.size, emb_dim)
         self.skill_emb = nn.Embedding(SKILL_VOCAB.size, emb_dim)
         self.map_site_emb = nn.Embedding(SITE_VOCAB.size, emb_dim)  # separate weights for map sites
+        self.hex_terrain_emb = nn.Embedding(TERRAIN_VOCAB.size, emb_dim)  # separate weights for hex terrain pool
 
         # Entity pool encoders (self-attention + PMA, replaces mean-pooling)
         self.hand_pool_enc = EntityPoolEncoder(emb_dim, d_model)
@@ -418,12 +426,13 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         self.map_enemy_pool_enc = EntityPoolEncoder(emb_dim + MAP_ENEMY_SCALAR_DIM, d_model)
         self.deck_pool_enc = EntityPoolEncoder(emb_dim, d_model)
         self.discard_pool_enc = EntityPoolEncoder(emb_dim, d_model)
+        self.hex_pool_enc = EntityPoolEncoder(emb_dim + HEX_SCALAR_DIM, d_model)
 
         # Entity type embeddings (added to per-entity vectors for cross-attention)
-        self.entity_type_emb = nn.Embedding(8, d_model)
+        self.entity_type_emb = nn.Embedding(9, d_model)
 
-        # State encoder: scalars + 3 fixed embs (mode, terrain, site) + 8 pool summaries
-        state_input_dim = STATE_SCALAR_DIM + 3 * emb_dim + 8 * d_model
+        # State encoder: scalars + 3 fixed embs (mode, terrain, site) + 9 pool summaries
+        state_input_dim = STATE_SCALAR_DIM + 3 * emb_dim + 9 * d_model
         self.state_encoder = _build_encoder(state_input_dim, hidden_size, num_hidden_layers)
 
         # Action encoder (unchanged)
@@ -554,7 +563,19 @@ class _EmbeddingActionScoringNetwork(nn.Module):
             di_m = torch.zeros(1, 0, dtype=torch.bool, device=device)
         _run_pool(self.discard_pool_enc, di_x, di_m, 7)
 
-        # Build state input: scalars + 3 fixed embs + 8 pool summaries
+        # Pool 8: revealed hexes (terrain embedding + scalars)
+        if sf.revealed_hex_terrain_ids:
+            rh_ids = torch.tensor(sf.revealed_hex_terrain_ids, dtype=torch.long, device=device)
+            rh_embs = self.hex_terrain_emb(rh_ids)
+            rh_sc = torch.tensor(sf.revealed_hex_scalars, dtype=torch.float32, device=device)
+            rh_x = torch.cat([rh_embs, rh_sc], dim=-1).unsqueeze(0)
+            rh_m = torch.ones(1, len(sf.revealed_hex_terrain_ids), dtype=torch.bool, device=device)
+        else:
+            rh_x = torch.zeros(1, 0, emb + HEX_SCALAR_DIM, device=device)
+            rh_m = torch.zeros(1, 0, dtype=torch.bool, device=device)
+        _run_pool(self.hex_pool_enc, rh_x, rh_m, 8)
+
+        # Build state input: scalars + 3 fixed embs + 9 pool summaries
         state_input = torch.cat([scalars, mode_vec, terrain_vec, site_vec, *summaries])
 
         # Build unified entity sequence for cross-attention
@@ -605,6 +626,8 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         visible_site_scalars: list[torch.Tensor] = []
         map_enemy_ids: list[torch.Tensor] = []
         map_enemy_scalars: list[torch.Tensor] = []
+        revealed_hex_terrain_ids: list[torch.Tensor] = []
+        revealed_hex_scalars: list[torch.Tensor] = []
 
         for t in transitions:
             sf = t.encoded_step.state
@@ -656,6 +679,14 @@ class _EmbeddingActionScoringNetwork(nn.Module):
                 torch.tensor(sf.map_enemy_scalars, dtype=torch.float32, device=device)
                 if sf.map_enemy_scalars else torch.empty(0, MAP_ENEMY_SCALAR_DIM, dtype=torch.float32, device=device)
             )
+            revealed_hex_terrain_ids.append(
+                torch.tensor(sf.revealed_hex_terrain_ids, dtype=torch.long, device=device)
+                if sf.revealed_hex_terrain_ids else torch.empty(0, dtype=torch.long, device=device)
+            )
+            revealed_hex_scalars.append(
+                torch.tensor(sf.revealed_hex_scalars, dtype=torch.float32, device=device)
+                if sf.revealed_hex_scalars else torch.empty(0, HEX_SCALAR_DIM, dtype=torch.float32, device=device)
+            )
 
         return {
             "scalars": scalars,
@@ -674,6 +705,8 @@ class _EmbeddingActionScoringNetwork(nn.Module):
             "visible_site_scalars": visible_site_scalars,
             "map_enemy_ids": map_enemy_ids,
             "map_enemy_scalars": map_enemy_scalars,
+            "revealed_hex_terrain_ids": revealed_hex_terrain_ids,
+            "revealed_hex_scalars": revealed_hex_scalars,
         }
 
     def _encode_state_inputs_batched(
@@ -789,6 +822,11 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         _pad_and_run_emb_scalar_pool(
             self.map_enemy_pool_enc, "map_enemy_ids", "map_enemy_scalars",
             self.enemy_emb, MAP_ENEMY_SCALAR_DIM, 5,
+        )
+        # Pool 8: revealed hexes (emb + scalars)
+        _pad_and_run_emb_scalar_pool(
+            self.hex_pool_enc, "revealed_hex_terrain_ids", "revealed_hex_scalars",
+            self.hex_terrain_emb, HEX_SCALAR_DIM, 8,
         )
 
         state_inputs = torch.cat(
@@ -1013,6 +1051,12 @@ class _EmbeddingActionScoringNetwork(nn.Module):
             self.map_enemy_pool_enc, batch_dict["map_enemy_ids"],
             batch_dict["map_enemy_counts"], batch_dict["map_enemy_scalars"],
             self.enemy_emb, MAP_ENEMY_SCALAR_DIM, 5,
+        )
+        # Pool 8: revealed hexes
+        _run_emb_scalar_pool(
+            self.hex_pool_enc, batch_dict["revealed_hex_terrain_ids"],
+            batch_dict["revealed_hex_counts"], batch_dict["revealed_hex_scalars"],
+            self.hex_terrain_emb, HEX_SCALAR_DIM, 8,
         )
 
         # Build state input and entity sequence

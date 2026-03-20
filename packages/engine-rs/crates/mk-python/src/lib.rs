@@ -155,6 +155,16 @@ impl PyEncodedStep {
         self.inner.state.map_enemy_scalars.clone()
     }
 
+    /// TERRAIN_VOCAB indices for all revealed hexes on the map.
+    fn revealed_hex_terrain_ids(&self) -> Vec<u16> {
+        self.inner.state.revealed_hex_terrain_ids.clone()
+    }
+
+    /// HEX_SCALAR_DIM floats per revealed hex (list of lists).
+    fn revealed_hex_scalars(&self) -> Vec<Vec<f32>> {
+        self.inner.state.revealed_hex_scalars.clone()
+    }
+
     // ── Action features ─────────────────────────────────────────────
 
     /// Number of legal actions.
@@ -886,6 +896,10 @@ impl PyVecEnv {
         dict.set_item("map_enemy_ids", vec_i32_to_numpy(py, &np, &batch.map_enemy_ids, &[n, batch.max_map_enemies])?)?;
         dict.set_item("map_enemy_counts", vec_i32_to_numpy(py, &np, &batch.map_enemy_counts, &[n])?)?;
         dict.set_item("map_enemy_scalars", vec_f32_to_numpy(py, &np, &batch.map_enemy_scalars, &[n * batch.max_map_enemies, mk_features::MAP_ENEMY_SCALAR_DIM])?)?;
+
+        dict.set_item("revealed_hex_terrain_ids", vec_i32_to_numpy(py, &np, &batch.revealed_hex_terrain_ids, &[n, batch.max_revealed_hexes])?)?;
+        dict.set_item("revealed_hex_counts", vec_i32_to_numpy(py, &np, &batch.revealed_hex_counts, &[n])?)?;
+        dict.set_item("revealed_hex_scalars", vec_f32_to_numpy(py, &np, &batch.revealed_hex_scalars, &[n * batch.max_revealed_hexes, mk_features::HEX_SCALAR_DIM])?)?;
 
         dict.set_item("action_ids", vec_i32_to_numpy(py, &np, &batch.action_ids, &[n * batch.max_actions, 6])?)?;
         dict.set_item("action_scalars", vec_f32_to_numpy(py, &np, &batch.action_scalars, &[n * batch.max_actions, mk_features::ACTION_SCALAR_DIM])?)?;

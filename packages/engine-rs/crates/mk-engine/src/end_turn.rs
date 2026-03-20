@@ -84,9 +84,12 @@ pub fn end_turn(state: &mut GameState, player_idx: usize) -> Result<EndTurnResul
     // Step 0: Minimum turn requirement (only on first entry)
     if step == 0 {
         let player = &state.players[player_idx];
-        if !player
-            .flags
-            .contains(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN)
+        // Rule 5a exception: empty hand with cards in deck satisfies minimum turn requirement.
+        let rule_5a_exception = player.hand.is_empty() && !player.deck.is_empty();
+        if !rule_5a_exception
+            && !player
+                .flags
+                .contains(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN)
             && !player.flags.contains(PlayerFlags::HAS_RESTED_THIS_TURN)
             && !player.flags.contains(PlayerFlags::HAS_COMBATTED_THIS_TURN)
             && !player
@@ -1612,6 +1615,19 @@ mod tests {
             result.unwrap_err(),
             EndTurnError::MinimumTurnRequirementNotMet
         );
+    }
+
+    #[test]
+    fn end_turn_rule_5a_empty_hand_with_deck() {
+        // Rule 5a: if hand is empty but deed deck has cards, end turn is allowed
+        // without playing/discarding a card.
+        let mut state = setup_playing_game(vec!["march", "rage"]);
+        state.players[0].hand.clear();
+        // Deck still has cards (setup_playing_game puts cards in hand, add some to deck)
+        state.players[0].deck.push(CardId::from("stamina"));
+
+        let result = end_turn(&mut state, 0);
+        assert!(result.is_ok(), "EndTurn should succeed with empty hand and non-empty deck");
     }
 
     #[test]
