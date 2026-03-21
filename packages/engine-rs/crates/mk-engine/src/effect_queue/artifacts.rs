@@ -319,23 +319,51 @@ pub(super) fn apply_circlet_of_proficiency(
 
 pub(super) fn apply_mysterious_box(
     state: &mut GameState,
-    _player_idx: usize,
+    player_idx: usize,
 ) -> ResolveResult {
     // Reveal top artifact from artifact deck/offer.
-    // If artifact available, use its basic effect.
     if state.offers.artifacts.is_empty() {
         return ResolveResult::Skipped;
     }
 
     // Reveal the top artifact (first in offer)
-    let artifact_id = state.offers.artifacts[0].clone();
+    let artifact_id = state.offers.artifacts.remove(0);
 
-    // Look up the artifact's basic effect
-    if let Some(card_def) = mk_data::cards::get_card(artifact_id.as_str()) {
-        ResolveResult::Decomposed(vec![card_def.basic_effect])
-    } else {
-        ResolveResult::Skipped
-    }
+    // Look up the revealed artifact's definition
+    let card_def = match mk_data::cards::get_card(artifact_id.as_str()) {
+        Some(def) => def,
+        None => return ResolveResult::Skipped,
+    };
+
+    // Initialize mysterious_box_state with the revealed artifact
+    state.players[player_idx].mysterious_box_state = Some(MysteriousBoxState {
+        revealed_artifact_id: artifact_id.clone(),
+        used_as: MysteriousBoxUsage::Unused,
+        played_card_from_hand_before_play: state.players[player_idx]
+            .flags
+            .contains(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN),
+    });
+
+    // Build choice options:
+    // Option 0: basic effect + Fame +1
+    // Option 1: powered effect + Fame +1
+    // Option 2: don't use (Noop)
+    let options = vec![
+        CardEffect::Compound {
+            effects: vec![card_def.basic_effect, CardEffect::GainFame { amount: 1 }],
+        },
+        CardEffect::Compound {
+            effects: vec![card_def.powered_effect, CardEffect::GainFame { amount: 1 }],
+        },
+        CardEffect::Noop,
+    ];
+
+    ResolveResult::NeedsChoiceWith(
+        options,
+        ChoiceResolution::MysteriousBoxUse {
+            revealed_artifact_id: artifact_id,
+        },
+    )
 }
 
 pub(super) fn apply_druidic_staff_basic(

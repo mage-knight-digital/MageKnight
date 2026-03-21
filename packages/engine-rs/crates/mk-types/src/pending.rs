@@ -478,6 +478,14 @@ pub enum ChoiceResolution {
         eligible_unit_indices: Vec<usize>,
         remaining_levels: u32,
     },
+
+    // === Artifact ChoiceResolutions ===
+
+    /// Mysterious Box: choose basic (0), powered (1), or skip (2).
+    /// Sets `mysterious_box_state.used_as` accordingly.
+    MysteriousBoxUse {
+        revealed_artifact_id: CardId,
+    },
 }
 
 /// Pending choice — when a card, skill, or unit ability requires player selection.

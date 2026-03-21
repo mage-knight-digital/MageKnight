@@ -1305,6 +1305,26 @@ pub fn resolve_pending_choice(
                 return Ok(());
             }
         }
+        ChoiceResolution::MysteriousBoxUse { .. } => {
+            // 3 options: 0 = basic, 1 = powered, 2 = skip
+            let used_as = match choice_index {
+                0 => MysteriousBoxUsage::Basic,
+                1 => MysteriousBoxUsage::Powered,
+                _ => MysteriousBoxUsage::Unused,
+            };
+            let is_skip = matches!(used_as, MysteriousBoxUsage::Unused);
+
+            // Update mysterious_box_state
+            if let Some(ref mut box_state) = state.players[player_idx].mysterious_box_state {
+                box_state.used_as = used_as;
+            }
+
+            if is_skip {
+                // Don't use: Noop chosen, no fame. Fall through to normal queue drain.
+            }
+            // For basic/powered, fall through to normal queue drain which handles
+            // the Compound { [effect, GainFame(1)] }.
+        }
     }
 
     // Build a new queue with the chosen option + continuation

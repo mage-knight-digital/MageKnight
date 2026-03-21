@@ -4260,9 +4260,9 @@ fn mysterious_box() -> CardDefinition {
         name: "Mysterious Box",
         color: CardColor::Colorless,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::Single(BasicManaColor::White),
+        powered_by: PoweredBy::None,
         basic_effect: CardEffect::MysteriousBox,
-        powered_effect: CardEffect::MysteriousBox, // Same as basic
+        powered_effect: CardEffect::MysteriousBox, // Single-effect artifact (no basic/powered split)
         sideways_value: 1,
         destroy_on_powered: false, // Mysterious Box is NOT destroyed
     }
@@ -5796,9 +5796,10 @@ mod tests {
     }
 
     #[test]
-    fn mysterious_box_does_not_destroy_on_powered() {
+    fn mysterious_box_single_effect_artifact() {
         let card = get_artifact_card("mysterious_box").unwrap();
         assert!(!card.destroy_on_powered);
+        assert!(matches!(card.powered_by, PoweredBy::None));
         assert!(matches!(card.basic_effect, CardEffect::MysteriousBox));
         assert!(matches!(card.powered_effect, CardEffect::MysteriousBox));
     }

@@ -5711,19 +5711,112 @@ use mk_types::state::*;
     }
 
     #[test]
-    fn mysterious_box_uses_top_artifact_effect() {
+    fn mysterious_box_reveals_artifact_and_offers_choices() {
         let mut state = test_state();
         // Put ruby_ring in artifact offer
         state.offers.artifacts.push(CardId::from("ruby_ring"));
         let mut queue = EffectQueue::new();
         queue.push(CardEffect::MysteriousBox, None);
         let result = queue.drain(&mut state, 0);
-        // Ruby ring basic is Compound(GainMana, GainCrystal, GainFame)
-        assert!(matches!(result, DrainResult::Complete));
-        // Should have gained mana + crystal + fame from ruby ring's basic effect
-        assert!(state.players[0].pure_mana.iter().any(|t| t.color == ManaColor::Red));
-        assert!(state.players[0].crystals.red > 0);
+        // Should return NeedsChoice with 3 options (basic, powered, skip)
+        assert!(matches!(result, DrainResult::NeedsChoice { .. }));
+        if let DrainResult::NeedsChoice { options, resolution, .. } = &result {
+            assert_eq!(options.len(), 3, "Should have basic, powered, and skip options");
+            assert!(matches!(resolution, ChoiceResolution::MysteriousBoxUse { .. }));
+            // Last option should be Noop (skip)
+            assert!(matches!(options[2], CardEffect::Noop));
+        }
+        // mysterious_box_state should be set
+        assert!(state.players[0].mysterious_box_state.is_some());
+        let box_state = state.players[0].mysterious_box_state.as_ref().unwrap();
+        assert_eq!(box_state.revealed_artifact_id.as_str(), "ruby_ring");
+        assert!(matches!(box_state.used_as, MysteriousBoxUsage::Unused));
+        // Artifact should have been removed from offer
+        assert!(state.offers.artifacts.is_empty());
+    }
+
+    /// Helper: drain queue and convert NeedsChoice to pending (like card_play does).
+    fn drain_and_set_pending(queue: &mut EffectQueue, state: &mut GameState, player_idx: usize) {
+        use mk_types::pending::{ActivePending, PendingChoice, ContinuationEntry};
+        let result = queue.drain(state, player_idx);
+        if let DrainResult::NeedsChoice { options, continuation, resolution } = result {
+            state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
+                card_id: None,
+                skill_id: None,
+                unit_instance_id: None,
+                options,
+                continuation: continuation
+                    .into_iter()
+                    .map(|q| ContinuationEntry {
+                        effect: q.effect,
+                        source_card_id: q.source_card_id,
+                    })
+                    .collect(),
+                movement_bonus_applied: false,
+                resolution,
+            }));
+        }
+    }
+
+    #[test]
+    fn mysterious_box_basic_choice_grants_fame_and_effect() {
+        let mut state = test_state();
+        state.offers.artifacts.push(CardId::from("ruby_ring"));
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::MysteriousBox, None);
+        drain_and_set_pending(&mut queue, &mut state, 0);
+        // Choose basic (index 0)
+        let resolve_result = crate::effect_queue::choice_resolution::resolve_pending_choice(
+            &mut state, 0, 0,
+        );
+        assert!(resolve_result.is_ok());
+        // Should have gained fame (ruby ring basic gives fame + mana + crystal, plus Box +1 fame)
         assert!(state.players[0].fame > 0);
+        // mysterious_box_state should be set to Basic
+        let box_state = state.players[0].mysterious_box_state.as_ref().unwrap();
+        assert!(matches!(box_state.used_as, MysteriousBoxUsage::Basic));
+    }
+
+    #[test]
+    fn mysterious_box_powered_choice_sets_powered_usage() {
+        let mut state = test_state();
+        state.offers.artifacts.push(CardId::from("ruby_ring"));
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::MysteriousBox, None);
+        drain_and_set_pending(&mut queue, &mut state, 0);
+        // Choose powered (index 1)
+        let resolve_result = crate::effect_queue::choice_resolution::resolve_pending_choice(
+            &mut state, 0, 1,
+        );
+        assert!(resolve_result.is_ok());
+        // mysterious_box_state should be set to Powered
+        let box_state = state.players[0].mysterious_box_state.as_ref().unwrap();
+        assert!(matches!(box_state.used_as, MysteriousBoxUsage::Powered));
+        // Should have gained fame
+        assert!(state.players[0].fame > 0);
+    }
+
+    #[test]
+    fn mysterious_box_skip_choice_no_fame() {
+        let mut state = test_state();
+        state.offers.artifacts.push(CardId::from("ruby_ring"));
+        let initial_fame = state.players[0].fame;
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::MysteriousBox, None);
+        drain_and_set_pending(&mut queue, &mut state, 0);
+        // Choose skip (index 2)
+        let resolve_result = crate::effect_queue::choice_resolution::resolve_pending_choice(
+            &mut state, 0, 2,
+        );
+        assert!(resolve_result.is_ok());
+        // mysterious_box_state should stay Unused
+        let box_state = state.players[0].mysterious_box_state.as_ref().unwrap();
+        assert!(matches!(box_state.used_as, MysteriousBoxUsage::Unused));
+        // No fame gained
+        assert_eq!(state.players[0].fame, initial_fame);
+        // Artifact removed from offer (revealed), held in mysterious_box_state for end-of-turn return
+        assert!(state.offers.artifacts.is_empty());
+        assert_eq!(box_state.revealed_artifact_id.as_str(), "ruby_ring");
     }
 
     #[test]
