@@ -189,9 +189,9 @@ pub fn apply_legal_action(
                 card_id: card_id.clone(),
                 mode: CardPlayMode::Powered,
                 effect_description: effect_desc,
-                mana_color: Some(*mana_color),
+                mana_color: *mana_color,
             });
-            turn_flow::apply_play_card(state, player_idx, *hand_index, true, Some(*mana_color))?
+            turn_flow::apply_play_card(state, player_idx, *hand_index, true, *mana_color)?
         }
 
         LegalAction::PlayCardSideways {

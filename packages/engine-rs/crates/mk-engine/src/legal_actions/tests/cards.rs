@@ -1346,7 +1346,7 @@ fn crystal_joy_emits_1_powered_action_when_only_1_color_affordable() {
     assert_eq!(powered.len(), 1, "Only 1 powered action when only blue mana available");
     match &powered[0] {
         LegalAction::PlayCardPowered { mana_color, .. } => {
-            assert_eq!(*mana_color, BasicManaColor::Blue);
+            assert_eq!(*mana_color, Some(BasicManaColor::Blue));
         }
         _ => unreachable!(),
     }

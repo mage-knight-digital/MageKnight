@@ -99,7 +99,7 @@ pub(super) fn enumerate_normal_cards(
                     powered_actions.push(LegalAction::PlayCardPowered {
                         hand_index,
                         card_id: card_id.clone(),
-                        mana_color: color,
+                        mana_color: Some(color),
                     });
                 }
             }
@@ -118,10 +118,28 @@ pub(super) fn enumerate_normal_cards(
                             powered_actions.push(LegalAction::PlayCardPowered {
                                 hand_index,
                                 card_id: card_id.clone(),
-                                mana_color: color,
+                                mana_color: Some(color),
                             });
                         }
                     }
+                }
+            }
+            PoweredBy::Free => {
+                if !time_bending_blocked
+                    && !powered_dominated
+                    && is_effect_playable_for_enumeration(
+                        state,
+                        player_idx,
+                        hand_index,
+                        &card_def.powered_effect,
+                        None,
+                    )
+                {
+                    powered_actions.push(LegalAction::PlayCardPowered {
+                        hand_index,
+                        card_id: card_id.clone(),
+                        mana_color: None,
+                    });
                 }
             }
             PoweredBy::None => {}
@@ -264,7 +282,7 @@ pub(super) fn enumerate_combat_cards(
                             powered_actions.push(LegalAction::PlayCardPowered {
                                 hand_index,
                                 card_id: card_id.clone(),
-                                mana_color: color,
+                                mana_color: Some(color),
                             });
                         }
                     }
@@ -283,10 +301,27 @@ pub(super) fn enumerate_combat_cards(
                                     powered_actions.push(LegalAction::PlayCardPowered {
                                         hand_index,
                                         card_id: card_id.clone(),
-                                        mana_color: color,
+                                        mana_color: Some(color),
                                     });
                                 }
                             }
+                        }
+                    }
+                    PoweredBy::Free => {
+                        if !time_bending_blocked
+                            && is_effect_playable_for_enumeration(
+                                state,
+                                player_idx,
+                                hand_index,
+                                &card_def.powered_effect,
+                                Some(combat_phase),
+                            )
+                        {
+                            powered_actions.push(LegalAction::PlayCardPowered {
+                                hand_index,
+                                card_id: card_id.clone(),
+                                mana_color: None,
+                            });
                         }
                     }
                     PoweredBy::None => {}

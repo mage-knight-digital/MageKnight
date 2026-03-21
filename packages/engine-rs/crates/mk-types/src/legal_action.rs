@@ -42,7 +42,8 @@ pub enum LegalAction {
     PlayCardPowered {
         hand_index: usize,
         card_id: CardId,
-        mana_color: BasicManaColor,
+        /// Mana color used to power. `None` for free-powered artifacts.
+        mana_color: Option<BasicManaColor>,
     },
     PlayCardSideways {
         hand_index: usize,

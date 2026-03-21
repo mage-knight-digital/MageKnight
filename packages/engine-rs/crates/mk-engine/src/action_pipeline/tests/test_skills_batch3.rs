@@ -71,7 +71,7 @@ fn mana_overload_trigger_on_matching_color() {
     apply_legal_action(&mut state, &mut undo, 1,
         &LegalAction::PlayCardPowered {
             hand_index: 0, card_id: CardId::from("march"),
-            mana_color: mk_types::enums::BasicManaColor::Green,
+            mana_color: Some(mk_types::enums::BasicManaColor::Green),
         }, epoch).unwrap();
     // March powered = 4 move, Mana Overload trigger = +4 move → 8 total
     assert_eq!(state.players[1].move_points, initial_move + 4 + 4);
@@ -102,7 +102,7 @@ fn mana_overload_no_trigger_wrong_color() {
     apply_legal_action(&mut state, &mut undo, 1,
         &LegalAction::PlayCardPowered {
             hand_index: 0, card_id: CardId::from("march"),
-            mana_color: mk_types::enums::BasicManaColor::Green,
+            mana_color: Some(mk_types::enums::BasicManaColor::Green),
         }, epoch).unwrap();
     // March powered = 4 move, no bonus (wrong color)
     assert_eq!(state.players[1].move_points, 4);
@@ -144,7 +144,7 @@ fn mana_enhancement_trigger_on_basic_mana() {
     apply_legal_action(&mut state, &mut undo, 0,
         &LegalAction::PlayCardPowered {
             hand_index: 0, card_id: CardId::from("march"),
-            mana_color: mk_types::enums::BasicManaColor::Green,
+            mana_color: Some(mk_types::enums::BasicManaColor::Green),
         }, epoch).unwrap();
     // Should gain 1 green crystal
     assert_eq!(state.players[0].crystals.green, initial_green_crystals + 1);
@@ -170,7 +170,7 @@ fn mana_enhancement_no_trigger_gold_mana() {
     apply_legal_action(&mut state, &mut undo, 0,
         &LegalAction::PlayCardPowered {
             hand_index: 0, card_id: CardId::from("march"),
-            mana_color: mk_types::enums::BasicManaColor::Green,
+            mana_color: Some(mk_types::enums::BasicManaColor::Green),
         }, epoch).unwrap();
     // No crystal gain (gold mana not basic)
     assert_eq!(state.players[0].crystals, initial_crystals);
@@ -192,7 +192,7 @@ fn mana_enhancement_return_gives_mana_token() {
     apply_legal_action(&mut state, &mut undo, 0,
         &LegalAction::PlayCardPowered {
             hand_index: 0, card_id: CardId::from("march"),
-            mana_color: mk_types::enums::BasicManaColor::Green,
+            mana_color: Some(mk_types::enums::BasicManaColor::Green),
         }, epoch).unwrap();
     assert!(state.mana_enhancement_center.is_some());
 
@@ -226,7 +226,7 @@ fn mana_enhancement_cooldown() {
     apply_legal_action(&mut state, &mut undo, 0,
         &LegalAction::PlayCardPowered {
             hand_index: 0, card_id: CardId::from("march"),
-            mana_color: mk_types::enums::BasicManaColor::Green,
+            mana_color: Some(mk_types::enums::BasicManaColor::Green),
         }, epoch).unwrap();
     // Should be in used_this_round cooldown
     assert!(state.players[0].skill_cooldowns.used_this_round.iter()
@@ -243,7 +243,7 @@ fn mana_enhancement_cooldown() {
     apply_legal_action(&mut state, &mut undo, 0,
         &LegalAction::PlayCardPowered {
             hand_index: 0, card_id: CardId::from("march"),
-            mana_color: mk_types::enums::BasicManaColor::Green,
+            mana_color: Some(mk_types::enums::BasicManaColor::Green),
         }, epoch).unwrap();
     // Crystals unchanged (cooldown prevents second trigger)
     assert_eq!(state.players[0].crystals.green, green_crystals_after_first);
@@ -498,7 +498,7 @@ fn mana_overload_no_trigger_on_effect_without_applicable_type() {
     apply_legal_action(&mut state, &mut undo, 1,
         &LegalAction::PlayCardPowered {
             hand_index: 0, card_id: CardId::from("tranquility"),
-            mana_color: mk_types::enums::BasicManaColor::White,
+            mana_color: Some(mk_types::enums::BasicManaColor::White),
         }, epoch).unwrap();
     // Center should still be set (no applicable bonus type)
     assert!(state.mana_overload_center.is_some());
@@ -528,7 +528,7 @@ fn mana_overload_no_trigger_on_gold_mana() {
     apply_legal_action(&mut state, &mut undo, 1,
         &LegalAction::PlayCardPowered {
             hand_index: 0, card_id: CardId::from("march"),
-            mana_color: mk_types::enums::BasicManaColor::Green,
+            mana_color: Some(mk_types::enums::BasicManaColor::Green),
         }, epoch).unwrap();
     // March powered = 4 move, no overload bonus (Gold mana used, not Green)
     assert_eq!(state.players[1].move_points, 4);
@@ -642,7 +642,7 @@ fn mana_enhancement_expires_at_owner_turn_start() {
     apply_legal_action(&mut state, &mut undo, 0,
         &LegalAction::PlayCardPowered {
             hand_index: 0, card_id: CardId::from("march"),
-            mana_color: mk_types::enums::BasicManaColor::Green,
+            mana_color: Some(mk_types::enums::BasicManaColor::Green),
         }, epoch).unwrap();
     assert!(state.mana_enhancement_center.is_some());
 

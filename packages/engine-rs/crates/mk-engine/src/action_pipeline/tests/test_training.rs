@@ -139,7 +139,7 @@ fn training_powered_phase2_aa_to_hand() {
     // Play training powered
     let epoch = state.action_epoch;
     apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardPowered {
-        hand_index: 0, card_id: CardId::from("training"), mana_color: BasicManaColor::Green,
+        hand_index: 0, card_id: CardId::from("training"), mana_color: Some(BasicManaColor::Green),
     }, epoch).unwrap();
     // Throw march → 2 green AAs → SelectFromOffer
     let epoch = state.action_epoch;
@@ -361,7 +361,7 @@ fn maximal_powered_creates_pending_multiplier_2() {
     let mut undo = UndoStack::new();
     let epoch = state.action_epoch;
     apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardPowered {
-        hand_index: 0, card_id: CardId::from("maximal_effect"), mana_color: BasicManaColor::Red,
+        hand_index: 0, card_id: CardId::from("maximal_effect"), mana_color: Some(BasicManaColor::Red),
     }, epoch).unwrap();
     match &state.players[0].pending.active {
         Some(ActivePending::MaximalEffect(m)) => {
@@ -404,7 +404,7 @@ fn maximal_powered_march_doubles_powered() {
     let mut undo = UndoStack::new();
     let epoch = state.action_epoch;
     apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardPowered {
-        hand_index: 0, card_id: CardId::from("maximal_effect"), mana_color: BasicManaColor::Red,
+        hand_index: 0, card_id: CardId::from("maximal_effect"), mana_color: Some(BasicManaColor::Red),
     }, epoch).unwrap();
     let epoch = state.action_epoch;
     apply_legal_action(&mut state, &mut undo, 0, &LegalAction::ResolveMaximalEffect {
@@ -533,7 +533,7 @@ fn maximal_basic_attack_triples() {
     let mut undo = UndoStack::new();
     let epoch = state.action_epoch;
     apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardPowered {
-        hand_index: 0, card_id: CardId::from("maximal_effect"), mana_color: BasicManaColor::Red,
+        hand_index: 0, card_id: CardId::from("maximal_effect"), mana_color: Some(BasicManaColor::Red),
     }, epoch).unwrap();
     let epoch = state.action_epoch;
     apply_legal_action(&mut state, &mut undo, 0, &LegalAction::ResolveMaximalEffect {

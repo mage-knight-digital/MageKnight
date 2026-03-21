@@ -177,7 +177,7 @@ impl ActionRecord {
             } => LegalAction::PlayCardPowered {
                 hand_index: *hand_index,
                 card_id: CardId::from(card_id.as_str()),
-                mana_color: parse_basic_mana_color(mana_color),
+                mana_color: Some(parse_basic_mana_color(mana_color)),
             },
             ActionRecord::PlayCardSideways {
                 card_id,

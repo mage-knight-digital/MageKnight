@@ -95,7 +95,7 @@ fn play_card_powered_works() {
         &LegalAction::PlayCardPowered {
             hand_index: 0,
             card_id: CardId::from("march"),
-            mana_color: BasicManaColor::Green,
+            mana_color: Some(BasicManaColor::Green),
         },
         epoch,
     )

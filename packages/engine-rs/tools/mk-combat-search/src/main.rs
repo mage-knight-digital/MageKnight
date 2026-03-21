@@ -1472,6 +1472,7 @@ fn build_card_profiles(state: &GameState) -> Vec<CardCombatProfile> {
             profile.can_power = match def.powered_by {
                 mk_data::cards::PoweredBy::Single(color) => has_mana(color),
                 mk_data::cards::PoweredBy::AnyBasic => true, // simplified
+                mk_data::cards::PoweredBy::Free => true,
                 mk_data::cards::PoweredBy::None => false,
             };
         }

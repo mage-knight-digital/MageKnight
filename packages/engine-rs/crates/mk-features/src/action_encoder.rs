@@ -492,8 +492,10 @@ fn extract_action_scalars(
         LegalAction::PlayCardPowered { card_id, mana_color, .. } => {
             scalars[1] = 1.0; // is_powered
             scalars[8] = 1.0; // has_card
-            scalars[6] = scale(1.0, 5.0); // num_mana
-            set_mana_color_one_hot(&mut scalars, 12, ManaColor::from(*mana_color));
+            if let Some(color) = mana_color {
+                scalars[6] = scale(1.0, 5.0); // num_mana
+                set_mana_color_one_hot(&mut scalars, 12, ManaColor::from(*color));
+            }
             if let Some(card_def) = get_card(card_id.as_str()) {
                 let h = extract_headline_values(&card_def.powered_effect);
                 apply_headline_scalars(&mut scalars, &h);
@@ -1230,7 +1232,7 @@ mod tests {
         let action = LegalAction::PlayCardPowered {
             hand_index: 0,
             card_id: CardId::from("march"),
-            mana_color: BasicManaColor::Green,
+            mana_color: Some(BasicManaColor::Green),
         };
         let s = scalars_for(&action);
         assert_eq!(s[1], 1.0, "is_powered flag");
@@ -1273,7 +1275,7 @@ mod tests {
         let action = LegalAction::PlayCardPowered {
             hand_index: 0,
             card_id: CardId::from("rage"),
-            mana_color: BasicManaColor::Red,
+            mana_color: Some(BasicManaColor::Red),
         };
         let s = scalars_for(&action);
         assert_eq!(s[28], scale(4.0, 10.0), "attack_value");
@@ -1286,7 +1288,7 @@ mod tests {
         let action = LegalAction::PlayCardPowered {
             hand_index: 0,
             card_id: CardId::from("swiftness"),
-            mana_color: BasicManaColor::White,
+            mana_color: Some(BasicManaColor::White),
         };
         let s = scalars_for(&action);
         assert_eq!(s[28], scale(3.0, 10.0), "attack_value");
@@ -1301,7 +1303,7 @@ mod tests {
         let action = LegalAction::PlayCardPowered {
             hand_index: 0,
             card_id: CardId::from("threaten"),
-            mana_color: BasicManaColor::Red,
+            mana_color: Some(BasicManaColor::Red),
         };
         let s = scalars_for(&action);
         assert_eq!(s[0], scale(5.0, 10.0), "headline amount = influence 5");

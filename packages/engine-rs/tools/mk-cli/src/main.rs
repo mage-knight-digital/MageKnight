@@ -778,11 +778,15 @@ fn format_action(action: &LegalAction, state: &GameState, player_idx: usize) -> 
             mana_color,
             ..
         } => {
-            format!(
-                "Play {} (powered, {} mana)",
-                card_name(card_id.as_str()),
-                basic_color_str(*mana_color)
-            )
+            if let Some(color) = mana_color {
+                format!(
+                    "Play {} (powered, {} mana)",
+                    card_name(card_id.as_str()),
+                    basic_color_str(*color)
+                )
+            } else {
+                format!("Play {} (powered, free)", card_name(card_id.as_str()))
+            }
         }
         LegalAction::PlayCardSideways {
             card_id,

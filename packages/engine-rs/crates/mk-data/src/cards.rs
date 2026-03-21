@@ -25,6 +25,8 @@ pub enum PoweredBy {
     Single(BasicManaColor),
     /// Powered by any basic mana color (Crystal Joy).
     AnyBasic,
+    /// Powered effect exists but costs no mana (artifact ultimates).
+    Free,
 }
 
 impl PoweredBy {
@@ -3573,7 +3575,7 @@ fn ruby_ring() -> CardDefinition {
         name: "Ruby Ring",
         color: CardColor::Red,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::AnyBasic,
+        powered_by: PoweredBy::Free,
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::GainMana { color: ManaColor::Red, amount: 1 },
@@ -3599,7 +3601,7 @@ fn sapphire_ring() -> CardDefinition {
         name: "Sapphire Ring",
         color: CardColor::Blue,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::AnyBasic,
+        powered_by: PoweredBy::Free,
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::GainMana { color: ManaColor::Blue, amount: 1 },
@@ -3625,7 +3627,7 @@ fn diamond_ring() -> CardDefinition {
         name: "Diamond Ring",
         color: CardColor::White,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::AnyBasic,
+        powered_by: PoweredBy::Free,
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::GainMana { color: ManaColor::White, amount: 1 },
@@ -3651,7 +3653,7 @@ fn emerald_ring() -> CardDefinition {
         name: "Emerald Ring",
         color: CardColor::Green,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::AnyBasic,
+        powered_by: PoweredBy::Free,
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::GainMana { color: ManaColor::Green, amount: 1 },
@@ -3679,7 +3681,7 @@ fn endless_bag_of_gold() -> CardDefinition {
         name: "Endless Bag of Gold",
         color: CardColor::Colorless,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::AnyBasic,
+        powered_by: PoweredBy::Free,
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::GainInfluence { amount: 4 },
@@ -3705,7 +3707,7 @@ fn banner_of_command() -> CardDefinition {
         name: "Banner of Command",
         color: CardColor::Colorless,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::AnyBasic,
+        powered_by: PoweredBy::Free,
         basic_effect: CardEffect::GainInfluence { amount: 4 },
         powered_effect: CardEffect::Compound {
             effects: vec![
@@ -3724,7 +3726,7 @@ fn banner_of_courage() -> CardDefinition {
         name: "Banner of Courage",
         color: CardColor::Colorless,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::AnyBasic,
+        powered_by: PoweredBy::Free,
         basic_effect: CardEffect::Noop, // Assign to unit (passive bonus)
         powered_effect: CardEffect::ReadyAllUnits,
         sideways_value: 1,
@@ -3738,7 +3740,7 @@ fn banner_of_fortitude() -> CardDefinition {
         name: "Banner of Fortitude",
         color: CardColor::Colorless,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::AnyBasic,
+        powered_by: PoweredBy::Free,
         basic_effect: CardEffect::Noop, // Assign to unit (passive bonus)
         powered_effect: CardEffect::Compound {
             effects: vec![
@@ -3757,7 +3759,7 @@ fn banner_of_protection() -> CardDefinition {
         name: "Banner of Protection",
         color: CardColor::Colorless,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::AnyBasic,
+        powered_by: PoweredBy::Free,
         basic_effect: CardEffect::Noop, // Assign to unit (passive bonus)
         powered_effect: CardEffect::ActivateBannerProtection,
         sideways_value: 0,
@@ -3771,7 +3773,7 @@ fn banner_of_fear() -> CardDefinition {
         name: "Banner of Fear",
         color: CardColor::Colorless,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::AnyBasic,
+        powered_by: PoweredBy::Free,
         basic_effect: CardEffect::Noop, // Assign to unit (passive bonus)
         powered_effect: CardEffect::SelectCombatEnemy {
             template: SelectEnemyTemplate {
@@ -3790,7 +3792,7 @@ fn banner_of_glory() -> CardDefinition {
         name: "Banner of Glory",
         color: CardColor::Colorless,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::AnyBasic,
+        powered_by: PoweredBy::Free,
         basic_effect: CardEffect::Noop, // Assign to unit (passive bonus)
         powered_effect: CardEffect::Compound {
             effects: vec![
@@ -3821,7 +3823,7 @@ fn sword_of_justice() -> CardDefinition {
         name: "Sword of Justice",
         color: CardColor::Colorless,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::AnyBasic,
+        powered_by: PoweredBy::Free,
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::DiscardForAttack {
@@ -3875,7 +3877,7 @@ fn horn_of_wrath() -> CardDefinition {
         name: "Horn of Wrath",
         color: CardColor::Colorless,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::AnyBasic,
+        powered_by: PoweredBy::Free,
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::GainAttack {
@@ -3913,7 +3915,7 @@ fn bow_of_starsdawn() -> CardDefinition {
         name: "Bow of Starsdawn",
         color: CardColor::Colorless,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::AnyBasic,
+        powered_by: PoweredBy::Free,
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::DiscardForAttack {
@@ -3957,7 +3959,7 @@ fn soul_harvester() -> CardDefinition {
         name: "Soul Harvester",
         color: CardColor::Colorless,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::AnyBasic,
+        powered_by: PoweredBy::Free,
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::GainAttack {
@@ -4003,7 +4005,7 @@ fn shield_of_the_fallen_kings() -> CardDefinition {
         name: "Shield of the Fallen Kings",
         color: CardColor::Colorless,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::AnyBasic,
+        powered_by: PoweredBy::Free,
         basic_effect: CardEffect::Choice {
             options: vec![
                 CardEffect::GainBlock { amount: 6, element: Element::Physical },
@@ -4061,7 +4063,7 @@ fn amulet_of_the_sun() -> CardDefinition {
         name: "Amulet of the Sun",
         color: CardColor::Colorless,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::AnyBasic,
+        powered_by: PoweredBy::Free,
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::GainMana { color: ManaColor::Gold, amount: 1 },
@@ -4106,7 +4108,7 @@ fn amulet_of_darkness() -> CardDefinition {
         name: "Amulet of Darkness",
         color: CardColor::Colorless,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::AnyBasic,
+        powered_by: PoweredBy::Free,
         basic_effect: CardEffect::Compound {
             effects: vec![
                 gain_mana_any_color(),
@@ -4132,7 +4134,7 @@ fn golden_grail() -> CardDefinition {
         name: "Golden Grail",
         color: CardColor::Colorless,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::AnyBasic,
+        powered_by: PoweredBy::Free,
         basic_effect: CardEffect::Compound {
             effects: vec![
                 CardEffect::ApplyModifier {
@@ -4166,7 +4168,7 @@ fn endless_gem_pouch() -> CardDefinition {
         name: "Endless Gem Pouch",
         color: CardColor::Colorless,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::AnyBasic,
+        powered_by: PoweredBy::Free,
         basic_effect: CardEffect::RollForCrystals { die_count: 2 },
         powered_effect: CardEffect::Compound {
             effects: vec![
@@ -4194,7 +4196,7 @@ fn book_of_wisdom() -> CardDefinition {
         name: "Book of Wisdom",
         color: CardColor::Colorless,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::AnyBasic,
+        powered_by: PoweredBy::Free,
         basic_effect: CardEffect::BookOfWisdom {
             mode: mk_types::pending::EffectMode::Basic,
         },
@@ -4212,7 +4214,7 @@ fn tome_of_all_spells() -> CardDefinition {
         name: "Tome of All Spells",
         color: CardColor::Colorless,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::AnyBasic,
+        powered_by: PoweredBy::Free,
         basic_effect: CardEffect::TomeOfAllSpells {
             mode: mk_types::pending::EffectMode::Basic,
         },
@@ -4230,7 +4232,7 @@ fn circlet_of_proficiency() -> CardDefinition {
         name: "Circlet of Proficiency",
         color: CardColor::Colorless,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::AnyBasic,
+        powered_by: PoweredBy::Free,
         basic_effect: CardEffect::CircletOfProficiencyBasic,
         powered_effect: CardEffect::CircletOfProficiencyPowered,
         sideways_value: 1,
@@ -4244,7 +4246,7 @@ fn druidic_staff() -> CardDefinition {
         name: "Druidic Staff",
         color: CardColor::Colorless,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::AnyBasic,
+        powered_by: PoweredBy::Free,
         basic_effect: CardEffect::DruidicStaffBasic,
         powered_effect: CardEffect::DruidicStaffPowered,
         sideways_value: 1,
@@ -4258,7 +4260,7 @@ fn mysterious_box() -> CardDefinition {
         name: "Mysterious Box",
         color: CardColor::Colorless,
         card_type: DeedCardType::Artifact,
-        powered_by: PoweredBy::AnyBasic,
+        powered_by: PoweredBy::Single(BasicManaColor::White),
         basic_effect: CardEffect::MysteriousBox,
         powered_effect: CardEffect::MysteriousBox, // Same as basic
         sideways_value: 1,
@@ -5592,7 +5594,7 @@ mod tests {
     fn ruby_ring_basic_gives_mana_crystal_fame() {
         let card = get_artifact_card("ruby_ring").unwrap();
         assert_eq!(card.color, CardColor::Red);
-        assert_eq!(card.powered_by, PoweredBy::AnyBasic);
+        assert_eq!(card.powered_by, PoweredBy::Free);
         assert_eq!(card.sideways_value, 2);
         match &card.basic_effect {
             CardEffect::Compound { effects } => {

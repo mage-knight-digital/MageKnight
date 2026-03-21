@@ -77,27 +77,32 @@ pub fn play_card(
 
     // Determine which effect to use and handle mana payment
     let (effect, consumed_color, mana_choice) = if powered {
-        // Validate the card can be powered
-        let required_color = override_mana_color
-            .or(match card_def.powered_by {
-                PoweredBy::Single(c) => Some(c),
-                _ => None,
-            })
-            .ok_or(CardPlayError::NotPowerable)?;
-
-        // Collect all available mana sources
-        let sources = collect_mana_sources(state, player_idx, required_color);
-        if sources.is_empty() {
-            return Err(CardPlayError::ManaSourceRequired);
-        }
-
-        if sources.len() == 1 {
-            // Single source — auto-consume immediately
-            let consumed = consume_specific_mana_source(state, player_idx, &sources[0]);
-            (card_def.powered_effect.clone(), Some(consumed), None)
+        if card_def.powered_by == PoweredBy::Free {
+            // Free-powered artifacts: no mana payment required
+            (card_def.powered_effect.clone(), None, None)
         } else {
-            // Multiple sources — defer to pending choice
-            (card_def.powered_effect.clone(), None, Some(sources))
+            // Validate the card can be powered
+            let required_color = override_mana_color
+                .or(match card_def.powered_by {
+                    PoweredBy::Single(c) => Some(c),
+                    _ => None,
+                })
+                .ok_or(CardPlayError::NotPowerable)?;
+
+            // Collect all available mana sources
+            let sources = collect_mana_sources(state, player_idx, required_color);
+            if sources.is_empty() {
+                return Err(CardPlayError::ManaSourceRequired);
+            }
+
+            if sources.len() == 1 {
+                // Single source — auto-consume immediately
+                let consumed = consume_specific_mana_source(state, player_idx, &sources[0]);
+                (card_def.powered_effect.clone(), Some(consumed), None)
+            } else {
+                // Multiple sources — defer to pending choice
+                (card_def.powered_effect.clone(), None, Some(sources))
+            }
         }
     } else {
         (card_def.basic_effect.clone(), None, None)
@@ -2451,10 +2456,9 @@ mod tests {
     #[test]
     fn destroy_on_powered_removes_from_play_area() {
         let mut state = setup_game(vec!["ruby_ring"]);
-        // ruby_ring is powered by any basic mana
-        give_mana(&mut state, ManaColor::Red);
+        // ruby_ring is free-powered (no mana required)
 
-        let result = play_card(&mut state, 0, 0, true, Some(BasicManaColor::Red)).unwrap();
+        let result = play_card(&mut state, 0, 0, true, None).unwrap();
         assert!(matches!(result, CardPlayResult::Complete));
 
         // Card should NOT be in play area (destroyed)
@@ -2474,9 +2478,9 @@ mod tests {
         use mk_types::modifier::ModifierEffect;
 
         let mut state = setup_game(vec!["ruby_ring"]);
-        give_mana(&mut state, ManaColor::Red);
+        // ruby_ring is free-powered (no mana required)
 
-        play_card(&mut state, 0, 0, true, Some(BasicManaColor::Red)).unwrap();
+        play_card(&mut state, 0, 0, true, None).unwrap();
 
         // ruby_ring powered creates EndlessMana modifier (Turn duration)
         // Even though the card is destroyed, the modifier should persist
@@ -2623,6 +2627,45 @@ mod tests {
         assert!(
             !is_die_available_with_overrides(&die, &state, 0),
             "Gold die should stay depleted at night without override"
+        );
+    }
+
+    // =========================================================================
+    // Free-powered artifacts (no mana required)
+    // =========================================================================
+
+    #[test]
+    fn artifact_free_powered_play_without_mana() {
+        let mut state = setup_game(vec!["ruby_ring"]);
+        // No mana available at all — dice cleared in setup_game, no tokens given
+
+        let result = play_card(&mut state, 0, 0, true, None).unwrap();
+        assert!(matches!(result, CardPlayResult::Complete));
+
+        // Card destroyed (moved to removed_cards)
+        assert!(
+            state.players[0].removed_cards.iter().any(|c| c.as_str() == "ruby_ring"),
+            "Free-powered artifact should be destroyed"
+        );
+        assert!(
+            !state.players[0].play_area.iter().any(|c| c.as_str() == "ruby_ring"),
+            "Free-powered artifact should not remain in play area"
+        );
+    }
+
+    #[test]
+    fn artifact_free_powered_play_does_not_consume_mana() {
+        let mut state = setup_game(vec!["ruby_ring"]);
+        give_mana(&mut state, ManaColor::Red);
+        let initial_mana_count = state.players[0].pure_mana.len();
+
+        play_card(&mut state, 0, 0, true, None).unwrap();
+
+        // Mana should NOT be consumed
+        assert_eq!(
+            state.players[0].pure_mana.len(),
+            initial_mana_count,
+            "Free-powered play should not consume mana"
         );
     }
 }
