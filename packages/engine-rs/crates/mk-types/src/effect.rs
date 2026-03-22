@@ -740,7 +740,7 @@ impl CardEffect {
             }
             CardEffect::RollForCrystals { .. } => Some("Roll for crystals".to_string()),
             CardEffect::ApplyModifier { effect, .. } => {
-                use crate::modifier::ModifierEffect;
+                use crate::modifier::{ModifierEffect, CombatValueType};
                 match effect {
                     ModifierEffect::LeadershipBonus { bonus_type, amount } => {
                         use crate::modifier::LeadershipBonusType;
@@ -750,6 +750,87 @@ impl CardEffect {
                             LeadershipBonusType::RangedAttack => "Ranged Attack",
                         };
                         Some(format!("Units {label} +{amount}"))
+                    }
+                    ModifierEffect::RuleOverride { rule } => {
+                        use crate::modifier::RuleOverride as RO;
+                        Some(match rule {
+                            RO::IgnoreReputation => "Ignore reputation".to_string(),
+                            RO::IgnoreFortification => "Ignore fortification".to_string(),
+                            RO::IgnoreRampagingProvoke => "Ignore provocation".to_string(),
+                            RO::WoundsPlayableSideways => "Wounds playable sideways".to_string(),
+                            RO::GoldAsBlack => "Gold mana as Black".to_string(),
+                            RO::BlackAsGold => "Black mana as Gold".to_string(),
+                            RO::BlackAsAnyColor => "Black mana as any color".to_string(),
+                            RO::GoldAsAnyColor => "Gold mana as any color".to_string(),
+                            RO::MoveCardsInCombat => "Play Move cards in combat".to_string(),
+                            RO::InfluenceCardsInCombat => "Play Influence cards in combat".to_string(),
+                            RO::ExtendedExplore => "Extended exploration".to_string(),
+                            RO::NoExploration => "No exploration".to_string(),
+                            RO::AllowGoldAtNight => "Use Gold mana at night".to_string(),
+                            RO::AllowBlackAtDay => "Use Black mana during day".to_string(),
+                            _ => format!("{rule:?}"),
+                        })
+                    }
+                    ModifierEffect::MoveToAttackConversion { cost_per_point, attack_type } => {
+                        let label = match attack_type {
+                            CombatValueType::Attack => "Attack",
+                            CombatValueType::Ranged => "Ranged Attack",
+                            CombatValueType::Siege => "Siege Attack",
+                            CombatValueType::Block => "Block",
+                        };
+                        Some(format!("Convert Move to {label} ({cost_per_point}:1)"))
+                    }
+                    ModifierEffect::InfluenceToBlockConversion { cost_per_point, element } => {
+                        let elem = match element {
+                            Some(Element::Fire) => " Fire",
+                            Some(Element::Ice) => " Ice",
+                            Some(Element::ColdFire) => " ColdFire",
+                            _ => "",
+                        };
+                        Some(format!("Convert Influence to{elem} Block ({cost_per_point}:1)"))
+                    }
+                    ModifierEffect::CombatValue { value_type, element, amount } => {
+                        let label = match value_type {
+                            CombatValueType::Attack => "Attack",
+                            CombatValueType::Block => "Block",
+                            CombatValueType::Ranged => "Ranged Attack",
+                            CombatValueType::Siege => "Siege Attack",
+                        };
+                        let elem = match element {
+                            Some(Element::Fire) => " Fire",
+                            Some(Element::Ice) => " Ice",
+                            Some(Element::ColdFire) => " ColdFire",
+                            _ => "",
+                        };
+                        if *amount >= 0 {
+                            Some(format!("{label} +{amount}{elem}"))
+                        } else {
+                            Some(format!("{label} {amount}{elem}"))
+                        }
+                    }
+                    ModifierEffect::MovementCardBonus { amount, .. } => {
+                        if *amount >= 0 {
+                            Some(format!("Move cards +{amount}"))
+                        } else {
+                            Some(format!("Move cards {amount}"))
+                        }
+                    }
+                    ModifierEffect::SidewaysValue { new_value, .. } => {
+                        Some(format!("Sideways value {new_value}"))
+                    }
+                    ModifierEffect::AbilityNullifier { ability, .. } => {
+                        match ability {
+                            Some(a) => Some(format!("Nullify {a:?}")),
+                            None => Some("Nullify enemy ability".to_string()),
+                        }
+                    }
+                    ModifierEffect::EnemySkipAttack => Some("Skip enemy attack".to_string()),
+                    ModifierEffect::RemoveResistances => Some("Remove resistances".to_string()),
+                    ModifierEffect::DefeatIfBlocked => Some("Defeat if fully blocked".to_string()),
+                    ModifierEffect::AddSiegeToAttacks => Some("Attacks gain Siege".to_string()),
+                    ModifierEffect::TransformAttacksColdFire => Some("Attacks become ColdFire".to_string()),
+                    ModifierEffect::RecruitDiscount { discount, .. } => {
+                        Some(format!("Recruit discount -{discount}"))
                     }
                     _ => None,
                 }
