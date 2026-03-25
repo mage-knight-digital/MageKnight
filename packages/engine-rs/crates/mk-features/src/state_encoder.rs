@@ -1,15 +1,16 @@
-//! State encoder — produces StateFeatures (91 scalars + entity pools).
+//! State encoder — produces StateFeatures (94 scalars + entity pools).
 //!
 //! Directly accesses Rust structs instead of crawling JSON dicts.
 
+use mk_data::cards::get_card_color;
 use mk_data::enemies::{get_enemy, EnemyDefinition};
 use mk_engine::movement::evaluate_move_entry;
 use mk_types::enums::{
-    CombatPhase, Element, EnemyAbilityType, EnemyColor, ManaColor, ResistanceElement,
-    SiteType, Terrain, TimeOfDay,
+    BasicManaColor, CombatPhase, Element, EnemyAbilityType, EnemyColor, ManaColor,
+    ResistanceElement, SiteType, Terrain, TimeOfDay,
 };
 use mk_types::hex::{HexCoord, HexDirection};
-use mk_types::state::{GameState, PlayerFlags, PlayerState};
+use mk_types::state::{DummyPlayer, GameState, PlayerFlags, PlayerState};
 
 use crate::mode_derivation::derive_mode;
 use crate::types::{scale, terrain_difficulty, StateFeatures, COMBAT_ENEMY_SCALAR_DIM};
@@ -47,7 +48,22 @@ pub fn encode_state(state: &GameState, player_idx: usize) -> StateFeatures {
         0.0
     };
 
-    let mut scalars = Vec::with_capacity(91);
+    // Dummy turn bounds (observable clock)
+    let (min_dummy_turns, max_dummy_turns) = if let Some(ref dummy) = state.dummy_player {
+        compute_dummy_turn_bounds(dummy)
+    } else {
+        (0, 0)
+    };
+
+    // Cards played this turn, normalized by effective hand limit (includes meditation bonus)
+    let effective_hand_limit = player.hand_limit + player.meditation_hand_limit_bonus;
+    let cards_played_ratio = if effective_hand_limit > 0 {
+        scale(player.cards_played_this_turn as f32, effective_hand_limit as f32)
+    } else {
+        0.0
+    };
+
+    let mut scalars = Vec::with_capacity(94);
     scalars.extend_from_slice(&player_core);
     scalars.extend_from_slice(&resources);
     scalars.extend_from_slice(&tempo);
@@ -57,6 +73,9 @@ pub fn encode_state(state: &GameState, player_idx: usize) -> StateFeatures {
     scalars.extend_from_slice(&global_spatial);
     scalars.extend_from_slice(&mana_source);
     scalars.push(wound_ratio);
+    scalars.push(scale(min_dummy_turns as f32, 12.0));
+    scalars.push(scale(max_dummy_turns as f32, 12.0));
+    scalars.push(cards_played_ratio);
 
     let mode_id = derive_mode(state, player_idx);
     let hand_card_ids = extract_hand_card_ids(player);
@@ -156,6 +175,127 @@ fn extract_resources(player: &PlayerState) -> [f32; 13] {
         scale(player.crystals.green as f32, 3.0),
         scale(player.crystals.white as f32, 3.0),
     ]
+}
+
+// =============================================================================
+// Dummy turn bounds (observable clock for turn economy)
+// =============================================================================
+
+/// Compute the min and max possible remaining dummy turns from observable info.
+///
+/// An experienced player can estimate this from:
+/// - The dummy hero's known starting deck composition
+/// - How many cards the dummy has flipped so far (discard pile is visible)
+/// - The dummy's crystal colors and counts (known from hero)
+///
+/// Min turns = worst case for player: arrange remaining cards so position 3
+///   always hits a crystal match, maximizing bonus flips (fewest turns).
+/// Max turns = best case for player: arrange remaining cards so position 3
+///   never hits a crystal match (most turns, exactly ceil(remaining/3)).
+fn compute_dummy_turn_bounds(dummy: &DummyPlayer) -> (u32, u32) {
+    let remaining = dummy.deck.len();
+    if remaining == 0 {
+        return (0, 0);
+    }
+
+    // Count remaining cards by basic mana color
+    let mut color_counts = [0u32; 4]; // red, blue, green, white
+    let mut colorless_count = 0u32;
+    for card_id in &dummy.deck {
+        if let Some(color) = get_card_color(card_id.as_str()) {
+            let idx = basic_color_index(color);
+            color_counts[idx] += 1;
+        } else {
+            colorless_count += 1;
+        }
+    }
+
+    // Crystal counts by basic color
+    let crystal_counts = [
+        *dummy.crystals.get(&BasicManaColor::Red).unwrap_or(&0),
+        *dummy.crystals.get(&BasicManaColor::Blue).unwrap_or(&0),
+        *dummy.crystals.get(&BasicManaColor::Green).unwrap_or(&0),
+        *dummy.crystals.get(&BasicManaColor::White).unwrap_or(&0),
+    ];
+
+    // --- MAX TURNS: avoid crystal matches at position 3 ---
+    // If we can always place a non-matching card at position 3, each turn
+    // flips exactly 3 cards with no bonus.
+    // A card is "safe" if it has no color or its color has 0 crystals.
+    let safe_count: u32 = colorless_count
+        + (0..4)
+            .filter(|&i| crystal_counts[i] == 0)
+            .map(|i| color_counts[i])
+            .sum::<u32>();
+
+    let max_turns = compute_max_turns(remaining as u32, safe_count);
+
+    // --- MIN TURNS: maximize crystal bonus every turn ---
+    let min_turns = compute_min_turns(remaining as u32, &crystal_counts);
+
+    (min_turns, max_turns)
+}
+
+/// Max turns: greedily place safe (non-matching) cards at position 3.
+fn compute_max_turns(total_remaining: u32, total_safe: u32) -> u32 {
+    let mut rem = total_remaining;
+    let mut safe_rem = total_safe;
+    let mut turns = 0;
+
+    while rem > 0 {
+        let base = rem.min(3);
+        if base == 3 && safe_rem > 0 {
+            // Place a safe card at position 3 → no bonus
+            safe_rem -= 1;
+        }
+        // Even if no safe cards left, we still don't get bonus in max case
+        // because we pick the color with smallest crystal count.
+        // But actually if ALL remaining are matching, we ARE forced to match.
+        // For simplicity and correctness: if base == 3 and safe_rem == 0,
+        // there WILL be a bonus. But computing the exact bonus requires
+        // knowing which colors remain. For an upper bound, we just assume
+        // no bonus (ceil(rem/3)), which is a slight overestimate when
+        // forced to match. This is acceptable — it's a bound, not exact.
+        rem -= base;
+        turns += 1;
+    }
+
+    turns
+}
+
+/// Min turns: greedily arrange for max crystal bonus each turn.
+fn compute_min_turns(total_remaining: u32, crystal_counts: &[u32; 4]) -> u32 {
+    let mut rem = total_remaining;
+    let mut turns = 0;
+
+    while rem > 0 {
+        let base = rem.min(3);
+        rem -= base;
+
+        if base >= 3 {
+            // Pick the crystal color with the highest count for max bonus
+            let best_bonus = crystal_counts
+                .iter()
+                .copied()
+                .map(|c| c.min(rem))
+                .max()
+                .unwrap_or(0);
+            rem -= best_bonus;
+        }
+
+        turns += 1;
+    }
+
+    turns
+}
+
+fn basic_color_index(color: BasicManaColor) -> usize {
+    match color {
+        BasicManaColor::Red => 0,
+        BasicManaColor::Blue => 1,
+        BasicManaColor::Green => 2,
+        BasicManaColor::White => 3,
+    }
 }
 
 // =============================================================================
@@ -753,11 +893,11 @@ mod tests {
     use mk_types::enums::Hero;
 
     #[test]
-    fn encode_state_produces_91_scalars() {
+    fn encode_state_produces_94_scalars() {
         let mut state = create_solo_game(42, Hero::Arythea);
         place_initial_tiles(&mut state);
         let features = encode_state(&state, 0);
-        assert_eq!(features.scalars.len(), 91);
+        assert_eq!(features.scalars.len(), 94);
     }
 
     #[test]

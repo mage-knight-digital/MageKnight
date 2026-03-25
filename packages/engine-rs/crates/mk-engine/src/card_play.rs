@@ -115,6 +115,7 @@ pub fn play_card(
     player
         .flags
         .insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
+    player.cards_played_this_turn = player.cards_played_this_turn.saturating_add(1);
 
     // Track artifact end-turn flags (consumed by end_turn artifact steps)
     match card_id.as_str() {
@@ -513,6 +514,7 @@ pub fn play_card_sideways(
     player
         .flags
         .insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
+    player.cards_played_this_turn = player.cards_played_this_turn.saturating_add(1);
 
     // Consume bonus modifiers for sideways plays (Ambush/Deadly Aim, Path Finding, etc.)
     let bonus = consume_sideways_bonus(state, player_idx, sideways_as);

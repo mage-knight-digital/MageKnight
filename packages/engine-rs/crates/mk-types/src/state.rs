@@ -342,6 +342,7 @@ pub struct PlayerState {
     pub influence_points: u32,
     pub healing_points: u32,
     pub enemies_defeated_this_turn: u32,
+    pub cards_played_this_turn: u8,
     pub wounds_healed_from_hand_this_turn: u32,
     pub units_healed_this_turn: Vec<UnitInstanceId>,
     pub units_recruited_this_interaction: Vec<UnitId>,

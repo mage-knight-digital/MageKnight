@@ -781,6 +781,7 @@ fn reset_player_turn_inner(player: &mut PlayerState) {
 
     // Clear turn tracking
     player.enemies_defeated_this_turn = 0;
+    player.cards_played_this_turn = 0;
     player.wounds_healed_from_hand_this_turn = 0;
     player.units_healed_this_turn.clear();
     player.units_recruited_this_interaction.clear();

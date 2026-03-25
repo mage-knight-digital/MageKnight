@@ -6,7 +6,7 @@
 //!
 //! ```text
 //! encode_step(state, player_idx, action_set)
-//!   ├── encode_state()   → StateFeatures (91 scalars + entity pools)
+//!   ├── encode_state()   → StateFeatures (94 scalars + entity pools)
 //!   ├── derive_mode()    → mode_id
 //!   ├── encode_actions() → Vec<ActionFeatures> (6 IDs + 34 scalars each)
 //!   │     └── derive_source() per action

@@ -102,6 +102,7 @@ use mk_types::state::*;
             influence_points: 0,
             healing_points: 0,
             enemies_defeated_this_turn: 0,
+            cards_played_this_turn: 0,
             wounds_healed_from_hand_this_turn: 0,
             units_healed_this_turn: vec![],
             units_recruited_this_interaction: vec![],
