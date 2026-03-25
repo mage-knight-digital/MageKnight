@@ -132,6 +132,12 @@ class _TBWriter:
             return
         self._writer.add_scalar("episode/game_score", game_score, episode)
 
+    def log_achievement_breakdown(self, episode: int, breakdown: dict[str, int]) -> None:
+        if self._writer is None:
+            return
+        for category, points in breakdown.items():
+            self._writer.add_scalar(f"achievements/{category}", points, episode)
+
     def log_wound_metrics(self, episode: int, total_wounds: float, turns_resting: float, wounds_per_combat: float) -> None:
         if self._writer is None:
             return
@@ -755,6 +761,7 @@ def _train_curriculum(
                     phase_name=phase.name, phase_index=phase_idx,
                     reward_breakdown=meta.reward_breakdown,
                     game_score=meta.game_score,
+                    achievement_breakdown=meta.achievement_breakdown,
                 )
 
                 if tb is not None:
@@ -771,6 +778,8 @@ def _train_curriculum(
                     )
                     tb.log_achievement_score(global_ep, meta.total_achievement_delta)
                     tb.log_game_score(global_ep, meta.game_score)
+                    if meta.achievement_breakdown is not None:
+                        tb.log_achievement_breakdown(global_ep, meta.achievement_breakdown)
 
                 bd = meta.reward_breakdown
                 tiles = meta.tiles_explored
@@ -970,6 +979,7 @@ def _append_metrics_log(
     phase_index: int | None = None,
     reward_breakdown: Any = None,
     game_score: int | None = None,
+    achievement_breakdown: dict[str, int] | None = None,
 ) -> None:
     """Write metrics from EpisodeTrainingStats."""
     explore_fame = tiles_explored * 1
@@ -1000,6 +1010,8 @@ def _append_metrics_log(
     }
     if game_score is not None:
         record["game_score"] = game_score
+    if achievement_breakdown is not None:
+        record["achievement_breakdown"] = achievement_breakdown
     if phase_name is not None:
         record["phase"] = phase_name
         record["phase_index"] = phase_index

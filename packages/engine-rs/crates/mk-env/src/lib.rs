@@ -433,6 +433,9 @@ pub struct StepResult {
     pub achievement_deltas: Vec<i32>,
     /// (N,) — official Mage Knight game score (fame + achievements); 0 for non-done envs
     pub game_scores: Vec<i32>,
+    /// (N, 6) — per-category achievement base_points for done envs; all zeros for non-done.
+    /// Order: [knowledge, loot, leader, conqueror, adventurer, beating]
+    pub achievement_categories: Vec<[i32; 6]>,
     /// (N,) — actual action indices applied (post-clamping), for faithful replay logging
     pub applied_actions: Vec<i32>,
 }
@@ -605,13 +608,27 @@ impl VecEnv {
             achievement_deltas.push(achievement_score_no_wounds(&env.state) - achievements_before[i]);
         }
 
-        // Compute official game scores for done envs (before reset wipes state)
+        // Compute official game scores and per-category achievements for done envs (before reset wipes state)
         let mut game_scores = vec![0i32; n];
+        let mut achievement_categories = vec![[0i32; 6]; n];
         for (i, &done) in dones.iter().enumerate() {
             if done && !panicked[i] {
                 let result = calculate_final_scores(&self.envs[i].state);
                 if let Some(pr) = result.player_results.first() {
                     game_scores[i] = pr.total_score;
+                    if let Some(ref ach) = pr.achievements {
+                        for cs in &ach.category_scores {
+                            let idx = match cs.category {
+                                AchievementCategory::GreatestKnowledge => 0,
+                                AchievementCategory::GreatestLoot => 1,
+                                AchievementCategory::GreatestLeader => 2,
+                                AchievementCategory::GreatestConqueror => 3,
+                                AchievementCategory::GreatestAdventurer => 4,
+                                AchievementCategory::GreatestBeating => 5,
+                            };
+                            achievement_categories[i][idx] = cs.base_points;
+                        }
+                    }
                 }
             }
         }
@@ -644,6 +661,7 @@ impl VecEnv {
             rested_turns,
             achievement_deltas,
             game_scores,
+            achievement_categories,
             applied_actions,
         }
     }

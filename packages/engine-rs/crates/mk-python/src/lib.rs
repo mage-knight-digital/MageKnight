@@ -944,6 +944,9 @@ impl PyVecEnv {
         dict.set_item("rested_turns", vec_i32_to_numpy(py, &np, &result.rested_turns, &[n])?)?;
         dict.set_item("achievement_deltas", vec_i32_to_numpy(py, &np, &result.achievement_deltas, &[n])?)?;
         dict.set_item("game_scores", vec_i32_to_numpy(py, &np, &result.game_scores, &[n])?)?;
+        // Flatten [i32; 6] per env into a contiguous Vec<i32> for (N, 6) numpy array
+        let ach_flat: Vec<i32> = result.achievement_categories.iter().flat_map(|a| a.iter().copied()).collect();
+        dict.set_item("achievement_categories", vec_i32_to_numpy(py, &np, &ach_flat, &[n, 6])?)?;
         dict.set_item("applied_actions", vec_i32_to_numpy(py, &np, &result.applied_actions, &[n])?)?;
 
         Ok(dict.into_any().unbind())

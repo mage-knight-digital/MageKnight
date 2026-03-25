@@ -207,6 +207,7 @@ class CompletedEpisodeMeta:
     turns_resting: int = 0  # Number of turns spent resting
     total_achievement_delta: int = 0  # Cumulative achievement score change (excluding wounds)
     game_score: int = 0  # Official Mage Knight game score (fame + all achievements)
+    achievement_breakdown: dict[str, int] | None = None  # Per-category base points
 
 
 @dataclass
@@ -368,6 +369,7 @@ def collect_vecenv_rollout(
         rested_turns_step = step_result["rested_turns"]
         achievement_deltas = step_result["achievement_deltas"]
         game_scores = step_result["game_scores"]
+        achievement_categories = step_result["achievement_categories"]
         applied_actions = step_result["applied_actions"]
 
         # 4. Process each env
@@ -569,6 +571,14 @@ def collect_vecenv_rollout(
                     turns_resting=episode_buffers.turns_resting[i],
                     total_achievement_delta=episode_buffers.total_achievement_delta[i],
                     game_score=int(game_scores[i]),
+                    achievement_breakdown={
+                        "knowledge": int(achievement_categories[i][0]),
+                        "loot": int(achievement_categories[i][1]),
+                        "leader": int(achievement_categories[i][2]),
+                        "conqueror": int(achievement_categories[i][3]),
+                        "adventurer": int(achievement_categories[i][4]),
+                        "beating": int(achievement_categories[i][5]),
+                    },
                 ))
                 bufs[i] = []
                 episode_buffers.buffers[i] = bufs[i]
