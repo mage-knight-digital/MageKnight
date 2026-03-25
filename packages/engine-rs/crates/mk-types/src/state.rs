@@ -826,6 +826,11 @@ pub struct GameState {
     /// Monotonically increasing turn counter (incremented each time a real player starts a turn).
     /// Used for solo interactive skill self-return window tracking.
     pub turn_number: u32,
+
+    /// Transient buffer for events emitted during effect queue resolution (e.g. auto-resolved choices).
+    /// Drained by the action pipeline after each action. Not persisted or serialized.
+    #[serde(skip)]
+    pub event_buffer: Vec<crate::events::GameEvent>,
 }
 
 #[cfg(test)]

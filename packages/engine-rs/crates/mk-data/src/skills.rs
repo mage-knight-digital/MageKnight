@@ -1289,6 +1289,46 @@ pub fn get_skill(id: &str) -> Option<SkillDefinition> {
     }
 }
 
+/// Human-readable description of what a skill does when activated.
+/// Returns the effect's `describe()` for standard skills, or a manual
+/// description for custom-handler skills (whose effect is `Noop`).
+pub fn get_skill_description(id: &str) -> Option<String> {
+    // Manual descriptions for custom-handler skills
+    let manual: Option<&str> = match id {
+        "arythea_power_of_pain" => Some("Wounds playable sideways as 2"),
+        "arythea_invocation" => Some("Discard a card, play an AA from offer"),
+        "arythea_polarization" => Some("Convert a mana crystal to another color"),
+        "arythea_ritual_of_pain" => Some("Discard wounds for crystals and cards"),
+        "tovak_i_dont_give_a_damn" => Some("Move 2, ignore terrain costs"),
+        "tovak_who_needs_magic" => Some("Play next card as powered without mana"),
+        "tovak_mana_overload" => Some("Take gold dice from the Source"),
+        "goldyx_universal_power" => Some("Consume mana for color-matched bonuses"),
+        "goldyx_source_opening" => Some("Reroll and swap Source dice"),
+        "norowas_bonds_of_loyalty" => Some("Extra command token (passive)"),
+        "norowas_prayer_of_weather" => Some("Gain mana matching time of day"),
+        "wolfhawk_know_your_prey" => Some("Negate an enemy ability"),
+        "wolfhawk_dueling" => Some("Auto-block one enemy"),
+        "wolfhawk_wolfs_howl" => Some("Recruit at -3 influence discount"),
+        "krang_regenerate" => Some("Return Red mana to cure a wound"),
+        "krang_puppet_master" => Some("Use a defeated enemy as Attack or Block"),
+        "krang_master_of_chaos" => Some("Swap gold die for any color"),
+        "krang_curse" => Some("Weaken an enemy's attacks or resistances"),
+        "braevalar_forked_lightning" => Some("Deal Ice 3 split across enemies"),
+        "braevalar_shapeshift" => Some("Copy a hand card as a different effect type"),
+        "braevalar_secret_ways" => Some("Move through lake/swamp at reduced cost"),
+        "braevalar_regenerate" => Some("Return Green mana to cure a wound and draw"),
+        "braevalar_natures_vengeance" => Some("Convert defeated enemies into combat bonuses"),
+        _ => None,
+    };
+    if let Some(desc) = manual {
+        return Some(desc.to_string());
+    }
+    // Fall back to the effect's describe() for standard skills
+    get_skill(id)
+        .and_then(|def| def.effect)
+        .and_then(|e| e.describe())
+}
+
 /// Helper to create a stub skill definition (effect not yet implemented).
 fn stub(id: &'static str, usage_type: SkillUsageType, phase_restriction: SkillPhaseRestriction) -> SkillDefinition {
     SkillDefinition {

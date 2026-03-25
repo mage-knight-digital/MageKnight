@@ -56,6 +56,7 @@ use mk_types::state::*;
             source_opening_center: None,
             dummy_player: None,
             turn_number: 0,
+            event_buffer: Vec::new(),
         }
     }
 
@@ -398,6 +399,56 @@ use mk_types::state::*;
         let result = queue.drain(&mut state, 0);
         assert!(matches!(result, DrainResult::Complete));
         assert_eq!(state.players[0].move_points, 4); // auto-resolved
+    }
+
+    #[test]
+    fn choice_auto_resolve_emits_event() {
+        let mut state = test_state();
+        let mut queue = EffectQueue::new();
+        // Tranquility-like: Healing OR Draw. No wounds → only Draw is resolvable.
+        queue.push(
+            CardEffect::Choice {
+                options: vec![
+                    CardEffect::GainHealing { amount: 1 },
+                    CardEffect::DrawCards { count: 1 },
+                ],
+            },
+            Some(CardId::from("tranquility")),
+        );
+        queue.drain(&mut state, 0);
+        assert_eq!(state.event_buffer.len(), 1);
+        if let mk_types::events::GameEvent::ChoiceResolved {
+            choice_index,
+            card_id,
+            chosen_description,
+            ..
+        } = &state.event_buffer[0]
+        {
+            assert_eq!(*choice_index, 0);
+            assert_eq!(card_id.as_ref().unwrap().as_str(), "tranquility");
+            assert_eq!(chosen_description.as_deref(), Some("Draw 1"));
+        } else {
+            panic!("Expected ChoiceResolved event");
+        }
+    }
+
+    #[test]
+    fn choice_no_event_when_multiple_options() {
+        let mut state = test_state();
+        let mut queue = EffectQueue::new();
+        // Both options resolvable → no auto-resolve event
+        queue.push(
+            CardEffect::Choice {
+                options: vec![
+                    CardEffect::GainMove { amount: 2 },
+                    CardEffect::GainInfluence { amount: 2 },
+                ],
+            },
+            None,
+        );
+        let result = queue.drain(&mut state, 0);
+        assert!(matches!(result, DrainResult::NeedsChoice { .. }));
+        assert!(state.event_buffer.is_empty());
     }
 
     #[test]

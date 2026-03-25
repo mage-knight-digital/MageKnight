@@ -488,9 +488,11 @@ pub fn apply_legal_action(
         LegalAction::UseSkill { skill_id } => {
             // Reversible: save snapshot
             undo_stack.save(state);
+            let effect_desc = mk_data::skills::get_skill_description(skill_id.as_str());
             events.push(GameEvent::SkillUsed {
                 player_id: player_id.clone(),
                 skill_id: skill_id.clone(),
+                effect_description: effect_desc,
             });
             skills::apply_use_skill(state, player_idx, skill_id)?
         }
@@ -1017,6 +1019,11 @@ pub fn apply_legal_action(
         let mut merged = events;
         merged.append(&mut result.events);
         result.events = merged;
+    }
+
+    // Drain auto-resolved choice events from the effect queue event buffer
+    if !state.event_buffer.is_empty() {
+        result.events.append(&mut state.event_buffer);
     }
 
     // Fallback: if no events were generated at all, emit a generic ActionTaken

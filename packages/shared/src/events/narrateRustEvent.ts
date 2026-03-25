@@ -509,7 +509,9 @@ export function narrateRustEvent(
       const name = pid ? heroName(players, pid) : "Hero";
       const skillId = field(event, "skill_id", "skillId") as string | undefined;
       const skillLabel = skillId ? formatId(skillId) : "a skill";
-      return msg(`${name} used ${skillLabel}`, EVENT_CATEGORY.PROGRESSION, pid);
+      const effectDesc = field(event, "effect_description", "effectDescription") as string | undefined;
+      const suffix = effectDesc ? ` — ${effectDesc}` : "";
+      return msg(`${name} used ${skillLabel}${suffix}`, EVENT_CATEGORY.PROGRESSION, pid);
     }
 
     case "interactiveSkillReturned": {

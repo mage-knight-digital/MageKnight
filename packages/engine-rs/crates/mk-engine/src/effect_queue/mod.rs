@@ -166,6 +166,19 @@ impl EffectQueue {
                 ResolveResult::Applied => continue,
                 ResolveResult::Skipped => continue,
                 ResolveResult::Decomposed(sub_effects) => {
+                    // Emit event when a Choice auto-resolves to a single option.
+                    if matches!(&queued.effect, CardEffect::Choice { .. }) && sub_effects.len() == 1 {
+                        if let Some(desc) = sub_effects[0].describe() {
+                            use mk_types::events::GameEvent;
+                            state.event_buffer.push(GameEvent::ChoiceResolved {
+                                player_id: state.players[player_idx].id.clone(),
+                                choice_index: 0,
+                                card_id: source.clone(),
+                                skill_id: None,
+                                chosen_description: Some(desc),
+                            });
+                        }
+                    }
                     // Push sub-effects to FRONT of queue (they should resolve next).
                     for effect in sub_effects.into_iter().rev() {
                         self.queue.push_front(QueuedEffect {

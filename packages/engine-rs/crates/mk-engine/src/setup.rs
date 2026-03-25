@@ -391,6 +391,8 @@ pub fn create_solo_game(seed: u32, hero: Hero) -> GameState {
         dummy_player: Some(dummy),
 
         turn_number: 0,
+
+        event_buffer: Vec::new(),
     }
 }
 
@@ -537,6 +539,8 @@ pub fn create_multiplayer_game(
         dummy_player: None,
 
         turn_number: 0,
+
+        event_buffer: Vec::new(),
     }
 }
 

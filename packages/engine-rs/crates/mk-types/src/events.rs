@@ -226,6 +226,9 @@ pub enum GameEvent {
     SkillUsed {
         player_id: PlayerId,
         skill_id: SkillId,
+        /// Human-readable description of the skill's effect.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        effect_description: Option<String>,
     },
 
     /// A player returned an interactive skill to its owner.
