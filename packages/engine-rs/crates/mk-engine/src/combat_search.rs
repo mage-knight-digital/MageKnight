@@ -39,6 +39,36 @@ pub struct CombatSearchConfig {
     pub node_limit: u64,
     /// Number of greedy rollouts to seed the search with a lower bound.
     pub seed_rollouts: u32,
+    /// Eval weights for the combat score function.
+    pub eval_weights: CombatEvalWeights,
+}
+
+/// Tunable weights for the combat evaluation function.
+///
+/// The oracle maximizes: fame × fame_weight - wounds × wound_weight
+///   + cards_remaining × cards_remaining_weight - crystals × crystal_weight
+///   - units_wounded × unit_wounded_weight - knocked_out_penalty (if KO'd)
+#[derive(Debug, Clone, Copy)]
+pub struct CombatEvalWeights {
+    pub fame: f64,
+    pub wound: f64,
+    pub cards_remaining: f64,
+    pub crystal_spent: f64,
+    pub unit_wounded: f64,
+    pub knocked_out_penalty: f64,
+}
+
+impl Default for CombatEvalWeights {
+    fn default() -> Self {
+        Self {
+            fame: 100.0,
+            wound: 80.0,
+            cards_remaining: 15.0,
+            crystal_spent: 25.0,
+            unit_wounded: 40.0,
+            knocked_out_penalty: 500.0,
+        }
+    }
 }
 
 impl Default for CombatSearchConfig {
@@ -46,6 +76,7 @@ impl Default for CombatSearchConfig {
         Self {
             node_limit: 10_000_000,
             seed_rollouts: 1000,
+            eval_weights: CombatEvalWeights::default(),
         }
     }
 }
@@ -106,10 +137,12 @@ pub fn search_combat(state: &GameState, config: &CombatSearchConfig) -> CombatSe
 
     let mut stats = DfsStats::new(total_possible_fame);
 
+    let weights = &config.eval_weights;
+
     // Seed with greedy rollouts.
     if config.seed_rollouts > 0 {
         if let Some((seed_score, seed_path)) =
-            greedy_seed(state, &action_set, &pre, config.seed_rollouts)
+            greedy_seed(state, &action_set, &pre, config.seed_rollouts, weights)
         {
             stats.best_score = Some(seed_score);
             stats.best_path = seed_path;
@@ -125,6 +158,7 @@ pub fn search_combat(state: &GameState, config: &CombatSearchConfig) -> CombatSe
         config.node_limit,
         &pre,
         &mut path,
+        weights,
     );
 
     let complete = stats.nodes_visited < config.node_limit;
@@ -200,7 +234,7 @@ struct CombatScore {
 }
 
 impl CombatScore {
-    fn evaluate(pre: &PreCombatSnapshot, state: &GameState) -> Self {
+    fn evaluate(pre: &PreCombatSnapshot, state: &GameState, w: &CombatEvalWeights) -> Self {
         let player = &state.players[0];
         let fame_gained = player.fame.saturating_sub(pre.fame);
         let wounds_taken =
@@ -216,14 +250,15 @@ impl CombatScore {
         let knocked_out = wounds_in_hand >= player.hand_limit;
 
         let total = if knocked_out {
-            fame_gained as f64 * 100.0 - wounds_taken as f64 * 80.0 - 500.0
-                - crystals_spent.max(0) as f64 * 25.0
-                - units_newly_wounded.max(0) as f64 * 40.0
+            fame_gained as f64 * w.fame - wounds_taken as f64 * w.wound
+                - w.knocked_out_penalty
+                - crystals_spent.max(0) as f64 * w.crystal_spent
+                - units_newly_wounded.max(0) as f64 * w.unit_wounded
         } else {
-            fame_gained as f64 * 100.0 - wounds_taken as f64 * 80.0
-                + cards_remaining as f64 * 15.0
-                - crystals_spent.max(0) as f64 * 25.0
-                - units_newly_wounded.max(0) as f64 * 40.0
+            fame_gained as f64 * w.fame - wounds_taken as f64 * w.wound
+                + cards_remaining as f64 * w.cards_remaining
+                - crystals_spent.max(0) as f64 * w.crystal_spent
+                - units_newly_wounded.max(0) as f64 * w.unit_wounded
         };
 
         Self {
@@ -422,7 +457,12 @@ fn max_remaining_attack(state: &GameState) -> u32 {
     current_attack + max_from_hand + per_enemy_total
 }
 
-fn upper_bound(state: &GameState, pre: &PreCombatSnapshot, _total_possible_fame: u32) -> f64 {
+fn upper_bound(
+    state: &GameState,
+    pre: &PreCombatSnapshot,
+    _total_possible_fame: u32,
+    w: &CombatEvalWeights,
+) -> f64 {
     let player = &state.players[0];
     let wounds_so_far =
         player.wounds_received_this_turn.hand + player.wounds_received_this_turn.discard;
@@ -470,9 +510,9 @@ fn upper_bound(state: &GameState, pre: &PreCombatSnapshot, _total_possible_fame:
         0
     };
 
-    max_fame as f64 * 100.0 - wounds_so_far as f64 * 80.0 + cards_remaining as f64 * 15.0
-        - crystals_spent as f64 * 25.0
-        - units_newly_wounded as f64 * 40.0
+    max_fame as f64 * w.fame - wounds_so_far as f64 * w.wound + cards_remaining as f64 * w.cards_remaining
+        - crystals_spent as f64 * w.crystal_spent
+        - units_newly_wounded as f64 * w.unit_wounded
 }
 
 // =============================================================================
@@ -544,6 +584,7 @@ fn rollout(
     actions: &LegalActionSet,
     pre: &PreCombatSnapshot,
     rng: &mut u32,
+    weights: &CombatEvalWeights,
 ) -> (CombatScore, Vec<LegalAction>) {
     let mut current_state = state.clone();
     let mut current_actions = actions.clone();
@@ -563,7 +604,7 @@ fn rollout(
         }
     }
 
-    (CombatScore::evaluate(pre, &current_state), path)
+    (CombatScore::evaluate(pre, &current_state, weights), path)
 }
 
 fn greedy_seed(
@@ -571,12 +612,13 @@ fn greedy_seed(
     actions: &LegalActionSet,
     pre: &PreCombatSnapshot,
     num_rollouts: u32,
+    weights: &CombatEvalWeights,
 ) -> Option<(CombatScore, Vec<LegalAction>)> {
     let mut best: Option<(CombatScore, Vec<LegalAction>)> = None;
     let mut rng = 12345u32;
 
     for _ in 0..num_rollouts {
-        let (score, path) = rollout(state, actions, pre, &mut rng);
+        let (score, path) = rollout(state, actions, pre, &mut rng, weights);
         if best.as_ref().is_none_or(|(b, _)| score.total > b.total) {
             best = Some((score, path));
         }
@@ -619,6 +661,7 @@ fn dfs(
     node_limit: u64,
     pre: &PreCombatSnapshot,
     path: &mut Vec<LegalAction>,
+    weights: &CombatEvalWeights,
 ) {
     if stats.nodes_visited >= node_limit {
         return;
@@ -628,7 +671,7 @@ fn dfs(
     let num_actions = action_set.actions.len();
 
     if is_combat_terminal(state, num_actions) {
-        let score = CombatScore::evaluate(pre, state);
+        let score = CombatScore::evaluate(pre, state, weights);
         let is_best = stats
             .best_score
             .map(|b| score.total > b.total)
@@ -642,7 +685,7 @@ fn dfs(
 
     // Upper-bound pruning.
     if let Some(ref best) = stats.best_score {
-        let ub = upper_bound(state, pre, stats.total_possible_fame);
+        let ub = upper_bound(state, pre, stats.total_possible_fame, weights);
         if ub <= best.total {
             stats.nodes_pruned += 1;
             return;
@@ -673,6 +716,7 @@ fn dfs(
                 node_limit,
                 pre,
                 path,
+                weights,
             );
             path.pop();
         }
@@ -747,6 +791,7 @@ mod tests {
         let config = CombatSearchConfig {
             node_limit: 100_000,
             seed_rollouts: 500,
+            ..CombatSearchConfig::default()
         };
         let result = search_combat(&state, &config);
 

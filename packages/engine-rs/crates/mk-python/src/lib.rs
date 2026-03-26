@@ -476,6 +476,7 @@ impl GameEngine {
         let config = CombatSearchConfig {
             node_limit: 1_000_000,
             seed_rollouts: 500,
+            ..CombatSearchConfig::default()
         };
         let result = search_combat(&self.state, &config);
 
@@ -588,6 +589,7 @@ impl GameEngine {
         let config = CombatSearchConfig {
             node_limit: 1_000_000,
             seed_rollouts: 500,
+            ..CombatSearchConfig::default()
         };
         let result = search_combat(&self.state, &config);
 
