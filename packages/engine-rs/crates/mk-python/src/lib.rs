@@ -829,7 +829,7 @@ impl PyVecEnv {
     ///         None or "full_game" → FullGame (default).
     ///         Otherwise parsed as JSON, e.g. '{"type":"CombatDrill","enemy_tokens":["diggers_1"],"is_fortified":false}'.
     #[new]
-    #[pyo3(signature = (num_envs=16, base_seed=42, hero="arythea", max_steps=2000, scenario=None, combat_oracle=false, early_term_fame_step=0))]
+    #[pyo3(signature = (num_envs=16, base_seed=42, hero="arythea", max_steps=2000, scenario=None, combat_oracle=false, commerce_oracle=false, early_term_fame_step=0))]
     fn new(
         num_envs: usize,
         base_seed: u32,
@@ -837,6 +837,7 @@ impl PyVecEnv {
         max_steps: u64,
         scenario: Option<&str>,
         combat_oracle: bool,
+        commerce_oracle: bool,
         early_term_fame_step: u64,
     ) -> PyResult<Self> {
         let hero_enum = parse_hero(hero)?;
@@ -848,6 +849,7 @@ impl PyVecEnv {
             max_steps,
             training_scenario,
             combat_oracle,
+            commerce_oracle,
             early_term_fame_step,
         );
         Ok(Self { inner })

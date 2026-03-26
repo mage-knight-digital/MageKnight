@@ -8,6 +8,7 @@ pub mod client_state;
 pub mod combat;
 pub mod combat_search;
 pub mod combat_resolution;
+pub mod commerce_search;
 pub mod cooperative_assault;
 pub mod dummy_player;
 pub mod effect_queue;

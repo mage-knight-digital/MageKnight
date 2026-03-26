@@ -13,6 +13,7 @@ use rayon::prelude::*;
 
 use mk_engine::action_pipeline::{apply_legal_action, ApplyError};
 use mk_engine::combat_search::{search_combat, CombatSearchConfig};
+use mk_engine::commerce_search::{search_commerce, CommerceSearchConfig};
 use mk_engine::legal_actions::enumerate_legal_actions_with_undo;
 use mk_engine::scoring::{calculate_category_base_points, calculate_final_scores};
 use mk_engine::undo::UndoStack;
@@ -20,7 +21,7 @@ use mk_features::EncodedStep;
 use mk_types::enums::Hero;
 use mk_types::legal_action::{LegalAction, LegalActionSet};
 use mk_types::scoring::AchievementCategory;
-use mk_types::state::GameState;
+use mk_types::state::{GameState, PlayerFlags};
 
 pub use training_scenario::TrainingScenario;
 use training_scenario::create_training_game;
@@ -116,6 +117,8 @@ struct SingleEnv {
     turn_hexes: std::collections::BTreeSet<(i32, i32)>,
     /// When true, auto-resolve combat via exhaustive search oracle.
     combat_oracle: bool,
+    /// When true, auto-resolve commerce interactions via search oracle.
+    commerce_oracle: bool,
     /// If > 0, terminate early when fame == 0 after this many steps.
     early_term_fame_step: u64,
     /// History of actual LegalActions applied (for crash reproduction).
@@ -129,6 +132,7 @@ impl SingleEnv {
         max_steps: u64,
         scenario: TrainingScenario,
         combat_oracle: bool,
+        commerce_oracle: bool,
         early_term_fame_step: u64,
     ) -> Self {
         let result = create_training_game(seed, hero, &scenario);
@@ -151,6 +155,7 @@ impl SingleEnv {
             visited_hexes,
             turn_hexes,
             combat_oracle,
+            commerce_oracle,
             early_term_fame_step,
             action_history: Vec::new(),
         }
@@ -301,6 +306,61 @@ impl SingleEnv {
         self.action_set = filter_undo(new_actions);
     }
 
+    /// Auto-resolve commerce interaction using search oracle.
+    /// Replays the optimal card play + purchase sequence, falling back to EndTurn if needed.
+    fn resolve_commerce_oracle(&mut self) {
+        let config = CommerceSearchConfig {
+            node_limit: 500_000,
+            seed_rollouts: 200,
+            ..CommerceSearchConfig::default()
+        };
+        let result = search_commerce(&self.state, &config);
+
+        // Replay optimal actions from the search result
+        for action in &result.actions {
+            if !self.state.players[0]
+                .flags
+                .contains(PlayerFlags::IS_INTERACTING)
+                || self.state.game_ended
+                || self.state.combat.is_some()
+            {
+                break;
+            }
+            let epoch = self.state.action_epoch;
+            let _ = apply_legal_action(&mut self.state, &mut self.undo_stack, 0, action, epoch);
+        }
+
+        // Fallback: if interaction didn't end, EndTurn to exit
+        if self.state.players[0]
+            .flags
+            .contains(PlayerFlags::IS_INTERACTING)
+            && !self.state.game_ended
+        {
+            let actions =
+                enumerate_legal_actions_with_undo(&self.state, 0, &self.undo_stack);
+            if let Some(end_turn_idx) = actions
+                .actions
+                .iter()
+                .position(|a| matches!(a, LegalAction::EndTurn))
+            {
+                let action = actions.actions[end_turn_idx].clone();
+                let epoch = actions.epoch;
+                let _ = apply_legal_action(
+                    &mut self.state,
+                    &mut self.undo_stack,
+                    0,
+                    &action,
+                    epoch,
+                );
+            }
+        }
+
+        // Re-enumerate legal actions after commerce resolution
+        let new_actions =
+            enumerate_legal_actions_with_undo(&self.state, 0, &self.undo_stack);
+        self.action_set = filter_undo(new_actions);
+    }
+
     fn action_count(&self) -> usize {
         self.action_set.actions.len()
     }
@@ -332,6 +392,15 @@ impl SingleEnv {
                 // Auto-resolve combat with oracle if enabled
                 if self.combat_oracle && self.state.combat.is_some() {
                     self.resolve_combat_oracle();
+                }
+
+                // Auto-resolve commerce with oracle if enabled
+                if self.commerce_oracle
+                    && self.state.players[0]
+                        .flags
+                        .contains(PlayerFlags::IS_INTERACTING)
+                {
+                    self.resolve_commerce_oracle();
                 }
 
                 // In CombatDrill, end episode when combat resolves
@@ -460,6 +529,7 @@ impl VecEnv {
         max_steps: u64,
         scenario: TrainingScenario,
         combat_oracle: bool,
+        commerce_oracle: bool,
         early_term_fame_step: u64,
     ) -> Self {
         let envs: Vec<SingleEnv> = (0..num_envs)
@@ -471,6 +541,7 @@ impl VecEnv {
                     max_steps,
                     scenario.clone(),
                     combat_oracle,
+                    commerce_oracle,
                     early_term_fame_step,
                 )
             })
@@ -693,7 +764,7 @@ mod tests {
             4, 4, 0, 3, 3, 5, 0, 2, 4, 3, 3, 1, 2, 0, 4, 4, 1, 3, 3, 5, 2, 1, 0, 2, 1, 0, 0,
         ];
 
-        let mut env = SingleEnv::new(15604, Hero::Arythea, 500, TrainingScenario::default(), false, 0);
+        let mut env = SingleEnv::new(15604, Hero::Arythea, 500, TrainingScenario::default(), false, false, 0);
         for (i, &action_idx) in actions.iter().enumerate() {
             assert!(
                 !env.action_set.actions.is_empty(),
@@ -739,7 +810,7 @@ mod tests {
             1, 2, 2, 5, 1, 5, 3, 0, 0, 0, 3, 0, 2,
         ];
 
-        let mut env = SingleEnv::new(9424, Hero::Arythea, 500, TrainingScenario::default(), false, 0);
+        let mut env = SingleEnv::new(9424, Hero::Arythea, 500, TrainingScenario::default(), false, false, 0);
         for (i, &action_idx) in actions.iter().enumerate() {
             assert!(
                 !env.action_set.actions.is_empty(),
@@ -787,7 +858,7 @@ mod tests {
             0, 0,
         ];
 
-        let mut env = SingleEnv::new(5473, Hero::Arythea, 500, TrainingScenario::default(), false, 0);
+        let mut env = SingleEnv::new(5473, Hero::Arythea, 500, TrainingScenario::default(), false, false, 0);
         for (i, &action_idx) in actions.iter().enumerate() {
             assert!(
                 !env.action_set.actions.is_empty(),
@@ -834,7 +905,7 @@ mod tests {
             3, 4, 3, 4, 4, 1, 0, 0, 0, 0, 0,
         ];
 
-        let mut env = SingleEnv::new(11669, Hero::Arythea, 500, TrainingScenario::default(), false, 0);
+        let mut env = SingleEnv::new(11669, Hero::Arythea, 500, TrainingScenario::default(), false, false, 0);
         for (i, &action_idx) in actions.iter().enumerate() {
             assert!(
                 !env.action_set.actions.is_empty(),
@@ -883,7 +954,7 @@ mod tests {
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
 
-        let mut env = SingleEnv::new(5305, Hero::Arythea, 500, TrainingScenario::default(), false, 0);
+        let mut env = SingleEnv::new(5305, Hero::Arythea, 500, TrainingScenario::default(), false, false, 0);
         for (i, &action_idx) in actions.iter().enumerate() {
             assert!(
                 !env.action_set.actions.is_empty(),
@@ -923,13 +994,13 @@ mod tests {
 
     #[test]
     fn vec_env_creation() {
-        let env = VecEnv::new(4, 42, Hero::Arythea, 100, TrainingScenario::default(), false, 0);
+        let env = VecEnv::new(4, 42, Hero::Arythea, 100, TrainingScenario::default(), false, false, 0);
         assert_eq!(env.num_envs(), 4);
     }
 
     #[test]
     fn encode_batch_shapes() {
-        let env = VecEnv::new(4, 42, Hero::Arythea, 100, TrainingScenario::default(), false, 0);
+        let env = VecEnv::new(4, 42, Hero::Arythea, 100, TrainingScenario::default(), false, false, 0);
         let batch = env.encode_batch();
         assert_eq!(batch.num_envs, 4);
         assert_eq!(batch.state_scalars.len(), 4 * mk_features::STATE_SCALAR_DIM);
@@ -946,7 +1017,7 @@ mod tests {
 
     #[test]
     fn step_batch_random_actions() {
-        let mut env = VecEnv::new(4, 42, Hero::Arythea, 100, TrainingScenario::default(), false, 0);
+        let mut env = VecEnv::new(4, 42, Hero::Arythea, 100, TrainingScenario::default(), false, false, 0);
 
         for _ in 0..10 {
             let batch = env.encode_batch();
@@ -964,7 +1035,7 @@ mod tests {
 
     #[test]
     fn auto_reset_on_max_steps() {
-        let mut env = VecEnv::new(1, 42, Hero::Arythea, 5, TrainingScenario::default(), false, 0);
+        let mut env = VecEnv::new(1, 42, Hero::Arythea, 5, TrainingScenario::default(), false, false, 0);
 
         // Step until the env is done
         let mut found_done = false;
@@ -985,7 +1056,7 @@ mod tests {
 
     #[test]
     fn padding_consistency() {
-        let env = VecEnv::new(8, 1, Hero::Arythea, 100, TrainingScenario::default(), false, 0);
+        let env = VecEnv::new(8, 1, Hero::Arythea, 100, TrainingScenario::default(), false, false, 0);
         let batch = env.encode_batch();
 
         // action_ids should be (N * max_actions * 6)
@@ -1013,7 +1084,7 @@ mod tests {
             skills: None,
             crystals: None,
         };
-        let mut env = VecEnv::new(4, 42, Hero::Arythea, 50, scenario, false, 0);
+        let mut env = VecEnv::new(4, 42, Hero::Arythea, 50, scenario, false, false, 0);
         let batch = env.encode_batch();
         assert_eq!(batch.num_envs, 4);
 
@@ -1041,7 +1112,7 @@ mod tests {
             skills: None,
             crystals: None,
         };
-        let mut env = VecEnv::new(1, 42, Hero::Arythea, 10, scenario, false, 0);
+        let mut env = VecEnv::new(1, 42, Hero::Arythea, 10, scenario, false, false, 0);
 
         let mut found_done = false;
         for _ in 0..50 {
@@ -1071,7 +1142,7 @@ mod tests {
             skills: None,
             crystals: None,
         };
-        let mut env = VecEnv::new(1, 42, Hero::Arythea, 500, scenario, false, 0);
+        let mut env = VecEnv::new(1, 42, Hero::Arythea, 500, scenario, false, false, 0);
 
         let mut done_step = None;
         for step in 0..200 {
@@ -1109,7 +1180,7 @@ mod tests {
             skills: None,
             crystals: None,
         };
-        let mut env = SingleEnv::new(42, Hero::Arythea, 500, scenario, true, 0);
+        let mut env = SingleEnv::new(42, Hero::Arythea, 500, scenario, true, false, 0);
 
         // The env starts in combat; the first step should trigger oracle resolution
         assert!(
@@ -1133,7 +1204,7 @@ mod tests {
     #[test]
     fn early_termination_no_fame() {
         // With early_term_fame_step=10, if the agent has 0 fame after 10 steps, episode ends
-        let mut env = SingleEnv::new(42, Hero::Arythea, 500, TrainingScenario::default(), false, 10);
+        let mut env = SingleEnv::new(42, Hero::Arythea, 500, TrainingScenario::default(), false, false, 10);
 
         // Step 10 times (action 0 = first legal action, likely movement/end turn)
         for _ in 0..10 {
@@ -1212,7 +1283,7 @@ mod tests {
 
         let actions: Vec<LegalAction> = serde_json::from_str(actions_json).unwrap();
 
-        let mut env = SingleEnv::new(42048, Hero::Arythea, 500, TrainingScenario::default(), true, 0);
+        let mut env = SingleEnv::new(42048, Hero::Arythea, 500, TrainingScenario::default(), true, false, 0);
         for (i, action) in actions.iter().enumerate() {
             assert!(
                 !env.action_set.actions.is_empty(),
@@ -1246,7 +1317,7 @@ mod tests {
     #[test]
     fn early_termination_disabled_by_default() {
         // With early_term_fame_step=0, no early termination
-        let mut env = SingleEnv::new(42, Hero::Arythea, 500, TrainingScenario::default(), false, 0);
+        let mut env = SingleEnv::new(42, Hero::Arythea, 500, TrainingScenario::default(), false, false, 0);
 
         for _ in 0..15 {
             if env.is_done() {
