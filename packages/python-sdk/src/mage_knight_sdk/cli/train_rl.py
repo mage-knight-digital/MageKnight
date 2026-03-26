@@ -208,8 +208,8 @@ def main() -> int:
     parser.add_argument("--no-combat-oracle", dest="combat_oracle", action="store_false", help="Disable combat oracle — agent handles combat actions")
 
     # Commerce oracle
-    parser.add_argument("--commerce-oracle", action="store_true", default=False, help="Auto-resolve commerce interactions via search oracle (agent skips influence/purchase actions)")
-    parser.add_argument("--no-commerce-oracle", dest="commerce_oracle", action="store_false", help="Disable commerce oracle (default)")
+    parser.add_argument("--commerce-oracle", action="store_true", default=True, help="Auto-resolve commerce interactions via search oracle (agent skips influence/purchase actions)")
+    parser.add_argument("--no-commerce-oracle", dest="commerce_oracle", action="store_false", help="Disable commerce oracle")
 
     # Early termination
     parser.add_argument("--early-term-fame-step", type=int, default=60, help="Terminate episode early if fame == 0 after this many steps (0 to disable)")
