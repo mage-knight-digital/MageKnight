@@ -41,8 +41,11 @@ def run_game_for_replay(
     combat_oracle: bool = False,
     commerce_oracle: bool = False,
     artifact: bool = False,
+    greedy: bool = False,
 ) -> dict:
     """Run a single game with the policy and record action indices."""
+    import torch
+
     GameEngine = _get_engine_class()
     engine = GameEngine(seed=seed, hero=hero)
     engine.set_rl_mode(True)
@@ -107,7 +110,12 @@ def run_game_for_replay(
             py_encoded = engine.encode_step()
             encoded_step = py_encoded_to_encoded_step(py_encoded)
 
-            action_index = policy.choose_action_from_encoded(encoded_step)
+            if greedy:
+                with torch.no_grad():
+                    logits, _ = policy._network.forward(encoded_step, torch.device('cpu'))
+                    action_index = int(logits.argmax().item())
+            else:
+                action_index = policy.choose_action_from_encoded(encoded_step)
             action_indices.append(action_index)
 
             game_ended = engine.apply_action(action_index)
@@ -155,6 +163,7 @@ def main() -> int:
     parser.add_argument("--max-steps", type=int, default=10000, help="Max steps per game")
     parser.add_argument("--combat-oracle", action="store_true", default=False, help="Auto-resolve combat via search oracle")
     parser.add_argument("--commerce-oracle", action="store_true", default=False, help="Auto-resolve commerce via search oracle")
+    parser.add_argument("--greedy", action="store_true", default=False, help="Use greedy (argmax) action selection instead of sampling")
     parser.add_argument("--artifact", action="store_true", default=False, help="Generate UI-viewable artifact files (with full state snapshots)")
     args = parser.parse_args()
 
@@ -193,6 +202,7 @@ def main() -> int:
             combat_oracle=args.combat_oracle,
             commerce_oracle=args.commerce_oracle,
             artifact=args.artifact,
+            greedy=args.greedy,
         )
 
         out_path = output_dir / f"seed_{seed}_{hero}_{replay['fame']}fame.json"
