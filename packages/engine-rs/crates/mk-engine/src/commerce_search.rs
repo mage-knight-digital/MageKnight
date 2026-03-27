@@ -202,6 +202,8 @@ struct PreCommerceSnapshot {
     wounded_unit_count: usize,
     crystals_total: u8,
     influence_points: u32,
+    hand_size: usize,
+    play_area_size: usize,
 }
 
 impl PreCommerceSnapshot {
@@ -249,6 +251,8 @@ impl PreCommerceSnapshot {
                 + player.crystals.green
                 + player.crystals.white,
             influence_points: player.influence_points,
+            hand_size: player.hand.len(),
+            play_area_size: player.play_area.len(),
         }
     }
 }
@@ -323,6 +327,9 @@ impl CommerceScore {
         // Note: this is approximate — actual costs depend on site type and reputation.
         // For the score, what matters is the purchases, not the exact influence generated.
 
+        // Cards spent = cards moved from hand to play area during commerce
+        let cards_spent = player.play_area.len().saturating_sub(pre.play_area_size) as u32;
+
         // Wasted influence = influence remaining that wasn't spent on anything
         let made_purchases =
             wounds_healed > 0 || spells_gained > 0 || aas_gained > 0 || artifacts_gained > 0 || units_recruited > 0;
@@ -330,7 +337,14 @@ impl CommerceScore {
         let wasted = if made_purchases {
             influence_remaining
         } else {
-            0 // Don't penalize if nothing was bought (oracle decided not to commerce)
+            0 // Don't penalize wasted influence if nothing was bought
+        };
+
+        // If no purchases were made, heavily penalize playing cards (they're wasted)
+        let cards_wasted_penalty = if made_purchases {
+            0.0
+        } else {
+            cards_spent as f64 * 100.0 // Strong penalty: don't play cards for nothing
         };
 
         let total = wounds_healed as f64 * w.wound_healed
@@ -340,7 +354,8 @@ impl CommerceScore {
             + unit_levels_gained as f64 * w.unit_recruited_per_level
             + wounded_dismissed as f64 * w.unit_dismissed_wounded
             - wasted as f64 * w.influence_wasted
-            - crystals_spent.max(0) as f64 * w.crystal_spent;
+            - crystals_spent.max(0) as f64 * w.crystal_spent
+            - cards_wasted_penalty;
 
         Self {
             wounds_healed,
