@@ -39,6 +39,7 @@ def run_game_for_replay(
     policy: ReinforcePolicy,
     max_steps: int = 10000,
     combat_oracle: bool = False,
+    commerce_oracle: bool = False,
     artifact: bool = False,
 ) -> dict:
     """Run a single game with the policy and record action indices."""
@@ -83,6 +84,26 @@ def run_game_for_replay(
                     break
                 continue
 
+            # If interacting and commerce oracle is enabled, auto-resolve
+            if commerce_oracle and engine.is_interacting():
+                if artifact:
+                    while engine.is_interacting() and not engine.is_game_ended() and not engine.in_combat():
+                        oracle_idx = engine.commerce_oracle_action()
+                        if oracle_idx is None:
+                            break
+                        action_indices.append(oracle_idx)
+                        engine.apply_action(oracle_idx)
+                        step += 1
+                        _record_frame(engine, player_id, message_log)
+                else:
+                    oracle_indices = engine.auto_resolve_commerce()
+                    action_indices.extend(oracle_indices)
+                    step += len(oracle_indices)
+                if engine.is_game_ended():
+                    outcome = "ended"
+                    break
+                continue
+
             py_encoded = engine.encode_step()
             encoded_step = py_encoded_to_encoded_step(py_encoded)
 
@@ -111,6 +132,7 @@ def run_game_for_replay(
         "round": engine.round(),
         "outcome": outcome,
         "combat_oracle": combat_oracle,
+        "commerce_oracle": commerce_oracle,
     }
 
     if artifact:
@@ -132,6 +154,7 @@ def main() -> int:
     parser.add_argument("--hero", default="random", help="Hero name or 'random' for seeded rotation")
     parser.add_argument("--max-steps", type=int, default=10000, help="Max steps per game")
     parser.add_argument("--combat-oracle", action="store_true", default=False, help="Auto-resolve combat via search oracle")
+    parser.add_argument("--commerce-oracle", action="store_true", default=False, help="Auto-resolve commerce via search oracle")
     parser.add_argument("--artifact", action="store_true", default=False, help="Generate UI-viewable artifact files (with full state snapshots)")
     args = parser.parse_args()
 
@@ -168,6 +191,7 @@ def main() -> int:
             seed, hero, policy,
             max_steps=args.max_steps,
             combat_oracle=args.combat_oracle,
+            commerce_oracle=args.commerce_oracle,
             artifact=args.artifact,
         )
 

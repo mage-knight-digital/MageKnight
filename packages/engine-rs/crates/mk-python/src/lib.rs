@@ -16,6 +16,7 @@ use pyo3::prelude::*;
 use mk_engine::action_pipeline::{apply_legal_action, initial_events, ApplyError};
 use mk_engine::client_state::to_client_state;
 use mk_engine::combat_search::{search_combat, CombatSearchConfig};
+use mk_engine::commerce_search::{search_commerce, CommerceSearchConfig};
 use mk_engine::legal_actions::enumerate_legal_actions_with_undo;
 use mk_engine::scoring::calculate_final_scores;
 use mk_engine::setup::{create_solo_game, place_initial_tiles};
@@ -606,6 +607,112 @@ impl GameEngine {
                 .actions
                 .iter()
                 .position(|a| matches!(a, LegalAction::EndCombatPhase))
+        }
+    }
+
+    /// Whether the player is currently interacting at a site (commerce mode).
+    fn is_interacting(&self) -> bool {
+        self.state.players[0]
+            .flags
+            .contains(mk_types::state::PlayerFlags::IS_INTERACTING)
+    }
+
+    /// Auto-resolve commerce interaction using the search oracle.
+    /// Plays cards for influence and makes optimal purchases.
+    /// Returns the list of action indices applied.
+    fn auto_resolve_commerce(&mut self) -> PyResult<Vec<i32>> {
+        if !self.is_interacting() {
+            return Ok(vec![]);
+        }
+
+        let config = CommerceSearchConfig {
+            node_limit: 500_000,
+            seed_rollouts: 200,
+            ..CommerceSearchConfig::default()
+        };
+        let result = search_commerce(&self.state, &config);
+
+        let mut action_indices = Vec::new();
+
+        for action in &result.actions {
+            if !self.state.players[0]
+                .flags
+                .contains(mk_types::state::PlayerFlags::IS_INTERACTING)
+                || self.state.game_ended
+                || self.state.combat.is_some()
+            {
+                break;
+            }
+            if let Some(idx) = self.action_set.actions.iter().position(|a| a == action) {
+                let epoch = self.action_set.epoch;
+                match apply_legal_action(&mut self.state, &mut self.undo_stack, 0, action, epoch) {
+                    Ok(_) => {
+                        action_indices.push(idx as i32);
+                        self.action_set = enumerate_legal_actions_with_undo(
+                            &self.state,
+                            0,
+                            &self.undo_stack,
+                        );
+                    }
+                    Err(_) => break,
+                }
+            } else {
+                break;
+            }
+        }
+
+        // Fallback: EndTurn if still interacting
+        if self.state.players[0]
+            .flags
+            .contains(mk_types::state::PlayerFlags::IS_INTERACTING)
+            && !self.state.game_ended
+        {
+            if let Some(end_idx) = self
+                .action_set
+                .actions
+                .iter()
+                .position(|a| matches!(a, LegalAction::EndTurn))
+            {
+                let action = self.action_set.actions[end_idx].clone();
+                let epoch = self.action_set.epoch;
+                if apply_legal_action(&mut self.state, &mut self.undo_stack, 0, &action, epoch)
+                    .is_ok()
+                {
+                    action_indices.push(end_idx as i32);
+                    self.action_set = enumerate_legal_actions_with_undo(
+                        &self.state,
+                        0,
+                        &self.undo_stack,
+                    );
+                }
+            }
+        }
+
+        Ok(action_indices)
+    }
+
+    /// Get the commerce oracle's recommended action index for the current state.
+    /// Returns None if not interacting or no action found.
+    fn commerce_oracle_action(&self) -> Option<usize> {
+        if !self.is_interacting() {
+            return None;
+        }
+
+        let config = CommerceSearchConfig {
+            node_limit: 500_000,
+            seed_rollouts: 200,
+            ..CommerceSearchConfig::default()
+        };
+        let result = search_commerce(&self.state, &config);
+
+        if let Some(action) = result.actions.first() {
+            self.action_set.actions.iter().position(|a| a == action)
+        } else {
+            // No useful commerce — EndTurn
+            self.action_set
+                .actions
+                .iter()
+                .position(|a| matches!(a, LegalAction::EndTurn))
         }
     }
 

@@ -13,7 +13,7 @@ Generate artifact JSON files from a trained RL checkpoint that can be viewed in 
 
 ```bash
 cd packages/python-sdk && source .venv/bin/activate
-python scripts/generate_replays.py <checkpoint> --artifact --combat-oracle --seeds 1-5 --output-dir sim-artifacts/<run-name>
+python scripts/generate_replays.py <checkpoint> --artifact --combat-oracle --commerce-oracle --seeds 1-5 --output-dir sim-artifacts/<run-name>
 ```
 
 ## Workflow
