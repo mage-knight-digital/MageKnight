@@ -1,8 +1,8 @@
-//! State encoder — produces StateFeatures (94 scalars + entity pools).
+//! State encoder — produces StateFeatures (99 scalars + entity pools).
 //!
 //! Directly accesses Rust structs instead of crawling JSON dicts.
 
-use mk_data::cards::get_card_color;
+use mk_data::cards::{get_card_color, CardCategory};
 use mk_data::enemies::{get_enemy, EnemyDefinition};
 use mk_engine::movement::evaluate_move_entry;
 use mk_types::enums::{
@@ -63,7 +63,11 @@ pub fn encode_state(state: &GameState, player_idx: usize) -> StateFeatures {
         0.0
     };
 
-    let mut scalars = Vec::with_capacity(94);
+    // Hand potential: weighted sum of card categories in hand
+    // Weights: BasicAction=1, AdvancedAction=2, Spell=3, Artifact=4
+    let hand_potential = compute_hand_potential(player);
+
+    let mut scalars = Vec::with_capacity(100);
     scalars.extend_from_slice(&player_core);
     scalars.extend_from_slice(&resources);
     scalars.extend_from_slice(&tempo);
@@ -76,6 +80,11 @@ pub fn encode_state(state: &GameState, player_idx: usize) -> StateFeatures {
     scalars.push(scale(min_dummy_turns as f32, 12.0));
     scalars.push(scale(max_dummy_turns as f32, 12.0));
     scalars.push(cards_played_ratio);
+    scalars.push(scale(hand_potential.movement, 20.0));
+    scalars.push(scale(hand_potential.combat, 20.0));
+    scalars.push(scale(hand_potential.influence, 20.0));
+    scalars.push(scale(hand_potential.healing, 20.0));
+    scalars.push(scale(hand_potential.special, 20.0));
 
     let mode_id = derive_mode(state, player_idx);
     let hand_card_ids = extract_hand_card_ids(player);
@@ -296,6 +305,68 @@ fn basic_color_index(color: BasicManaColor) -> usize {
         BasicManaColor::Green => 2,
         BasicManaColor::White => 3,
     }
+}
+
+// =============================================================================
+// Hand potential (5 scalars)
+// =============================================================================
+
+/// Weighted category potential of cards in hand.
+struct HandPotential {
+    movement: f32,
+    combat: f32,
+    influence: f32,
+    healing: f32,
+    special: f32,
+}
+
+/// Compute hand potential: for each card in hand, look up its categories and
+/// add a weight based on card type (BasicAction=1, AA=2, Spell=3, Artifact=4).
+fn compute_hand_potential(player: &PlayerState) -> HandPotential {
+    use mk_types::enums::DeedCardType;
+
+    let mut pot = HandPotential {
+        movement: 0.0,
+        combat: 0.0,
+        influence: 0.0,
+        healing: 0.0,
+        special: 0.0,
+    };
+
+    for card_id in &player.hand {
+        let card_str = card_id.as_str();
+        if card_str == "wound" {
+            continue;
+        }
+        if let Some(def) = mk_data::cards::get_card(card_str) {
+            let weight = match def.card_type {
+                DeedCardType::BasicAction => 1.0,
+                DeedCardType::AdvancedAction => 2.0,
+                DeedCardType::Spell => 3.0,
+                DeedCardType::Artifact => 4.0,
+                _ => 1.0,
+            };
+            // Use union of basic + powered categories (card can be used either way)
+            let mut seen = [false; 7]; // Movement, Combat, Influence, Healing, Special, Action, Banner
+            for &cat in def.basic_categories.iter().chain(def.powered_categories.iter()) {
+                let idx = cat as usize;
+                if !seen[idx] {
+                    seen[idx] = true;
+                    match cat {
+                        CardCategory::Movement => pot.movement += weight,
+                        CardCategory::Combat => pot.combat += weight,
+                        CardCategory::Influence => pot.influence += weight,
+                        CardCategory::Healing => pot.healing += weight,
+                        CardCategory::Special | CardCategory::Action | CardCategory::Banner => {
+                            pot.special += weight;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    pot
 }
 
 // =============================================================================
@@ -897,7 +968,7 @@ mod tests {
         let mut state = create_solo_game(42, Hero::Arythea);
         place_initial_tiles(&mut state);
         let features = encode_state(&state, 0);
-        assert_eq!(features.scalars.len(), 94);
+        assert_eq!(features.scalars.len(), 99);
     }
 
     #[test]

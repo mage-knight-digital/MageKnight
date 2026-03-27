@@ -16,6 +16,20 @@ use mk_types::modifier::{
     ModifierDuration, ModifierEffect, ModifierScope, RuleOverride, TerrainOrAll,
 };
 
+/// Functional category of a card effect (what the card icon represents on the physical card).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CardCategory {
+    Movement,
+    Combat,
+    Influence,
+    Healing,
+    Special,
+    /// Playing this card consumes the player's action for the turn.
+    Action,
+    /// Banner artifact — attached to a unit.
+    Banner,
+}
+
 /// How a card can be powered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PoweredBy {
@@ -51,6 +65,10 @@ pub struct CardDefinition {
     pub sideways_value: u32,
     /// When true, artifact is destroyed (moved to removed_cards) after powered play.
     pub destroy_on_powered: bool,
+    /// Functional categories for the basic effect (e.g., Movement, Combat).
+    pub basic_categories: &'static [CardCategory],
+    /// Functional categories for the powered effect.
+    pub powered_categories: &'static [CardCategory],
 }
 
 /// Look up any card by ID (basic action, hero-specific, advanced action, spell, or artifact).
@@ -135,6 +153,8 @@ fn march() -> CardDefinition {
         powered_effect: CardEffect::GainMove { amount: 4 },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement],
+        powered_categories: &[CardCategory::Movement],
     }
 }
 
@@ -149,6 +169,8 @@ fn stamina() -> CardDefinition {
         powered_effect: CardEffect::GainMove { amount: 4 },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement],
+        powered_categories: &[CardCategory::Movement],
     }
 }
 
@@ -167,6 +189,8 @@ fn swiftness() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -197,6 +221,8 @@ fn rage() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -226,6 +252,8 @@ fn determination() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -250,6 +278,8 @@ fn tranquility() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Healing],
+        powered_categories: &[CardCategory::Healing],
     }
 }
 
@@ -264,6 +294,8 @@ fn promise() -> CardDefinition {
         powered_effect: CardEffect::GainInfluence { amount: 4 },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Influence],
+        powered_categories: &[CardCategory::Influence],
     }
 }
 
@@ -283,6 +315,8 @@ fn threaten() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Influence],
+        powered_categories: &[CardCategory::Influence],
     }
 }
 
@@ -312,6 +346,8 @@ fn crystallize() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -335,6 +371,8 @@ fn mana_draw() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -364,6 +402,8 @@ fn concentration() -> CardDefinition {
         powered_effect: CardEffect::CardBoost { bonus: 2 },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -416,6 +456,8 @@ fn improvisation() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement, CardCategory::Influence, CardCategory::Combat],
+        powered_categories: &[CardCategory::Movement, CardCategory::Influence, CardCategory::Combat],
     }
 }
 
@@ -430,6 +472,8 @@ fn wound() -> CardDefinition {
         powered_effect: CardEffect::Noop,
         sideways_value: 0,
         destroy_on_powered: false,
+        basic_categories: &[],
+        powered_categories: &[],
     }
 }
 
@@ -472,6 +516,8 @@ fn arythea_battle_versatility() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -509,6 +555,8 @@ fn tovak_cold_toughness() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -557,6 +605,8 @@ fn goldyx_will_focus() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -576,6 +626,8 @@ fn norowas_noble_manners() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Influence],
+        powered_categories: &[CardCategory::Influence],
     }
 }
 
@@ -602,6 +654,8 @@ fn wolfhawk_swift_reflexes() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement, CardCategory::Combat],
+        powered_categories: &[CardCategory::Movement, CardCategory::Combat],
     }
 }
 
@@ -621,6 +675,8 @@ fn wolfhawk_tirelessness() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement],
+        powered_categories: &[CardCategory::Movement],
     }
 }
 
@@ -640,6 +696,8 @@ fn krang_savage_harvesting() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement, CardCategory::Special],
+        powered_categories: &[CardCategory::Movement, CardCategory::Special],
     }
 }
 
@@ -659,6 +717,8 @@ fn krang_ruthless_coercion() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Influence],
+        powered_categories: &[CardCategory::Influence, CardCategory::Healing],
     }
 }
 
@@ -694,6 +754,8 @@ fn krang_battle_rage() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -720,6 +782,8 @@ fn braevalar_one_with_the_land() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement, CardCategory::Healing, CardCategory::Combat],
+        powered_categories: &[CardCategory::Movement, CardCategory::Healing, CardCategory::Combat],
     }
 }
 
@@ -748,6 +812,8 @@ fn braevalar_druidic_paths() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement],
+        powered_categories: &[CardCategory::Movement],
     }
 }
 
@@ -790,6 +856,8 @@ fn tovak_instinct() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement, CardCategory::Influence, CardCategory::Combat],
+        powered_categories: &[CardCategory::Movement, CardCategory::Influence, CardCategory::Combat],
     }
 }
 
@@ -819,6 +887,8 @@ fn goldyx_crystal_joy() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -852,6 +922,8 @@ fn norowas_rejuvenate() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Healing],
+        powered_categories: &[CardCategory::Healing],
     }
 }
 
@@ -882,6 +954,8 @@ fn axe_throw() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement, CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -916,6 +990,8 @@ fn arythea_mana_pull() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -1042,6 +1118,8 @@ fn blood_rage() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -1084,6 +1162,8 @@ fn intimidate() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Influence, CardCategory::Combat],
+        powered_categories: &[CardCategory::Influence, CardCategory::Combat],
     }
 }
 
@@ -1117,6 +1197,8 @@ fn blood_ritual() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -1149,6 +1231,8 @@ fn counterattack() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -1167,6 +1251,8 @@ fn fire_bolt() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -1217,6 +1303,8 @@ fn into_the_heat() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -1237,6 +1325,8 @@ fn ice_bolt() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -1253,6 +1343,8 @@ fn steady_tempo() -> CardDefinition {
         powered_effect: CardEffect::GainMove { amount: 4 },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement],
+        powered_categories: &[CardCategory::Movement],
     }
 }
 
@@ -1305,6 +1397,8 @@ fn frost_bridge() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement],
+        powered_categories: &[CardCategory::Movement],
     }
 }
 
@@ -1339,6 +1433,8 @@ fn refreshing_walk() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement, CardCategory::Healing],
+        powered_categories: &[CardCategory::Movement, CardCategory::Healing],
     }
 }
 
@@ -1363,6 +1459,8 @@ fn in_need() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Influence],
+        powered_categories: &[CardCategory::Influence],
     }
 }
 
@@ -1381,6 +1479,8 @@ fn crushing_bolt() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -1421,6 +1521,8 @@ fn ambush() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement],
+        powered_categories: &[CardCategory::Movement],
     }
 }
 
@@ -1513,6 +1615,8 @@ fn path_finding() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement],
+        powered_categories: &[CardCategory::Movement],
     }
 }
 
@@ -1568,6 +1672,8 @@ fn mountain_lore() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement],
+        powered_categories: &[CardCategory::Movement],
     }
 }
 
@@ -1593,6 +1699,8 @@ fn regeneration() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Healing],
+        powered_categories: &[CardCategory::Healing],
     }
 }
 
@@ -1626,6 +1734,8 @@ fn force_of_nature() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -1646,6 +1756,8 @@ fn swift_bolt() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -1706,6 +1818,8 @@ fn agility() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement, CardCategory::Combat],
+        powered_categories: &[CardCategory::Movement, CardCategory::Combat],
     }
 }
 
@@ -1770,6 +1884,8 @@ fn diplomacy() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Influence, CardCategory::Combat],
+        powered_categories: &[CardCategory::Influence, CardCategory::Combat],
     }
 }
 
@@ -1805,6 +1921,8 @@ fn explosive_bolt() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -1840,6 +1958,8 @@ fn ice_shield() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -1927,6 +2047,8 @@ fn temporal_portal() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Action],
+        powered_categories: &[CardCategory::Action],
     }
 }
 
@@ -1980,6 +2102,8 @@ fn song_of_wind() -> CardDefinition {
         powered_effect: CardEffect::SongOfWindPowered,
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement],
+        powered_categories: &[CardCategory::Movement],
     }
 }
 
@@ -2019,6 +2143,8 @@ fn heroic_tale() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Influence],
+        powered_categories: &[CardCategory::Influence],
     }
 }
 
@@ -2058,6 +2184,8 @@ fn learning() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Influence, CardCategory::Special],
+        powered_categories: &[CardCategory::Influence, CardCategory::Special],
     }
 }
 
@@ -2109,6 +2237,8 @@ fn stout_resolve() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement, CardCategory::Influence, CardCategory::Combat],
+        powered_categories: &[CardCategory::Movement, CardCategory::Influence, CardCategory::Combat],
     }
 }
 
@@ -2142,6 +2272,8 @@ fn shield_bash() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -2160,6 +2292,8 @@ fn pure_magic() -> CardDefinition {
         powered_effect: CardEffect::PureMagic { amount: 7 },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement, CardCategory::Influence, CardCategory::Combat],
+        powered_categories: &[CardCategory::Movement, CardCategory::Influence, CardCategory::Combat],
     }
 }
 
@@ -2182,6 +2316,8 @@ fn decompose() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -2269,6 +2405,8 @@ fn ritual_attack() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -2319,6 +2457,8 @@ fn chivalry() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -2342,6 +2482,8 @@ fn maximal_effect() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -2358,6 +2500,8 @@ fn blood_of_ancients() -> CardDefinition {
         powered_effect: CardEffect::BloodOfAncientsPowered,
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -2374,6 +2518,8 @@ fn crystal_mastery() -> CardDefinition {
         powered_effect: CardEffect::CrystalMasteryPowered,
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -2390,6 +2536,8 @@ fn magic_talent() -> CardDefinition {
         powered_effect: CardEffect::MagicTalentPowered,
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -2406,6 +2554,8 @@ fn spell_forge() -> CardDefinition {
         powered_effect: CardEffect::SpellForgePowered,
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -2425,6 +2575,8 @@ fn training() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -2441,6 +2593,8 @@ fn power_of_crystals() -> CardDefinition {
         powered_effect: CardEffect::PowerOfCrystalsPowered,
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement, CardCategory::Healing, CardCategory::Special],
+        powered_categories: &[CardCategory::Movement, CardCategory::Healing, CardCategory::Special],
     }
 }
 
@@ -2457,6 +2611,8 @@ fn mana_storm() -> CardDefinition {
         powered_effect: CardEffect::ManaStormPowered,
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -2488,6 +2644,8 @@ fn peaceful_moment() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Influence, CardCategory::Action],
+        powered_categories: &[CardCategory::Influence, CardCategory::Action],
     }
 }
 
@@ -2533,6 +2691,8 @@ fn dodge_and_weave() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -2552,6 +2712,8 @@ fn rush_of_adrenaline() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -2592,6 +2754,8 @@ fn chilling_stare() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Influence, CardCategory::Combat],
+        powered_categories: &[CardCategory::Influence, CardCategory::Combat],
     }
 }
 
@@ -2661,6 +2825,8 @@ fn fireball() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -2700,6 +2866,8 @@ fn flame_wall() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -2764,6 +2932,8 @@ fn tremor() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -2779,6 +2949,8 @@ fn mana_meltdown() -> CardDefinition {
         powered_effect: CardEffect::ManaMeltdown { powered: true },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -2842,6 +3014,8 @@ fn demolish() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -2889,6 +3063,8 @@ fn burning_shield() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -2914,6 +3090,8 @@ fn offering() -> CardDefinition {
         powered_effect: CardEffect::Sacrifice,
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -2944,6 +3122,8 @@ fn snowstorm() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -2978,6 +3158,8 @@ fn chill() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -3030,6 +3212,8 @@ fn mist_form() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -3046,6 +3230,8 @@ fn mana_claim() -> CardDefinition {
         powered_effect: CardEffect::ManaClaim { with_curse: true },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -3089,6 +3275,8 @@ fn space_bending() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -3105,6 +3293,8 @@ fn mana_bolt() -> CardDefinition {
         powered_effect: CardEffect::ManaBolt { base_value: 11 },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -3148,6 +3338,8 @@ fn restoration() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Healing],
+        powered_categories: &[CardCategory::Healing],
     }
 }
 
@@ -3163,6 +3355,8 @@ fn energy_flow() -> CardDefinition {
         powered_effect: CardEffect::EnergyFlow { heal: true },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Healing],
+        powered_categories: &[CardCategory::Healing],
     }
 }
 
@@ -3241,6 +3435,8 @@ fn underground_travel() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement],
+        powered_categories: &[CardCategory::Movement],
     }
 }
 
@@ -3257,6 +3453,8 @@ fn meditation() -> CardDefinition {
         powered_effect: CardEffect::Meditation { powered: true },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -3286,6 +3484,8 @@ fn whirlwind() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -3343,6 +3543,8 @@ fn expose() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -3360,6 +3562,8 @@ fn cure() -> CardDefinition {
         powered_effect: CardEffect::Disease,
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Healing],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -3375,6 +3579,8 @@ fn call_to_arms() -> CardDefinition {
         powered_effect: CardEffect::FreeRecruit,
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -3390,6 +3596,8 @@ fn mind_read() -> CardDefinition {
         powered_effect: CardEffect::MindRead { powered: true },
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -3446,6 +3654,8 @@ fn wings_of_wind() -> CardDefinition {
         powered_effect: CardEffect::WingsOfNight,
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Movement],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -3493,6 +3703,8 @@ fn charm() -> CardDefinition {
         powered_effect: CardEffect::PossessEnemy,
         sideways_value: 1,
         destroy_on_powered: false,
+        basic_categories: &[CardCategory::Influence],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -3592,6 +3804,8 @@ fn ruby_ring() -> CardDefinition {
         },
         sideways_value: 2,
         destroy_on_powered: true,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -3618,6 +3832,8 @@ fn sapphire_ring() -> CardDefinition {
         },
         sideways_value: 2,
         destroy_on_powered: true,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -3644,6 +3860,8 @@ fn diamond_ring() -> CardDefinition {
         },
         sideways_value: 2,
         destroy_on_powered: true,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -3670,6 +3888,8 @@ fn emerald_ring() -> CardDefinition {
         },
         sideways_value: 2,
         destroy_on_powered: true,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -3696,6 +3916,8 @@ fn endless_bag_of_gold() -> CardDefinition {
         },
         sideways_value: 2,
         destroy_on_powered: true,
+        basic_categories: &[CardCategory::Influence],
+        powered_categories: &[CardCategory::Influence],
     }
 }
 
@@ -3717,6 +3939,8 @@ fn banner_of_command() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: true,
+        basic_categories: &[CardCategory::Banner, CardCategory::Influence],
+        powered_categories: &[CardCategory::Banner, CardCategory::Influence],
     }
 }
 
@@ -3731,6 +3955,8 @@ fn banner_of_courage() -> CardDefinition {
         powered_effect: CardEffect::ReadyAllUnits,
         sideways_value: 1,
         destroy_on_powered: true,
+        basic_categories: &[CardCategory::Banner, CardCategory::Healing],
+        powered_categories: &[CardCategory::Banner, CardCategory::Healing],
     }
 }
 
@@ -3750,6 +3976,8 @@ fn banner_of_fortitude() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: true,
+        basic_categories: &[CardCategory::Banner, CardCategory::Healing],
+        powered_categories: &[CardCategory::Banner, CardCategory::Healing],
     }
 }
 
@@ -3764,6 +3992,8 @@ fn banner_of_protection() -> CardDefinition {
         powered_effect: CardEffect::ActivateBannerProtection,
         sideways_value: 0,
         destroy_on_powered: true,
+        basic_categories: &[CardCategory::Banner, CardCategory::Combat],
+        powered_categories: &[CardCategory::Banner, CardCategory::Combat],
     }
 }
 
@@ -3783,6 +4013,8 @@ fn banner_of_fear() -> CardDefinition {
         },
         sideways_value: 0,
         destroy_on_powered: true,
+        basic_categories: &[CardCategory::Banner, CardCategory::Combat],
+        powered_categories: &[CardCategory::Banner, CardCategory::Combat],
     }
 }
 
@@ -3812,6 +4044,8 @@ fn banner_of_glory() -> CardDefinition {
         },
         sideways_value: 0,
         destroy_on_powered: true,
+        basic_categories: &[CardCategory::Banner, CardCategory::Combat],
+        powered_categories: &[CardCategory::Banner, CardCategory::Combat],
     }
 }
 
@@ -3868,6 +4102,8 @@ fn sword_of_justice() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: true,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -3906,6 +4142,8 @@ fn horn_of_wrath() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: true,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -3950,6 +4188,8 @@ fn bow_of_starsdawn() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: true,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -3996,6 +4236,8 @@ fn soul_harvester() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: true,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -4031,6 +4273,8 @@ fn shield_of_the_fallen_kings() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: true,
+        basic_categories: &[CardCategory::Combat],
+        powered_categories: &[CardCategory::Combat],
     }
 }
 
@@ -4078,6 +4322,8 @@ fn amulet_of_the_sun() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: true,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -4125,6 +4371,8 @@ fn amulet_of_darkness() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: true,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -4159,6 +4407,8 @@ fn golden_grail() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: true,
+        basic_categories: &[CardCategory::Healing],
+        powered_categories: &[CardCategory::Healing],
     }
 }
 
@@ -4185,6 +4435,8 @@ fn endless_gem_pouch() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: true,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -4205,6 +4457,8 @@ fn book_of_wisdom() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: true,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -4223,6 +4477,8 @@ fn tome_of_all_spells() -> CardDefinition {
         },
         sideways_value: 1,
         destroy_on_powered: true,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -4237,6 +4493,8 @@ fn circlet_of_proficiency() -> CardDefinition {
         powered_effect: CardEffect::CircletOfProficiencyPowered,
         sideways_value: 1,
         destroy_on_powered: true,
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
@@ -4251,6 +4509,8 @@ fn druidic_staff() -> CardDefinition {
         powered_effect: CardEffect::DruidicStaffPowered,
         sideways_value: 1,
         destroy_on_powered: true,
+        basic_categories: &[CardCategory::Movement, CardCategory::Special, CardCategory::Healing],
+        powered_categories: &[CardCategory::Movement, CardCategory::Special, CardCategory::Healing],
     }
 }
 
@@ -4265,6 +4525,8 @@ fn mysterious_box() -> CardDefinition {
         powered_effect: CardEffect::MysteriousBox, // Single-effect artifact (no basic/powered split)
         sideways_value: 1,
         destroy_on_powered: false, // Mysterious Box is NOT destroyed
+        basic_categories: &[CardCategory::Special],
+        powered_categories: &[CardCategory::Special],
     }
 }
 
