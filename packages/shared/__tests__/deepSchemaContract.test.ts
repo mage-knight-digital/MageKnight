@@ -345,6 +345,7 @@ describe("deep schema contract", () => {
       const badMessage = {
         protocolVersion: NETWORK_PROTOCOL_VERSION,
         type: SERVER_MESSAGE_STATE_UPDATE,
+        // oxlint-disable-next-line mage-knight/no-magic-event-types -- intentionally invalid event type for schema rejection test
         events: [{ type: "BOGUS_EVENT" }],
         state: minimalClientGameState,
       };
