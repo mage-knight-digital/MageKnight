@@ -132,7 +132,13 @@ pub(super) fn enumerate_site_actions(
     let is_interacting = player.flags.contains(PlayerFlags::IS_INTERACTING);
     let is_healing = player.flags.contains(PlayerFlags::IS_PEACEFUL_MOMENT_HEALING);
 
-    if !is_interacting && !is_healing && is_inhabited(site.site_type) {
+    if !is_interacting
+        && !is_healing
+        && is_inhabited(site.site_type)
+        && !player
+            .flags
+            .contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN)
+    {
         // Access check: Village/Monastery/RefugeeCamp always accessible.
         // Keep/MageTower/City only when conquered.
         let accessible = match site.site_type {
