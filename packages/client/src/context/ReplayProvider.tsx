@@ -8,6 +8,7 @@ import {
 } from "react";
 import type { ClientGameState, GameEvent } from "@mage-knight/shared";
 import { GameContext, type GameContextValue } from "./GameContext";
+import type { LegalAction } from "../rust/types";
 import { ReplayContext, type ReplayContextValue } from "./ReplayContext";
 
 // ---------------------------------------------------------------------------
@@ -27,6 +28,9 @@ interface ArtifactMessageLogEntry {
   payload: {
     events?: unknown[];
     state?: ClientGameState;
+    legal_actions?: LegalAction[];
+    chosen_action?: string;
+    chosen_action_index?: number;
   };
 }
 
@@ -43,6 +47,7 @@ export interface ArtifactData {
 interface ReplayFrame {
   state: ClientGameState;
   events: readonly GameEvent[];
+  legalActions: LegalAction[];
 }
 
 function extractFrames(artifact: ArtifactData, playerId: string): ReplayFrame[] {
@@ -56,6 +61,7 @@ function extractFrames(artifact: ArtifactData, playerId: string): ReplayFrame[] 
       frames.push({
         state: entry.payload.state,
         events: (entry.payload.events ?? []) as GameEvent[],
+        legalActions: entry.payload.legal_actions ?? [],
       });
     }
   }
@@ -78,9 +84,9 @@ export function isValidArtifact(data: unknown): data is ArtifactData {
   if (typeof data !== "object" || data === null) return false;
   const obj = data as Record<string, unknown>;
   return (
-    typeof obj.run === "object" &&
-    obj.run !== null &&
-    Array.isArray(obj.messageLog)
+    typeof obj["run"] === "object" &&
+    obj["run"] !== null &&
+    Array.isArray(obj["messageLog"])
   );
 }
 
@@ -164,7 +170,9 @@ export function ReplayProvider({ artifact, playerId, artifactName, children }: R
   }, [isPlaying, speed, frames.length, maxIndex]);
 
   // Build GameContext value from current frame
-  const currentState = frames.length > 0 ? frames[frameIndex].state : null;
+  const currentFrame = frames.length > 0 ? frames[frameIndex] : undefined;
+  const currentState = currentFrame?.state ?? null;
+  const currentLegalActions = currentFrame?.legalActions ?? [];
 
   // Log current frame to console for debugging (inspect in DevTools)
   useEffect(() => {
@@ -175,7 +183,7 @@ export function ReplayProvider({ artifact, playerId, artifactName, children }: R
     const eventTypes = frame.events
       .map((e) => (e as unknown as Record<string, unknown>)["type"])
       .join(", ");
-    const chosenAction = raw?.payload?.chosen_action as string | undefined;
+    const chosenAction = raw?.payload?.chosen_action;
     const header = chosenAction
       ? `[Replay] Frame ${frameIndex}/${frames.length - 1} → ${chosenAction}`
       : `[Replay] Frame ${frameIndex}/${frames.length - 1}`;
@@ -201,8 +209,8 @@ export function ReplayProvider({ artifact, playerId, artifactName, children }: R
     if (frame.state.combat) {
       console.log("Combat:", frame.state.combat);
     }
-    const legalActions = raw?.payload?.legal_actions as string[] | undefined;
-    const chosenIndex = raw?.payload?.chosen_action_index as number | undefined;
+    const legalActions = raw?.payload?.legal_actions;
+    const chosenIndex = raw?.payload?.chosen_action_index;
     if (legalActions) {
       console.log(`Legal Actions (${legalActions.length}, chose #${chosenIndex}):`, legalActions);
     }
@@ -214,7 +222,7 @@ export function ReplayProvider({ artifact, playerId, artifactName, children }: R
     if (frames.length === 0) return [];
     const all: GameEvent[] = [];
     for (let i = 0; i <= frameIndex; i++) {
-      all.push(...frames[i].events);
+      all.push(...frames[i]!.events);
     }
     return all;
   }, [frames, frameIndex]);
@@ -231,10 +239,10 @@ export function ReplayProvider({ artifact, playerId, artifactName, children }: R
       clearActionLog: NOOP_CLEAR_LOG,
       isActionLogEnabled: false,
       setActionLogEnabled: NOOP_CLEAR_LOG,
-      legalActions: [],
+      legalActions: currentLegalActions,
       epoch: 0,
     }),
-    [currentState, accumulatedEvents, playerId]
+    [currentState, accumulatedEvents, playerId, currentFrame]
   );
 
   // Build ReplayContext value

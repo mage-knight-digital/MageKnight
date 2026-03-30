@@ -1,30 +1,29 @@
 import { useCallback, useEffect } from "react";
-import { UNDO_ACTION } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
+import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { useRegisterOverlay } from "../../contexts/OverlayContext";
+import { hasAction, findAction } from "../../rust/legalActionUtils";
 
 export function HexCostReductionOverlay() {
-  const { state, sendAction } = useGame();
+  const { sendAction, legalActions } = useGame();
+  const player = useMyPlayer();
 
-  const options =
-    state?.validActions?.mode === "pending_hex_cost_reduction"
-      ? state.validActions.hexCostReduction
-      : undefined;
+  // Active when pending state is hex cost reduction (user clicks highlighted hex on map)
+  const isActive = player?.pending?.kind === "terrain_cost_reduction"
+    || legalActions.some((a) => typeof a !== "string" && "ResolveHexCostReduction" in a);
 
-  const canUndo =
-    state?.validActions?.mode === "pending_hex_cost_reduction"
-      ? state.validActions.turn.canUndo
-      : false;
+  const canUndo = hasAction(legalActions, "Undo");
 
-  useRegisterOverlay(!!options);
+  useRegisterOverlay(isActive);
 
   const handleUndo = useCallback(() => {
-    sendAction({ type: UNDO_ACTION });
-  }, [sendAction]);
+    const action = findAction(legalActions, "Undo");
+    if (action) sendAction(action);
+  }, [sendAction, legalActions]);
 
   // Escape key for undo
   useEffect(() => {
-    if (!options || !canUndo) return;
+    if (!isActive || !canUndo) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -35,11 +34,13 @@ export function HexCostReductionOverlay() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [options, canUndo, handleUndo]);
+  }, [isActive, canUndo, handleUndo]);
 
-  if (!options) return null;
+  if (!isActive) return null;
 
-  const { reduction, minimumCost } = options;
+  // Reduction/minimumCost are display-only; derive from pending label or use defaults
+  const reduction = -1;
+  const minimumCost = 0;
 
   return (
     <div
@@ -62,7 +63,7 @@ export function HexCostReductionOverlay() {
           Select Hex for Cost Reduction
         </h2>
         <p style={{ margin: "0 0 0.5rem", color: "#aaa", fontSize: "0.9rem" }}>
-          Reduces terrain cost by {Math.abs(reduction)} (minimum {minimumCost})
+          {player?.pending?.label ?? "Reduces terrain cost for a hex"}
         </p>
         <p style={{ margin: 0, color: "#888", fontSize: "0.85rem" }}>
           Click a highlighted hex

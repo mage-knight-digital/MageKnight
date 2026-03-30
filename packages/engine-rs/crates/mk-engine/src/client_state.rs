@@ -6,7 +6,7 @@
 use mk_data::enemies::get_enemy;
 use mk_types::client_state::*;
 use mk_types::enums::*;
-use mk_types::ids::{PlayerId, TacticId};
+use mk_types::ids::{CardId, PlayerId, TacticId};
 use mk_types::pending::{ActivePending, ChoiceResolution};
 use mk_types::state::*;
 
@@ -184,12 +184,42 @@ fn to_client_pending(
         }),
         _ => None,
     };
+    let card_ids = pending_card_ids(active, player);
     ClientPendingInfo {
         kind,
         label,
         options,
         selected,
         level_up_data,
+        card_ids,
+    }
+}
+
+/// Expose card IDs for pendings that require the client to show a card selection UI.
+fn pending_card_ids(active: &ActivePending, player: &PlayerState) -> Vec<CardId> {
+    match active {
+        ActivePending::Meditation(_) => {
+            // Expose discard pile card IDs so the client can show card images
+            player.discard.clone()
+        }
+        ActivePending::CrystalJoyReclaim(_) => {
+            // Expose discard pile card IDs for reclaim selection
+            player.discard.clone()
+        }
+        ActivePending::TacticDecision(td) => {
+            use mk_types::pending::PendingTacticDecision;
+            match td {
+                PendingTacticDecision::Preparation { deck_snapshot } => {
+                    deck_snapshot.clone()
+                }
+                _ => Vec::new(),
+            }
+        }
+        ActivePending::DiscardForCrystal(_) => {
+            // Expose hand card IDs (already visible to self, but included for consistency)
+            player.hand.clone()
+        }
+        _ => Vec::new(),
     }
 }
 
@@ -612,6 +642,9 @@ fn pending_options(active: &ActivePending, player: &PlayerState, state: &GameSta
             .iter()
             .map(|c| format!("{:?} crystal", c))
             .collect(),
+        ActivePending::TacticDecision(mk_types::pending::PendingTacticDecision::SparingPower) => {
+            vec![player.tactic_state.sparing_power_stored.len().to_string()]
+        }
         _ => Vec::new(),
     }
 }
@@ -789,11 +822,17 @@ fn to_client_combat(
     state: &GameState,
 ) -> ClientCombatState {
     let declared_attack_armor_needed = combat.declared_attack_targets.as_ref().map(|targets| {
+        let defend_assignments = crate::combat_resolution::auto_assign_defend(
+            &combat.enemies,
+            targets,
+            &combat.used_defend,
+            &combat.defend_bonuses,
+        );
         crate::legal_actions::combat::compute_total_target_armor(
             combat,
             targets,
             &state.active_modifiers,
-            None,
+            Some(&defend_assignments),
         )
     });
 

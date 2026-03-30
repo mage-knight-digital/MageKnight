@@ -75,7 +75,7 @@ const UNIT_LEVEL_LABELS: Record<number, string> = {
 
 export const UNITS: { label: string; units: { id: UnitId; name: string }[] }[] =
   [1, 2, 3, 4].map((level) => ({
-    label: UNIT_LEVEL_LABELS[level],
+    label: UNIT_LEVEL_LABELS[level] ?? `Level ${level}`,
     units: Object.values(UNIT_DEFS)
       .filter((u) => u.level === level)
       .map((u) => ({ id: u.id, name: u.name })),

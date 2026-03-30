@@ -52,8 +52,8 @@ export function SaveLoadTab({ state, saveGame, loadGame, sendAction: _sendAction
             onClick={() => {
               console.log("=== CLIENT STATE (with validActions) ===");
               console.log(state);
-              console.log("=== validActions.move ===");
-              console.log(state.validActions?.move);
+              console.log("=== validActions ===");
+              console.log(state.validActions);
             }}
             title="Log client state to console (includes validActions)"
           >

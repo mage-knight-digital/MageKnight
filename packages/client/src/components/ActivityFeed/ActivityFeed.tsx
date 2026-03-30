@@ -3,6 +3,7 @@ import {
   narrateEvent,
   narrateRustEvent,
   isRustEvent,
+  type RustEvent,
   type ActivityMessage,
   type NarrationPlayer,
 } from "@mage-knight/shared";
@@ -28,7 +29,7 @@ export function ActivityFeed() {
     const result: ActivityMessage[] = [];
     for (const event of events) {
       const msg = isRustEvent(event)
-        ? narrateRustEvent(event, players)
+        ? narrateRustEvent(event as RustEvent, players)
         : narrateEvent(event, players);
       if (msg) result.push(msg);
     }

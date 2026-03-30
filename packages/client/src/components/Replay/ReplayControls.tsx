@@ -32,7 +32,7 @@ export function ReplayControls() {
           e.preventDefault();
           const currentIdx = SPEED_OPTIONS.indexOf(replay.speed as typeof SPEED_OPTIONS[number]);
           if (currentIdx < SPEED_OPTIONS.length - 1) {
-            replay.setSpeed(SPEED_OPTIONS[currentIdx + 1]);
+            replay.setSpeed(SPEED_OPTIONS[currentIdx + 1]!);
           }
           break;
         }
@@ -40,7 +40,7 @@ export function ReplayControls() {
           e.preventDefault();
           const currentIdx = SPEED_OPTIONS.indexOf(replay.speed as typeof SPEED_OPTIONS[number]);
           if (currentIdx > 0) {
-            replay.setSpeed(SPEED_OPTIONS[currentIdx - 1]);
+            replay.setSpeed(SPEED_OPTIONS[currentIdx - 1]!);
           }
           break;
         }

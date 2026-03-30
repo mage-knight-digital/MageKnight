@@ -74,7 +74,7 @@ export function ReplayLoadScreen({ onLoad }: ReplayLoadScreenProps) {
     setError(null);
     setArtifact(data);
     setPlayerIds(ids);
-    setSelectedPlayer(ids[0]);
+    setSelectedPlayer(ids[0] ?? "");
     setFileName(name);
   }, []);
 

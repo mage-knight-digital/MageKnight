@@ -1,30 +1,33 @@
-import {
-  RESOLVE_GLADE_WOUND_ACTION,
-  GLADE_WOUND_CHOICE_HAND,
-  GLADE_WOUND_CHOICE_DISCARD,
-  GLADE_WOUND_CHOICE_SKIP,
-} from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
+import { useMyPlayer } from "../../hooks/useMyPlayer";
+import { actionData } from "../../rust/types";
+
+const GLADE_WOUND_HAND = "hand";
+const GLADE_WOUND_DISCARD = "discard";
+const GLADE_WOUND_SKIP = "skip";
 
 export function GladeWoundDecision() {
-  const { state, sendAction } = useGame();
+  const { sendAction, legalActions } = useGame();
+  const player = useMyPlayer();
 
   // Check if we have a pending glade wound decision
-  const gladeWoundOptions =
-    state?.validActions?.mode === "pending_glade_wound"
-      ? state.validActions.gladeWound
-      : undefined;
-  if (!gladeWoundOptions) {
+  if (player?.pending?.kind !== "glade_wound_choice") {
     return null;
   }
 
-  const { hasWoundsInHand, hasWoundsInDiscard } = gladeWoundOptions;
-
-  const handleChoice = (choice: typeof GLADE_WOUND_CHOICE_HAND | typeof GLADE_WOUND_CHOICE_DISCARD | typeof GLADE_WOUND_CHOICE_SKIP) => {
-    sendAction({
-      type: RESOLVE_GLADE_WOUND_ACTION,
-      choice,
-    });
+  // Derive available choices from legal actions
+  const gladeActions = legalActions.filter(
+    (a) => typeof a !== "string" && "ResolveGladeWound" in a
+  );
+  const hasWoundsInHand = gladeActions.some(
+    (a) => actionData(a)?.["choice"] === GLADE_WOUND_HAND
+  );
+  const hasWoundsInDiscard = gladeActions.some(
+    (a) => actionData(a)?.["choice"] === GLADE_WOUND_DISCARD
+  );
+  const handleChoice = (choice: string) => {
+    const action = gladeActions.find((a) => actionData(a)?.["choice"] === choice);
+    if (action) sendAction(action);
   };
 
   return (
@@ -46,7 +49,7 @@ export function GladeWoundDecision() {
           {hasWoundsInHand && (
             <button
               className="choice-selection__option"
-              onClick={() => handleChoice(GLADE_WOUND_CHOICE_HAND)}
+              onClick={() => handleChoice(GLADE_WOUND_HAND)}
               type="button"
               style={{
                 padding: "1.5rem 2rem",
@@ -75,7 +78,7 @@ export function GladeWoundDecision() {
           {hasWoundsInDiscard && (
             <button
               className="choice-selection__option"
-              onClick={() => handleChoice(GLADE_WOUND_CHOICE_DISCARD)}
+              onClick={() => handleChoice(GLADE_WOUND_DISCARD)}
               type="button"
               style={{
                 padding: "1.5rem 2rem",
@@ -103,7 +106,7 @@ export function GladeWoundDecision() {
           )}
           <button
             className="choice-selection__option"
-            onClick={() => handleChoice(GLADE_WOUND_CHOICE_SKIP)}
+            onClick={() => handleChoice(GLADE_WOUND_SKIP)}
             type="button"
             style={{
               padding: "1.5rem 2rem",

@@ -2491,6 +2491,26 @@ mod tests {
         );
     }
 
+    #[test]
+    fn no_plunder_when_deck_empty() {
+        let mut state = setup_playing_game(vec!["march"]);
+        place_on_site(&mut state, SiteType::Village);
+
+        play_card(&mut state, 0, 0, false, None).unwrap();
+        // Empty the deck before ending turn
+        state.players[0].deck.clear();
+        end_turn(&mut state, 0).unwrap();
+
+        // No plunder decision when deck is empty (nothing to draw, pure downside)
+        assert!(
+            !matches!(
+                state.players[0].pending.active,
+                Some(ActivePending::PlunderDecision)
+            ),
+            "No plunder when deck is empty"
+        );
+    }
+
     // =========================================================================
     // Modifier expiration
     // =========================================================================
