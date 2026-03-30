@@ -1,78 +1,139 @@
 /**
  * MeditationDecision - Card selection and placement UI for Meditation/Trance spell
  *
- * Shown when validActions.mode === "pending_meditation".
+ * Shown when player.pending.kind === "meditation".
  *
- * Phase "select_cards" (powered mode): Player selects cards from discard pile.
- * Phase "place_cards": Player chooses to place selected cards on top or bottom of deck.
- *
- * Sends RESOLVE_MEDITATION_ACTION with selectedCardIds (phase 1) or placeOnTop (phase 2).
+ * Phase 1 (select_cards): Each ResolveMeditation with place_on_top=null represents a selectable
+ * discard card. MeditationDoneSelecting finishes selection.
+ * Phase 2 (place_cards): ResolveMeditation with place_on_top=true/false for placement choice.
  */
 
-import { useCallback } from "react";
-import { RESOLVE_MEDITATION_ACTION } from "@mage-knight/shared";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { CardId } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
+import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { CardSelectionOverlay } from "./CardSelectionOverlay";
 import { useRegisterOverlay } from "../../contexts/OverlayContext";
+import { actionData } from "../../rust/types";
+import { hasAction, findAction } from "../../rust/legalActionUtils";
 
 export function MeditationDecision() {
-  const { state, sendAction } = useGame();
+  const { sendAction, legalActions } = useGame();
+  const player = useMyPlayer();
 
-  const isActive =
-    state?.validActions?.mode === "pending_meditation" &&
-    state.validActions.meditation != null;
-
-  const options = isActive ? state.validActions.meditation : null;
+  const isActive = player?.pending?.kind === "meditation";
 
   // Register overlay to block background interactions
   useRegisterOverlay(isActive);
 
-  const handleSelectCards = useCallback(
+  // Separate legal actions by phase
+  const { selectActions, canDoneSelecting, placeTopAction, placeBottomAction } = useMemo(() => {
+    const selectActions = legalActions.filter((a) => {
+      if (typeof a === "string") return false;
+      const d = actionData(a);
+      return "ResolveMeditation" in a && d?.["place_on_top"] === null;
+    });
+    const canDoneSelecting = hasAction(legalActions, "MeditationDoneSelecting");
+    const placeTopAction = legalActions.find((a) => {
+      if (typeof a === "string") return false;
+      const d = actionData(a);
+      return "ResolveMeditation" in a && d?.["place_on_top"] === true;
+    });
+    const placeBottomAction = legalActions.find((a) => {
+      if (typeof a === "string") return false;
+      const d = actionData(a);
+      return "ResolveMeditation" in a && d?.["place_on_top"] === false;
+    });
+    return { selectActions, canDoneSelecting, placeTopAction, placeBottomAction };
+  }, [legalActions]);
+
+  // Phase detection: if we have place actions, we're in phase 2
+  const isPlacePhase = !!placeTopAction || !!placeBottomAction;
+  const isSelectPhase = selectActions.length > 0 || canDoneSelecting;
+
+  // Card IDs from pending info (discard pile exposed by server)
+  const discardCardIds = player?.pending?.cardIds ?? [];
+
+  const handleSelectCard = useCallback(
     (selectedCards: readonly CardId[]) => {
-      sendAction({
-        type: RESOLVE_MEDITATION_ACTION,
-        selectedCardIds: selectedCards,
-      });
+      // Find the action matching the selected card's discard index
+      const cardId = selectedCards[0];
+      if (!cardId) return;
+      const discardIndex = discardCardIds.indexOf(cardId);
+      if (discardIndex >= 0) {
+        const action = selectActions.find(
+          (a) => actionData(a)?.["selection_index"] === discardIndex
+        );
+        if (action) sendAction(action);
+      }
     },
-    [sendAction]
+    [sendAction, selectActions, discardCardIds]
   );
 
+  const handleDoneSelecting = useCallback(() => {
+    const action = findAction(legalActions, "MeditationDoneSelecting");
+    if (action) sendAction(action);
+  }, [sendAction, legalActions]);
+
   const handlePlaceOnTop = useCallback(() => {
-    sendAction({
-      type: RESOLVE_MEDITATION_ACTION,
-      placeOnTop: true,
-    });
-  }, [sendAction]);
+    if (placeTopAction) sendAction(placeTopAction);
+  }, [sendAction, placeTopAction]);
 
   const handlePlaceOnBottom = useCallback(() => {
-    sendAction({
-      type: RESOLVE_MEDITATION_ACTION,
-      placeOnTop: false,
-    });
-  }, [sendAction]);
+    if (placeBottomAction) sendAction(placeBottomAction);
+  }, [sendAction, placeBottomAction]);
 
-  if (!isActive || !options) {
+  // Auto-complete when no selectable cards remain but done is available
+  const autoCompletedRef = useRef(false);
+  useEffect(() => {
+    if (
+      isActive &&
+      isSelectPhase &&
+      !isPlacePhase &&
+      selectActions.length === 0 &&
+      canDoneSelecting &&
+      !autoCompletedRef.current
+    ) {
+      autoCompletedRef.current = true;
+      handleDoneSelecting();
+    } else if (!isActive || !canDoneSelecting) {
+      autoCompletedRef.current = false;
+    }
+  }, [isActive, isSelectPhase, isPlacePhase, selectActions.length, canDoneSelecting, handleDoneSelecting]);
+
+  if (!isActive) {
     return null;
   }
 
-  // Phase 1: Select cards from discard (powered mode)
-  if (options.phase === "select_cards" && options.eligibleCardIds && options.selectCount) {
-    const instruction = `Select ${options.selectCount} card(s) from discard to place in deck`;
-    return (
-      <CardSelectionOverlay
-        cards={options.eligibleCardIds}
-        instruction={instruction}
-        minSelect={options.selectCount}
-        maxSelect={options.selectCount}
-        canSkip={false}
-        onSelect={handleSelectCards}
-      />
-    );
+  // Phase 1: Select cards from discard (one at a time)
+  if (isSelectPhase && !isPlacePhase) {
+    // Build list of selectable card IDs based on legal action indices
+    const selectableCardIds = selectActions
+      .map((a) => {
+        const idx = actionData(a)?.["selection_index"] as number;
+        return discardCardIds[idx];
+      })
+      .filter((id): id is CardId => !!id);
+
+    if (selectableCardIds.length > 0) {
+      return (
+        <CardSelectionOverlay
+          cards={selectableCardIds}
+          instruction="Meditation: Select a card from discard to place in deck"
+          minSelect={1}
+          maxSelect={1}
+          canSkip={canDoneSelecting}
+          skipText="Done Selecting"
+          onSelect={handleSelectCard}
+          onSkip={canDoneSelecting ? handleDoneSelecting : undefined}
+        />
+      );
+    }
+
   }
 
   // Phase 2: Choose top or bottom placement
-  if (options.phase === "place_cards") {
+  if (isPlacePhase) {
     return (
       <div className="overlay overlay--meditation-placement">
         <div className="overlay__content">

@@ -7,7 +7,7 @@
 use mk_types::enums::*;
 use mk_types::events::{CardPlayMode, GameEvent};
 use mk_types::ids::{CombatInstanceId, SkillId, UnitId};
-use mk_types::legal_action::LegalAction;
+use mk_types::legal_action::{LegalAction, TacticDecisionData};
 use mk_types::state::*;
 
 use crate::undo::UndoStack;
@@ -309,13 +309,27 @@ pub fn apply_legal_action(
         }
 
         LegalAction::BeginInteraction => {
-            // Reversible: just sets a flag
+            // Reversible: commits the action and enters the interaction window.
             undo_stack.save(state);
+            let site_type = state.players[player_idx].position
+                .and_then(|hex| state.map.hexes.get(&hex.key()))
+                .and_then(|h| h.site.as_ref())
+                .map(|s| s.site_type);
             state.players[player_idx].flags.insert(PlayerFlags::IS_INTERACTING);
+            state.players[player_idx]
+                .flags
+                .insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
             ApplyResult {
                 needs_reenumeration: true,
                 game_ended: false,
-                events: Vec::new(),
+                events: if let Some(st) = site_type {
+                    vec![GameEvent::SiteInteractionStarted {
+                        player_id: player_id.clone(),
+                        site_type: st,
+                    }]
+                } else {
+                    Vec::new()
+                },
             }
         }
 
@@ -334,9 +348,13 @@ pub fn apply_legal_action(
             // Irreversible: draws enemy tokens (RNG)
             undo_stack.set_checkpoint();
             if let Some(hex) = state.players[player_idx].position {
+                let site_type = state.map.hexes.get(&hex.key())
+                    .and_then(|h| h.site.as_ref())
+                    .map(|s| s.site_type);
                 events.push(GameEvent::SiteEntered {
                     player_id: player_id.clone(),
                     hex,
+                    site_type,
                 });
             }
             sites::apply_enter_site(state, player_idx)?
@@ -345,7 +363,22 @@ pub fn apply_legal_action(
         LegalAction::InteractSite { healing } => {
             // Irreversible: wound removal + influence deduction
             undo_stack.set_checkpoint();
-            sites::apply_interact_site(state, player_idx, *healing)?
+            let site_type = state.players[player_idx].position
+                .and_then(|hex| state.map.hexes.get(&hex.key()))
+                .and_then(|h| h.site.as_ref())
+                .map(|s| s.site_type);
+            let heal_count = *healing;
+            let mut result = sites::apply_interact_site(state, player_idx, heal_count)?;
+            if let Some(st) = site_type {
+                result.events.push(GameEvent::SiteInteractionCompleted {
+                    player_id: player_id.clone(),
+                    site_type: st,
+                    interaction: "Heal".into(),
+                    card_id: None,
+                    healing: Some(heal_count),
+                });
+            }
+            result
         }
 
         LegalAction::PlunderSite => {
@@ -382,7 +415,28 @@ pub fn apply_legal_action(
         } => {
             // Reversible: save snapshot
             undo_stack.save(state);
-            units::apply_activate_unit(state, player_idx, unit_instance_id, *ability_index)?
+            // Look up unit info before activation (unit may become spent)
+            let unit_info = state.players[player_idx].units.iter()
+                .find(|u| u.instance_id == *unit_instance_id)
+                .map(|u| u.unit_id.clone());
+            let effect_desc = unit_info.as_ref()
+                .and_then(|uid| mk_data::units::get_unit(uid.as_str()))
+                .and_then(|def| def.abilities.get(*ability_index))
+                .map(|slot| slot.ability.describe());
+            let mut result = units::apply_activate_unit(state, player_idx, unit_instance_id, *ability_index)?;
+            // Only emit activation event for immediate abilities (not choice-based ones
+            // that set a pending — those emit the event when the choice is resolved)
+            let has_pending_choice = state.players[player_idx].pending.has_active();
+            if let Some(uid) = unit_info {
+                if !has_pending_choice {
+                    result.events.push(GameEvent::UnitActivated {
+                        player_id: player_id.clone(),
+                        unit_id: uid,
+                        effect_description: effect_desc,
+                    });
+                }
+            }
+            result
         }
 
         LegalAction::AssignDamageToHero {
@@ -704,13 +758,41 @@ pub fn apply_legal_action(
         LegalAction::BuySpell { card_id, mana_color, .. } => {
             // Irreversible: consumes mana
             undo_stack.set_checkpoint();
-            sites::apply_buy_spell(state, player_idx, card_id, *mana_color)?
+            let cid = card_id.clone();
+            let site_type = state.players[player_idx].position
+                .and_then(|hex| state.map.hexes.get(&hex.key()))
+                .and_then(|h| h.site.as_ref())
+                .map(|s| s.site_type)
+                .unwrap_or(SiteType::Monastery);
+            let mut result = sites::apply_buy_spell(state, player_idx, card_id, *mana_color)?;
+            result.events.push(GameEvent::SiteInteractionCompleted {
+                player_id: player_id.clone(),
+                site_type,
+                interaction: "BuySpell".into(),
+                card_id: Some(cid),
+                healing: None,
+            });
+            result
         }
 
         LegalAction::LearnAdvancedAction { card_id, .. } => {
             // Reversible: save snapshot
             undo_stack.save(state);
-            sites::apply_learn_advanced_action(state, player_idx, card_id)?
+            let cid = card_id.clone();
+            let site_type = state.players[player_idx].position
+                .and_then(|hex| state.map.hexes.get(&hex.key()))
+                .and_then(|h| h.site.as_ref())
+                .map(|s| s.site_type)
+                .unwrap_or(SiteType::Monastery);
+            let mut result = sites::apply_learn_advanced_action(state, player_idx, card_id)?;
+            result.events.push(GameEvent::SiteInteractionCompleted {
+                player_id: player_id.clone(),
+                site_type,
+                interaction: "LearnAdvancedAction".into(),
+                card_id: Some(cid),
+                healing: None,
+            });
+            result
         }
 
         LegalAction::BurnMonastery => {
@@ -1068,7 +1150,12 @@ fn action_type_label(action: &LegalAction) -> String {
         LegalAction::ResolveDecompose { .. } => "ResolveDecompose".to_string(),
         LegalAction::ResolveDiscardForCrystal { .. } => "ResolveDiscardForCrystal".to_string(),
         LegalAction::SpendMoveOnCumbersome { .. } => "SpendMoveOnCumbersome".to_string(),
-        LegalAction::ResolveTacticDecision { .. } => "ResolveTacticDecision".to_string(),
+        LegalAction::ResolveTacticDecision { data } => match data {
+            TacticDecisionData::SparingPowerStash => "SparingPowerStash".to_string(),
+            TacticDecisionData::SparingPowerTake => "SparingPowerTake".to_string(),
+            TacticDecisionData::Preparation { .. } => "PreparationSelect".to_string(),
+            TacticDecisionData::ManaSteal { .. } => "ManaSteal".to_string(),
+        },
         LegalAction::ActivateTactic => "ActivateTactic".to_string(),
         LegalAction::InitiateManaSearch => "InitiateManaSearch".to_string(),
         LegalAction::BeginInteraction => "BeginInteraction".to_string(),

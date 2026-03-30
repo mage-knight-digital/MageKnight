@@ -2,6 +2,7 @@
 
 use mk_data::tactics::tactic_turn_order;
 use mk_types::enums::*;
+use mk_types::events::GameEvent;
 use mk_types::ids::{CardId, CombatInstanceId, PlayerId};
 use mk_types::legal_action::TacticDecisionData;
 use mk_types::pending::{
@@ -204,6 +205,7 @@ pub(super) fn apply_resolve_tactic_decision(
     player_idx: usize,
     data: &TacticDecisionData,
 ) -> Result<ApplyResult, ApplyError> {
+    let mut events: Vec<GameEvent> = Vec::new();
     match data {
         TacticDecisionData::ManaSteal { die_index } => {
             if *die_index >= state.source.dice.len() {
@@ -251,6 +253,10 @@ pub(super) fn apply_resolve_tactic_decision(
             // Remove first occurrence from actual deck
             if let Some(pos) = player.deck.iter().position(|c| *c == card_id) {
                 player.deck.remove(pos);
+                events.push(GameEvent::CardGained {
+                    player_id: player.id.clone(),
+                    card_id: card_id.clone(),
+                });
                 player.hand.push(card_id);
             }
 
@@ -275,6 +281,12 @@ pub(super) fn apply_resolve_tactic_decision(
         TacticDecisionData::SparingPowerTake => {
             let player = &mut state.players[player_idx];
             let stored: Vec<CardId> = player.tactic_state.sparing_power_stored.drain(..).collect();
+            for card_id in &stored {
+                events.push(GameEvent::CardGained {
+                    player_id: player.id.clone(),
+                    card_id: card_id.clone(),
+                });
+            }
             player.hand.extend(stored);
             player.flags.insert(PlayerFlags::TACTIC_FLIPPED);
             player.pending.active = None;
@@ -285,7 +297,7 @@ pub(super) fn apply_resolve_tactic_decision(
     Ok(ApplyResult {
         needs_reenumeration: true,
         game_ended: false,
-        events: Vec::new(),
+        events,
     })
 }
 

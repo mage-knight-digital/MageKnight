@@ -1,75 +1,90 @@
 /**
- * DiscardCostOverlay - Card selection UI for discard-as-cost (e.g. Improvisation)
+ * DiscardCostOverlay - Card selection UI for discard-for-crystal (e.g., Savage Harvesting)
  *
- * Shown when validActions.mode === "pending_discard_cost".
- * Uses CardSelectionOverlay to let the player select the required card(s) to discard,
- * then sends RESOLVE_DISCARD_ACTION. Cancel/undo sends UNDO_ACTION to revert the play.
+ * Shown when player.pending.kind === "discard_for_crystal" only.
+ * Other discard kinds ("discard", "discard_for_bonus") use different action types
+ * and are handled elsewhere. Cancel/undo sends Undo to revert.
  */
 
-import { useCallback } from "react";
-import { RESOLVE_DISCARD_ACTION, UNDO_ACTION } from "@mage-knight/shared";
+import { useCallback, useMemo } from "react";
 import type { CardId } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
+import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { CardSelectionOverlay } from "./CardSelectionOverlay";
+import { actionData } from "../../rust/types";
+import { hasAction, findAction } from "../../rust/legalActionUtils";
 
 export function DiscardCostOverlay() {
-  const { state, sendAction } = useGame();
+  const { sendAction, legalActions } = useGame();
+  const player = useMyPlayer();
 
-  const isActive =
-    state?.validActions?.mode === "pending_discard_cost" &&
-    state.validActions.discardCost != null;
+  const kind = player?.pending?.kind;
+  const isActive = kind === "discard_for_crystal";
 
-  const discardCost = isActive ? state.validActions.discardCost : null;
+  const discardActions = useMemo(() => {
+    if (!isActive) return [];
+    return legalActions.filter(
+      (a) => typeof a !== "string" && "ResolveDiscardForCrystal" in a
+    );
+  }, [isActive, legalActions]);
+
+  // Check for skip option (card_id: null)
+  const canSkip = discardActions.some(
+    (a) => actionData(a)?.["card_id"] === null
+  );
+
+  const canUndo = hasAction(legalActions, "Undo");
+
+  // Build selectable card IDs from the actions
+  const availableCardIds = useMemo(() => {
+    return discardActions
+      .map((a) => actionData(a)?.["card_id"] as string | null)
+      .filter((id): id is string => id !== null) as CardId[];
+  }, [discardActions]);
 
   const handleSelect = useCallback(
     (selectedCards: readonly CardId[]) => {
-      sendAction({
-        type: RESOLVE_DISCARD_ACTION,
-        cardIds: selectedCards,
-      });
+      const cardId = selectedCards[0];
+      if (!cardId) return;
+      const action = discardActions.find(
+        (a) => actionData(a)?.["card_id"] === cardId
+      );
+      if (action) sendAction(action);
     },
-    [sendAction]
+    [sendAction, discardActions]
   );
 
   const handleSkip = useCallback(() => {
-    sendAction({
-      type: RESOLVE_DISCARD_ACTION,
-      cardIds: [],
-    });
-  }, [sendAction]);
+    const action = discardActions.find(
+      (a) => actionData(a)?.["card_id"] === null
+    );
+    if (action) sendAction(action);
+  }, [sendAction, discardActions]);
 
   const handleUndo = useCallback(() => {
-    sendAction({ type: UNDO_ACTION });
-  }, [sendAction]);
+    const action = findAction(legalActions, "Undo");
+    if (action) sendAction(action);
+  }, [sendAction, legalActions]);
 
-  if (!isActive || !discardCost) {
+  if (!isActive || availableCardIds.length === 0) {
     return null;
   }
 
-  const { availableCardIds, count, optional } = discardCost;
-  const minSelect = optional ? 0 : count;
-  const maxSelect = count;
-
-  const instruction =
-    count === 1
-      ? optional
-        ? "Select a card to discard (or skip)"
-        : "Select a card to discard"
-      : optional
-        ? `Select up to ${count} cards to discard (or skip)`
-        : `Select ${count} cards to discard`;
+  const instruction = canSkip
+    ? "Select a card to discard (or skip)"
+    : "Select a card to discard";
 
   return (
     <CardSelectionOverlay
       cards={availableCardIds}
       instruction={instruction}
-      minSelect={minSelect}
-      maxSelect={maxSelect}
-      canSkip={optional}
+      minSelect={1}
+      maxSelect={1}
+      canSkip={canSkip}
       skipText="Skip"
       onSelect={handleSelect}
-      onSkip={optional ? handleSkip : undefined}
-      onUndo={handleUndo}
+      onSkip={canSkip ? handleSkip : undefined}
+      onUndo={canUndo ? handleUndo : undefined}
     />
   );
 }
