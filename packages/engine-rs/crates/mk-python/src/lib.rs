@@ -937,6 +937,8 @@ impl PyVecEnv {
     ///         Otherwise parsed as JSON, e.g. '{"type":"CombatDrill","enemy_tokens":["diggers_1"],"is_fortified":false}'.
     #[new]
     #[pyo3(signature = (num_envs=16, base_seed=42, hero="arythea", max_steps=2000, scenario=None, combat_oracle=false, commerce_oracle=false, early_term_fame_step=0))]
+    // PyO3 requires individual parameters for Python constructor kwargs
+    #[allow(clippy::too_many_arguments)]
     fn new(
         num_envs: usize,
         base_seed: u32,
@@ -949,16 +951,16 @@ impl PyVecEnv {
     ) -> PyResult<Self> {
         let hero_enum = parse_hero(hero)?;
         let training_scenario = parse_scenario(scenario)?;
-        let inner = VecEnv::new(
+        let inner = VecEnv::new(mk_env::VecEnvConfig {
             num_envs,
             base_seed,
-            hero_enum,
+            hero: hero_enum,
             max_steps,
-            training_scenario,
+            scenario: training_scenario,
             combat_oracle,
             commerce_oracle,
             early_term_fame_step,
-        );
+        });
         Ok(Self { inner })
     }
 

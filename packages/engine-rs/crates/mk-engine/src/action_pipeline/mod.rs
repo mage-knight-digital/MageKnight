@@ -250,7 +250,7 @@ pub fn apply_legal_action(
                 }
                 Some(mk_types::pending::ActivePending::UnitAbilityChoice { options, .. }) => {
                     let desc = options.get(*choice_index)
-                        .map(|opt| units::describe_unit_choice(opt));
+                        .map(units::describe_unit_choice);
                     (None, None, desc)
                 }
                 Some(mk_types::pending::ActivePending::SelectCombatEnemy { eligible_enemy_ids, .. }) => {

@@ -514,6 +514,19 @@ pub struct StepResult {
 // VecEnv — N parallel game environments
 // =============================================================================
 
+/// Configuration for creating a VecEnv.
+#[derive(Clone)]
+pub struct VecEnvConfig {
+    pub num_envs: usize,
+    pub base_seed: u32,
+    pub hero: Hero,
+    pub max_steps: u64,
+    pub scenario: TrainingScenario,
+    pub combat_oracle: bool,
+    pub commerce_oracle: bool,
+    pub early_term_fame_step: u64,
+}
+
 /// Vectorized environment running N games in parallel via Rayon.
 pub struct VecEnv {
     envs: Vec<SingleEnv>,
@@ -522,34 +535,25 @@ pub struct VecEnv {
 
 impl VecEnv {
     /// Create N parallel environments with incrementing seeds.
-    pub fn new(
-        num_envs: usize,
-        base_seed: u32,
-        hero: Hero,
-        max_steps: u64,
-        scenario: TrainingScenario,
-        combat_oracle: bool,
-        commerce_oracle: bool,
-        early_term_fame_step: u64,
-    ) -> Self {
-        let envs: Vec<SingleEnv> = (0..num_envs)
+    pub fn new(config: VecEnvConfig) -> Self {
+        let envs: Vec<SingleEnv> = (0..config.num_envs)
             .into_par_iter()
             .map(|i| {
                 SingleEnv::new(
-                    base_seed + i as u32,
-                    hero,
-                    max_steps,
-                    scenario.clone(),
-                    combat_oracle,
-                    commerce_oracle,
-                    early_term_fame_step,
+                    config.base_seed + i as u32,
+                    config.hero,
+                    config.max_steps,
+                    config.scenario.clone(),
+                    config.combat_oracle,
+                    config.commerce_oracle,
+                    config.early_term_fame_step,
                 )
             })
             .collect();
 
         Self {
             envs,
-            next_seed: base_seed + num_envs as u32,
+            next_seed: config.base_seed + config.num_envs as u32,
         }
     }
 
@@ -751,6 +755,19 @@ impl VecEnv {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn test_config(num_envs: usize, base_seed: u32, max_steps: u64) -> VecEnvConfig {
+        VecEnvConfig {
+            num_envs,
+            base_seed,
+            hero: Hero::Arythea,
+            max_steps,
+            scenario: TrainingScenario::default(),
+            combat_oracle: false,
+            commerce_oracle: false,
+            early_term_fame_step: 0,
+        }
+    }
 
     /// Reproduce: seed=15604 with 156 action indices yields 0 legal actions.
     #[test]
@@ -994,13 +1011,13 @@ mod tests {
 
     #[test]
     fn vec_env_creation() {
-        let env = VecEnv::new(4, 42, Hero::Arythea, 100, TrainingScenario::default(), false, false, 0);
+        let env = VecEnv::new(test_config(4, 42, 100));
         assert_eq!(env.num_envs(), 4);
     }
 
     #[test]
     fn encode_batch_shapes() {
-        let env = VecEnv::new(4, 42, Hero::Arythea, 100, TrainingScenario::default(), false, false, 0);
+        let env = VecEnv::new(test_config(4, 42, 100));
         let batch = env.encode_batch();
         assert_eq!(batch.num_envs, 4);
         assert_eq!(batch.state_scalars.len(), 4 * mk_features::STATE_SCALAR_DIM);
@@ -1017,7 +1034,7 @@ mod tests {
 
     #[test]
     fn step_batch_random_actions() {
-        let mut env = VecEnv::new(4, 42, Hero::Arythea, 100, TrainingScenario::default(), false, false, 0);
+        let mut env = VecEnv::new(test_config(4, 42, 100));
 
         for _ in 0..10 {
             let batch = env.encode_batch();
@@ -1035,7 +1052,7 @@ mod tests {
 
     #[test]
     fn auto_reset_on_max_steps() {
-        let mut env = VecEnv::new(1, 42, Hero::Arythea, 5, TrainingScenario::default(), false, false, 0);
+        let mut env = VecEnv::new(test_config(1, 42, 5));
 
         // Step until the env is done
         let mut found_done = false;
@@ -1056,7 +1073,7 @@ mod tests {
 
     #[test]
     fn padding_consistency() {
-        let env = VecEnv::new(8, 1, Hero::Arythea, 100, TrainingScenario::default(), false, false, 0);
+        let env = VecEnv::new(test_config(8, 1, 100));
         let batch = env.encode_batch();
 
         // action_ids should be (N * max_actions * 6)
@@ -1084,7 +1101,7 @@ mod tests {
             skills: None,
             crystals: None,
         };
-        let mut env = VecEnv::new(4, 42, Hero::Arythea, 50, scenario, false, false, 0);
+        let mut env = VecEnv::new(VecEnvConfig { scenario, ..test_config(4, 42, 50) });
         let batch = env.encode_batch();
         assert_eq!(batch.num_envs, 4);
 
@@ -1112,7 +1129,7 @@ mod tests {
             skills: None,
             crystals: None,
         };
-        let mut env = VecEnv::new(1, 42, Hero::Arythea, 10, scenario, false, false, 0);
+        let mut env = VecEnv::new(VecEnvConfig { scenario, ..test_config(1, 42, 10) });
 
         let mut found_done = false;
         for _ in 0..50 {
@@ -1142,7 +1159,7 @@ mod tests {
             skills: None,
             crystals: None,
         };
-        let mut env = VecEnv::new(1, 42, Hero::Arythea, 500, scenario, false, false, 0);
+        let mut env = VecEnv::new(VecEnvConfig { scenario, ..test_config(1, 42, 500) });
 
         let mut done_step = None;
         for step in 0..200 {

@@ -205,7 +205,6 @@ struct PreCommerceSnapshot {
     wounded_unit_count: usize,
     crystals_total: u8,
     influence_points: u32,
-    hand_size: usize,
     play_area_size: usize,
 }
 
@@ -254,7 +253,6 @@ impl PreCommerceSnapshot {
                 + player.crystals.green
                 + player.crystals.white,
             influence_points: player.influence_points,
-            hand_size: player.hand.len(),
             play_area_size: player.play_area.len(),
         }
     }
