@@ -65,6 +65,8 @@ pub struct CommerceEvalWeights {
     pub influence_wasted: f64,
     /// Penalty per crystal spent during commerce.
     pub crystal_spent: f64,
+    /// Penalty per card played from hand during commerce (encourages card efficiency).
+    pub card_spent: f64,
 }
 
 impl Default for CommerceEvalWeights {
@@ -78,6 +80,7 @@ impl Default for CommerceEvalWeights {
             unit_dismissed_wounded: 50.0,
             influence_wasted: 10.0,
             crystal_spent: 50.0,
+            card_spent: 20.0,
         }
     }
 }
@@ -340,11 +343,13 @@ impl CommerceScore {
             0 // Don't penalize wasted influence if nothing was bought
         };
 
-        // If no purchases were made, heavily penalize playing cards (they're wasted)
+        // Always penalize cards spent (prefer fewer cards for same purchases)
+        let card_efficiency_penalty = cards_spent as f64 * w.card_spent;
+        // If no purchases at all, add heavy extra penalty (don't play cards for nothing)
         let cards_wasted_penalty = if made_purchases {
             0.0
         } else {
-            cards_spent as f64 * 100.0 // Strong penalty: don't play cards for nothing
+            cards_spent as f64 * 80.0
         };
 
         let total = wounds_healed as f64 * w.wound_healed
@@ -355,6 +360,7 @@ impl CommerceScore {
             + wounded_dismissed as f64 * w.unit_dismissed_wounded
             - wasted as f64 * w.influence_wasted
             - crystals_spent.max(0) as f64 * w.crystal_spent
+            - card_efficiency_penalty
             - cards_wasted_penalty;
 
         Self {
@@ -599,6 +605,11 @@ fn rollout(
             break;
         }
         let action = heuristic_pick(&current_actions, rng);
+        // Evaluate BEFORE EndTurn so play_area/influence state is intact
+        if matches!(action, LegalAction::EndTurn) {
+            path.push(action.clone());
+            break;
+        }
         path.push(action.clone());
         if let Some((next_state, next_actions)) = step(&current_state, action) {
             current_state = next_state;
@@ -701,6 +712,23 @@ fn dfs(
         if stats.nodes_visited >= node_limit {
             return;
         }
+        // Evaluate BEFORE EndTurn so play_area and influence are still intact.
+        // EndTurn clears play_area and resets influence, which breaks cards_spent
+        // detection in the evaluation function.
+        if matches!(action, LegalAction::EndTurn) {
+            let score = CommerceScore::evaluate(pre, state, weights);
+            path.push(action.clone());
+            let is_best = stats
+                .best_score
+                .map(|b| score.total > b.total)
+                .unwrap_or(true);
+            if is_best {
+                stats.best_score = Some(score);
+                stats.best_path = path.clone();
+            }
+            path.pop();
+            continue;
+        }
         if let Some((child_state, child_actions)) = step(state, action) {
             path.push(action.clone());
             dfs(
@@ -799,5 +827,202 @@ mod tests {
         assert_eq!(config.node_limit, 1_000_000);
         assert_eq!(config.seed_rollouts, 200);
         assert!(config.eval_weights.wound_healed > 0.0);
+    }
+
+    /// Reproduce the replay scenario: Norowas at a village with no wounds in hand,
+    /// units in offer cost 6 each, and player can only generate ~4 influence.
+    /// Oracle should NOT play cards since nothing can be purchased.
+    #[test]
+    fn commerce_search_village_no_affordable_purchases() {
+        use mk_types::enums::SiteType;
+        use mk_types::ids::{TacticId, UnitId};
+
+        let mut state = create_solo_game(4, Hero::Norowas);
+        place_initial_tiles(&mut state);
+
+        // Find a village hex
+        let village_hex = state
+            .map
+            .hexes
+            .iter()
+            .find(|(_, hex)| {
+                hex.site
+                    .as_ref()
+                    .map(|s| s.site_type == SiteType::Village && !s.is_conquered)
+                    .unwrap_or(false)
+            })
+            .map(|(key, _)| key.clone());
+
+        let hex_key = village_hex.expect("Should have a village");
+        let parts: Vec<i32> = hex_key.split(',').map(|s| s.parse().unwrap()).collect();
+        state.players[0].position = Some(HexCoord::new(parts[0], parts[1]));
+
+        // Set up hand: only non-wound cards (rage, determination)
+        state.players[0].hand.clear();
+        state.players[0].hand.push(CardId::from("rage"));
+        state.players[0].hand.push(CardId::from("determination"));
+
+        // Set reputation to 3 (+1 influence bonus)
+        state.players[0].reputation = 3;
+
+        // Set unit offer to expensive units (cost 6 each)
+        state.offers.units.clear();
+        state.offers.units.push(UnitId::from("utem_swordsmen"));
+        state.offers.units.push(UnitId::from("shocktroops"));
+
+        // Player already has 2 units and 2 command tokens — no room for more
+        state.players[0].command_tokens = 2;
+
+        // Simulate mid-turn: tactic already selected, action already taken
+        state.players[0].selected_tactic = Some(TacticId::from("early_bird"));
+        state.players[0]
+            .flags
+            .insert(PlayerFlags::IS_INTERACTING);
+        state.players[0]
+            .flags
+            .insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+        state.players[0]
+            .flags
+            .insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
+
+        let config = CommerceSearchConfig {
+            node_limit: 100_000,
+            ..CommerceSearchConfig::default()
+        };
+        let result = search_commerce(&state, &config);
+
+        eprintln!("Score: {}", result.score);
+        eprintln!("Actions: {:?}", result.actions);
+        eprintln!("Wounds healed: {}", result.wounds_healed);
+        eprintln!("Spells gained: {}", result.spells_gained);
+        eprintln!("AAs gained: {}", result.aas_gained);
+        eprintln!("Units recruited: {}", result.units_recruited);
+        eprintln!("Nodes visited: {}", result.nodes_visited);
+
+        // Oracle should find that nothing useful can be purchased
+        // and should NOT play any cards (score should be 0 or the actions
+        // should be just EndTurn)
+        assert!(
+            result.score <= 0.0,
+            "Score should be <= 0 when nothing can be purchased, got {}",
+            result.score
+        );
+        // No card plays should appear in the optimal sequence
+        let card_plays = result.actions.iter().filter(|a| {
+            matches!(
+                a,
+                LegalAction::PlayCardBasic { .. }
+                    | LegalAction::PlayCardPowered { .. }
+                    | LegalAction::PlayCardSideways { .. }
+            )
+        }).count();
+        assert_eq!(
+            card_plays, 0,
+            "Should not play cards when nothing can be purchased"
+        );
+    }
+
+    /// The oracle should prefer playing Threaten basic (2 influence) over
+    /// Threaten sideways (1 influence) + another card sideways (1 influence)
+    /// when both paths achieve the same purchase.
+    #[test]
+    fn commerce_search_prefers_fewer_cards() {
+        use mk_types::enums::SiteType;
+        use mk_types::ids::{TacticId, UnitId};
+
+        let mut state = create_solo_game(42, Hero::Norowas);
+        place_initial_tiles(&mut state);
+
+        // Find a village hex
+        let village_hex = state
+            .map
+            .hexes
+            .iter()
+            .find(|(_, hex)| {
+                hex.site
+                    .as_ref()
+                    .map(|s| s.site_type == SiteType::Village && !s.is_conquered)
+                    .unwrap_or(false)
+            })
+            .map(|(key, _)| key.clone());
+
+        let hex_key = village_hex.expect("Should have a village");
+        let parts: Vec<i32> = hex_key.split(',').map(|s| s.parse().unwrap()).collect();
+        state.players[0].position = Some(HexCoord::new(parts[0], parts[1]));
+
+        // Hand: threaten + rage (both can be played sideways for 1 influence each,
+        // but threaten basic gives 2 influence)
+        state.players[0].hand.clear();
+        state.players[0].hand.push(CardId::from("threaten"));
+        state.players[0].hand.push(CardId::from("rage"));
+
+        // Rep 1 gives +0 bonus, so we need exactly the card influence
+        // Herbalist costs 3 influence
+        // Path A: threaten basic (2) + rage sideways (1) = 3 influence, 2 cards
+        // Path B: threaten sideways (1) + rage sideways (1) = 2 influence, not enough
+        // So both paths need 2 cards, but let's adjust:
+        // Rep 2 gives +1 bonus
+        // Path A: threaten basic (2) + rep (1) = 3, only 1 card played
+        // Path B: threaten sideways (1) + rage sideways (1) + rep (1) = 3, 2 cards played
+        state.players[0].reputation = 2;
+
+        // Offer a cheap unit
+        state.offers.units.clear();
+        state.offers.units.push(UnitId::from("herbalist"));
+
+        // Give enough command tokens to recruit
+        state.players[0].command_tokens = 3;
+
+        // Mid-turn state
+        state.players[0].selected_tactic = Some(TacticId::from("early_bird"));
+        state.players[0]
+            .flags
+            .insert(PlayerFlags::IS_INTERACTING);
+        state.players[0]
+            .flags
+            .insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+        state.players[0]
+            .flags
+            .insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
+
+        let config = CommerceSearchConfig {
+            node_limit: 100_000,
+            ..CommerceSearchConfig::default()
+        };
+        let result = search_commerce(&state, &config);
+
+        eprintln!("Score: {}", result.score);
+        eprintln!("Actions: {:?}", result.actions);
+        eprintln!("Units recruited: {}", result.units_recruited);
+
+        // Should recruit the herbalist
+        assert!(
+            result.units_recruited > 0,
+            "Should recruit the herbalist"
+        );
+
+        // Should use threaten basic (2 influence) not sideways (1 influence)
+        // to minimize cards played
+        let sideways_plays = result.actions.iter().filter(|a| {
+            matches!(a, LegalAction::PlayCardSideways { card_id, .. } if card_id.as_str() == "threaten")
+        }).count();
+        assert_eq!(
+            sideways_plays, 0,
+            "Should play threaten basic (2 influence), not sideways (1 influence)"
+        );
+
+        let card_plays = result.actions.iter().filter(|a| {
+            matches!(
+                a,
+                LegalAction::PlayCardBasic { .. }
+                    | LegalAction::PlayCardPowered { .. }
+                    | LegalAction::PlayCardSideways { .. }
+            )
+        }).count();
+        assert!(
+            card_plays <= 1,
+            "Should use at most 1 card to recruit herbalist (threaten basic + rep bonus), got {}",
+            card_plays
+        );
     }
 }
