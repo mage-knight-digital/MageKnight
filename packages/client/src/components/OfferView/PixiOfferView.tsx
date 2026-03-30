@@ -22,15 +22,14 @@ import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 import {
   UNITS,
   UNIT_TYPE_ELITE,
-  RECRUIT_UNIT_ACTION,
   BUY_SPELL_ACTION,
   SELECT_REWARD_ACTION,
   LEARN_ADVANCED_ACTION_ACTION,
   SITE_REWARD_SPELL,
   SITE_REWARD_ADVANCED_ACTION,
-  type UnitId,
   type CardId,
 } from "@mage-knight/shared";
+import { extractSiteActions } from "../../rust/legalActionUtils";
 
 // ============================================
 // Types
@@ -110,7 +109,7 @@ function getHoverRotation(cardId: string, index: number): number {
 export function PixiOfferView({ isVisible, onClose, initialTab = "units" }: PixiOfferViewProps) {
   const uniqueId = useId();
   const { app, overlayLayer } = usePixiApp();
-  const { state, sendAction } = useGame();
+  const { state, sendAction, legalActions } = useGame();
   const player = useMyPlayer();
 
   const rootContainerRef = useRef<Container | null>(null);
@@ -140,28 +139,24 @@ export function PixiOfferView({ isVisible, onClose, initialTab = "units" }: Pixi
     if (!state || !player) return [];
 
     if (pane === "units") {
-      const va = state.validActions;
-      const recruitableUnits =
-        va?.mode === "combat" || va?.mode === "normal_turn"
-          ? (va.units?.recruitable ?? [])
-          : [];
-      const recruitableMap = new Map(recruitableUnits.map((r) => [r.unitId, r]));
+      const siteInfo = extractSiteActions(legalActions);
+      const recruitableMap = new Map(siteInfo.recruitActions.map((r) => [r.unitId, r]));
 
       const unitCards = state.offers.units.map((unitId) => {
         const unit = UNITS[unitId];
         const recruitInfo = recruitableMap.get(unitId);
-        const canRecruit = recruitInfo?.canAfford ?? false;
+        const canRecruit = !!recruitInfo;
         const isElite = unit?.type === UNIT_TYPE_ELITE;
 
         return {
           id: unitId,
           canAcquire: canRecruit,
           acquireLabel: recruitInfo
-            ? canRecruit ? `Recruit (${recruitInfo.cost})` : `Need ${recruitInfo.cost}`
+            ? `Recruit (${recruitInfo.influenceCost})`
             : "",
           isElite,
           onAcquire: recruitInfo
-            ? () => sendAction({ type: RECRUIT_UNIT_ACTION, unitId: unitId as UnitId, influenceSpent: recruitInfo.cost })
+            ? () => sendAction(recruitInfo.action)
             : undefined,
         };
       });
@@ -247,7 +242,7 @@ export function PixiOfferView({ isVisible, onClose, initialTab = "units" }: Pixi
     }
 
     return [];
-  }, [state, player, sendAction]);
+  }, [state, player, sendAction, legalActions]);
 
   // Get border color for card type
   const getBorderColor = useCallback((pane: OfferPane, isElite?: boolean): number => {

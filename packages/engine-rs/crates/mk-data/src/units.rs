@@ -66,6 +66,69 @@ pub enum UnitAbility {
     Other { description: &'static str },
 }
 
+impl UnitAbility {
+    /// Human-readable description for event logging (e.g. "Attack 3 Fire", "Move 2").
+    pub fn describe(&self) -> String {
+        fn elem(e: &Element) -> &str {
+            match e {
+                Element::Physical => "Physical",
+                Element::Fire => "Fire",
+                Element::Ice => "Ice",
+                Element::ColdFire => "ColdFire",
+            }
+        }
+        fn color(c: &BasicManaColor) -> &str {
+            match c {
+                BasicManaColor::White => "White",
+                BasicManaColor::Blue => "Blue",
+                BasicManaColor::Red => "Red",
+                BasicManaColor::Green => "Green",
+            }
+        }
+        match self {
+            Self::Attack { value, element } => format!("Attack {} {}", value, elem(element)),
+            Self::Block { value, element } => format!("Block {} {}", value, elem(element)),
+            Self::RangedAttack { value, element } => format!("Ranged Attack {} {}", value, elem(element)),
+            Self::SiegeAttack { value, element } => format!("Siege Attack {} {}", value, elem(element)),
+            Self::Move { value } => format!("Move {}", value),
+            Self::Influence { value } => format!("Influence {}", value),
+            Self::Heal { value } => format!("Heal {}", value),
+            Self::GainMana { color: c } => format!("Gain {} Mana", color(c)),
+            Self::GainCrystal { color: c } => format!("Gain {} Crystal", color(c)),
+            Self::GainManaAndCrystal { color: c } => format!("Gain {} Mana + Crystal", color(c)),
+            Self::AttackWithRepCost { value, element, rep_change } => {
+                format!("Attack {} {} (Rep {})", value, elem(element), rep_change)
+            }
+            Self::InfluenceWithRepCost { value, rep_change } => {
+                format!("Influence {} (Rep {})", value, rep_change)
+            }
+            Self::MoveOrInfluence { value } => format!("Move or Influence {}", value),
+            Self::AttackOrBlockWoundSelf { value, element } => {
+                format!("Attack/Block {} {} (wound self)", value, elem(element))
+            }
+            Self::ReadyUnit { max_level } => format!("Ready Unit (level ≤{})", max_level),
+            Self::GrantAllResistances => "Grant All Resistances".into(),
+            Self::SelectCombatEnemy(_) => "Select Combat Enemy".into(),
+            Self::CoordinatedFire { ranged_value, element, .. } => {
+                format!("Coordinated Fire {} {}", ranged_value, elem(element))
+            }
+            Self::MoveWithTerrainReduction { move_value, .. } => {
+                format!("Move {} + Terrain Reduction", move_value)
+            }
+            Self::GainManaChoose { count } => format!("Choose {} Mana", count),
+            Self::AltemMagesColdFire { base, .. } => format!("ColdFire Attack/Block {}", base),
+            Self::AltemMagesAttackModifier => "Attack Modifier (ColdFire/Siege)".into(),
+            Self::ScoutPeek { distance, fame_bonus } => {
+                format!("Scout (range {}, +{} fame)", distance, fame_bonus)
+            }
+            Self::MoveWithExtendedExplore { move_value } => {
+                format!("Move {} + Extended Explore", move_value)
+            }
+            Self::Other { description } => description.to_string(),
+        }
+    }
+}
+
 /// An ability slot on a unit — the ability itself plus optional mana cost.
 #[derive(Debug, Clone, Copy)]
 pub struct UnitAbilitySlot {

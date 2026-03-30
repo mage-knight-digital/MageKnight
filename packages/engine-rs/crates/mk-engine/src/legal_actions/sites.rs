@@ -36,7 +36,9 @@ pub(super) fn enumerate_site_actions(
     if state.combat.is_some() {
         return;
     }
-    if player.flags.contains(PlayerFlags::IS_RESTING) {
+    if player.flags.contains(PlayerFlags::IS_RESTING)
+        || player.flags.contains(PlayerFlags::HAS_RESTED_THIS_TURN)
+    {
         return;
     }
 
@@ -162,11 +164,7 @@ pub(super) fn enumerate_site_actions(
     let effective_influence = compute_effective_influence(state, player_idx);
 
     // InteractSite — healing at inhabited sites
-    if is_inhabited(site.site_type)
-        && !player
-            .flags
-            .contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN)
-    {
+    if is_inhabited(site.site_type) {
         // Access check: Village/Monastery/RefugeeCamp always accessible.
         // Keep/MageTower/City only when conquered.
         let accessible = match site.site_type {

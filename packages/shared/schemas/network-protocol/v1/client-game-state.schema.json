@@ -1101,6 +1101,13 @@
       "additionalProperties": false,
       "description": "Rust engine pending info — the shape sent by mk-server.\nContains a label and string option descriptions.",
       "properties": {
+        "cardIds": {
+          "description": "Card IDs for pendings that need to show cards (meditation, crystal joy, preparation).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "kind": {
           "type": "string"
         },

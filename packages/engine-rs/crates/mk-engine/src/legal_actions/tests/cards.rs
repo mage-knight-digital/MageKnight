@@ -99,6 +99,44 @@ fn rage_outside_combat_only_sideways() {
 }
 
 #[test]
+fn shield_bash_outside_combat_not_playable() {
+    // Shield Bash is combat-only — its basic (GainBlock) and powered (GainBlock + modifier)
+    // should NOT appear as legal actions outside combat, even though the modifier sub-effect
+    // passes is_resolvable.
+    let mut state = setup_game(vec!["shield_bash"]);
+    // Give player blue mana so powered would be affordable if not filtered.
+    state.players[0].crystals.blue = 1;
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "shield_bash"),
+    );
+    let powered = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "shield_bash"),
+    );
+    let sideways = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardSideways { card_id, .. } if card_id.as_str() == "shield_bash"),
+    );
+
+    assert!(!basic, "shield_bash basic should not be playable outside combat");
+    assert!(!powered, "shield_bash powered should not be playable outside combat");
+    assert!(sideways, "shield_bash sideways should still be available");
+}
+
+#[test]
+fn mixed_category_card_allowed_outside_combat() {
+    // Cards with mixed categories (e.g., Movement + Combat) should NOT be filtered
+    // outside combat — they have non-combat utility.
+    let state = setup_game(vec!["wolfhawk_swift_reflexes"]);
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "wolfhawk_swift_reflexes"),
+    );
+    assert!(basic, "wolfhawk_swift_reflexes (Movement + Combat) basic should be playable outside combat");
+}
+
+#[test]
 fn wound_not_sideways_playable() {
     let state = setup_game(vec!["wound"]);
     let legal = enumerate_legal_actions(&state, 0);

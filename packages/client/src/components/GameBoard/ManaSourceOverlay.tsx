@@ -188,13 +188,13 @@ export function ManaSourceOverlay() {
     }
   }, [state?.source.dice]);
 
-  // Get available dice from validActions (memoized to avoid re-creating on every render)
-  const availableDice: readonly AvailableDie[] = useMemo(() =>
-    state?.validActions && "mana" in state.validActions
-      ? state.validActions.mana.availableDice
-      : [],
-    [state?.validActions],
-  );
+  // Derive available dice from source state — untaken dice are clickable
+  const availableDice: readonly AvailableDie[] = useMemo(() => {
+    if (!state?.source.dice) return [];
+    return state.source.dice
+      .filter((d) => !d.takenByPlayerId)
+      .map((d) => ({ dieId: d.id, color: d.color }));
+  }, [state?.source.dice]);
 
   const handleDieClick = useCallback((_dieId: string, dieColor: ManaColor) => {
     // Basic color dice: no standalone action needed (mana sourced inline via card play)

@@ -177,9 +177,6 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
 
   // Get playable cards — convert CardActionGroup to a PlayableCard-compatible shape
   const playableCardMap = useMemo(() => {
-    if (import.meta.env.DEV) {
-      console.log(`[PlayerHand] cardActions: ${cardActions.size} cards`, cardActions.size > 0 ? [...cardActions.keys()] : "(none)");
-    }
     const map = new Map();
     for (const [cardId, group] of cardActions) {
       map.set(cardId, {

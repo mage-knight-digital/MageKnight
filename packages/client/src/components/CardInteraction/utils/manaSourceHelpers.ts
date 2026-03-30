@@ -58,38 +58,34 @@ export function getAvailableManaSources(
     }
   }
 
-  // 3. Check available dice from the source (only in combat or normal_turn)
-  // validActions may be undefined when running against the Rust engine
-  const va = state.validActions;
-  const manaOptions =
-    va && (va.mode === "combat" || va.mode === "normal_turn") ? va.mana : undefined;
-  if (manaOptions) {
-    // Matching color dice
-    const matchingDice = manaOptions.availableDice.filter(
-      (d) => d.color === requiredColor
-    );
-    for (const die of matchingDice) {
+  // 3. Check available dice from the source — untaken dice that match
+  const availableDice = (state.source?.dice ?? []).filter(
+    (d) => !d.takenByPlayerId
+  );
+  // Matching color dice
+  for (const die of availableDice) {
+    if (die.color === requiredColor) {
       sources.push({
         type: MANA_SOURCE_DIE,
         color: requiredColor,
-        dieId: die.dieId,
+        dieId: die.id,
       });
     }
+  }
 
-    // Gold dice (wildcard for basic colors ONLY - not for black or gold)
-    // Basic colors are: red, blue, green, white
-    const isBasicColor =
-      requiredColor === MANA_RED ||
-      requiredColor === MANA_BLUE ||
-      requiredColor === MANA_GREEN ||
-      requiredColor === MANA_WHITE;
-    if (isBasicColor) {
-      const goldDice = manaOptions.availableDice.filter((d) => d.color === "gold");
-      for (const die of goldDice) {
+  // Gold dice (wildcard for basic colors ONLY - not for black or gold)
+  const isBasicColor =
+    requiredColor === MANA_RED ||
+    requiredColor === MANA_BLUE ||
+    requiredColor === MANA_GREEN ||
+    requiredColor === MANA_WHITE;
+  if (isBasicColor) {
+    for (const die of availableDice) {
+      if (die.color === "gold") {
         sources.push({
           type: MANA_SOURCE_DIE,
           color: "gold",
-          dieId: die.dieId,
+          dieId: die.id,
         });
       }
     }

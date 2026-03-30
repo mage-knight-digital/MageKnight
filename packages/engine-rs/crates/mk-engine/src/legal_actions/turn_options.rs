@@ -85,6 +85,7 @@ pub(super) fn enumerate_turn_options(
     if !is_resting
         && state.combat.is_none()
         && !player.hand.is_empty()
+        && !player.flags.contains(PlayerFlags::IS_INTERACTING)
         && !player
             .flags
             .contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN)

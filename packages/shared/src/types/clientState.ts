@@ -61,6 +61,8 @@ export interface ClientPendingInfo {
   readonly selected?: readonly number[];
   /** Extra data for level-up reward selection. */
   readonly levelUpData?: ClientLevelUpData;
+  /** Card IDs for pendings that need to show cards (meditation, crystal joy, preparation). */
+  readonly cardIds?: readonly CardId[];
 }
 
 /** Level-up reward data for the selection UI. */

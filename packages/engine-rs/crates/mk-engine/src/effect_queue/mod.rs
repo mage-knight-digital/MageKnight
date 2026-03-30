@@ -166,8 +166,8 @@ impl EffectQueue {
                 ResolveResult::Applied => continue,
                 ResolveResult::Skipped => continue,
                 ResolveResult::Decomposed(sub_effects) => {
-                    // Emit event when a Choice auto-resolves to a single option.
-                    if matches!(&queued.effect, CardEffect::Choice { .. }) && sub_effects.len() == 1 {
+                    // Emit event when a Choice/PureMagic/ManaBolt auto-resolves to a single option.
+                    if matches!(&queued.effect, CardEffect::Choice { .. } | CardEffect::PureMagic { .. } | CardEffect::ManaBolt { .. }) && sub_effects.len() == 1 {
                         if let Some(desc) = sub_effects[0].describe() {
                             use mk_types::events::GameEvent;
                             state.event_buffer.push(GameEvent::ChoiceResolved {

@@ -1,63 +1,86 @@
 /**
  * CrystalJoyReclaimDecision - Card selection UI for Crystal Joy reclaim
  *
- * Shown when validActions.mode === "pending_crystal_joy_reclaim".
+ * Shown when player.pending.kind === "crystal_joy_reclaim".
  * Allows player to select which card from discard to reclaim (or skip).
- * Sends RESOLVE_CRYSTAL_JOY_RECLAIM_ACTION with selected cardId or undefined for skip.
+ * Sends the ResolveCrystalJoyReclaim legal action directly.
  */
 
-import { useCallback } from "react";
-import { RESOLVE_CRYSTAL_JOY_RECLAIM_ACTION } from "@mage-knight/shared";
+import { useCallback, useMemo } from "react";
 import type { CardId } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
+import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { CardSelectionOverlay } from "./CardSelectionOverlay";
+import { actionData } from "../../rust/types";
 
 export function CrystalJoyReclaimDecision() {
-  const { state, sendAction } = useGame();
+  const { sendAction, legalActions } = useGame();
+  const player = useMyPlayer();
 
-  const isActive =
-    state?.validActions?.mode === "pending_crystal_joy_reclaim" &&
-    state.validActions.crystalJoyReclaim != null;
+  const isActive = player?.pending?.kind === "crystal_joy_reclaim";
 
-  const options = isActive ? state.validActions.crystalJoyReclaim : null;
+  const reclaimActions = useMemo(() => {
+    if (!isActive) return [];
+    return legalActions.filter(
+      (a) => typeof a !== "string" && "ResolveCrystalJoyReclaim" in a
+    );
+  }, [isActive, legalActions]);
+
+  // Card IDs from pending info (discard pile exposed by server)
+  const discardCardIds = player?.pending?.cardIds ?? [];
+
+  // Build selectable card IDs from legal action discard indices
+  const eligibleCardIds = useMemo(() => {
+    return reclaimActions
+      .map((a) => {
+        const idx = actionData(a)?.["discard_index"] as number | null;
+        if (idx === null) return null;
+        return discardCardIds[idx] ?? null;
+      })
+      .filter((id): id is CardId => id !== null);
+  }, [reclaimActions, discardCardIds]);
+
+  // Check if skip is available (discard_index: null)
+  const canSkip = reclaimActions.some(
+    (a) => actionData(a)?.["discard_index"] === null
+  );
 
   const handleSelect = useCallback(
     (selectedCards: readonly CardId[]) => {
-      // We expect exactly 1 card or none (skip)
-      const cardId = selectedCards.length > 0 ? selectedCards[0] : undefined;
-      sendAction({
-        type: RESOLVE_CRYSTAL_JOY_RECLAIM_ACTION,
-        cardId,
-      });
+      const cardId = selectedCards[0];
+      if (!cardId) return;
+      const discardIndex = discardCardIds.indexOf(cardId);
+      if (discardIndex >= 0) {
+        const action = reclaimActions.find(
+          (a) => actionData(a)?.["discard_index"] === discardIndex
+        );
+        if (action) sendAction(action);
+      }
     },
-    [sendAction]
+    [sendAction, reclaimActions, discardCardIds]
   );
 
   const handleSkip = useCallback(() => {
-    sendAction({
-      type: RESOLVE_CRYSTAL_JOY_RECLAIM_ACTION,
-      cardId: undefined,
-    });
-  }, [sendAction]);
+    const action = reclaimActions.find(
+      (a) => actionData(a)?.["discard_index"] === null
+    );
+    if (action) sendAction(action);
+  }, [sendAction, reclaimActions]);
 
-  if (!isActive || !options) {
+  if (!isActive || eligibleCardIds.length === 0) {
     return null;
   }
-
-  const { eligibleCardIds } = options;
-
-  const instruction = "Select a card to reclaim or skip";
 
   return (
     <CardSelectionOverlay
       cards={eligibleCardIds}
-      instruction={instruction}
+      instruction="Select a card to reclaim or skip"
       minSelect={0}
       maxSelect={1}
-      canSkip={true}
+      canSkip={canSkip}
       skipText="Skip"
       onSelect={handleSelect}
-      onSkip={handleSkip}
+      onSkip={canSkip ? handleSkip : undefined}
     />
   );
 }

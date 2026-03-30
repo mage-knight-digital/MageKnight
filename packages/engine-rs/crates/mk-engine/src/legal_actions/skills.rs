@@ -6,7 +6,9 @@ use mk_data::skills::{get_skill, is_motivation_skill, SkillPhaseRestriction, Ski
 use mk_types::enums::{CombatPhase, ManaColor};
 use mk_types::legal_action::LegalAction;
 use mk_types::modifier::ModifierSource;
-use mk_types::state::GameState;
+use mk_types::state::{GameState, PlayerFlags};
+
+use super::cards::is_influence_only;
 
 /// Skills that modify sideways card values — mutually exclusive.
 const SIDEWAYS_SKILLS: &[&str] = &[
@@ -236,6 +238,19 @@ pub(super) fn enumerate_skill_activations(
                 if !has_eligible { continue; }
             } else {
                 continue;
+            }
+        }
+
+        // Suppress influence-only skills when player is not interacting (same as cards).
+        let is_interacting = (player.flags.contains(PlayerFlags::IS_INTERACTING)
+            && !player.flags.contains(PlayerFlags::IS_RESTING)
+            && !player.flags.contains(PlayerFlags::HAS_RESTED_THIS_TURN))
+            || player.flags.contains(PlayerFlags::IS_PEACEFUL_MOMENT_HEALING);
+        if !is_interacting {
+            if let Some(ref effect) = def.effect {
+                if is_influence_only(effect) {
+                    continue;
+                }
             }
         }
 
@@ -536,10 +551,70 @@ mod tests {
     }
 
     #[test]
+    fn influence_only_skill_suppressed_when_not_interacting() {
+        let state = test_state_with_skill("wolfhawk_on_her_own");
+        let mut actions = Vec::new();
+        enumerate_skill_activations(&state, 0, &mut actions);
+        assert!(
+            !actions.iter().any(|a| matches!(a, LegalAction::UseSkill { skill_id } if skill_id.as_str() == "wolfhawk_on_her_own")),
+            "Influence-only skill should be suppressed when not interacting"
+        );
+    }
+
+    #[test]
+    fn influence_only_skill_available_when_interacting() {
+        let mut state = test_state_with_skill("wolfhawk_on_her_own");
+        state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
+        let mut actions = Vec::new();
+        enumerate_skill_activations(&state, 0, &mut actions);
+        assert!(
+            actions.iter().any(|a| matches!(a, LegalAction::UseSkill { skill_id } if skill_id.as_str() == "wolfhawk_on_her_own")),
+            "Influence-only skill should be available when interacting"
+        );
+    }
+
+    #[test]
+    fn influence_only_skill_suppressed_after_rest_even_if_interacting_flag_stuck() {
+        let mut state = test_state_with_skill("wolfhawk_on_her_own");
+        state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
+        state.players[0]
+            .flags
+            .insert(PlayerFlags::HAS_RESTED_THIS_TURN);
+        let mut actions = Vec::new();
+        enumerate_skill_activations(&state, 0, &mut actions);
+        assert!(
+            !actions.iter().any(|a| matches!(a, LegalAction::UseSkill { skill_id } if skill_id.as_str() == "wolfhawk_on_her_own")),
+            "Influence-only skill should stay suppressed after resting"
+        );
+    }
+
+    #[test]
+    fn all_influence_only_skills_suppressed_when_not_interacting() {
+        let influence_skills = [
+            "arythea_dark_negotiation",
+            "goldyx_glittering_fortune",
+            "norowas_bright_negotiation",
+            "wolfhawk_on_her_own",
+            "braevalar_beguile",
+        ];
+        for id in influence_skills {
+            let state = test_state_with_skill(id);
+            let mut actions = Vec::new();
+            enumerate_skill_activations(&state, 0, &mut actions);
+            assert!(
+                !actions.iter().any(|a| matches!(a, LegalAction::UseSkill { skill_id } if skill_id.as_str() == id)),
+                "{} should be suppressed when not interacting",
+                id
+            );
+        }
+    }
+
+    #[test]
     fn tier2_skills_enumerable_outside_combat() {
         // These Tier 2 NoCombat skills should all be enumerable during normal turn
+        // Note: braevalar_beguile is influence-only, so it's correctly suppressed
+        // when not interacting (tested separately).
         let no_combat_skills = [
-            "braevalar_beguile",
             "tovak_i_feel_no_pain",
         ];
         for id in no_combat_skills {

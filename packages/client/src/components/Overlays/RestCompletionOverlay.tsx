@@ -9,44 +9,58 @@
  */
 
 import { useCallback } from "react";
-import {
-  COMPLETE_REST_ACTION,
-  UNDO_ACTION,
-  CARD_WOUND,
-} from "@mage-knight/shared";
+import { CARD_WOUND } from "@mage-knight/shared";
 import type { CardId } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { useRegisterOverlay } from "../../contexts/OverlayContext";
 import { CardSelectionOverlay } from "./CardSelectionOverlay";
+import { actionData } from "../../rust/types";
+import { findAction, hasAction } from "../../rust/legalActionUtils";
 
 export function RestCompletionOverlay() {
-  const { state, sendAction } = useGame();
+  const { sendAction, legalActions } = useGame();
   const player = useMyPlayer();
 
-  // Check if we're in resting state
-  const isResting =
-    state?.validActions?.mode === "normal_turn"
-      ? (state.validActions.turn.isResting ?? false)
-      : false;
+  // Check if we're in resting state — use player.isResting from Rust client state
+  const isResting = player?.isResting ?? false;
   const isActive = isResting && !!player;
 
   // Register this overlay to disable background interactions when active
   useRegisterOverlay(isActive);
 
+  // Find CompleteRest legal actions (one per valid discard index)
+  const completeRestActions = legalActions.filter(
+    (a) => typeof a !== "string" && "CompleteRest" in a
+  );
+  const canUndo = hasAction(legalActions, "Undo");
+
   const handleSelect = useCallback(
     (selectedCards: readonly CardId[]) => {
-      sendAction({
-        type: COMPLETE_REST_ACTION,
-        discardCardIds: selectedCards,
-      });
+      if (selectedCards.length === 0) {
+        // Empty hand — send CompleteRest with null index
+        const action = findAction(legalActions, "CompleteRest");
+        if (action) sendAction(action);
+        return;
+      }
+      // Find the hand index for the selected card
+      const cardId = selectedCards[0];
+      const hand = Array.isArray(player?.hand) ? player.hand : [];
+      const handIndex = hand.indexOf(cardId as string);
+      if (handIndex >= 0) {
+        const action = completeRestActions.find(
+          (a) => actionData(a)?.["discard_hand_index"] === handIndex
+        );
+        if (action) sendAction(action);
+      }
     },
-    [sendAction]
+    [sendAction, legalActions, completeRestActions, player?.hand]
   );
 
   const handleUndo = useCallback(() => {
-    sendAction({ type: UNDO_ACTION });
-  }, [sendAction]);
+    const undoAction = findAction(legalActions, "Undo");
+    if (undoAction) sendAction(undoAction);
+  }, [sendAction, legalActions]);
 
   if (!isActive) {
     return null;
@@ -61,10 +75,8 @@ export function RestCompletionOverlay() {
   // show simple confirmation dialog for Slow Recovery with 0 discards
   if (hand.length === 0) {
     const handleEmptyHandComplete = () => {
-      sendAction({
-        type: COMPLETE_REST_ACTION,
-        discardCardIds: [],
-      });
+      const action = findAction(legalActions, "CompleteRest");
+      if (action) sendAction(action);
     };
 
     return (
@@ -115,18 +127,19 @@ export function RestCompletionOverlay() {
     );
   }
 
-  // Standard Rest: allow selecting 1+ cards
-  // Validator enforces exactly 1 non-wound rule server-side
+  // Standard Rest: select 1 non-wound card to discard (wounds are auto-discarded)
   if (hasNonWound) {
+    // Only show non-wound cards as selectable (wounds go automatically)
+    const nonWoundCards = hand.filter((cardId) => cardId !== CARD_WOUND);
     return (
       <CardSelectionOverlay
-        cards={hand}
-        instruction="Standard Rest: Select cards to discard"
+        cards={nonWoundCards}
+        instruction="Standard Rest: Select a non-wound card to discard"
         minSelect={1}
-        maxSelect={hand.length}
+        maxSelect={1}
         onSelect={handleSelect}
-        onUndo={handleUndo}
-        filterMessage="Select exactly 1 non-wound card (plus any number of wounds)"
+        onUndo={canUndo ? handleUndo : undefined}
+        filterMessage="Select 1 non-wound card (all wounds are discarded automatically)"
       />
     );
   }
@@ -139,7 +152,7 @@ export function RestCompletionOverlay() {
       minSelect={1}
       maxSelect={1}
       onSelect={handleSelect}
-      onUndo={handleUndo}
+      onUndo={canUndo ? handleUndo : undefined}
       filterMessage="Your hand contains only wounds - select one to discard"
     />
   );

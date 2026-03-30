@@ -95,6 +95,14 @@ function formatActionType(actionType: string): string {
       return "plundered the site";
     case "DeclinePlunder":
       return "declined to plunder";
+    case "SparingPowerStash":
+      return "stashed a card (Sparing Power)";
+    case "SparingPowerTake":
+      return "took stashed cards (Sparing Power)";
+    case "PreparationSelect":
+      return "selected a card (Preparation)";
+    case "ManaSteal":
+      return "stole a mana die (Mana Steal)";
     case "EndCombatPhase":
       return "ended combat phase";
     case "ResolveAttack":
@@ -366,8 +374,54 @@ export function narrateRustEvent(
     case "siteEntered": {
       const name = pid ? heroName(players, pid) : "Hero";
       const hex = event["hex"] as { q: number; r: number } | undefined;
+      const siteType = field(event, "site_type", "siteType") as string | undefined;
+      const siteLabel = siteType ? formatId(siteType) : "a site";
       const hexLabel = hex ? ` at (${hex.q}, ${hex.r})` : "";
-      return msg(`${name} entered a site${hexLabel}`, EVENT_CATEGORY.SITES, pid);
+      return msg(`${name} entered ${siteLabel}${hexLabel}`, EVENT_CATEGORY.SITES, pid);
+    }
+
+    case "siteInteractionStarted": {
+      const name = pid ? heroName(players, pid) : "Hero";
+      const siteType = field(event, "site_type", "siteType") as string | undefined;
+      const siteLabel = siteType ? formatId(siteType) : "site";
+      return msg(`${name} began interacting with ${siteLabel}`, EVENT_CATEGORY.SITES, pid);
+    }
+
+    case "siteInteractionCompleted": {
+      const name = pid ? heroName(players, pid) : "Hero";
+      const siteType = field(event, "site_type", "siteType") as string | undefined;
+      const interaction = event["interaction"] as string | undefined;
+      const cardId = field(event, "card_id", "cardId") as string | undefined;
+      const healing = event["healing"] as number | undefined;
+      const siteLabel = siteType ? formatId(siteType) : "site";
+      const cardLabel = cardId ? formatId(cardId) : null;
+
+      switch (interaction) {
+        case "BuySpell":
+          return msg(
+            `${name} learned spell${cardLabel ? `: ${cardLabel}` : ""} at ${siteLabel}`,
+            EVENT_CATEGORY.SITES,
+            pid,
+          );
+        case "LearnAdvancedAction":
+          return msg(
+            `${name} learned advanced action${cardLabel ? `: ${cardLabel}` : ""} at ${siteLabel}`,
+            EVENT_CATEGORY.SITES,
+            pid,
+          );
+        case "Heal":
+          return msg(
+            `${name} healed ${healing ?? "?"} wound${healing !== 1 ? "s" : ""} at ${siteLabel}`,
+            EVENT_CATEGORY.SITES,
+            pid,
+          );
+        default:
+          return msg(
+            `${name} interacted with ${siteLabel}${cardLabel ? ` (${cardLabel})` : ""}`,
+            EVENT_CATEGORY.SITES,
+            pid,
+          );
+      }
     }
 
     case "siteConquered": {
@@ -464,7 +518,9 @@ export function narrateRustEvent(
       const name = pid ? heroName(players, pid) : "Hero";
       const unitId = field(event, "unit_id", "unitId") as string | undefined;
       const unitLabel = unitId ? formatId(unitId) : "a unit";
-      return msg(`${name} activated ${unitLabel}`, EVENT_CATEGORY.UNITS, pid);
+      const effectDesc = field(event, "effect_description", "effectDescription") as string | undefined;
+      const suffix = effectDesc ? ` — ${effectDesc}` : "";
+      return msg(`${name} activated ${unitLabel}${suffix}`, EVENT_CATEGORY.UNITS, pid);
     }
 
     case "unitWounded": {

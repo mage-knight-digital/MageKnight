@@ -1,8 +1,10 @@
 import { useCallback, useMemo } from "react";
-import { RESOLVE_TERRAIN_COST_REDUCTION_ACTION, UNDO_ACTION } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
+import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { useRegisterOverlay } from "../../contexts/OverlayContext";
 import { PixiPieMenu, type PixiPieMenuItem } from "../CardActionMenu";
+import { actionData } from "../../rust/types";
+import { hasAction, findAction } from "../../rust/legalActionUtils";
 
 const TERRAIN_COLORS: Record<string, { fill: number; hover: number }> = {
   plains: { fill: 0x88aa44, hover: 0x99bb55 },
@@ -27,50 +29,55 @@ const TERRAIN_LABELS: Record<string, string> = {
 };
 
 export function TerrainCostReductionOverlay() {
-  const { state, sendAction } = useGame();
+  const { sendAction, legalActions } = useGame();
+  const player = useMyPlayer();
 
-  const options =
-    state?.validActions?.mode === "pending_terrain_cost_reduction"
-      ? state.validActions.terrainCostReduction
-      : undefined;
+  const isActive = player?.pending?.kind === "terrain_cost_reduction";
 
-  const canUndo =
-    state?.validActions?.mode === "pending_terrain_cost_reduction"
-      ? state.validActions.turn.canUndo
-      : false;
+  // Extract terrain options from legal actions
+  const terrainActions = useMemo(() => {
+    if (!isActive) return [];
+    return legalActions.filter(
+      (a) => typeof a !== "string" && "ResolveTerrainCostReduction" in a
+    );
+  }, [isActive, legalActions]);
 
-  useRegisterOverlay(!!options);
+  const canUndo = hasAction(legalActions, "Undo");
+
+  useRegisterOverlay(isActive);
 
   const handleSelect = useCallback(
     (terrain: string) => {
-      sendAction({
-        type: RESOLVE_TERRAIN_COST_REDUCTION_ACTION,
-        terrain,
-      });
+      const action = terrainActions.find(
+        (a) => actionData(a)?.["terrain"] === terrain
+      );
+      if (action) sendAction(action);
     },
-    [sendAction]
+    [sendAction, terrainActions]
   );
 
   const handleUndo = useCallback(() => {
-    sendAction({ type: UNDO_ACTION });
-  }, [sendAction]);
+    const action = findAction(legalActions, "Undo");
+    if (action) sendAction(action);
+  }, [sendAction, legalActions]);
 
   const pieItems: PixiPieMenuItem[] = useMemo(() => {
-    if (!options) return [];
+    if (!isActive) return [];
 
-    return options.availableTerrains.map((terrain) => {
+    return terrainActions.map((a) => {
+      const terrain = actionData(a)?.["terrain"] as string;
       const colors = TERRAIN_COLORS[terrain] ?? { fill: 0x666666, hover: 0x777777 };
       return {
         id: terrain,
         label: TERRAIN_LABELS[terrain] ?? terrain,
-        sublabel: `Cost -${Math.abs(options.reduction)}`,
+        sublabel: "Cost reduction",
         color: colors.fill,
         hoverColor: colors.hover,
       };
     });
-  }, [options]);
+  }, [isActive, terrainActions]);
 
-  if (!options) return null;
+  if (!isActive || terrainActions.length === 0) return null;
 
   return (
     <PixiPieMenu

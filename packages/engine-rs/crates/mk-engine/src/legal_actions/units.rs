@@ -118,7 +118,9 @@ pub(super) fn enumerate_unit_actions(
     if state.combat.is_some() {
         return;
     }
-    if player.flags.contains(PlayerFlags::IS_RESTING) {
+    if player.flags.contains(PlayerFlags::IS_RESTING)
+        || player.flags.contains(PlayerFlags::HAS_RESTED_THIS_TURN)
+    {
         return;
     }
 
@@ -129,13 +131,6 @@ pub(super) fn enumerate_unit_actions(
 
     // Guard: must be interacting with a site
     if !player.flags.contains(PlayerFlags::IS_INTERACTING) {
-        return;
-    }
-
-    // Guard: must not have taken an action UNLESS already recruited this turn
-    if player.flags.contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN)
-        && !player.flags.contains(PlayerFlags::HAS_RECRUITED_UNIT_THIS_TURN)
-    {
         return;
     }
 

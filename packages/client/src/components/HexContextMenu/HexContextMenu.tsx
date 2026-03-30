@@ -6,11 +6,11 @@
  */
 
 import { useMemo, useCallback } from "react";
-import { ENTER_SITE_ACTION, END_TURN_ACTION } from "@mage-knight/shared";
 import type { SiteOptions } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useIsMyTurn } from "../../hooks/useIsMyTurn";
 import { PixiPieMenu, type PixiPieMenuItem } from "../CardActionMenu";
+import { hasAction, findAction } from "../../rust/legalActionUtils";
 
 interface HexContextMenuProps {
   /** Site options from validActions */
@@ -51,7 +51,7 @@ export function HexContextMenu({
   position,
   onClose,
 }: HexContextMenuProps) {
-  const { state, sendAction } = useGame();
+  const { state, sendAction, legalActions } = useGame();
   const isMyTurn = useIsMyTurn();
 
   // Build menu items from site options
@@ -143,11 +143,8 @@ export function HexContextMenu({
       }
     }
 
-    // End Turn option (if valid and has passive effect; only in normal_turn)
-    const canEndTurn =
-      state?.validActions?.mode === "normal_turn"
-        ? (state.validActions.turn.canEndTurn ?? false)
-        : false;
+    // End Turn option (if valid and has passive effect)
+    const canEndTurn = hasAction(legalActions, "EndTurn");
     if (canEndTurn && siteOptions.endOfTurnEffect) {
       const endColors = getActionColors("end-turn");
       items.push({
@@ -169,14 +166,16 @@ export function HexContextMenu({
     });
 
     return items;
-  }, [siteOptions, state?.validActions]);
+  }, [siteOptions, legalActions]);
 
   const handleSelect = useCallback(
     (id: string) => {
       switch (id) {
-        case "enter":
-          sendAction({ type: ENTER_SITE_ACTION });
+        case "enter": {
+          const action = findAction(legalActions, "EnterSite");
+          if (action) sendAction(action);
           break;
+        }
         case "recruit":
           // TODO: Open offers view to units tab
           console.log("Recruit action - open offers view");
@@ -193,9 +192,11 @@ export function HexContextMenu({
           // TODO: Open offers view to AA tab
           console.log("Buy AA action - open offers view");
           break;
-        case "end-turn":
-          sendAction({ type: END_TURN_ACTION });
+        case "end-turn": {
+          const action = findAction(legalActions, "EndTurn");
+          if (action) sendAction(action);
           break;
+        }
         case "stay":
         default:
           // Just close the menu

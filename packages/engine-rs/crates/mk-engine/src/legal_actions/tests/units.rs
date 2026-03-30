@@ -24,6 +24,23 @@ fn recruit_unit_enumerated_at_village() {
 }
 
 #[test]
+fn recruit_unit_still_enumerated_after_interaction_commits_action() {
+    let mut state = setup_village_recruit();
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
+    state.players[0]
+        .flags
+        .insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+    let legal = enumerate_legal_actions(&state, 0);
+
+    assert!(
+        legal.actions
+            .iter()
+            .any(|a| matches!(a, LegalAction::RecruitUnit { .. })),
+        "Recruitment should remain available inside the interaction window"
+    );
+}
+
+#[test]
 fn contract_recruit_unit_at_village() {
     let state = setup_village_recruit();
     let undo = UndoStack::new();
@@ -1051,6 +1068,62 @@ fn magic_familiars_choose_influence() {
 
     assert_eq!(state.players[0].influence_points, 3);
     assert!(!state.players[0].pending.has_active());
+}
+
+#[test]
+fn activate_unit_emits_events_for_choice_ability() {
+    use mk_types::events::GameEvent;
+
+    let (mut state, mut undo) = setup_complex_unit("magic_familiars", "unit_mf");
+    state.players[0].move_points = 0;
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let action = legal.actions.iter().find(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 2, .. }
+        if unit_instance_id.as_str() == "unit_mf"
+    )).unwrap();
+
+    // Step 1: ActivateUnit should emit UnitActivated even though it creates a pending choice
+    let result = apply_legal_action(&mut state, &mut undo, 0, action, legal.epoch).unwrap();
+    let activated_event = result.events.iter().find(|e| matches!(e, GameEvent::UnitActivated { .. }));
+    assert!(activated_event.is_some(), "Should emit UnitActivated event even for choice-based abilities");
+    if let Some(GameEvent::UnitActivated { effect_description, .. }) = activated_event {
+        assert_eq!(effect_description.as_deref(), Some("Move or Influence 3"),
+            "Should describe the ability type");
+    }
+
+    // Step 2: ResolveChoice should emit ChoiceResolved with what was chosen
+    let legal2 = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let resolve = legal2.actions.iter().find(|a| matches!(a, LegalAction::ResolveChoice { choice_index: 0 })).unwrap();
+    let result2 = apply_legal_action(&mut state, &mut undo, 0, resolve, legal2.epoch).unwrap();
+    let choice_event = result2.events.iter().find(|e| matches!(e, GameEvent::ChoiceResolved { .. }));
+    assert!(choice_event.is_some(), "Should emit ChoiceResolved event");
+    if let Some(GameEvent::ChoiceResolved { chosen_description, .. }) = choice_event {
+        assert_eq!(chosen_description.as_deref(), Some("Move 3"),
+            "Should describe the chosen option");
+    }
+}
+
+#[test]
+fn activate_unit_emits_event_for_immediate_ability() {
+    use mk_types::events::GameEvent;
+
+    // Herbalist ability 2 = GainMana { color: Green } (immediate, no choice)
+    let (mut state, mut undo) = setup_complex_unit("herbalist", "unit_herb");
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    let action = legal.actions.iter().find(|a| matches!(a,
+        LegalAction::ActivateUnit { unit_instance_id, ability_index: 2, .. }
+        if unit_instance_id.as_str() == "unit_herb"
+    )).unwrap();
+
+    let result = apply_legal_action(&mut state, &mut undo, 0, action, legal.epoch).unwrap();
+    let activated_event = result.events.iter().find(|e| matches!(e, GameEvent::UnitActivated { .. }));
+    assert!(activated_event.is_some(), "Should emit UnitActivated event for immediate ability");
+    if let Some(GameEvent::UnitActivated { effect_description, .. }) = activated_event {
+        assert_eq!(effect_description.as_deref(), Some("Gain Green Mana"),
+            "Should describe the effect");
+    }
 }
 
 #[test]

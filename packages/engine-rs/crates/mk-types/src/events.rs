@@ -98,6 +98,28 @@ pub enum GameEvent {
     SiteEntered {
         player_id: PlayerId,
         hex: HexCoord,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        site_type: Option<SiteType>,
+    },
+
+    /// A player began interacting with a site (spending influence).
+    SiteInteractionStarted {
+        player_id: PlayerId,
+        site_type: SiteType,
+    },
+
+    /// A player completed a site interaction (commerce).
+    SiteInteractionCompleted {
+        player_id: PlayerId,
+        site_type: SiteType,
+        /// What was purchased/done (e.g. "BuySpell", "LearnAdvancedAction", "Heal").
+        interaction: String,
+        /// Card gained from this interaction, if any.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        card_id: Option<CardId>,
+        /// Number of wounds healed, if applicable.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        healing: Option<u32>,
     },
 
     /// A choice was resolved (generic — covers pending choices).
@@ -158,10 +180,13 @@ pub enum GameEvent {
         unit_id: UnitId,
     },
 
-    /// A unit was activated in combat.
+    /// A unit was activated (ability used).
     UnitActivated {
         player_id: PlayerId,
         unit_id: UnitId,
+        /// Human-readable description of the ability effect (e.g. "Attack 3 Fire").
+        #[serde(skip_serializing_if = "Option::is_none")]
+        effect_description: Option<String>,
     },
 
     /// A unit was wounded.

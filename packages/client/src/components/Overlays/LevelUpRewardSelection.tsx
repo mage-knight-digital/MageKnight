@@ -7,7 +7,7 @@
  *    common pool auto-resolves the AA to the lowest position)
  */
 
-import type { SkillId } from "@mage-knight/shared";
+import type { CardId, SkillId } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import {
@@ -15,6 +15,11 @@ import {
   extractLevelUpAAOptions,
 } from "../../rust/legalActionUtils";
 import type { LegalAction } from "../../rust/types";
+import { getCardSpriteStyle } from "../../utils/cardAtlas";
+import "./LevelUpRewardSelection.css";
+
+// Display height for AA card sprites in the level-up modal
+const AA_DISPLAY_HEIGHT = 220;
 
 // Format skill/card ID for display (convert snake_case to Title Case)
 function formatName(id: string): string {
@@ -22,6 +27,11 @@ function formatName(id: string): string {
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+// Skill images live at /assets/skills/{skillId}.jpg
+function skillImagePath(skillId: SkillId): string {
+  return `/assets/skills/${skillId}.jpg`;
 }
 
 interface SkillOptionProps {
@@ -37,6 +47,11 @@ function SkillOption({ skillId, onSelect, isFromCommonPool }: SkillOptionProps) 
       className={`level-up__skill ${isFromCommonPool ? "level-up__skill--common" : ""}`}
       onClick={onSelect}
     >
+      <img
+        className="level-up__skill-image"
+        src={skillImagePath(skillId)}
+        alt={formatName(skillId)}
+      />
       <span className="level-up__skill-name">{formatName(skillId)}</span>
       {isFromCommonPool && (
         <span className="level-up__skill-badge">Common Pool</span>
@@ -51,13 +66,20 @@ interface AAOptionProps {
 }
 
 function AAOption({ cardId, onSelect }: AAOptionProps) {
+  const spriteStyle = getCardSpriteStyle(cardId as CardId, AA_DISPLAY_HEIGHT);
+
   return (
     <button
       type="button"
       className="level-up__aa"
       onClick={onSelect}
     >
-      <span className="level-up__aa-name">{formatName(cardId)}</span>
+      {spriteStyle ? (
+        <div className="level-up__aa-sprite" style={spriteStyle} />
+      ) : (
+        <span className="level-up__aa-name">{formatName(cardId)}</span>
+      )}
+      <span className="level-up__aa-label">{formatName(cardId)}</span>
     </button>
   );
 }
@@ -100,7 +122,7 @@ export function LevelUpRewardSelection() {
 
   return (
     <div className="overlay">
-      <div className="overlay__content level-up">
+      <div className="level-up">
         <h2 className="level-up__title">Level {level} Rewards</h2>
 
         {!isAAPhase ? (
@@ -130,22 +152,25 @@ export function LevelUpRewardSelection() {
 
             {/* Common Pool (Secondary Options) */}
             {commonPoolSkills.length > 0 && (
-              <div className="level-up__group">
-                <h4 className="level-up__group-title">Common Pool</h4>
-                <p className="level-up__group-hint">
-                  Choosing from here sends BOTH drawn skills to the common pool and takes the lowest AA
-                </p>
-                <div className="level-up__skills level-up__skills--common">
-                  {commonPoolSkills.map((skillId, index) => (
-                    <SkillOption
-                      key={skillId}
-                      skillId={skillId}
-                      onSelect={() => handleSelectSkill(index, true)}
-                      isFromCommonPool={true}
-                    />
-                  ))}
+              <>
+                <div className="level-up__divider">or</div>
+                <div className="level-up__group">
+                  <h4 className="level-up__group-title">Common Pool</h4>
+                  <p className="level-up__group-hint">
+                    Choosing from here sends both drawn skills to the common pool and takes the lowest AA
+                  </p>
+                  <div className="level-up__skills level-up__skills--common">
+                    {commonPoolSkills.map((skillId, index) => (
+                      <SkillOption
+                        key={skillId}
+                        skillId={skillId}
+                        onSelect={() => handleSelectSkill(index, true)}
+                        isFromCommonPool={true}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
+              </>
             )}
 
             {drawnSkills.length === 0 && commonPoolSkills.length === 0 && (

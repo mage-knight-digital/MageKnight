@@ -1,52 +1,57 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import type { CardId } from "@mage-knight/shared";
-import {
-  RESOLVE_TACTIC_DECISION_ACTION,
-  TACTIC_DECISION_PREPARATION,
-} from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { CardSelectionOverlay } from "./CardSelectionOverlay";
+import { actionData } from "../../rust/types";
 
 export function PreparationDecision() {
-  const { state, sendAction } = useGame();
+  const { sendAction, legalActions } = useGame();
   const player = useMyPlayer();
 
-  // Check if we have a pending Preparation decision
-  const pendingDecision =
-    state?.validActions?.mode === "pending_tactic_decision"
-      ? state.validActions.tacticDecision
-      : undefined;
+  // Preparation is a tactic_decision pending with ResolveTacticDecision(preparation) actions
+  const isActive = player?.pending?.kind === "tactic_decision";
 
-  const isActive =
-    !!pendingDecision &&
-    pendingDecision.type === TACTIC_DECISION_PREPARATION &&
-    !!player;
+  const preparationActions = useMemo(() => {
+    if (!isActive) return [];
+    return legalActions.filter((a) => {
+      if (typeof a === "string") return false;
+      const d = actionData(a)?.["data"] as Record<string, unknown> | undefined;
+      return "ResolveTacticDecision" in a && d?.["type"] === "preparation";
+    });
+  }, [isActive, legalActions]);
+
+  // Not a preparation decision if no preparation actions exist
+  if (!isActive || preparationActions.length === 0 || !player) {
+    return null;
+  }
+
+  // Card IDs from pending info (deck snapshot exposed by server)
+  const deckSnapshot = player.pending?.cardIds ?? [];
 
   const handleSelectCard = useCallback(
     (selectedCards: readonly CardId[]) => {
       const cardId = selectedCards[0];
       if (!cardId) return;
-      sendAction({
-        type: RESOLVE_TACTIC_DECISION_ACTION,
-        decision: {
-          type: TACTIC_DECISION_PREPARATION,
-          cardId,
-        },
-      });
+      const deckIndex = deckSnapshot.indexOf(cardId);
+      if (deckIndex >= 0) {
+        const action = preparationActions.find((a) => {
+          const d = actionData(a)?.["data"] as Record<string, unknown> | undefined;
+          return d?.["deck_card_index"] === deckIndex;
+        });
+        if (action) sendAction(action);
+      }
     },
-    [sendAction]
+    [sendAction, preparationActions, deckSnapshot]
   );
 
-  if (!isActive || !pendingDecision) {
+  if (deckSnapshot.length === 0) {
     return null;
   }
 
-  const deckSnapshot: readonly CardId[] = pendingDecision.deckSnapshot ?? [];
-
   return (
     <CardSelectionOverlay
-      cards={deckSnapshot}
+      cards={deckSnapshot as readonly CardId[]}
       instruction="Preparation: Choose a card from your deck to add to your hand"
       minSelect={1}
       maxSelect={1}

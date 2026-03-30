@@ -237,6 +237,26 @@ fn interact_site_enumerated_at_village() {
 }
 
 #[test]
+fn interact_site_enumerated_after_interaction_commits_action() {
+    let mut state = setup_playing_game(vec!["wound", "march"]);
+    place_player_on_site(&mut state, SiteType::Village);
+    state.players[0].influence_points = 3;
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
+    state.players[0]
+        .flags
+        .insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    assert!(
+        actions
+            .actions
+            .iter()
+            .any(|a| matches!(a, LegalAction::InteractSite { healing: 1 })),
+        "Healing should remain available inside the interaction window"
+    );
+}
+
+#[test]
 fn interact_site_not_without_wounds() {
     let mut state = setup_playing_game(vec!["march"]);
     place_player_on_site(&mut state, SiteType::Village);
@@ -757,6 +777,75 @@ fn learn_aa_empty_monastery_offer_no_actions() {
     let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
     let learn_aas: Vec<_> = actions.actions.iter().filter(|a| matches!(a, LegalAction::LearnAdvancedAction { .. })).collect();
     assert_eq!(learn_aas.len(), 0);
+}
+
+#[test]
+fn learn_aa_not_enumerated_after_rest_even_if_interacting_flag_stuck() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_site(&mut state, SiteType::Monastery);
+    state.players[0].influence_points = 6;
+    state.offers.monastery_advanced_actions = vec![CardId::from("crystal_mastery")];
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
+    state.players[0]
+        .flags
+        .insert(PlayerFlags::HAS_RESTED_THIS_TURN);
+
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    assert!(
+        !actions
+            .actions
+            .iter()
+            .any(|a| matches!(a, LegalAction::LearnAdvancedAction { .. })),
+        "Resting should end any site interaction commerce window"
+    );
+}
+
+#[test]
+fn declare_rest_clears_interaction_flag() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_site(&mut state, SiteType::Monastery);
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::DeclareRest, epoch).unwrap();
+
+    assert!(
+        !state.players[0].flags.contains(PlayerFlags::IS_INTERACTING),
+        "DeclareRest should clear any lingering interaction state"
+    );
+    assert!(state.players[0].flags.contains(PlayerFlags::IS_RESTING));
+}
+
+#[test]
+fn complete_rest_clears_interaction_flag() {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_site(&mut state, SiteType::Monastery);
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
+    state.players[0].flags.insert(PlayerFlags::IS_RESTING);
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state,
+        &mut undo,
+        0,
+        &LegalAction::CompleteRest {
+            discard_hand_index: Some(0),
+        },
+        epoch,
+    )
+    .unwrap();
+
+    assert!(
+        !state.players[0].flags.contains(PlayerFlags::IS_INTERACTING),
+        "CompleteRest should clear any lingering interaction state"
+    );
+    assert!(
+        state.players[0]
+            .flags
+            .contains(PlayerFlags::HAS_RESTED_THIS_TURN)
+    );
 }
 
 #[test]
@@ -5372,4 +5461,3 @@ fn fortified_assault_rampaging_enemy_not_required_for_conquest() {
         "Player should stay at site after successful assault (rampaging enemy not required)"
     );
 }
-

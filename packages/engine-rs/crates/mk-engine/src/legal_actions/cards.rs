@@ -1,4 +1,4 @@
-use mk_data::cards::{get_card, PoweredBy};
+use mk_data::cards::{get_card, CardCategory, PoweredBy};
 use mk_types::effect::CardEffect;
 use mk_types::enums::*;
 use mk_types::ids::CardId;
@@ -11,6 +11,11 @@ use crate::combat_resolution;
 use crate::effect_queue::is_resolvable;
 
 use super::utils::WOUND_CARD_ID;
+
+/// True if every category for this effect is Combat (i.e., the card has no non-combat utility).
+fn is_combat_only(categories: &[CardCategory]) -> bool {
+    !categories.is_empty() && categories.iter().all(|c| *c == CardCategory::Combat)
+}
 
 /// Check if the player has an active attack conversion modifier
 /// (TransformAttacksColdFire or AddSiegeToAttacks) that makes sideways melee
@@ -34,7 +39,9 @@ pub(super) fn enumerate_normal_cards(
     let player = &state.players[player_idx];
     let is_resting = player.flags.contains(PlayerFlags::IS_RESTING);
     let has_rested = player.flags.contains(PlayerFlags::HAS_RESTED_THIS_TURN);
-    let is_interacting = player.flags.contains(PlayerFlags::IS_INTERACTING)
+    let is_interacting = (player.flags.contains(PlayerFlags::IS_INTERACTING)
+        && !is_resting
+        && !has_rested)
         || player.flags.contains(PlayerFlags::IS_PEACEFUL_MOMENT_HEALING);
 
     // Collect basic, powered, sideways separately to emit in category order.
@@ -64,7 +71,8 @@ pub(super) fn enumerate_normal_cards(
                     || (is_interacting && is_move_only(&card_def.basic_effect))
                     || ((is_resting || has_rested) && is_move_only(&card_def.basic_effect))
                     || (player.flags.contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN)
-                        && is_move_only(&card_def.basic_effect));
+                        && is_move_only(&card_def.basic_effect))
+                    || is_combat_only(card_def.basic_categories);
                 if !dominated {
                     basic_actions.push(LegalAction::PlayCardBasic {
                         hand_index,
@@ -82,7 +90,8 @@ pub(super) fn enumerate_normal_cards(
                     || (is_interacting && is_move_only(&card_def.powered_effect))
                     || ((is_resting || has_rested) && is_move_only(&card_def.powered_effect))
                     || (player.flags.contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN)
-                        && is_move_only(&card_def.powered_effect));
+                        && is_move_only(&card_def.powered_effect))
+                    || is_combat_only(card_def.powered_categories);
             match card_def.powered_by {
             PoweredBy::Single(color) => {
                 if !time_bending_blocked
@@ -175,15 +184,8 @@ pub(super) fn enumerate_normal_cards(
                 )
             };
             if eff_value > 0 {
-                if has_rested && is_interacting {
-                    // After rest at a site: influence only (FAQ S3).
-                    sideways_actions.push(LegalAction::PlayCardSideways {
-                        hand_index,
-                        card_id: card_id.clone(),
-                        sideways_as: SidewaysAs::Influence,
-                    });
-                } else if has_rested {
-                    // After rest but not at a site: no sideways at all.
+                if has_rested {
+                    // Resting should not preserve site interaction context.
                 } else if is_interacting {
                     // Interacting or healing window: influence only (no movement).
                     sideways_actions.push(LegalAction::PlayCardSideways {

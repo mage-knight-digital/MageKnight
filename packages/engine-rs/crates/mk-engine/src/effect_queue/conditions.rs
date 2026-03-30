@@ -90,14 +90,28 @@ pub(crate) fn is_resolvable(state: &GameState, player_idx: usize, effect: &CardE
             })
         }
 
+        // ReadyUnit: only resolvable if there are spent units at or below max_level
+        CardEffect::ReadyUnit { max_level } => {
+            state.players[player_idx]
+                .units
+                .iter()
+                .any(|u| u.state == UnitState::Spent && u.level <= *max_level)
+        }
+
+        // HealUnit: only resolvable if there are wounded units at or below max_level
+        CardEffect::HealUnit { max_level } => {
+            state.players[player_idx]
+                .units
+                .iter()
+                .any(|u| u.wounded && u.level <= *max_level)
+        }
+
         // Multi-step effects: resolvable by default (will be filtered at resolve time)
         CardEffect::CardBoost { .. }
         | CardEffect::ManaDrawPowered { .. }
         | CardEffect::DiscardCost { .. }
         | CardEffect::ApplyModifier { .. }
         | CardEffect::HandLimitBonus { .. }
-        | CardEffect::ReadyUnit { .. }
-        | CardEffect::HealUnit { .. }
         | CardEffect::DiscardForBonus { .. }
         | CardEffect::Decompose { .. }
         | CardEffect::DiscardForAttack { .. }

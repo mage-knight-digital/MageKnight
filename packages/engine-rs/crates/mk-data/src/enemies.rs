@@ -203,7 +203,7 @@ static CLOUD_GRIFFONS: EnemyDefinition = EnemyDefinition {
     resistances: &[],
     abilities: &[EnemyAbilityType::Unfortified, EnemyAbilityType::Swift, EnemyAbilityType::Elusive],
     attacks: None, reputation_penalty: None, reputation_bonus: None,
-    armor_elusive: None, defend: None, copies: 2,
+    armor_elusive: Some(8), defend: None, copies: 2,
 };
 
 static CRYSTAL_SPRITES_ATTACKS: [EnemyAttack; 2] = [
@@ -968,6 +968,14 @@ mod tests {
         let e = get_enemy("orc_tracker").unwrap();
         assert_eq!(e.armor, 3);
         assert_eq!(e.armor_elusive, Some(6));
+        assert!(e.abilities.contains(&EnemyAbilityType::Elusive));
+    }
+
+    #[test]
+    fn elusive_enemy_cloud_griffons() {
+        let e = get_enemy("cloud_griffons").unwrap();
+        assert_eq!(e.armor, 4);
+        assert_eq!(e.armor_elusive, Some(8));
         assert!(e.abilities.contains(&EnemyAbilityType::Elusive));
     }
 

@@ -801,6 +801,8 @@ pub(super) fn apply_resolve_unit_ability_choice(
             }
         }
 
+        // No event here — the ChoiceResolved event emitted by the ResolveChoice
+        // handler in mod.rs carries the description of the chosen option.
         Ok(ApplyResult {
             needs_reenumeration: true,
             game_ended: false,
@@ -812,6 +814,39 @@ pub(super) fn apply_resolve_unit_ability_choice(
         Err(ApplyError::InternalError(
             "Expected UnitAbilityChoice pending".into(),
         ))
+    }
+}
+
+pub(super) fn describe_unit_choice(option: &mk_types::pending::UnitAbilityChoiceOption) -> String {
+    use mk_types::pending::UnitAbilityChoiceOption;
+    fn elem(e: &Element) -> &str {
+        match e {
+            Element::Physical => "Physical",
+            Element::Fire => "Fire",
+            Element::Ice => "Ice",
+            Element::ColdFire => "ColdFire",
+        }
+    }
+    fn color(c: &BasicManaColor) -> &str {
+        match c {
+            BasicManaColor::White => "White",
+            BasicManaColor::Blue => "Blue",
+            BasicManaColor::Red => "Red",
+            BasicManaColor::Green => "Green",
+        }
+    }
+    match option {
+        UnitAbilityChoiceOption::GainMove { value } => format!("Move {}", value),
+        UnitAbilityChoiceOption::GainInfluence { value } => format!("Influence {}", value),
+        UnitAbilityChoiceOption::GainAttack { value, element } => format!("Attack {} {}", value, elem(element)),
+        UnitAbilityChoiceOption::GainBlock { value, element } => format!("Block {} {}", value, elem(element)),
+        UnitAbilityChoiceOption::GainManaToken { color: c } => format!("Gain {} Mana", color(c)),
+        UnitAbilityChoiceOption::GainColdFireAttack { value, .. } => format!("ColdFire Attack {}", value),
+        UnitAbilityChoiceOption::GainColdFireBlock { value, .. } => format!("ColdFire Block {}", value),
+        UnitAbilityChoiceOption::TransformAttacksToColdFire => "Transform Attacks to ColdFire".into(),
+        UnitAbilityChoiceOption::AddSiegeToAllAttacks => "Add Siege to All Attacks".into(),
+        UnitAbilityChoiceOption::ScoutPeekHex { .. } => "Scout (peek enemy)".into(),
+        UnitAbilityChoiceOption::ScoutPeekPile { .. } => "Scout (peek draw pile)".into(),
     }
 }
 

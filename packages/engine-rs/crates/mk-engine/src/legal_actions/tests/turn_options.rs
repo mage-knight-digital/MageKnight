@@ -274,8 +274,8 @@ fn no_sideways_after_rest_without_site_interaction() {
 }
 
 #[test]
-fn sideways_influence_after_rest_at_site() {
-    // After HAS_RESTED_THIS_TURN while IS_INTERACTING: influence sideways only.
+fn no_sideways_after_rest_even_if_interaction_flag_stuck() {
+    // Resting should not preserve site interaction context.
     let mut state = setup_game(vec!["march"]);
     state.players[0]
         .flags
@@ -290,16 +290,97 @@ fn sideways_influence_after_rest_at_site() {
         .iter()
         .filter(|a| matches!(a, LegalAction::PlayCardSideways { .. }))
         .collect();
-    assert!(!sideways.is_empty(), "sideways should be available after rest at a site");
-    for a in &sideways {
-        if let LegalAction::PlayCardSideways { sideways_as, .. } = a {
-            assert_eq!(
-                *sideways_as,
-                SidewaysAs::Influence,
-                "only Influence sideways should be available after rest at a site"
-            );
-        }
-    }
+    assert!(
+        sideways.is_empty(),
+        "sideways should stay unavailable after rest even if IS_INTERACTING remains set"
+    );
+}
+
+#[test]
+fn begin_interaction_commits_action_and_blocks_alternate_turn_paths() {
+    let mut state = setup_game(vec!["march"]);
+    state.players[0].position = Some(HexCoord::new(1, 0));
+    state.players[0].move_points = 5;
+    state.map.tile_deck.countryside = vec![TileId::Countryside1];
+
+    let player_pos = state.players[0].position.unwrap();
+    state.map.hexes.get_mut(&player_pos.key()).unwrap().site = Some(Site {
+        site_type: SiteType::Village,
+        owner: None,
+        is_conquered: false,
+        is_burned: false,
+        city_color: None,
+        mine_color: None,
+        deep_mine_colors: None,
+    });
+
+    let challenge_hex = player_pos.neighbor(mk_types::hex::HexDirection::E);
+    let mut rampaging_enemies = arrayvec::ArrayVec::new();
+    rampaging_enemies.push(RampagingEnemyType::OrcMarauder);
+    let mut enemies = arrayvec::ArrayVec::new();
+    enemies.push(mk_types::state::HexEnemy {
+        token_id: EnemyTokenId::from("orc_marauder_1"),
+        color: EnemyColor::Brown,
+        is_revealed: true,
+    });
+    state.map.hexes.insert(
+        challenge_hex.key(),
+        mk_types::state::HexState {
+            coord: challenge_hex,
+            terrain: Terrain::Plains,
+            tile_id: TileId::StartingA,
+            site: None,
+            rampaging_enemies,
+            enemies,
+            ruins_token: None,
+            shield_tokens: Vec::new(),
+        },
+    );
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(
+        &mut state,
+        &mut undo,
+        0,
+        &LegalAction::BeginInteraction,
+        epoch,
+    )
+    .unwrap();
+
+    assert!(
+        state.players[0]
+            .flags
+            .contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN),
+        "BeginInteraction should commit the turn action immediately"
+    );
+
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    assert!(
+        !legal
+            .actions
+            .iter()
+            .any(|a| matches!(a, LegalAction::DeclareRest)),
+        "DeclareRest should be blocked once interaction has begun"
+    );
+    assert!(
+        !legal.actions.iter().any(|a| matches!(a, LegalAction::Move { .. })),
+        "Move should be blocked once interaction has begun"
+    );
+    assert!(
+        !legal
+            .actions
+            .iter()
+            .any(|a| matches!(a, LegalAction::Explore { .. })),
+        "Explore should be blocked once interaction has begun"
+    );
+    assert!(
+        !legal
+            .actions
+            .iter()
+            .any(|a| matches!(a, LegalAction::ChallengeRampaging { .. })),
+        "ChallengeRampaging should be blocked once interaction has begun"
+    );
 }
 
 #[test]

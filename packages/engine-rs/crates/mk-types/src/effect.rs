@@ -717,7 +717,7 @@ impl CardEffect {
                 if *heal { Some("Ready & heal unit".to_string()) }
                 else { Some("Ready unit".to_string()) }
             }
-            CardEffect::PureMagic { .. } => Some("Pure Magic".to_string()),
+            CardEffect::PureMagic { .. } => None,
             CardEffect::Disease => Some("Disease (set armor to 1)".to_string()),
             CardEffect::DiscardForCrystal { .. } => Some("Discard for crystal".to_string()),
             CardEffect::Sacrifice => Some("Sacrifice crystals".to_string()),

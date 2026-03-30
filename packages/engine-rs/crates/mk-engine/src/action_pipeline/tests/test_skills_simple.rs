@@ -118,22 +118,13 @@ fn inspiration_heals_wounded_unit() {
 
     let mut undo = UndoStack::new();
     let epoch = state.action_epoch;
-    // UseSkill → pending choice (ReadyUnit vs HealUnit)
+    // UseSkill → only HealUnit is resolvable (no spent units), so it auto-resolves
     let _ = apply_legal_action(
         &mut state, &mut undo, 0,
         &LegalAction::UseSkill { skill_id: SkillId::from("norowas_inspiration") },
         epoch,
     );
-    assert!(state.players[0].pending.active.is_some());
-
-    // Choose HealUnit (index 1)
-    let epoch = state.action_epoch;
-    let _ = apply_legal_action(
-        &mut state, &mut undo, 0,
-        &LegalAction::ResolveChoice { choice_index: 1 },
-        epoch,
-    );
-    // Unit should be healed
+    // Unit should be healed (auto-resolved since ReadyUnit was filtered out)
     assert!(!state.players[0].units[0].wounded, "Unit should be healed");
 }
 

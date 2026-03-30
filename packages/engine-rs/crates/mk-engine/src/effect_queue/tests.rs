@@ -5957,6 +5957,83 @@ use mk_types::state::*;
         assert!(is_resolvable(&state, 0, &CardEffect::MysteriousBox));
     }
 
+    #[test]
+    fn ready_unit_is_resolvable_with_spent_unit() {
+        let mut state = test_state();
+        assert!(!is_resolvable(&state, 0, &CardEffect::ReadyUnit { max_level: 3 }));
+        state.players[0].units.push(make_unit("u0", 2, true));
+        assert!(is_resolvable(&state, 0, &CardEffect::ReadyUnit { max_level: 3 }));
+        // Level filter: spent level 2 unit is NOT resolvable for max_level 1
+        assert!(!is_resolvable(&state, 0, &CardEffect::ReadyUnit { max_level: 1 }));
+    }
+
+    #[test]
+    fn heal_unit_is_resolvable_with_wounded_unit() {
+        let mut state = test_state();
+        assert!(!is_resolvable(&state, 0, &CardEffect::HealUnit { max_level: 3 }));
+        state.players[0].units.push(make_unit("u0", 2, false));
+        // Ready but not wounded → not resolvable
+        assert!(!is_resolvable(&state, 0, &CardEffect::HealUnit { max_level: 3 }));
+        state.players[0].units[0].wounded = true;
+        assert!(is_resolvable(&state, 0, &CardEffect::HealUnit { max_level: 3 }));
+        // Level filter: wounded level 2 unit is NOT resolvable for max_level 1
+        assert!(!is_resolvable(&state, 0, &CardEffect::HealUnit { max_level: 1 }));
+    }
+
+    #[test]
+    fn rejuvenate_choice_filters_ready_unit_when_no_spent_units() {
+        // Simulates Rejuvenate basic: Choice of Heal 1, Draw 1, Green mana, ReadyUnit(2)
+        // With no units, ReadyUnit should be filtered out → 3 options remain
+        let mut state = test_state();
+        state.players[0].hand.push(CardId::from("wound")); // so healing is useful
+        let mut queue = EffectQueue::new();
+        queue.push(
+            CardEffect::Choice {
+                options: vec![
+                    CardEffect::GainHealing { amount: 1 },
+                    CardEffect::DrawCards { count: 1 },
+                    CardEffect::GainMana { color: ManaColor::Green, amount: 1 },
+                    CardEffect::ReadyUnit { max_level: 2 },
+                ],
+            },
+            None,
+        );
+        let result = queue.drain(&mut state, 0);
+        match result {
+            DrainResult::NeedsChoice { options, .. } => {
+                assert_eq!(options.len(), 3, "ReadyUnit should be filtered out");
+                assert!(!options.iter().any(|o| matches!(o, CardEffect::ReadyUnit { .. })));
+            }
+            _ => panic!("Expected NeedsChoice with 3 options, got {:?}", result),
+        }
+    }
+
+    #[test]
+    fn rejuvenate_choice_includes_ready_unit_when_spent_units_exist() {
+        let mut state = test_state();
+        state.players[0].hand.push(CardId::from("wound"));
+        state.players[0].units.push(make_unit("u0", 1, true)); // spent level 1
+        let mut queue = EffectQueue::new();
+        queue.push(
+            CardEffect::Choice {
+                options: vec![
+                    CardEffect::GainHealing { amount: 1 },
+                    CardEffect::DrawCards { count: 1 },
+                    CardEffect::GainMana { color: ManaColor::Green, amount: 1 },
+                    CardEffect::ReadyUnit { max_level: 2 },
+                ],
+            },
+            None,
+        );
+        let result = queue.drain(&mut state, 0);
+        match result {
+            DrainResult::NeedsChoice { options, .. } => {
+                assert_eq!(options.len(), 4, "ReadyUnit should be included");
+            }
+            _ => panic!("Expected NeedsChoice with 4 options"),
+        }
+    }
+
     // =========================================================================
     // Step 1: BowAttackTransformation tests
     // =========================================================================

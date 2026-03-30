@@ -248,6 +248,23 @@ pub fn apply_legal_action(
                         .or_else(|| describe_choice_resolution(&pc.resolution, *choice_index, state, player_idx));
                     (pc.card_id.clone(), pc.skill_id.clone(), desc)
                 }
+                Some(mk_types::pending::ActivePending::UnitAbilityChoice { options, .. }) => {
+                    let desc = options.get(*choice_index)
+                        .map(|opt| units::describe_unit_choice(opt));
+                    (None, None, desc)
+                }
+                Some(mk_types::pending::ActivePending::SelectCombatEnemy { eligible_enemy_ids, .. }) => {
+                    let desc = eligible_enemy_ids.get(*choice_index).map(|eid| {
+                        // Resolve instance ID to enemy name via combat state
+                        let enemy_name = state.combat.as_ref()
+                            .and_then(|c| c.enemies.iter().find(|e| e.instance_id.as_str() == eid.as_str()))
+                            .and_then(|e| mk_data::enemies::get_enemy(e.enemy_id.as_str()))
+                            .map(|def| def.name)
+                            .unwrap_or(eid.as_str());
+                        format!("Target {}", enemy_name)
+                    });
+                    (None, None, desc)
+                }
                 _ => (None, None, None),
             };
             events.push(GameEvent::ChoiceResolved {
@@ -424,17 +441,15 @@ pub fn apply_legal_action(
                 .and_then(|def| def.abilities.get(*ability_index))
                 .map(|slot| slot.ability.describe());
             let mut result = units::apply_activate_unit(state, player_idx, unit_instance_id, *ability_index)?;
-            // Only emit activation event for immediate abilities (not choice-based ones
-            // that set a pending — those emit the event when the choice is resolved)
-            let has_pending_choice = state.players[player_idx].pending.has_active();
+            // Always emit activation event so the log shows which unit was activated.
+            // Choice-based abilities will additionally emit a ChoiceResolved event
+            // when the player picks an option.
             if let Some(uid) = unit_info {
-                if !has_pending_choice {
-                    result.events.push(GameEvent::UnitActivated {
-                        player_id: player_id.clone(),
-                        unit_id: uid,
-                        effect_description: effect_desc,
-                    });
-                }
+                result.events.push(GameEvent::UnitActivated {
+                    player_id: player_id.clone(),
+                    unit_id: uid,
+                    effect_description: effect_desc,
+                });
             }
             result
         }

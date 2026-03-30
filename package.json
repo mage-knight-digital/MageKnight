@@ -24,5 +24,8 @@
     "bunup": "^0.16.22",
     "oxlint": "^1.43.0",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "picomatch": "^4.0.4"
   }
 }

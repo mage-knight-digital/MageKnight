@@ -184,6 +184,7 @@ pub(super) fn apply_end_turn(state: &mut GameState, player_idx: usize) -> Result
 
 pub(super) fn apply_declare_rest(state: &mut GameState, player_idx: usize) -> ApplyResult {
     let player = &mut state.players[player_idx];
+    player.flags.remove(PlayerFlags::IS_INTERACTING);
     player.flags.insert(PlayerFlags::IS_RESTING);
     player.flags.insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
     ApplyResult {
@@ -274,6 +275,7 @@ pub(super) fn apply_complete_rest(
 /// Finalize rest: clear IS_RESTING, set HAS_RESTED + PLAYED_CARD flags.
 pub(super) fn finish_rest(state: &mut GameState, player_idx: usize) {
     let player = &mut state.players[player_idx];
+    player.flags.remove(PlayerFlags::IS_INTERACTING);
     player.flags.remove(PlayerFlags::IS_RESTING);
     player.flags.insert(PlayerFlags::HAS_RESTED_THIS_TURN);
     player

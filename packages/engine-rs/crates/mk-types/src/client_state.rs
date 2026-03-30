@@ -162,6 +162,10 @@ pub struct ClientPendingInfo {
     /// Extra data for level-up reward selection.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub level_up_data: Option<ClientLevelUpData>,
+    /// Card IDs for pendings that need to display cards (meditation, crystal joy reclaim, preparation).
+    /// For meditation/crystal joy: discard pile card IDs. For preparation: deck card IDs.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub card_ids: Vec<CardId>,
 }
 
 /// Level-up reward data sent to the client for the selection UI.

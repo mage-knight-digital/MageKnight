@@ -1,0 +1,298 @@
+/* ============================================
+   Level Up Reward Selection
+   Parchment / medieval-fantasy theme
+   ============================================ */
+
+.level-up {
+  max-width: 860px;
+  width: 90vw;
+  padding: 2rem 2.5rem;
+  background: linear-gradient(
+    170deg,
+    rgba(45, 36, 28, 0.97) 0%,
+    rgba(35, 28, 22, 0.98) 100%
+  );
+  border: 3px solid #5c4a3a;
+  border-radius: 8px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  position: relative;
+}
+
+/* Subtle parchment noise texture overlay */
+.level-up::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+}
+
+/* ---- Title ---- */
+
+.level-up__title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 0.25rem;
+  color: #e8c476;
+  text-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.7),
+    0 0 20px rgba(232, 196, 118, 0.15);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Ornamental rule under the title */
+.level-up__title::after {
+  content: "";
+  display: block;
+  width: 60%;
+  max-width: 200px;
+  height: 2px;
+  margin: 0.75rem auto 1.25rem;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    #8b7355 30%,
+    #d4a574 50%,
+    #8b7355 70%,
+    transparent
+  );
+}
+
+/* ---- Sections ---- */
+
+.level-up__section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 1.25rem;
+  color: #f0e6d2;
+  letter-spacing: 0.05em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.level-up__section-hint {
+  font-size: 0.85rem;
+  color: #a89878;
+  text-align: center;
+  margin-bottom: 1rem;
+  font-style: italic;
+}
+
+/* ---- Groups (drawn vs common) ---- */
+
+.level-up__group {
+  margin-bottom: 1.5rem;
+}
+
+.level-up__group:last-child {
+  margin-bottom: 0;
+}
+
+.level-up__group-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #c9a86c;
+  text-align: center;
+  margin-bottom: 0.25rem;
+  letter-spacing: 0.04em;
+}
+
+.level-up__group-hint {
+  font-size: 0.8rem;
+  color: #8a7a64;
+  text-align: center;
+  margin-bottom: 0.75rem;
+  font-style: italic;
+}
+
+/* ---- Skill grid ---- */
+
+.level-up__skills {
+  display: flex;
+  justify-content: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+/* ---- Individual skill card ---- */
+
+.level-up__skill {
+  position: relative;
+  background: linear-gradient(180deg, #1e1a14 0%, #151210 100%);
+  border: 2px solid #5c4a3a;
+  border-radius: 6px;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #f0e6d2;
+  width: 200px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.level-up__skill:hover {
+  border-color: #d4a574;
+  transform: translateY(-4px);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.5),
+    0 0 16px rgba(212, 165, 116, 0.2);
+}
+
+.level-up__skill--common {
+  border-color: #3a3028;
+  opacity: 0.8;
+}
+
+.level-up__skill--common:hover {
+  opacity: 1;
+  border-color: #d4a574;
+}
+
+/* Skill image */
+
+.level-up__skill-image {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  display: block;
+  border-bottom: 2px solid #3a3028;
+}
+
+/* Skill name below image */
+
+.level-up__skill-name {
+  display: block;
+  padding: 0.6rem 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+}
+
+/* Common pool badge */
+
+.level-up__skill-badge {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #a89878;
+  background: rgba(92, 74, 58, 0.3);
+  border: 1px solid #3a3028;
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+  margin-bottom: 0.5rem;
+}
+
+/* ---- Divider between drawn and common ---- */
+
+.level-up__divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.25rem 0;
+  color: #6b5d4d;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.level-up__divider::before,
+.level-up__divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    #5c4a3a,
+    transparent
+  );
+}
+
+/* ---- AA selection ---- */
+
+.level-up__aas {
+  display: flex;
+  justify-content: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.level-up__aa {
+  background: linear-gradient(180deg, #1e1a14 0%, #151210 100%);
+  border: 2px solid #5c4a3a;
+  border-radius: 6px;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #f0e6d2;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.level-up__aa:hover {
+  border-color: #d4a574;
+  transform: translateY(-4px);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.5),
+    0 0 16px rgba(212, 165, 116, 0.2);
+}
+
+/* Card sprite from the atlas */
+.level-up__aa-sprite {
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin: 6px 6px 0;
+}
+
+/* Label shown below the card sprite */
+.level-up__aa-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+  display: block;
+  letter-spacing: 0.02em;
+  padding: 0.4rem 0.5rem;
+  color: #c9a86c;
+}
+
+/* Fallback text name when no sprite is available */
+.level-up__aa-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-align: center;
+  display: block;
+  letter-spacing: 0.02em;
+  padding: 1rem 1.5rem;
+}
+
+/* ---- Empty state ---- */
+
+.level-up__empty {
+  font-size: 1rem;
+  color: #8a7a64;
+  text-align: center;
+  padding: 2rem;
+  font-style: italic;
+}
+
+/* ---- Common pool section (scrollable if many) ---- */
+
+.level-up__skills--common {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 0.25rem;
+}

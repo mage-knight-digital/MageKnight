@@ -1,50 +1,45 @@
-import {
-  RESOLVE_TACTIC_DECISION_ACTION,
-  TACTIC_DECISION_SPARING_POWER,
-  SPARING_POWER_CHOICE_STASH,
-  SPARING_POWER_CHOICE_TAKE,
-} from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
+import { actionData } from "../../rust/types";
 
 export function SparingPowerDecision() {
-  const { state, sendAction } = useGame();
+  const { sendAction, legalActions } = useGame();
   const player = useMyPlayer();
 
-  // Check if we have a pending Sparing Power decision
-  const pendingDecision =
-    state?.validActions?.mode === "pending_tactic_decision"
-      ? state.validActions.tacticDecision
-      : undefined;
-  if (
-    !pendingDecision ||
-    pendingDecision.type !== TACTIC_DECISION_SPARING_POWER ||
-    !player
-  ) {
+  // Check if we have a pending tactic decision (Sparing Power)
+  if (player?.pending?.kind !== "tactic_decision" || !player) {
     return null;
   }
 
-  const canStash = pendingDecision.canStash ?? false;
-  const storedCount = pendingDecision.storedCount ?? 0;
+  // Look for sparing power actions in the legal set
+  const tacticActions = legalActions.filter(
+    (a) => typeof a !== "string" && "ResolveTacticDecision" in a
+  );
+  const stashAction = tacticActions.find((a) => {
+    const data = actionData(a)?.["data"] as Record<string, unknown> | undefined;
+    return data?.["type"] === "sparing_power_stash";
+  });
+  const takeAction = tacticActions.find((a) => {
+    const data = actionData(a)?.["data"] as Record<string, unknown> | undefined;
+    return data?.["type"] === "sparing_power_take";
+  });
+
+  // Not a sparing power decision if neither action exists
+  if (!stashAction && !takeAction) {
+    return null;
+  }
+
+  const canStash = !!stashAction;
+  // Derive stored count from pending options if available
+  const storedCountStr = player.pending?.options?.[0];
+  const storedCount = storedCountStr ? parseInt(storedCountStr, 10) || 0 : 0;
 
   const handleStash = () => {
-    sendAction({
-      type: RESOLVE_TACTIC_DECISION_ACTION,
-      decision: {
-        type: TACTIC_DECISION_SPARING_POWER,
-        choice: SPARING_POWER_CHOICE_STASH,
-      },
-    });
+    if (stashAction) sendAction(stashAction);
   };
 
   const handleTake = () => {
-    sendAction({
-      type: RESOLVE_TACTIC_DECISION_ACTION,
-      decision: {
-        type: TACTIC_DECISION_SPARING_POWER,
-        choice: SPARING_POWER_CHOICE_TAKE,
-      },
-    });
+    if (takeAction) sendAction(takeAction);
   };
 
   return (
