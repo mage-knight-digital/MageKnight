@@ -485,6 +485,27 @@ class _EmbeddingActionScoringNetwork(nn.Module):
             h_m = torch.zeros(1, 0, dtype=torch.bool, device=device)
         _run_pool(self.hand_pool_enc, h_x, h_m, 0)
 
+        # Pool 6: deck cards (embedding only)
+        # NOTE: order must match forward_batch / _encode_state_inputs_batched
+        if sf.deck_card_ids:
+            dk_ids = torch.tensor(sf.deck_card_ids, dtype=torch.long, device=device)
+            dk_x = self.card_emb(dk_ids).unsqueeze(0)
+            dk_m = torch.ones(1, len(sf.deck_card_ids), dtype=torch.bool, device=device)
+        else:
+            dk_x = torch.zeros(1, 0, emb, device=device)
+            dk_m = torch.zeros(1, 0, dtype=torch.bool, device=device)
+        _run_pool(self.deck_pool_enc, dk_x, dk_m, 6)
+
+        # Pool 7: discard cards (embedding only)
+        if sf.discard_card_ids:
+            di_ids = torch.tensor(sf.discard_card_ids, dtype=torch.long, device=device)
+            di_x = self.card_emb(di_ids).unsqueeze(0)
+            di_m = torch.ones(1, len(sf.discard_card_ids), dtype=torch.bool, device=device)
+        else:
+            di_x = torch.zeros(1, 0, emb, device=device)
+            di_m = torch.zeros(1, 0, dtype=torch.bool, device=device)
+        _run_pool(self.discard_pool_enc, di_x, di_m, 7)
+
         # Pool 1: units (embedding + scalars)
         if sf.unit_ids:
             u_ids = torch.tensor(sf.unit_ids, dtype=torch.long, device=device)
@@ -542,26 +563,6 @@ class _EmbeddingActionScoringNetwork(nn.Module):
             me_x = torch.zeros(1, 0, emb + MAP_ENEMY_SCALAR_DIM, device=device)
             me_m = torch.zeros(1, 0, dtype=torch.bool, device=device)
         _run_pool(self.map_enemy_pool_enc, me_x, me_m, 5)
-
-        # Pool 6: deck cards (embedding only)
-        if sf.deck_card_ids:
-            dk_ids = torch.tensor(sf.deck_card_ids, dtype=torch.long, device=device)
-            dk_x = self.card_emb(dk_ids).unsqueeze(0)
-            dk_m = torch.ones(1, len(sf.deck_card_ids), dtype=torch.bool, device=device)
-        else:
-            dk_x = torch.zeros(1, 0, emb, device=device)
-            dk_m = torch.zeros(1, 0, dtype=torch.bool, device=device)
-        _run_pool(self.deck_pool_enc, dk_x, dk_m, 6)
-
-        # Pool 7: discard cards (embedding only)
-        if sf.discard_card_ids:
-            di_ids = torch.tensor(sf.discard_card_ids, dtype=torch.long, device=device)
-            di_x = self.card_emb(di_ids).unsqueeze(0)
-            di_m = torch.ones(1, len(sf.discard_card_ids), dtype=torch.bool, device=device)
-        else:
-            di_x = torch.zeros(1, 0, emb, device=device)
-            di_m = torch.zeros(1, 0, dtype=torch.bool, device=device)
-        _run_pool(self.discard_pool_enc, di_x, di_m, 7)
 
         # Pool 8: revealed hexes (terrain embedding + scalars)
         if sf.revealed_hex_terrain_ids:
