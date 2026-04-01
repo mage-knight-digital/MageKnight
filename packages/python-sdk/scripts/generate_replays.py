@@ -130,12 +130,18 @@ def run_game_for_replay(
     except Exception as e:
         outcome = f"error: {e}"
 
+    # Parse final scores
+    scores = json.loads(engine.final_scores_json())
+    player_result = scores["player_results"][0]
+    game_score = player_result["total_score"]
+
     result = {
         "seed": seed,
         "hero": hero,
         "actions": action_indices,
         "steps": step,
         "fame": engine.fame(),
+        "score": game_score,
         "level": engine.level(),
         "round": engine.round(),
         "outcome": outcome,
@@ -205,11 +211,11 @@ def main() -> int:
             greedy=args.greedy,
         )
 
-        out_path = output_dir / f"seed_{seed}_{hero}_{replay['fame']}fame.json"
+        out_path = output_dir / f"seed_{seed}_{hero}_{replay['score']}score.json"
         with open(out_path, "w") as f:
             json.dump(replay, f)
 
-        print(f"  seed={seed:>4d}  hero={hero:<12s}  steps={replay['steps']:>4d}  fame={replay['fame']:>3d}  lv={replay['level']}  r={replay['round']}  {replay['outcome']}")
+        print(f"  seed={seed:>4d}  hero={hero:<12s}  steps={replay['steps']:>4d}  fame={replay['fame']:>3d}  score={replay['score']:>3d}  lv={replay['level']}  r={replay['round']}  {replay['outcome']}")
 
     print(f"\nDone!")
     if args.artifact:
