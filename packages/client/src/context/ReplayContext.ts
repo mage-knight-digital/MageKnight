@@ -1,4 +1,5 @@
 import { createContext } from "react";
+import type { PolicyInfo } from "./ReplayProvider";
 
 export interface ReplayContextValue {
   /** Current frame index (0-based) */
@@ -18,6 +19,8 @@ export interface ReplayContextValue {
   };
   /** Name/filename of the loaded artifact */
   artifactName?: string;
+  /** Policy info for the current frame, null for oracle frames */
+  currentPolicyInfo: PolicyInfo | null;
   /** Go to a specific frame */
   goToFrame: (index: number) => void;
   /** Step forward one frame */

@@ -22,15 +22,27 @@ from mage_knight_sdk.sim.rl.native_rl_runner import _get_engine_class, py_encode
 from mage_knight_sdk.sim.hero_selection import resolve_hero
 
 
-def _record_frame(engine, player_id: str, message_log: list[dict]) -> None:
-    """Record a state_update frame from the engine's current state."""
+def _record_frame(
+    engine, player_id: str, message_log: list[dict],
+    policy_info: dict | None = None,
+) -> None:
+    """Record a state_update frame from the engine's current state.
+
+    Args:
+        policy_info: optional dict with action probabilities for this step.
+            Keys: "chosen", "actions" (list of {action, prob, logit}).
+            Only present on RL-decided steps (not oracle steps).
+    """
     events = json.loads(engine.events_json())
     state = json.loads(engine.client_state_json())
-    message_log.append({
+    frame: dict = {
         "player_id": player_id,
         "message_type": "state_update",
         "payload": {"events": events, "state": state},
-    })
+    }
+    if policy_info is not None:
+        frame["policy_info"] = policy_info
+    message_log.append(frame)
 
 
 def run_game_for_replay(
@@ -110,19 +122,43 @@ def run_game_for_replay(
             py_encoded = engine.encode_step()
             encoded_step = py_encoded_to_encoded_step(py_encoded)
 
-            if greedy:
-                with torch.no_grad():
-                    logits, _ = policy._network.forward(encoded_step, torch.device('cpu'))
+            # Get action descriptions before applying (for artifact policy_info)
+            policy_info = None
+            if artifact:
+                legal_actions = json.loads(engine.legal_actions_json())
+
+            with torch.no_grad():
+                logits, _ = policy._network.forward(encoded_step, torch.device('cpu'))
+                probs = torch.softmax(logits, dim=0)
+                if greedy:
                     action_index = int(logits.argmax().item())
-            else:
-                action_index = policy.choose_action_from_encoded(encoded_step)
+                else:
+                    action_index = int(torch.multinomial(probs, 1).item())
+
+            if artifact:
+                actions_with_probs = []
+                for idx in range(len(legal_actions)):
+                    actions_with_probs.append({
+                        "action": legal_actions[idx],
+                        "prob": round(float(probs[idx].item()), 4),
+                        "logit": round(float(logits[idx].item()), 2),
+                    })
+                # Sort by probability descending for readability
+                actions_with_probs.sort(key=lambda x: x["prob"], reverse=True)
+                policy_info = {
+                    "chosen_index": action_index,
+                    "chosen_action": legal_actions[action_index],
+                    "entropy": round(float(torch.distributions.Categorical(probs=probs).entropy().item()), 4),
+                    "actions": actions_with_probs,
+                }
+
             action_indices.append(action_index)
 
             game_ended = engine.apply_action(action_index)
             step += 1
 
             if artifact:
-                _record_frame(engine, player_id, message_log)
+                _record_frame(engine, player_id, message_log, policy_info=policy_info)
 
             if game_ended:
                 outcome = "ended"

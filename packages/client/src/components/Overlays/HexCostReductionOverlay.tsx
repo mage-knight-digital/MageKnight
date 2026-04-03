@@ -38,10 +38,6 @@ export function HexCostReductionOverlay() {
 
   if (!isActive) return null;
 
-  // Reduction/minimumCost are display-only; derive from pending label or use defaults
-  const reduction = -1;
-  const minimumCost = 0;
-
   return (
     <div
       className="overlay"

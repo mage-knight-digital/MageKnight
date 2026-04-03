@@ -51,7 +51,7 @@ export function HexContextMenu({
   position,
   onClose,
 }: HexContextMenuProps) {
-  const { state, sendAction, legalActions } = useGame();
+  const { sendAction, legalActions } = useGame();
   const isMyTurn = useIsMyTurn();
 
   // Build menu items from site options
@@ -204,7 +204,7 @@ export function HexContextMenu({
       }
       onClose();
     },
-    [sendAction, onClose]
+    [sendAction, onClose, legalActions]
   );
 
   // Don't show context menu if not player's turn

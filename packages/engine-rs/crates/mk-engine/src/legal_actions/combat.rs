@@ -681,9 +681,14 @@ pub(super) fn enumerate_damage_assignments(
             });
 
             // Option 2: Each eligible unit (if units_allowed)
+            // Rules: "You can assign damage to a Unit as long as it is not Wounded.
+            // Unwounded Spent Units can have damage assigned to them."
             if combat.units_allowed {
                 for unit in &player.units {
                     if unit.state != UnitState::Ready && unit.state != UnitState::Spent {
+                        continue;
+                    }
+                    if unit.wounded {
                         continue;
                     }
                     actions.push(LegalAction::AssignDamageToUnit {

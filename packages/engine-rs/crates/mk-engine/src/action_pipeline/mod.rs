@@ -1128,6 +1128,7 @@ pub fn apply_legal_action(
         result.events.push(GameEvent::ActionTaken {
             player_id: player_id.clone(),
             action_type: action_type_label(action),
+            detail: action_detail(action),
         });
     }
 
@@ -1236,6 +1237,77 @@ fn action_type_label(action: &LegalAction) -> String {
         LegalAction::ProposeCooperativeAssault { .. } => "ProposeCooperativeAssault".to_string(),
         LegalAction::RespondToCooperativeProposal { .. } => "RespondToCooperativeProposal".to_string(),
         LegalAction::CancelCooperativeProposal => "CancelCooperativeProposal".to_string(),
+    }
+}
+
+/// Derive a human-readable detail string for a LegalAction variant.
+///
+/// Returns `None` when the action type label is self-explanatory.
+fn action_detail(action: &LegalAction) -> Option<String> {
+    match action {
+        LegalAction::ResolveTerrainCostReduction { terrain } => {
+            Some(format!("{terrain:?}"))
+        }
+        LegalAction::ResolveHexCostReduction { coordinate } => {
+            Some(format!("hex ({}, {})", coordinate.q, coordinate.r))
+        }
+        LegalAction::ConvertMoveToAttack { move_points, attack_type } => {
+            Some(format!("{move_points} move → {attack_type:?}"))
+        }
+        LegalAction::ConvertInfluenceToBlock { influence_points, element } => {
+            let elem = element.map_or("Physical".to_string(), |e| format!("{e:?}"));
+            Some(format!("{influence_points} influence → {elem} Block"))
+        }
+        LegalAction::ApplyBlockBoost { element } => {
+            Some(format!("{element:?}"))
+        }
+        LegalAction::SpendMoveOnCumbersome { enemy_instance_id } => {
+            Some(format!("{enemy_instance_id}"))
+        }
+        LegalAction::DeclareBlock { enemy_instance_id, .. } => {
+            Some(format!("{enemy_instance_id}"))
+        }
+        LegalAction::AssignDamageToHero { .. } => {
+            Some("to hero".to_string())
+        }
+        LegalAction::AssignDamageToUnit { unit_instance_id, .. } => {
+            Some(format!("to {unit_instance_id}"))
+        }
+        LegalAction::ResolveBannerProtection { remove_all } => {
+            Some(if *remove_all { "remove wounds".to_string() } else { "keep wounds".to_string() })
+        }
+        LegalAction::ResolveSourceOpeningReroll { reroll } => {
+            Some(if *reroll { "reroll".to_string() } else { "keep".to_string() })
+        }
+        LegalAction::ResolveSteadyTempoDeckPlacement { place } => {
+            Some(if *place { "place on deck".to_string() } else { "skip".to_string() })
+        }
+        LegalAction::ResolveCrystalRollColor { color } => {
+            Some(format!("{color:?}"))
+        }
+        LegalAction::ResolveGladeWound { choice } => {
+            Some(format!("{choice:?}"))
+        }
+        LegalAction::Move { target, cost } => {
+            Some(format!("to ({}, {}) cost {cost}", target.q, target.r))
+        }
+        LegalAction::Explore { target_center } => {
+            Some(format!("toward ({}, {})", target_center.q, target_center.r))
+        }
+        LegalAction::ResolveTacticDecision { data: TacticDecisionData::ManaSteal { die_index } } => {
+            Some(format!("die #{die_index}"))
+        }
+        LegalAction::ResolveTacticDecision { .. } => None,
+        LegalAction::PayThugsDamageInfluence { unit_instance_id } => {
+            Some(format!("{unit_instance_id}"))
+        }
+        LegalAction::SelectArtifact { card_id } => {
+            Some(format!("{card_id}"))
+        }
+        LegalAction::AltarTribute { mana_sources } => {
+            Some(format!("{} mana", mana_sources.len()))
+        }
+        _ => None,
     }
 }
 

@@ -279,6 +279,9 @@ pub enum GameEvent {
     ActionTaken {
         player_id: PlayerId,
         action_type: String,
+        /// Human-readable detail about the action (e.g. terrain type, hex coord, color).
+        #[serde(skip_serializing_if = "Option::is_none")]
+        detail: Option<String>,
     },
 
     /// A player performed an undo.

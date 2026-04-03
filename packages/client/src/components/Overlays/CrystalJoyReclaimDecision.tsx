@@ -27,7 +27,8 @@ export function CrystalJoyReclaimDecision() {
   }, [isActive, legalActions]);
 
   // Card IDs from pending info (discard pile exposed by server)
-  const discardCardIds = player?.pending?.cardIds ?? [];
+  const pendingCardIds = player?.pending?.cardIds;
+  const discardCardIds = useMemo(() => pendingCardIds ?? [], [pendingCardIds]);
 
   // Build selectable card IDs from legal action discard indices
   const eligibleCardIds = useMemo(() => {

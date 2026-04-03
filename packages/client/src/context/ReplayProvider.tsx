@@ -22,6 +22,19 @@ interface ArtifactRunMetadata {
   reason?: string;
 }
 
+export interface PolicyActionEntry {
+  action: LegalAction;
+  prob: number;
+  logit: number;
+}
+
+export interface PolicyInfo {
+  chosen_index: number;
+  chosen_action: LegalAction;
+  entropy: number;
+  actions: PolicyActionEntry[];
+}
+
 interface ArtifactMessageLogEntry {
   player_id: string;
   message_type: string;
@@ -32,6 +45,7 @@ interface ArtifactMessageLogEntry {
     chosen_action?: string;
     chosen_action_index?: number;
   };
+  policy_info?: PolicyInfo;
 }
 
 export interface ArtifactData {
@@ -48,6 +62,7 @@ interface ReplayFrame {
   state: ClientGameState;
   events: readonly GameEvent[];
   legalActions: LegalAction[];
+  policyInfo?: PolicyInfo;
 }
 
 function extractFrames(artifact: ArtifactData, playerId: string): ReplayFrame[] {
@@ -62,6 +77,7 @@ function extractFrames(artifact: ArtifactData, playerId: string): ReplayFrame[] 
         state: entry.payload.state,
         events: (entry.payload.events ?? []) as GameEvent[],
         legalActions: entry.payload.legal_actions ?? [],
+        policyInfo: entry.policy_info,
       });
     }
   }
@@ -172,7 +188,11 @@ export function ReplayProvider({ artifact, playerId, artifactName, children }: R
   // Build GameContext value from current frame
   const currentFrame = frames.length > 0 ? frames[frameIndex] : undefined;
   const currentState = currentFrame?.state ?? null;
-  const currentLegalActions = currentFrame?.legalActions ?? [];
+  const frameLegalActions = currentFrame?.legalActions;
+  const currentLegalActions = useMemo(
+    () => frameLegalActions ?? [],
+    [frameLegalActions]
+  );
 
   // Log current frame to console for debugging (inspect in DevTools)
   useEffect(() => {
@@ -242,10 +262,12 @@ export function ReplayProvider({ artifact, playerId, artifactName, children }: R
       legalActions: currentLegalActions,
       epoch: 0,
     }),
-    [currentState, accumulatedEvents, playerId, currentFrame]
+    [currentState, accumulatedEvents, playerId, currentLegalActions]
   );
 
   // Build ReplayContext value
+  const currentPolicyInfo = currentFrame?.policyInfo ?? null;
+
   const replayValue: ReplayContextValue = useMemo(
     () => ({
       frameIndex,
@@ -259,6 +281,7 @@ export function ReplayProvider({ artifact, playerId, artifactName, children }: R
         reason: artifact.run.reason,
       },
       artifactName,
+      currentPolicyInfo,
       goToFrame,
       stepForward,
       stepBack,
@@ -272,6 +295,7 @@ export function ReplayProvider({ artifact, playerId, artifactName, children }: R
       speed,
       artifact.run,
       artifactName,
+      currentPolicyInfo,
       goToFrame,
       stepForward,
       stepBack,

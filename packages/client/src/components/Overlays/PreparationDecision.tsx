@@ -21,13 +21,12 @@ export function PreparationDecision() {
     });
   }, [isActive, legalActions]);
 
-  // Not a preparation decision if no preparation actions exist
-  if (!isActive || preparationActions.length === 0 || !player) {
-    return null;
-  }
-
   // Card IDs from pending info (deck snapshot exposed by server)
-  const deckSnapshot = player.pending?.cardIds ?? [];
+  const pendingCardIds = player?.pending?.cardIds;
+  const deckSnapshot = useMemo(
+    () => pendingCardIds ?? [],
+    [pendingCardIds]
+  );
 
   const handleSelectCard = useCallback(
     (selectedCards: readonly CardId[]) => {
@@ -45,7 +44,8 @@ export function PreparationDecision() {
     [sendAction, preparationActions, deckSnapshot]
   );
 
-  if (deckSnapshot.length === 0) {
+  // Not a preparation decision if no preparation actions exist
+  if (!isActive || preparationActions.length === 0 || !player || deckSnapshot.length === 0) {
     return null;
   }
 

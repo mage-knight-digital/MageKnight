@@ -2102,18 +2102,23 @@ fn assign_damage_unit_wounded_when_damage_exceeds_armor() {
 }
 
 #[test]
-fn assign_damage_wounded_unit_destroyed() {
-    // Pre-wound the unit, then assign damage that exceeds armor → destroyed
-    let (mut state, mut undo) = setup_damage_assignment_combat("peasants", "unit_p", &["prowlers"]);
+fn assign_damage_wounded_unit_not_eligible() {
+    // Rules: "You can assign damage to a Unit as long as it is not Wounded."
+    // Pre-wound the unit → AssignDamageToUnit should NOT be offered.
+    let (mut state, _undo) = setup_damage_assignment_combat("peasants", "unit_p", &["prowlers"]);
     state.players[0].units[0].wounded = true;
 
-    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
-    let action = legal.actions.iter().find(|a| matches!(a,
-        LegalAction::AssignDamageToUnit { enemy_index: 0, attack_index: 0, .. }
-    )).unwrap();
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &_undo);
+    let has_unit_assign = legal.actions.iter().any(|a| matches!(a,
+        LegalAction::AssignDamageToUnit { .. }
+    ));
+    assert!(!has_unit_assign, "Wounded unit should not be eligible for damage assignment");
 
-    let _ = apply_legal_action(&mut state, &mut undo, 0, action, legal.epoch);
-    assert_eq!(state.players[0].units.len(), 0, "Already-wounded unit should be destroyed");
+    // Only AssignDamageToHero should be available
+    let has_hero_assign = legal.actions.iter().any(|a| matches!(a,
+        LegalAction::AssignDamageToHero { .. }
+    ));
+    assert!(has_hero_assign, "AssignDamageToHero should still be available");
 }
 
 #[test]

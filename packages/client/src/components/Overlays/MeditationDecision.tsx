@@ -52,7 +52,8 @@ export function MeditationDecision() {
   const isSelectPhase = selectActions.length > 0 || canDoneSelecting;
 
   // Card IDs from pending info (discard pile exposed by server)
-  const discardCardIds = player?.pending?.cardIds ?? [];
+  const pendingCardIds = player?.pending?.cardIds;
+  const discardCardIds = useMemo(() => pendingCardIds ?? [], [pendingCardIds]);
 
   const handleSelectCard = useCallback(
     (selectedCards: readonly CardId[]) => {

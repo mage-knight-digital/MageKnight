@@ -140,29 +140,47 @@ function formatActionType(actionType: string): string {
     case "ResolveMeditation":
       return "resolved Meditation";
     case "ConvertMoveToAttack":
-      return "converted movement to attack";
+      return "converted move to attack";
     case "ConvertInfluenceToBlock":
       return "converted influence to block";
     case "SpendMoveOnCumbersome":
-      return "spent movement on cumbersome enemy";
+      return "spent move on cumbersome";
     case "ResolveGladeWound":
       return "resolved glade wound";
     case "ResolveBannerProtection":
-      return "resolved banner protection";
+      return "banner protection";
     case "AssignDamageToHero":
-      return "assigned damage to hero";
+      return "assigned damage";
     case "AssignDamageToUnit":
-      return "assigned damage to unit";
+      return "assigned damage";
     case "ResolveSourceOpeningReroll":
-      return "resolved Source Opening reroll";
+      return "Source Opening";
     case "ResolveSteadyTempoDeckPlacement":
-      return "resolved Steady Tempo";
+      return "Steady Tempo";
     case "ResolveCrystalJoyReclaim":
-      return "resolved Crystal Joy";
+      return "Crystal Joy reclaim";
     case "ForfeitUnitReward":
       return "forfeited unit reward";
     case "ResolveCrystalRollColor":
       return "chose crystal color";
+    case "ResolveTerrainCostReduction":
+      return "reduced terrain cost";
+    case "ResolveHexCostReduction":
+      return "reduced hex cost";
+    case "ApplyBlockBoost":
+      return "applied block boost";
+    case "DeclareBlock":
+      return "declared block";
+    case "Move":
+      return "moved";
+    case "Explore":
+      return "explored";
+    case "SelectArtifact":
+      return "selected artifact";
+    case "AltarTribute":
+      return "paid altar tribute";
+    case "PayThugsDamageInfluence":
+      return "paid Thugs damage influence";
     default:
       return formatId(actionType);
   }
@@ -600,8 +618,10 @@ export function narrateRustEvent(
     case "actionTaken": {
       const name = pid ? heroName(players, pid) : "Hero";
       const actionTypeStr = field(event, "action_type", "actionType") as string | undefined;
+      const detail = event["detail"] as string | undefined;
       const label = actionTypeStr ? formatActionType(actionTypeStr) : "took an action";
-      return msg(`${name} ${label}`, EVENT_CATEGORY.LIFECYCLE, pid);
+      const suffix = detail ? ` — ${detail}` : "";
+      return msg(`${name} ${label}${suffix}`, EVENT_CATEGORY.LIFECYCLE, pid);
     }
 
     // ---- Undo ----

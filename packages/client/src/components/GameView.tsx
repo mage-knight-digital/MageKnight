@@ -31,7 +31,7 @@ import { PlunderDecisionOverlay } from "./Overlays/PlunderDecisionOverlay";
 import { LevelUpRewardSelection } from "./Overlays/LevelUpRewardSelection";
 import { CombatOverlay, PixiCombatOverlay } from "./Combat";
 import { OfferView, type OfferPane } from "./OfferView";
-import { ReplayControls } from "./Replay";
+import { ReplayControls, PolicyInfoPanel } from "./Replay";
 import { ActivityFeed } from "./ActivityFeed/ActivityFeed";
 
 export function GameView() {
@@ -140,6 +140,7 @@ export function GameView() {
       </main>
 
       <ActivityFeed />
+      <PolicyInfoPanel />
       <PlayerHand onOfferViewChange={handleOfferViewChange} />
       <TurnActions />
       <ReplayControls />
