@@ -1,0 +1,18 @@
+[package]
+name = "mk-adapter"
+description = "Mage Knight implementation of rl-core GameAdapter trait"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+rl-core = { workspace = true }
+mk-types = { workspace = true }
+mk-data = { workspace = true }
+mk-engine = { workspace = true }
+mk-features = { workspace = true }
+rayon = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+mk-env = { workspace = true }

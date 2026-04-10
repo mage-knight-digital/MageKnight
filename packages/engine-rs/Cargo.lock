@@ -790,6 +790,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "mk-adapter"
+version = "0.1.0"
+dependencies = [
+ "mk-data",
+ "mk-engine",
+ "mk-env",
+ "mk-features",
+ "mk-types",
+ "rayon",
+ "rl-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "mk-cli"
 version = "0.1.0"
 dependencies = [
@@ -1215,6 +1230,15 @@ dependencies = [
  "libc",
  "untrusted",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "rl-core"
+version = "0.1.0"
+dependencies = [
+ "rayon",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
