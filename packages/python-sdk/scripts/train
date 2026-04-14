@@ -17,6 +17,7 @@
 #   ./scripts/train start baseline                  # new run called "baseline"
 #   ./scripts/train start baseline                  # resumes if already exists
 #   ./scripts/train start lr-decay -- --learning-rate 1e-4
+#   ./scripts/train start hrl-v1 -- --hrl           # HRL training (auto-adds HRL flags)
 #   ./scripts/train stop                            # stop whatever is running
 #   ./scripts/train status                          # show progress
 #   ./scripts/train list                            # list all runs
@@ -52,6 +53,14 @@ DEFAULT_FLAGS=(
     --lr-decay
     --entropy-floor 0.6
     --max-critic-loss 2.0
+    --no-combat-oracle
+    --no-commerce-oracle
+)
+
+# HRL training flags (added on top of DEFAULT_FLAGS when --hrl is used)
+HRL_FLAGS=(
+    --hrl
+    --max-goal-steps 30
 )
 
 # --- Helpers ---
@@ -219,6 +228,18 @@ cmd_start() {
         fi
     else
         echo "New run '$run_name'"
+    fi
+
+    # Auto-add HRL flags if --hrl is in extra flags
+    local has_hrl=false
+    for f in "${extra_flags[@]}"; do
+        if [ "$f" = "--hrl" ]; then has_hrl=true; break; fi
+    done
+    if $has_hrl; then
+        # Add HRL defaults (user can still override via extra_flags)
+        for f in "${HRL_FLAGS[@]}"; do
+            flags+=("$f")
+        done
     fi
 
     # Append user's extra flags
