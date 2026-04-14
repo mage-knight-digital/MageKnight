@@ -22,6 +22,12 @@ pub struct MkStepSignals {
     pub achievement_delta: i32,
     pub game_score: i32,
     pub achievement_categories: [i32; 6],
+    // HRL goal detection signals
+    pub player_position: [i32; 2],
+    pub is_interacting: bool,
+    pub unit_count: i32,
+    pub combat_just_ended: bool,
+    pub site_type_id: i32,
 }
 
 impl StepSignals for MkStepSignals {
@@ -47,6 +53,14 @@ impl StepSignals for MkStepSignals {
                 data: self.achievement_categories.to_vec(),
                 width: 6,
             }),
+            ("player_positions", SignalArray::I32Fixed {
+                data: self.player_position.to_vec(),
+                width: 2,
+            }),
+            ("is_interacting", SignalArray::Bool(vec![self.is_interacting])),
+            ("unit_counts", SignalArray::I32(vec![self.unit_count])),
+            ("combat_just_ended", SignalArray::Bool(vec![self.combat_just_ended])),
+            ("site_type_ids", SignalArray::I32(vec![self.site_type_id])),
         ]
     }
 }

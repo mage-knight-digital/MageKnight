@@ -508,6 +508,17 @@ pub struct StepResult {
     pub achievement_categories: Vec<[i32; 6]>,
     /// (N,) — actual action indices applied (post-clamping), for faithful replay logging
     pub applied_actions: Vec<i32>,
+    // ── HRL goal detection signals ─────────────────────────────────
+    /// (N, 2) — player hex position (q, r) after stepping
+    pub player_positions: Vec<[i32; 2]>,
+    /// (N,) — whether player is currently interacting with a site
+    pub is_interacting: Vec<bool>,
+    /// (N,) — number of units the player has
+    pub unit_counts: Vec<i32>,
+    /// (N,) — whether combat just ended (was in combat, now not)
+    pub combat_just_ended: Vec<bool>,
+    /// (N,) — site type ID at current position (0 = no site)
+    pub site_type_ids: Vec<i32>,
 }
 
 // =============================================================================
@@ -587,7 +598,8 @@ impl VecEnv {
         let n = self.envs.len();
         assert_eq!(actions.len(), n, "actions length must match num_envs");
 
-        // Capture fames, wounds, hex counts, positions, move points, and achievements before stepping
+        // Capture fames, wounds, hex counts, positions, move points, combat, and achievements before stepping
+        let in_combat_before: Vec<bool> = self.envs.iter().map(|e| e.state.combat.is_some()).collect();
         let fames_before: Vec<i32> = self.envs.iter().map(|e| e.fame() as i32).collect();
         let wounds_before: Vec<i32> = self.envs.iter().map(|e| e.wound_count()).collect();
         let achievements_before: Vec<i32> = self.envs.iter().map(|e| achievement_score_no_wounds(&e.state)).collect();
@@ -656,6 +668,11 @@ impl VecEnv {
         let mut rested_turns = Vec::with_capacity(n);
         let mut achievement_deltas = Vec::with_capacity(n);
         let mut applied_actions = Vec::with_capacity(n);
+        let mut player_positions = Vec::with_capacity(n);
+        let mut is_interacting_vec = Vec::with_capacity(n);
+        let mut unit_counts = Vec::with_capacity(n);
+        let mut combat_just_ended = Vec::with_capacity(n);
+        let mut site_type_ids = Vec::with_capacity(n);
 
         for (i, (game_ended, did_panic, clamped_idx)) in results.iter().enumerate() {
             applied_actions.push(*clamped_idx as i32);
@@ -682,6 +699,24 @@ impl VecEnv {
             // A rest turn is detected when EndTurn fires while IS_RESTING or HAS_RESTED_THIS_TURN was set
             rested_turns.push(if is_end_turn[i] && was_resting[i] { 1 } else { 0 });
             achievement_deltas.push(achievement_score_no_wounds(&env.state) - achievements_before[i]);
+
+            // HRL goal detection signals
+            let pos = env.state.players[0].position;
+            player_positions.push(pos.map(|p| [p.q, p.r]).unwrap_or([0, 0]));
+            is_interacting_vec.push(
+                env.state.players[0]
+                    .flags
+                    .contains(PlayerFlags::IS_INTERACTING),
+            );
+            unit_counts.push(env.state.players[0].units.len() as i32);
+            let now_in_combat = env.state.combat.is_some();
+            combat_just_ended.push(in_combat_before[i] && !now_in_combat);
+            let site_id = pos
+                .and_then(|p| env.state.map.hexes.get(&p.key()))
+                .and_then(|h| h.site.as_ref())
+                .map(|s| s.site_type as i32 + 1) // +1 so 0 = no site
+                .unwrap_or(0);
+            site_type_ids.push(site_id);
         }
 
         // Compute official game scores and per-category achievements for done envs (before reset wipes state)
@@ -739,6 +774,11 @@ impl VecEnv {
             game_scores,
             achievement_categories,
             applied_actions,
+            player_positions,
+            is_interacting: is_interacting_vec,
+            unit_counts,
+            combat_just_ended,
+            site_type_ids,
         }
     }
 

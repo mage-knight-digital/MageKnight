@@ -6,6 +6,8 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+
+import numpy as np
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -214,6 +216,10 @@ def main() -> int:
     # Early termination
     parser.add_argument("--early-term-fame-step", type=int, default=60, help="Terminate episode early if fame == 0 after this many steps (0 to disable)")
 
+    # Hierarchical RL
+    parser.add_argument("--hrl", action="store_true", help="Enable Hierarchical RL (CEO + Worker dual-policy training)")
+    parser.add_argument("--max-goal-steps", type=int, default=30, help="Max steps before a goal times out (default: 30)")
+
     args = parser.parse_args()
     if args.episodes < 1:
         print("--episodes must be >= 1", file=sys.stderr)
@@ -355,6 +361,8 @@ def main() -> int:
     print("-" * 88)
 
     try:
+        if args.hrl:
+            return _train_hrl(args, policy, checkpoint_dir, metrics_path, tb, resume_episode_offset)
         if args.curriculum:
             return _train_curriculum(args, policy, checkpoint_dir, metrics_path, tb, resume_episode_offset)
         if args.ppo:
@@ -618,6 +626,243 @@ def _train_ppo_native(
             },
         )
         print(f"Final checkpoint: {final_path}")
+
+    print(f"Metrics log: {metrics_path}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Hierarchical RL training loop
+# ---------------------------------------------------------------------------
+
+
+def _train_hrl(
+    args: argparse.Namespace,
+    worker_policy: Any,
+    checkpoint_dir: Path,
+    metrics_path: Path,
+    tb: _TBWriter | None = None,
+    resume_episode_offset: int = 0,
+) -> int:
+    """Train with Hierarchical RL: CEO picks goals, Worker executes."""
+    from mk_python import PyVecEnv
+
+    from mage_knight_sdk.sim.rl.curriculum import CURRICULA
+    from mage_knight_sdk.sim.rl.goal_tracker import GOAL_ENCODING_DIM, GoalType, RandomTargetSelector
+    from mage_knight_sdk.sim.rl.hrl_policy import CEOPolicy, CEOConfig, CEOTransition
+    from mage_knight_sdk.sim.rl.hrl_runner import HRLEpisodeBuffers, collect_hrl_rollout
+    from mage_knight_sdk.sim.rl.policy_gradient import (
+        OptimizationStats, PolicyGradientConfig, ReinforcePolicy, Transition, compute_gae,
+    )
+    from mage_knight_sdk.sim.rl.vec_env_runner import vec_transition_to_transition
+
+    # Reconfigure Worker with goal conditioning if not already
+    if worker_policy.config.goal_dim == 0:
+        print(f"Re-creating Worker policy with goal_dim={GOAL_ENCODING_DIM}")
+        worker_config = PolicyGradientConfig(
+            hidden_size=args.hidden_size,
+            embedding_dim=args.embedding_dim,
+            num_hidden_layers=args.num_hidden_layers,
+            d_model=args.d_model,
+            learning_rate=args.learning_rate,
+            device=args.device,
+            goal_dim=GOAL_ENCODING_DIM,
+        )
+        worker_policy = ReinforcePolicy(worker_config)
+
+    # Create CEO policy
+    ceo_config = CEOConfig(
+        hidden_size=128,
+        embedding_dim=16,
+        learning_rate=args.learning_rate,
+        device=args.device,
+    )
+    ceo_policy = CEOPolicy(ceo_config)
+
+    # Use curriculum if specified, else default
+    if args.curriculum:
+        schedule = CURRICULA[args.curriculum]()
+    else:
+        from mage_knight_sdk.sim.rl.curriculum import CURRICULA
+        schedule = CURRICULA["default"]()
+
+    global_ep = resume_episode_offset
+    reward_normalizer = RunningMeanStd()
+    hero = args.hero if args.hero.lower() != "random" else "arythea"
+    target_selector = RandomTargetSelector()
+    rng = np.random.default_rng(args.seed)
+
+    for phase_idx, phase in enumerate(schedule.phases):
+        print(f"\n{'=' * 88}")
+        print(f"[HRL] Phase {phase_idx + 1}/{len(schedule.phases)}: {phase.name}")
+        print(f"  Scenario: {phase.scenario.kind} | Episodes: {phase.episodes} | Max steps: {phase.max_steps}")
+        print(f"{'=' * 88}")
+
+        scenario_json = phase.scenario.to_rust_json()
+        num_envs = args.batch_episodes
+        vec_env = PyVecEnv(
+            num_envs=num_envs,
+            base_seed=args.seed + global_ep,
+            hero=hero,
+            max_steps=phase.max_steps,
+            scenario=scenario_json,
+            combat_oracle=args.combat_oracle,
+            commerce_oracle=args.commerce_oracle,
+            early_term_fame_step=args.early_term_fame_step,
+        )
+
+        hrl_buffers = HRLEpisodeBuffers()
+        phase_episodes_done = 0
+        steps_per_collect = num_envs * phase.max_steps
+
+        while phase_episodes_done < phase.episodes:
+            # Collect HRL rollout
+            result = collect_hrl_rollout(
+                vec_env, worker_policy, ceo_policy,
+                phase.reward_config,
+                total_steps=steps_per_collect,
+                hrl_buffers=hrl_buffers,
+                target_selector=target_selector,
+                max_goal_steps=args.max_goal_steps,
+                rng=rng,
+            )
+
+            if not result.worker_episodes:
+                continue
+
+            # ── Worker PPO ──
+            episodes_data = []
+            terminated_flags = []
+            for ep_transitions, meta in zip(result.worker_episodes, result.worker_metas):
+                standard = [vec_transition_to_transition(vt) for vt in ep_transitions]
+                episodes_data.append(standard)
+                terminated_flags.append(not meta.truncated)
+
+            if episodes_data:
+                all_raw_rewards = [t.reward for ep in episodes_data for t in ep]
+                reward_normalizer.update(all_raw_rewards)
+                normalized_episodes: list[list[Any]] = []
+                for ep in episodes_data:
+                    raw_rewards = [t.reward for t in ep]
+                    norm_rewards = reward_normalizer.normalize(raw_rewards)
+                    normalized_episodes.append([
+                        Transition(
+                            encoded_step=t.encoded_step,
+                            action_index=t.action_index,
+                            log_prob=t.log_prob,
+                            value=t.value,
+                            reward=nr,
+                        )
+                        for t, nr in zip(ep, norm_rewards)
+                    ])
+
+                transitions_flat, advantages, returns = compute_gae(
+                    normalized_episodes, args.gamma, args.gae_lambda,
+                    terminated=terminated_flags,
+                )
+
+                if getattr(args, "lr_decay", False):
+                    total_episodes = sum(p.episodes for p in schedule.phases)
+                    progress_remaining = 1.0 - global_ep / (resume_episode_offset + total_episodes)
+                    worker_policy.update_learning_rate(progress_remaining)
+
+                worker_stats = worker_policy.optimize_ppo(
+                    transitions_flat, advantages, returns,
+                    clip_epsilon=args.clip_epsilon,
+                    ppo_epochs=args.ppo_epochs,
+                    max_grad_norm=args.max_grad_norm,
+                    mini_batch_size=args.mini_batch_size,
+                    target_kl=getattr(args, "target_kl", None),
+                    entropy_floor=getattr(args, "entropy_floor", 0.0),
+                    max_critic_loss=getattr(args, "max_critic_loss", 0.0),
+                )
+            else:
+                worker_stats = OptimizationStats(
+                    loss=0.0, total_reward=0.0, mean_reward=0.0,
+                    entropy=0.0, action_count=0,
+                )
+
+            # ── CEO PPO ──
+            ceo_transitions = result.ceo_transitions
+            if ceo_transitions:
+                ceo_rewards = np.array([t.reward for t in ceo_transitions], dtype=np.float32)
+                ceo_values = np.array([t.value for t in ceo_transitions], dtype=np.float32)
+
+                # Simple advantages for CEO (reward - value baseline)
+                ceo_advantages = ceo_rewards - ceo_values
+                ceo_returns = ceo_rewards  # no bootstrapping — each goal is a complete trajectory segment
+
+                ceo_stats = ceo_policy.optimize_ppo(
+                    ceo_transitions, ceo_advantages, ceo_returns,
+                    clip_epsilon=args.clip_epsilon,
+                    ppo_epochs=args.ppo_epochs,
+                    max_grad_norm=args.max_grad_norm,
+                    mini_batch_size=32,
+                    entropy_coef=args.entropy_coef,
+                    critic_coef=args.critic_coef,
+                )
+            else:
+                ceo_stats = {"loss": 0.0, "entropy": 0.0}
+
+            # Log each completed episode
+            for ep_transitions, meta in zip(result.worker_episodes, result.worker_metas):
+                global_ep += 1
+                phase_episodes_done += 1
+                total_reward = sum(vt.reward for vt in ep_transitions)
+                fame = meta.total_fame_delta
+                steps = len(ep_transitions)
+
+                log_entry = {
+                    "episode": global_ep,
+                    "seed": meta.seed,
+                    "fame": fame,
+                    "game_score": meta.game_score,
+                    "steps": steps,
+                    "total_reward": round(total_reward, 2),
+                    "worker_loss": round(worker_stats.loss, 4),
+                    "worker_entropy": round(worker_stats.entropy, 4),
+                    "ceo_loss": round(ceo_stats["loss"], 4),
+                    "ceo_entropy": round(ceo_stats["entropy"], 4),
+                    "ceo_goals": len(result.ceo_transitions),
+                }
+
+                # Goal distribution
+                for gt in GoalType:
+                    log_entry[f"goal_{gt.name.lower()}"] = result.goal_counts.get(gt.name, 0)
+                    log_entry[f"goal_{gt.name.lower()}_success"] = result.goal_successes.get(gt.name, 0)
+
+                with open(metrics_path, "a") as f:
+                    f.write(json.dumps(log_entry) + "\n")
+
+                if tb and tb._writer:
+                    tb._writer.add_scalar("reward/total", total_reward, global_ep)
+                    tb._writer.add_scalar("episode/fame", fame, global_ep)
+                    tb._writer.add_scalar("episode/game_score", meta.game_score, global_ep)
+                    tb._writer.add_scalar("episode/steps", steps, global_ep)
+                    tb._writer.add_scalar("hrl/worker_loss", worker_stats.loss, global_ep)
+                    tb._writer.add_scalar("hrl/ceo_loss", ceo_stats["loss"], global_ep)
+                    tb._writer.add_scalar("hrl/ceo_entropy", ceo_stats["entropy"], global_ep)
+                    tb._writer.add_scalar("hrl/ceo_goals_per_episode", len(result.ceo_transitions) / max(1, result.total_episodes), global_ep)
+
+                if global_ep % 10 == 0:
+                    print(f"  ep={global_ep} score={meta.game_score} fame={fame} steps={steps} reward={total_reward:.1f} ceo_goals={len(result.ceo_transitions)}")
+
+            # Checkpointing
+            if global_ep % args.checkpoint_every == 0:
+                ckpt_dir = checkpoint_dir / "checkpoints"
+                ckpt_dir.mkdir(exist_ok=True)
+                worker_path = ckpt_dir / f"worker_ep_{global_ep:06d}.pt"
+                worker_policy.save_checkpoint(worker_path, {"episode": global_ep})
+                # TODO: save CEO checkpoint too
+
+        del vec_env
+
+    if not args.no_final_checkpoint:
+        ckpt_dir = checkpoint_dir / "checkpoints"
+        ckpt_dir.mkdir(exist_ok=True)
+        final_path = ckpt_dir / "worker_final.pt"
+        worker_policy.save_checkpoint(final_path, {"episode": global_ep})
+        print(f"Final Worker checkpoint: {final_path}")
 
     print(f"Metrics log: {metrics_path}")
     return 0

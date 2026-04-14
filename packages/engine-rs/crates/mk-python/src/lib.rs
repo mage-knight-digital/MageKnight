@@ -1062,6 +1062,14 @@ impl PyVecEnv {
         dict.set_item("achievement_categories", vec_i32_to_numpy(py, &np, &ach_flat, &[n, 6])?)?;
         dict.set_item("applied_actions", vec_i32_to_numpy(py, &np, &result.applied_actions, &[n])?)?;
 
+        // HRL goal detection signals
+        let pos_flat: Vec<i32> = result.player_positions.iter().flat_map(|p| p.iter().copied()).collect();
+        dict.set_item("player_positions", vec_i32_to_numpy(py, &np, &pos_flat, &[n, 2])?)?;
+        dict.set_item("is_interacting", vec_bool_to_numpy(py, &np, &result.is_interacting)?)?;
+        dict.set_item("unit_counts", vec_i32_to_numpy(py, &np, &result.unit_counts, &[n])?)?;
+        dict.set_item("combat_just_ended", vec_bool_to_numpy(py, &np, &result.combat_just_ended)?)?;
+        dict.set_item("site_type_ids", vec_i32_to_numpy(py, &np, &result.site_type_ids, &[n])?)?;
+
         Ok(dict.into_any().unbind())
     }
 

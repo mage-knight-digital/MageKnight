@@ -59,6 +59,7 @@ pub struct MkSnapshot {
     was_resting: bool,
     visited_hexes_before: usize,
     turn_hexes_snapshot: BTreeSet<(i32, i32)>,
+    in_combat_before: bool,
 }
 
 // ── Helper functions ───────────────────────────────────────────────
@@ -396,6 +397,7 @@ impl GameAdapter for MkAdapter {
             was_resting,
             visited_hexes_before: env_state.visited_hexes.len(),
             turn_hexes_snapshot: env_state.turn_hexes.clone(),
+            in_combat_before: state.combat.is_some(),
         }
     }
 
@@ -478,6 +480,22 @@ impl GameAdapter for MkAdapter {
             achievement_delta: achievement_score_no_wounds(state) - snapshot.achievements_before,
             game_score,
             achievement_categories,
+            // HRL goal detection signals
+            player_position: state.players[0]
+                .position
+                .map(|p| [p.q, p.r])
+                .unwrap_or([0, 0]),
+            is_interacting: state.players[0]
+                .flags
+                .contains(PlayerFlags::IS_INTERACTING),
+            unit_count: state.players[0].units.len() as i32,
+            combat_just_ended: snapshot.in_combat_before && state.combat.is_none(),
+            site_type_id: state.players[0]
+                .position
+                .and_then(|p| env_state.state.map.hexes.get(&p.key()))
+                .and_then(|h| h.site.as_ref())
+                .map(|s| s.site_type as i32 + 1)
+                .unwrap_or(0),
         }
     }
 
@@ -585,6 +603,12 @@ mod tests {
         assert!(signal_names.contains(&"achievement_deltas"));
         assert!(signal_names.contains(&"game_scores"));
         assert!(signal_names.contains(&"achievement_categories"));
+        // HRL signals
+        assert!(signal_names.contains(&"player_positions"));
+        assert!(signal_names.contains(&"is_interacting"));
+        assert!(signal_names.contains(&"unit_counts"));
+        assert!(signal_names.contains(&"combat_just_ended"));
+        assert!(signal_names.contains(&"site_type_ids"));
     }
 
     #[test]
@@ -891,6 +915,46 @@ mod tests {
                 old_result.non_wound_hand_sizes,
                 get_i32_signal(&new_result.signals, "non_wound_hand_sizes"),
                 "non_wound_hand_sizes mismatch at step {step}"
+            );
+
+            // Compare HRL signals
+            let old_positions: Vec<[i32; 2]> = old_result.player_positions.clone();
+            fn get_i32_fixed_signal(signals: &[(&str, rl_core::SignalArray)], name: &str, width: usize) -> Vec<i32> {
+                signals.iter()
+                    .find(|(n, _)| *n == name)
+                    .map(|(_, sig)| match sig {
+                        rl_core::SignalArray::I32Fixed { data, width: w } => {
+                            assert_eq!(*w, width);
+                            data.clone()
+                        }
+                        _ => panic!("expected I32Fixed for {name}"),
+                    })
+                    .unwrap_or_default()
+            }
+            let new_pos_flat = get_i32_fixed_signal(&new_result.signals, "player_positions", 2);
+            let new_positions: Vec<[i32; 2]> = new_pos_flat.chunks(2)
+                .map(|c| [c[0], c[1]])
+                .collect();
+            assert_eq!(old_positions, new_positions, "player_positions mismatch at step {step}");
+            assert_eq!(
+                old_result.is_interacting,
+                get_bool_signal(&new_result.signals, "is_interacting"),
+                "is_interacting mismatch at step {step}"
+            );
+            assert_eq!(
+                old_result.unit_counts,
+                get_i32_signal(&new_result.signals, "unit_counts"),
+                "unit_counts mismatch at step {step}"
+            );
+            assert_eq!(
+                old_result.combat_just_ended,
+                get_bool_signal(&new_result.signals, "combat_just_ended"),
+                "combat_just_ended mismatch at step {step}"
+            );
+            assert_eq!(
+                old_result.site_type_ids,
+                get_i32_signal(&new_result.signals, "site_type_ids"),
+                "site_type_ids mismatch at step {step}"
             );
 
             // After dones, both should have reset with same seed

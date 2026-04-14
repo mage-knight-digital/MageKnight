@@ -44,6 +44,7 @@ class PolicyGradientConfig:
     embedding_dim: int = 16
     num_hidden_layers: int = 1
     d_model: int = 64
+    goal_dim: int = 0  # HRL: extra dims for goal conditioning (0 = disabled)
 
 
 @dataclass(frozen=True)
@@ -399,10 +400,12 @@ class _EmbeddingActionScoringNetwork(nn.Module):
     def __init__(
         self, hidden_size: int, emb_dim: int,
         num_hidden_layers: int = 1, d_model: int = 64,
+        goal_dim: int = 0,
     ) -> None:
         super().__init__()
         self.emb_dim = emb_dim
         self.d_model = d_model
+        self.goal_dim = goal_dim
 
         # Embedding tables (unchanged)
         self.card_emb = nn.Embedding(CARD_VOCAB.size, emb_dim)
@@ -431,8 +434,8 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         # Entity type embeddings (added to per-entity vectors for cross-attention)
         self.entity_type_emb = nn.Embedding(9, d_model)
 
-        # State encoder: scalars + 3 fixed embs (mode, terrain, site) + 9 pool summaries
-        state_input_dim = STATE_SCALAR_DIM + 3 * emb_dim + 9 * d_model
+        # State encoder: scalars + goal conditioning + 3 fixed embs (mode, terrain, site) + 9 pool summaries
+        state_input_dim = STATE_SCALAR_DIM + goal_dim + 3 * emb_dim + 9 * d_model
         self.state_encoder = _build_encoder(state_input_dim, hidden_size, num_hidden_layers)
 
         # Action encoder (unchanged)
@@ -1132,6 +1135,7 @@ class ReinforcePolicy:
         self._network = _EmbeddingActionScoringNetwork(
             self.config.hidden_size, self.config.embedding_dim,
             self.config.num_hidden_layers, self.config.d_model,
+            goal_dim=self.config.goal_dim,
         ).to(self._device)
         self._optimizer = torch.optim.Adam(self._network.parameters(), lr=self.config.learning_rate)
 
