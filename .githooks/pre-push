@@ -1,0 +1,14 @@
+#!/bin/bash
+# Run clippy (matching CI) before push to catch lint errors early.
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+echo "Running clippy..."
+cd "$REPO_ROOT/packages/engine-rs" && \
+    cargo clippy --workspace --exclude mk-python -- -D warnings
+
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "Clippy failed. Fix the errors above before pushing."
+    exit 1
+fi
