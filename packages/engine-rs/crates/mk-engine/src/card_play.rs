@@ -458,10 +458,8 @@ pub fn get_effective_sideways_value(
             }
             match condition {
                 Some(SidewaysCondition::NoManaUsed) if used_mana => continue,
-                Some(SidewaysCondition::WithManaMatchingColor) => {
-                    if card_powered_by != mana_color {
-                        continue;
-                    }
+                Some(SidewaysCondition::WithManaMatchingColor) if card_powered_by != mana_color => {
+                    continue;
                 }
                 _ => {}
             }

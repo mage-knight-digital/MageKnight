@@ -363,7 +363,7 @@ impl BatchOutput {
     /// Convert to generic batch output for the rl-core interface.
     pub fn to_generic(self) -> GenericBatchOutput {
         let n = self.num_envs;
-        let state_scalar_dim = if n > 0 { self.state_scalars.len() / n } else { STATE_SCALAR_DIM };
+        let state_scalar_dim = self.state_scalars.len().checked_div(n).unwrap_or(STATE_SCALAR_DIM);
 
         GenericBatchOutput {
             num_envs: n,
