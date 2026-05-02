@@ -599,7 +599,6 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         Python→tensor conversion happens here; embedding lookups are deferred
         to ``_encode_state_inputs_batched`` so gradients flow through them.
         """
-        n = len(transitions)
         scalars = torch.tensor(
             [t.encoded_step.state.scalars for t in transitions],
             dtype=torch.float32, device=device,
@@ -728,7 +727,6 @@ class _EmbeddingActionScoringNetwork(nn.Module):
         """
         bs = len(batch_indices)
         device = raw["scalars"].device
-        emb = self.emb_dim
         d = self.d_model
 
         # Fixed-size lookups (batched)

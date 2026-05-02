@@ -343,7 +343,6 @@ class GoalTracker:
         # For hex-parameterized goals, extract candidate hexes from visible sites/enemies.
         # Scalars come as (N*max, dim) — use n_envs and max to compute flat index.
         candidates: list[tuple[int, int]] = []
-        n_envs = batch_dict["visible_site_counts"].shape[0]
 
         def _get_pool_scalars(scalars_key: str, counts_key: str, ids_key: str) -> list[tuple[int, int]]:
             """Extract (rel_q, rel_r) from a pool's scalars at indices 0, 1."""

@@ -26,7 +26,6 @@ class TestGameEngine(unittest.TestCase):
     def test_apply_action(self) -> None:
         from mk_python import GameEngine
         engine = GameEngine(seed=42, hero="arythea")
-        initial_count = engine.legal_action_count()
         engine.apply_action(0)
         self.assertEqual(engine.step_count(), 1)
 

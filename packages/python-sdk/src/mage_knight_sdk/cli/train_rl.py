@@ -649,7 +649,7 @@ def _train_hrl(
 
     from mage_knight_sdk.sim.rl.curriculum import CURRICULA
     from mage_knight_sdk.sim.rl.goal_tracker import GOAL_ENCODING_DIM, GoalType, RandomTargetSelector
-    from mage_knight_sdk.sim.rl.hrl_policy import CEOPolicy, CEOConfig, CEOTransition
+    from mage_knight_sdk.sim.rl.hrl_policy import CEOPolicy, CEOConfig
     from mage_knight_sdk.sim.rl.hrl_runner import HRLEpisodeBuffers, collect_hrl_rollout
     from mage_knight_sdk.sim.rl.policy_gradient import (
         OptimizationStats, PolicyGradientConfig, ReinforcePolicy, Transition, compute_gae,

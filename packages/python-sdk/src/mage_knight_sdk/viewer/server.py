@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 from pathlib import Path
 
@@ -20,7 +21,6 @@ from .replay_converter import (
 from .states_index import (
     build_states_ndjson,
     read_state_at_step,
-    states_count,
 )
 
 # Artifacts dir relative to package (python-sdk/sim-artifacts)
@@ -99,7 +99,7 @@ def create_app(artifacts_dir: Path | None = None) -> Flask:
                     action_trace_total=total_for_states,
                 )
             except Exception:
-                pass
+                logging.exception("Failed to build states ndjson")
 
         with _build_lock:
             if ndjson_path.exists() and index_path.exists():
@@ -109,7 +109,7 @@ def create_app(artifacts_dir: Path | None = None) -> Flask:
                         states_path.unlink()
                         states_index_path.unlink(missing_ok=True)
                     except OSError:
-                        pass
+                        logging.warning("Could not remove stale states files")
                 if not states_path.exists():
                     threading.Thread(target=do_build_states_only, daemon=True).start()
                     return jsonify({
@@ -219,7 +219,6 @@ def create_app(artifacts_dir: Path | None = None) -> Flask:
     def state_at_step(name: str):
         name = name.split("/")[-1].split("\\")[-1]
         json_path = root / name
-        effective = _effective_json.get(name, json_path)
         states_path = json_path.with_suffix(json_path.suffix + ".states.ndjson")
         states_index_path = json_path.with_suffix(json_path.suffix + ".states.ndjson.idx")
         if not states_path.exists():

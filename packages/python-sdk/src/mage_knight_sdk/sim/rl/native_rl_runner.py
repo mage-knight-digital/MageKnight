@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .features import ActionFeatures, EncodedStep, StateFeatures
-from .policy_gradient import OptimizationStats, ReinforcePolicy, StepInfo, Transition
+from .policy_gradient import OptimizationStats, ReinforcePolicy, Transition
 from .rewards import RewardConfig
 
 logger = logging.getLogger(__name__)

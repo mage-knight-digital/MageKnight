@@ -68,9 +68,9 @@ class TestPyVecEnv(unittest.TestCase):
         env = self.PyVecEnv(num_envs=n, base_seed=42, max_steps=50)
 
         for _ in range(20):
-            batch = env.encode_batch()
+            env.encode_batch()
             actions = np.zeros(n, dtype=np.int32)
-            result = env.step_batch(actions)
+            env.step_batch(actions)
             # After step, encode should still work
             batch2 = env.encode_batch()
             self.assertEqual(batch2["state_scalars"].shape[0], n)
@@ -82,7 +82,7 @@ class TestPyVecEnv(unittest.TestCase):
 
         found_done = False
         for _ in range(50):
-            batch = env.encode_batch()
+            env.encode_batch()
             actions = np.zeros(n, dtype=np.int32)
             result = env.step_batch(actions)
             if any(result["dones"]):

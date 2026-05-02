@@ -33,17 +33,14 @@ def upscale_image(input_path: str, output_path: str | None = None) -> str:
     print(f"Upscaling: {input_path}")
     print(f"Output: {output_path}")
 
-    # Read the input image
-    with open(input_path, "rb") as f:
-        image_data = f.read()
-
     # Use gpt-image-1 for true AI upscaling/enhancement
     # input_fidelity="high" preserves symbols, logos, text
     # quality="high" for dense layouts and in-image text
-    result = client.images.edit(
-        model="gpt-image-1.5",
-        image=open(input_path, "rb"),
-        prompt="""Edit the provided image.
+    with open(input_path, "rb") as img_f:
+        result = client.images.edit(
+            model="gpt-image-1.5",
+            image=img_f,
+            prompt="""Edit the provided image.
 
 Goal:
 Upscale and clean the existing circular game token.
@@ -80,10 +77,10 @@ Do not:
 - change lighting
 - add background
 - crop the token""",
-        size="1024x1024",
-        quality="high",
-        input_fidelity="high",
-    )
+            size="1024x1024",
+            quality="high",
+            input_fidelity="high",
+        )
 
     # Decode and save
     image_base64 = result.data[0].b64_json
