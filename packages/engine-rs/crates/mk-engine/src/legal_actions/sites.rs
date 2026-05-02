@@ -180,11 +180,9 @@ pub(super) fn enumerate_site_actions(
                     .iter()
                     .filter(|c| c.as_str() == WOUND_CARD_ID)
                     .count() as u32;
-                let max_healing = if cost > 0 {
-                    (effective_influence / cost).min(wounds_in_hand)
-                } else {
-                    wounds_in_hand
-                };
+                let max_healing = effective_influence
+                    .checked_div(cost)
+                    .map_or(wounds_in_hand, |q| q.min(wounds_in_hand));
 
                 for healing in 1..=max_healing {
                     actions.push(LegalAction::InteractSite { healing });
@@ -262,24 +260,21 @@ pub(super) fn enumerate_site_actions(
         let effective_influence = player.influence_points + shield_bonus;
 
         match site.city_color {
-            Some(BasicManaColor::Blue) => {
-                // Same as MageTower: BuySpell for each spell in offer
-                // Requires 7 influence + matching mana
-                if effective_influence >= SPELL_PURCHASE_COST {
-                    for (idx, card_id) in state.offers.spells.iter().enumerate() {
-                        // Check if spell has a color and player has matching mana
-                        if let Some(spell_color) = mk_data::cards::get_spell_color(card_id.as_str()) {
-                            if player_has_mana_of_color(player, spell_color) {
-                                actions.push(LegalAction::BuySpell {
-                                    card_id: card_id.clone(),
-                                    offer_index: idx,
-                                    mana_color: spell_color,
-                                });
-                            }
+            // Same as MageTower: BuySpell for each spell in offer, requires 7 influence + matching mana
+            Some(BasicManaColor::Blue) if effective_influence >= SPELL_PURCHASE_COST => {
+                for (idx, card_id) in state.offers.spells.iter().enumerate() {
+                    if let Some(spell_color) = mk_data::cards::get_spell_color(card_id.as_str()) {
+                        if player_has_mana_of_color(player, spell_color) {
+                            actions.push(LegalAction::BuySpell {
+                                card_id: card_id.clone(),
+                                offer_index: idx,
+                                mana_color: spell_color,
+                            });
                         }
                     }
                 }
             }
+            Some(BasicManaColor::Blue) => {}
             Some(BasicManaColor::Green) => {
                 // AA from main offer (replenished), cost 6
                 if effective_influence >= CITY_AA_PURCHASE_COST {
@@ -297,22 +292,22 @@ pub(super) fn enumerate_site_actions(
                     actions.push(LegalAction::BuyCityAdvancedActionFromDeck);
                 }
             }
-            Some(BasicManaColor::Red) => {
-                // Artifact from deck (draw 2, keep 1), cost 12
+            // Artifact from deck (draw 2, keep 1), cost 12
+            Some(BasicManaColor::Red)
                 if effective_influence >= CITY_ARTIFACT_PURCHASE_COST
-                    && !state.decks.artifact_deck.is_empty()
-                {
-                    actions.push(LegalAction::BuyArtifact);
-                }
+                    && !state.decks.artifact_deck.is_empty() =>
+            {
+                actions.push(LegalAction::BuyArtifact);
             }
-            Some(BasicManaColor::White) => {
-                // Elite unit add: pay 2 influence to add unit from deck to offer
+            Some(BasicManaColor::Red) => {}
+            // Elite unit add: pay 2 influence to add unit from deck to offer
+            Some(BasicManaColor::White)
                 if effective_influence >= CITY_ELITE_UNIT_COST
-                    && !state.decks.unit_deck.is_empty()
-                {
-                    actions.push(LegalAction::AddEliteToOffer);
-                }
+                    && !state.decks.unit_deck.is_empty() =>
+            {
+                actions.push(LegalAction::AddEliteToOffer);
             }
+            Some(BasicManaColor::White) => {}
             None => {}
         }
     }

@@ -608,15 +608,11 @@ fn count_adjacent_site_hand_bonus(state: &GameState, player_idx: usize) -> usize
                     continue;
                 }
                 match site.site_type {
-                    SiteType::Keep => {
-                        if hex_state.shield_tokens.contains(player_id) {
-                            bonus += 1;
-                        }
+                    SiteType::Keep if hex_state.shield_tokens.contains(player_id) => {
+                        bonus += 1;
                     }
-                    SiteType::City => {
-                        if hex_state.shield_tokens.contains(player_id) {
-                            bonus += city_leader_bonus(player_id, &hex_state.shield_tokens);
-                        }
+                    SiteType::City if hex_state.shield_tokens.contains(player_id) => {
+                        bonus += city_leader_bonus(player_id, &hex_state.shield_tokens);
                     }
                     _ => {}
                 }

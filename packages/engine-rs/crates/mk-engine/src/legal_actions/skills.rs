@@ -70,15 +70,15 @@ pub(super) fn enumerate_skill_activations(
 
         // Check cooldowns
         match def.usage_type {
-            SkillUsageType::OncePerTurn => {
-                if player.skill_cooldowns.used_this_turn.contains(skill_id) {
-                    continue;
-                }
+            SkillUsageType::OncePerTurn
+                if player.skill_cooldowns.used_this_turn.contains(skill_id) =>
+            {
+                continue;
             }
-            SkillUsageType::OncePerRound => {
-                if player.skill_cooldowns.used_this_round.contains(skill_id) {
-                    continue;
-                }
+            SkillUsageType::OncePerRound
+                if player.skill_cooldowns.used_this_round.contains(skill_id) =>
+            {
+                continue;
             }
             _ => {}
         }
