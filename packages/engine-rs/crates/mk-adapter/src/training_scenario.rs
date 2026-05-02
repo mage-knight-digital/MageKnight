@@ -26,10 +26,11 @@ use crate::filter_undo;
 ///
 /// Each variant is a post-setup modifier on `GameState`.
 /// `EncodedStep` dimensions are identical regardless of scenario.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum TrainingScenario {
     /// Standard full game — identical to normal play.
+    #[default]
     FullGame,
 
     /// Combat-only drill: player starts in combat with specified enemies.
@@ -85,11 +86,6 @@ pub enum TrainingScenario {
     },
 }
 
-impl Default for TrainingScenario {
-    fn default() -> Self {
-        Self::FullGame
-    }
-}
 
 // =============================================================================
 // Setup result

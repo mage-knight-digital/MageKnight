@@ -343,16 +343,17 @@ fn extract_entity_ids(
                             }
                         }
                     }
-                    ChoiceResolution::ReadyUnitsBudgetSelect { eligible_unit_indices, .. } => {
-                        // choice_index 0 = "Done", 1+ maps to eligible_unit_indices[choice_index - 1]
-                        if *choice_index > 0 {
-                            if let Some(&idx) = eligible_unit_indices.get(*choice_index - 1) {
-                                if let Some(u) = player.units.get(idx) {
-                                    unit_id = UNIT_VOCAB.encode(u.unit_id.as_str());
-                                }
+                    // choice_index 0 = "Done", 1+ maps to eligible_unit_indices[choice_index - 1]
+                    ChoiceResolution::ReadyUnitsBudgetSelect { eligible_unit_indices, .. }
+                        if *choice_index > 0 =>
+                    {
+                        if let Some(&idx) = eligible_unit_indices.get(*choice_index - 1) {
+                            if let Some(u) = player.units.get(idx) {
+                                unit_id = UNIT_VOCAB.encode(u.unit_id.as_str());
                             }
                         }
                     }
+                    ChoiceResolution::ReadyUnitsBudgetSelect { .. } => {}
                     ChoiceResolution::CallToArmsUnitSelect { eligible_unit_indices }
                     | ChoiceResolution::FreeRecruitTarget { eligible_unit_indices } => {
                         if let Some(&idx) = eligible_unit_indices.get(*choice_index) {
@@ -555,15 +556,14 @@ fn extract_action_scalars(
                 }
                 // State-dependent enrichment for variants needing game state lookups
                 match &choice.resolution {
-                    ChoiceResolution::SourceOpeningDieSelect { die_ids } => {
-                        if *choice_index > 0 {
-                            if let Some(die_id) = die_ids.get(*choice_index - 1) {
-                                if let Some(die) = state.source.dice.iter().find(|d| d.id.as_str() == die_id.as_str()) {
-                                    set_mana_color_one_hot(&mut scalars, 12, die.color);
-                                }
+                    ChoiceResolution::SourceOpeningDieSelect { die_ids } if *choice_index > 0 => {
+                        if let Some(die_id) = die_ids.get(*choice_index - 1) {
+                            if let Some(die) = state.source.dice.iter().find(|d| d.id.as_str() == die_id.as_str()) {
+                                set_mana_color_one_hot(&mut scalars, 12, die.color);
                             }
                         }
                     }
+                    ChoiceResolution::SourceOpeningDieSelect { .. } => {}
                     ChoiceResolution::CurseAttackIndex { enemy_instance_id, .. } => {
                         if let Some(ref combat) = state.combat {
                             if let Some(e) = combat.enemies.iter().find(|e| e.instance_id.as_str() == enemy_instance_id.as_str()) {

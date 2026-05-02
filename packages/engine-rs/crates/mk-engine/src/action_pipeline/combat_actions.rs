@@ -1581,20 +1581,20 @@ pub(super) fn build_removed_resistances(
         }
 
         match &m.effect {
-            ModifierEffect::RemovePhysicalResistance => {
-                if !removed.contains(&ResistanceElement::Physical) {
-                    removed.push(ResistanceElement::Physical);
-                }
+            ModifierEffect::RemovePhysicalResistance
+                if !removed.contains(&ResistanceElement::Physical) =>
+            {
+                removed.push(ResistanceElement::Physical);
             }
-            ModifierEffect::RemoveFireResistance => {
-                if !removed.contains(&ResistanceElement::Fire) {
-                    removed.push(ResistanceElement::Fire);
-                }
+            ModifierEffect::RemoveFireResistance
+                if !removed.contains(&ResistanceElement::Fire) =>
+            {
+                removed.push(ResistanceElement::Fire);
             }
-            ModifierEffect::RemoveIceResistance => {
-                if !removed.contains(&ResistanceElement::Ice) {
-                    removed.push(ResistanceElement::Ice);
-                }
+            ModifierEffect::RemoveIceResistance
+                if !removed.contains(&ResistanceElement::Ice) =>
+            {
+                removed.push(ResistanceElement::Ice);
             }
             ModifierEffect::RemoveResistances => {
                 // Already handled by are_resistances_removed() in legal_actions,

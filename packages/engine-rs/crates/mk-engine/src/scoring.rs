@@ -404,7 +404,7 @@ pub fn calculate_final_scores(state: &GameState) -> FinalScoreResult {
         .enumerate()
         .map(|(i, r)| (i, r.total_score))
         .collect();
-    ranked.sort_by(|a, b| b.1.cmp(&a.1));
+    ranked.sort_by_key(|b| std::cmp::Reverse(b.1));
     let rankings: Vec<String> = ranked
         .iter()
         .map(|(i, _)| players[*i].id.as_str().to_string())

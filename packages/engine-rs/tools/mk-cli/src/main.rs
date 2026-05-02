@@ -252,13 +252,12 @@ fn run_replay(replay_path: PathBuf, step_mode: bool, from_step: Option<usize>) {
         }
 
         match apply_legal_action(&mut state, &mut undo, player_idx, &action, epoch) {
-            Ok(result) => {
-                if result.game_ended {
-                    println!("\n  === GAME OVER at step {} ===", step_num + 1);
-                    display_score(&state);
-                    return;
-                }
+            Ok(result) if result.game_ended => {
+                println!("\n  === GAME OVER at step {} ===", step_num + 1);
+                display_score(&state);
+                return;
             }
+            Ok(_) => {}
             Err(e) => {
                 println!("  Step {}: ERROR: {:?}", step_num, e);
                 display_state(&state, player_idx);
@@ -541,13 +540,12 @@ fn main() {
         let epoch = action_set.epoch;
 
         match apply_legal_action(&mut state, &mut undo, player_idx, &action, epoch) {
-            Ok(result) => {
-                if result.game_ended {
-                    println!("\n  === GAME OVER ===");
-                    display_score(&state);
-                    break;
-                }
+            Ok(result) if result.game_ended => {
+                println!("\n  === GAME OVER ===");
+                display_score(&state);
+                break;
             }
+            Ok(_) => {}
             Err(e) => {
                 println!("  ERROR: {:?}", e);
             }
