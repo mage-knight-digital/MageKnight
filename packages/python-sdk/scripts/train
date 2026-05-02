@@ -264,9 +264,11 @@ cmd_start() {
     echo "$train_pid" > "$GLOBAL_PID_FILE"
     echo "$run_name" > "$GLOBAL_RUN_FILE"
 
-    # Keep system awake while training runs (also detached)
-    nohup caffeinate -dims -w "$train_pid" >/dev/null 2>&1 &
-    disown $! 2>/dev/null
+    # Keep system awake while training runs (also detached, macOS only)
+    if command -v caffeinate >/dev/null 2>&1; then
+        nohup caffeinate -dims -w "$train_pid" >/dev/null 2>&1 &
+        disown $! 2>/dev/null
+    fi
 
     echo "Training started (PID $train_pid)"
     echo ""
@@ -360,7 +362,7 @@ if len(lines) >= 100:
             t1 = datetime.fromisoformat(tp[-1]['timestamp'])
             elapsed = (t1 - t0).total_seconds()
             if elapsed > 0:
-                parts.append(f'throughput={((window-1)/elapsed):.1f} g/s')
+                parts.append(f'throughput={((window-1)/elapsed):.1f} ep/s')
         except (KeyError, ValueError):
             pass
     print('  '.join(parts))
