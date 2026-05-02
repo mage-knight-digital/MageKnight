@@ -51,9 +51,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-ruff@v1
-      - name: Ruff check
-        run: ruff check packages/python-sdk scripts --config packages/python-sdk/pyproject.toml
+      - uses: astral-sh/ruff-action@v3
+        with:
+          args: check packages/python-sdk scripts --config packages/python-sdk/pyproject.toml
 
   rust:
     name: Rust Build, Lint & Test
