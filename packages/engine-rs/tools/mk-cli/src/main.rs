@@ -429,7 +429,7 @@ fn run_replay_to_artifact(replay_path: PathBuf, artifact_path: PathBuf) {
         run: ArtifactRun {
             seed: replay.seed,
             outcome,
-            steps: message_log.len() - 1, // subtract initial frame
+            steps: message_log.len().saturating_sub(1), // subtract initial frame
             run_index: 0,
             game_id: format!("replay-{}", replay.seed),
         },
