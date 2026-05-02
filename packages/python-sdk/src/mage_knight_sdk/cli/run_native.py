@@ -16,7 +16,7 @@ import time
 from mage_knight_sdk.sim.hero_selection import resolve_hero
 
 from mage_knight_sdk.sim.native_runner import run_native_game, run_native_sweep
-from mage_knight_sdk.sim.reporting import OUTCOME_ENDED, RunResult, summarize
+from mage_knight_sdk.sim.reporting import OUTCOME_ENDED
 
 
 def _build_seed_list(

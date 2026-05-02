@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import random
-import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -392,7 +391,6 @@ def run_native_sweep(
         )
 
     results: list[RunResult] = []
-    t_start = time.perf_counter()
 
     for index, seed in enumerate(seeds):
         rng = random.Random(seed)

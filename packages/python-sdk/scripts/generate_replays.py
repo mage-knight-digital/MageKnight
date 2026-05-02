@@ -255,8 +255,6 @@ def main() -> int:
 
     print(f"\nDone!")
     if args.artifact:
-        first_seed = seeds[0]
-        first_hero = resolve_hero(args.hero, first_seed)
         print(f"Load in UI: drag & drop any artifact from {output_dir}/ into the replay viewer")
     else:
         print(f"Step through with:")

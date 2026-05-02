@@ -123,9 +123,6 @@ class CEONetwork(nn.Module):
             goal_logits: (N, NUM_GOAL_TYPES) with -inf for illegal goals
             values: (N,) state value estimates
         """
-        n = state_scalars.shape[0]
-        device = state_scalars.device
-
         # Fixed embeddings
         mode_vec = self.mode_emb(state_ids[:, 0])      # (N, emb)
         terrain_vec = self.terrain_emb(state_ids[:, 1]) # (N, emb)
@@ -218,7 +215,6 @@ class CEOPolicy:
         """
         self._network.train()
         device = self._device
-        n = batch_dict["state_scalars"].shape[0]
 
         # Prepare tensors
         state_scalars = torch.tensor(batch_dict["state_scalars"], dtype=torch.float32, device=device)
@@ -226,7 +222,6 @@ class CEOPolicy:
 
         def _pool_ids(key: str) -> tuple[torch.Tensor, torch.Tensor]:
             ids = torch.tensor(batch_dict[key], dtype=torch.long, device=device)
-            count_key = key.replace("_ids", "_counts").replace("_card_ids", "_counts")
             # Handle naming convention differences
             if key == "hand_card_ids":
                 counts = torch.tensor(batch_dict["hand_counts"], dtype=torch.long, device=device)

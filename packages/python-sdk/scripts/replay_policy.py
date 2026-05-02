@@ -12,9 +12,8 @@ import json
 import sys
 sys.path.insert(0, "src")
 
-import numpy as np
 from mk_python import PyVecEnv
-from mage_knight_sdk.sim.rl.policy_gradient import PolicyGradientConfig, ReinforcePolicy
+from mage_knight_sdk.sim.rl.policy_gradient import ReinforcePolicy
 from mage_knight_sdk.sim.rl.vocabularies import ACTION_TYPE_VOCAB, SOURCE_VOCAB, CARD_VOCAB
 
 # Reverse lookup tables

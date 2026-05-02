@@ -9,9 +9,6 @@ from mage_knight_sdk.sim.rl.features import (
     MAP_ENEMY_SCALAR_DIM,
     SITE_SCALAR_DIM,
     STATE_SCALAR_DIM,
-    ActionFeatures,
-    EncodedStep,
-    StateFeatures,
 )
 from mage_knight_sdk.sim.rl.vocabularies import (
     ACTION_TYPE_VOCAB,
