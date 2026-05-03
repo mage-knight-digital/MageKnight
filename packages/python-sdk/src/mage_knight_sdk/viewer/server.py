@@ -30,6 +30,25 @@ ARTIFACTS_DIR = PKG_ROOT / "sim-artifacts"
 
 VIEWER_CACHE_DIR = ".viewer-cache"
 
+
+def _safe_artifact_path(root: Path, name: str) -> Path | None:
+    """Return the resolved path for an artifact name, or None if it escapes root.
+
+    Takes only the final path component from name so URL segments like
+    '../../etc/passwd' are reduced to 'passwd' before resolution.
+    Then resolves to an absolute path and confirms it stays inside root.
+    """
+    safe_name = Path(name).name  # discard any directory components
+    if not safe_name or safe_name.startswith("."):
+        return None
+    candidate = (root.resolve() / safe_name)
+    try:
+        candidate.relative_to(root.resolve())
+    except ValueError:
+        return None
+    return candidate
+
+
 # In-progress build state: artifact name -> "building" | total_count
 _build_status: dict[str, str | int] = {}
 _build_lock = threading.Lock()
@@ -75,10 +94,8 @@ def create_app(artifacts_dir: Path | None = None) -> Flask:
 
     @app.route("/api/artifacts/<path:name>/prepare", methods=["POST"])
     def prepare(name: str):
-        # Restrict to basename to avoid path traversal
-        name = name.split("/")[-1].split("\\")[-1]
-        json_path = root / name
-        if not json_path.is_file() or json_path.suffix != ".json":
+        json_path = _safe_artifact_path(root, name)
+        if json_path is None or not json_path.is_file() or json_path.suffix != ".json":
             return jsonify({"error": "not found"}), 404
         ndjson_path = json_path.with_suffix(json_path.suffix + ".ndjson")
         index_path = json_path.with_suffix(json_path.suffix + ".ndjson.idx")
@@ -177,8 +194,9 @@ def create_app(artifacts_dir: Path | None = None) -> Flask:
 
     @app.route("/api/artifacts/<path:name>/status")
     def status(name: str):
-        name = name.split("/")[-1].split("\\")[-1]
-        json_path = root / name
+        json_path = _safe_artifact_path(root, name)
+        if json_path is None:
+            return jsonify({"error": "not found"}), 404
         ndjson_path = json_path.with_suffix(json_path.suffix + ".ndjson")
         index_path = json_path.with_suffix(json_path.suffix + ".ndjson.idx")
         with _build_lock:
@@ -199,8 +217,9 @@ def create_app(artifacts_dir: Path | None = None) -> Flask:
 
     @app.route("/api/artifacts/<path:name>/entries")
     def entries(name: str):
-        name = name.split("/")[-1].split("\\")[-1]
-        json_path = root / name
+        json_path = _safe_artifact_path(root, name)
+        if json_path is None:
+            return jsonify({"error": "not found"}), 404
         ndjson_path = json_path.with_suffix(json_path.suffix + ".ndjson")
         index_path = json_path.with_suffix(json_path.suffix + ".ndjson.idx")
         if not ndjson_path.exists() or not index_path.exists():
@@ -217,8 +236,9 @@ def create_app(artifacts_dir: Path | None = None) -> Flask:
 
     @app.route("/api/artifacts/<path:name>/state")
     def state_at_step(name: str):
-        name = name.split("/")[-1].split("\\")[-1]
-        json_path = root / name
+        json_path = _safe_artifact_path(root, name)
+        if json_path is None:
+            return jsonify({"error": "not found"}), 404
         states_path = json_path.with_suffix(json_path.suffix + ".states.ndjson")
         states_index_path = json_path.with_suffix(json_path.suffix + ".states.ndjson.idx")
         if not states_path.exists():
