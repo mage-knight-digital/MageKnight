@@ -15,6 +15,7 @@ import sys
 from typing import Any
 
 from mage_knight_sdk.sim.hero_selection import resolve_hero
+from mage_knight_sdk.sim.rl.goal_tracker import DEFAULT_MAX_GOAL_STEPS
 
 
 class RunningMeanStd:
@@ -218,7 +219,7 @@ def main() -> int:
 
     # Hierarchical RL
     parser.add_argument("--hrl", action="store_true", help="Enable Hierarchical RL (CEO + Worker dual-policy training)")
-    parser.add_argument("--max-goal-steps", type=int, default=30, help="Max steps before a goal times out (default: 30)")
+    parser.add_argument("--max-goal-steps", type=int, default=DEFAULT_MAX_GOAL_STEPS, help=f"Max steps before a goal times out (default: {DEFAULT_MAX_GOAL_STEPS})")
 
     args = parser.parse_args()
     if args.episodes < 1:
