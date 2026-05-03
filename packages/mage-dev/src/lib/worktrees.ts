@@ -1,4 +1,4 @@
-import { execSync, spawn } from "node:child_process";
+import { execSync, spawn, spawnSync } from "node:child_process";
 import {
   createWriteStream,
   existsSync,
@@ -129,7 +129,7 @@ export function getWorktrees(): Worktree[] {
 
 export function copyToClipboard(text: string): boolean {
   try {
-    execSync(`echo ${JSON.stringify(text)} | pbcopy`, { stdio: "pipe" });
+    spawnSync("pbcopy", [], { input: text, stdio: "pipe" });
     return true;
   } catch {
     return false;
