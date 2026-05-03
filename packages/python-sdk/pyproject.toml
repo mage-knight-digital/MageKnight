@@ -39,3 +39,15 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 addopts = "-q"
+
+[tool.ruff.lint]
+select = [
+  "F401",    # unused-import
+  "F841",    # unused-variable
+  "E722",    # bare-except
+  "E731",    # lambda-assignment
+  "B018",    # useless-expression (statement has no effect)
+  "F631",    # assert-tuple (imprecise assert)
+  "PLW0108", # unnecessary-lambda
+  "SIM115",  # open-file-with-context-handler
+]

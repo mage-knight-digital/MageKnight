@@ -19,8 +19,7 @@ from .hrl_policy import CEOPolicy, CEOTransition
 from .policy_gradient import ReinforcePolicy
 from .rewards import RewardConfig
 from .vec_env_runner import (
-    VecTransition, _extract_vec_transition, vec_transition_to_transition,
-    CompletedEpisodeMeta, RewardBreakdown, EpisodeBuffers,
+    VecTransition, _extract_vec_transition, CompletedEpisodeMeta, RewardBreakdown, EpisodeBuffers,
 )
 
 logger = logging.getLogger(__name__)
@@ -169,9 +168,6 @@ def collect_hrl_rollout(
                     candidates = GoalTracker.get_target_candidates(
                         goal_type, batch_dict, i,
                     )
-                    player_pos = tuple(batch_dict["fames"])  # placeholder — need actual position
-                    # Get player position from state_scalars or previous step
-                    # For now, target hex is relative coords from candidates
                     target_hex = target_selector.select(
                         goal_type, candidates, (0, 0), rng,
                     )

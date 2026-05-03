@@ -13,7 +13,6 @@ import argparse
 import json
 import os
 import sys
-from collections import defaultdict
 from pathlib import Path
 
 RUNS_DIR = Path(__file__).resolve().parent.parent / "training" / "runs"
@@ -136,7 +135,7 @@ def print_comparison(runs: dict[str, list[dict]], bucket_size_k: int, max_ep: in
     print("SUMMARY (latest 5k episodes)")
     print("=" * 100)
     metrics = [
-        ("Episodes", lambda lines: len(lines)),
+        ("Episodes", len),
         ("Avg Fame", lambda lines: sum(l["fame"] for l in lines[-5000:]) / min(len(lines), 5000)),
         ("Avg Score", lambda lines: sum(l["game_score"] for l in lines[-5000:]) / min(len(lines), 5000)),
         ("Avg Reward", lambda lines: sum(l["total_reward"] for l in lines[-5000:]) / min(len(lines), 5000)),

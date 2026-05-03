@@ -46,6 +46,15 @@ jobs:
       - name: Lint
         run: bun run lint
 
+  python-lint:
+    name: Python Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/ruff-action@v3
+        with:
+          args: check packages/python-sdk scripts --config packages/python-sdk/pyproject.toml
+
   rust:
     name: Rust Build, Lint & Test
     runs-on: ubuntu-latest

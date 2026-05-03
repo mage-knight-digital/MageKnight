@@ -29,25 +29,19 @@ NUM_GOAL_TYPES = len(GoalType)
 # Goal encoding dimension: NUM_GOAL_TYPES one-hot + 2 relative target coords
 GOAL_ENCODING_DIM = NUM_GOAL_TYPES + 2
 
-# Rust SiteType enum values (+1 offset in signals, 0 = no site)
-_SITE_VILLAGE = 1
-_SITE_MONASTERY = 2
-_SITE_KEEP = 4
-_SITE_MAGE_TOWER = 5
-_SITE_DUNGEON = 7
-_SITE_TOMB = 8
-_SITE_MONSTER_DEN = 9
-_SITE_SPAWNING_GROUNDS = 10
-_SITE_CITY = 14
-_SITE_REFUGEE_CAMP = 17
+# Default timeout for a single goal before it is marked failed
+DEFAULT_MAX_GOAL_STEPS = 30
 
-# Site type groupings for goal legality
-_ADVENTURE_SITES = {_SITE_DUNGEON, _SITE_TOMB, _SITE_MONSTER_DEN, _SITE_SPAWNING_GROUNDS}
-_FORTIFIED_SITES = {_SITE_KEEP, _SITE_MAGE_TOWER, _SITE_CITY}
-_RECRUIT_SITES = {_SITE_KEEP, _SITE_MAGE_TOWER, _SITE_CITY}
-_SPELL_SITES = {_SITE_MAGE_TOWER, _SITE_CITY}
-_AA_SITES = {_SITE_MONASTERY, _SITE_CITY}
-_HEAL_SITES = {_SITE_VILLAGE, _SITE_MONASTERY, _SITE_REFUGEE_CAMP}
+# Normalization divisor for relative hex coordinates in goal encoding (typical range -5..5)
+_GOAL_COORD_NORM = 5.0
+
+
+def _to_hex_int(v: float) -> int:
+    """Convert a numpy scalar from the encoded state to an integer hex coordinate.
+
+    Encoded scalars are float32; round() handles sub-pixel drift before casting.
+    """
+    return int(round(float(v)))
 
 
 class GoalStatus(IntEnum):
@@ -135,7 +129,7 @@ class GoalTracker:
     One GoalTracker per environment in the VecEnv.
     """
 
-    def __init__(self, max_goal_steps: int = 30) -> None:
+    def __init__(self, max_goal_steps: int = DEFAULT_MAX_GOAL_STEPS) -> None:
         self.max_goal_steps = max_goal_steps
         self.current: GoalState | None = None
         self._step_count = 0
@@ -274,9 +268,8 @@ class GoalTracker:
             if self.current.target_hex is not None:
                 pq, pr = player_pos
                 tq, tr = self.current.target_hex
-                # Normalize relative coords (typical range -5..5)
-                enc[NUM_GOAL_TYPES] = (tq - pq) / 5.0
-                enc[NUM_GOAL_TYPES + 1] = (tr - pr) / 5.0
+                enc[NUM_GOAL_TYPES] = (tq - pq) / _GOAL_COORD_NORM
+                enc[NUM_GOAL_TYPES + 1] = (tr - pr) / _GOAL_COORD_NORM
         return enc
 
     @staticmethod
@@ -343,7 +336,6 @@ class GoalTracker:
         # For hex-parameterized goals, extract candidate hexes from visible sites/enemies.
         # Scalars come as (N*max, dim) — use n_envs and max to compute flat index.
         candidates: list[tuple[int, int]] = []
-        n_envs = batch_dict["visible_site_counts"].shape[0]
 
         def _get_pool_scalars(scalars_key: str, counts_key: str, ids_key: str) -> list[tuple[int, int]]:
             """Extract (rel_q, rel_r) from a pool's scalars at indices 0, 1."""
@@ -357,7 +349,7 @@ class GoalTracker:
             result = []
             for j in range(count):
                 row = scalars[start + j]
-                result.append((int(round(float(row[0]))), int(round(float(row[1])))))
+                result.append((_to_hex_int(row[0]), _to_hex_int(row[1])))
             return result
 
         if goal_type == GoalType.CHALLENGE_RAMPAGING:
@@ -378,8 +370,6 @@ class GoalTracker:
                 for j in range(site_count):
                     row = scalars[start + j]
                     # site_scalars: [is_conquered, is_fortified, rel_q, rel_r, ...]
-                    rel_q = float(row[2])
-                    rel_r = float(row[3])
-                    candidates.append((int(round(rel_q)), int(round(rel_r))))
+                    candidates.append((_to_hex_int(row[2]), _to_hex_int(row[3])))
 
         return candidates

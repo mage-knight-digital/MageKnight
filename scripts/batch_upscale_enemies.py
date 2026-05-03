@@ -54,14 +54,15 @@ Do not:
 def upscale_enemy(client: OpenAI, input_path: Path, output_path: Path) -> bool:
     """Upscale a single enemy token. Returns True on success."""
     try:
-        result = client.images.edit(
-            model="gpt-image-1.5",
-            image=open(input_path, "rb"),
-            prompt=PROMPT,
-            size="1024x1024",
-            quality="high",
-            input_fidelity="high",
-        )
+        with open(input_path, "rb") as img_f:
+            result = client.images.edit(
+                model="gpt-image-1.5",
+                image=img_f,
+                prompt=PROMPT,
+                size="1024x1024",
+                quality="high",
+                input_fidelity="high",
+            )
 
         image_base64 = result.data[0].b64_json
         image_bytes = base64.b64decode(image_base64)
