@@ -88,10 +88,12 @@ jobs:
         with:
           workspaces: packages/engine-rs
 
+      # Include mk-python so Dependabot Cargo bumps (e.g. PyO3) cannot merge with a broken extension crate.
+      # Tests/coverage still exclude mk-python (cdylib; no Rust unit tests in that crate today).
       - name: Clippy
         if: steps.rust-changes.outputs.rust == 'true'
         working-directory: packages/engine-rs
-        run: cargo clippy --workspace --exclude mk-python -- -D warnings
+        run: cargo clippy --workspace -- -D warnings
 
       - name: Test with coverage
         if: steps.rust-changes.outputs.rust == 'true'
