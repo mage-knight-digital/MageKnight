@@ -1,6 +1,6 @@
-# GitHub shows these job `name:` values as required check names in branch protection —
-# update protection rules if you rename them.
-name: Monorepo CI
+# Job `name:` values must stay in sync with GitHub branch protection / rulesets
+# "required status checks" (exact string match). Renaming breaks merges until rules update.
+name: CI
 
 on:
   push:
@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   build-and-lint:
-    name: JS/TS (Bun) — install, build packages, oxlint
+    name: Build & Lint
     runs-on: ubuntu-latest
 
     steps:
@@ -49,7 +49,7 @@ jobs:
         run: bun run lint
 
   python-lint:
-    name: Python SDK — ruff check
+    name: Python Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -58,7 +58,7 @@ jobs:
           args: check packages/python-sdk scripts --config packages/python-sdk/pyproject.toml
 
   rust:
-    name: Rust engine — clippy (full workspace) + tests & coverage
+    name: Rust Build, Lint & Test
     runs-on: ubuntu-latest
 
     steps:
