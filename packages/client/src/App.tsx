@@ -121,7 +121,6 @@ export function App() {
       hero={gameConfig.heroIds[0] ?? HERO_ARYTHEA}
       seed={RUNTIME_RUST_CONFIG.seed}
       playerId={gameConfig.playerIds[0]}
-      scenario={gameConfig.scenarioId}
     >
       {gameShell}
     </GameProvider>
