@@ -88,10 +88,11 @@ jobs:
         with:
           workspaces: packages/engine-rs
 
+      # mk-python must be checked here; excluding it let PyO3 bumps merge without compiling.
       - name: Clippy
         if: steps.rust-changes.outputs.rust == 'true'
         working-directory: packages/engine-rs
-        run: cargo clippy --workspace --exclude mk-python -- -D warnings
+        run: cargo clippy --workspace -- -D warnings
 
       - name: Test with coverage
         if: steps.rust-changes.outputs.rust == 'true'
