@@ -889,7 +889,7 @@ fn vec_f32_to_numpy<'py>(
     np: &Bound<'py, PyAny>,
     data: &[f32],
     shape: &[usize],
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let list = pyo3::types::PyList::new(py, data)?;
     let arr = np.call_method1("array", (list,))?;
     let arr = arr.call_method1("astype", ("float32",))?;
@@ -903,7 +903,7 @@ fn vec_i32_to_numpy<'py>(
     np: &Bound<'py, PyAny>,
     data: &[i32],
     shape: &[usize],
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let list = pyo3::types::PyList::new(py, data)?;
     let arr = np.call_method1("array", (list,))?;
     let arr = arr.call_method1("astype", ("int32",))?;
@@ -916,7 +916,7 @@ fn vec_bool_to_numpy<'py>(
     py: Python<'py>,
     np: &Bound<'py, PyAny>,
     data: &[bool],
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let list = pyo3::types::PyList::new(py, data)?;
     let arr = np.call_method1("array", (list,))?;
     let arr = arr.call_method1("astype", ("bool",))?;
@@ -973,7 +973,7 @@ impl PyVecEnv {
     }
 
     /// Encode all envs into a dict of numpy arrays.
-    fn encode_batch(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn encode_batch(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let batch = self.inner.encode_batch();
         let np = py.import("numpy")?;
         let dict = pyo3::types::PyDict::new(py);
@@ -1033,7 +1033,7 @@ impl PyVecEnv {
     ///     actions: numpy array or list of i32 action indices, one per env.
     ///
     /// Returns a dict with fame_deltas, dones, fames, panicked, truncated, scenario_end_triggered.
-    fn step_batch(&mut self, py: Python<'_>, actions: Vec<i32>) -> PyResult<PyObject> {
+    fn step_batch(&mut self, py: Python<'_>, actions: Vec<i32>) -> PyResult<Py<PyAny>> {
         let result = self.inner.step_batch(&actions);
         let np = py.import("numpy")?;
         let dict = pyo3::types::PyDict::new(py);
