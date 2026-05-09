@@ -1,4 +1,6 @@
-name: CI
+# GitHub shows these job `name:` values as required check names in branch protection —
+# update protection rules if you rename them.
+name: Monorepo CI
 
 on:
   push:
@@ -14,7 +16,7 @@ permissions:
 
 jobs:
   build-and-lint:
-    name: Build & Lint
+    name: JS/TS (Bun) — install, build packages, oxlint
     runs-on: ubuntu-latest
 
     steps:
@@ -37,17 +39,17 @@ jobs:
           restore-keys: |
             bun-${{ runner.os }}-
 
-      - name: Install dependencies
+      - name: bun install (workspace)
         run: bun install
 
-      - name: Build
+      - name: bun run build (all packages)
         run: bun run build
 
-      - name: Lint
+      - name: oxlint (packages/*/src)
         run: bun run lint
 
   python-lint:
-    name: Python Lint
+    name: Python SDK — ruff check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -56,14 +58,14 @@ jobs:
           args: check packages/python-sdk scripts --config packages/python-sdk/pyproject.toml
 
   rust:
-    name: Rust Build, Lint & Test
+    name: Rust engine — clippy (full workspace) + tests & coverage
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Detect Rust changes
+      - name: Paths filter — run Rust job only if engine-rs or this workflow changed
         id: rust-changes
         uses: dorny/paths-filter@v4
         with:
@@ -72,7 +74,7 @@ jobs:
               - 'packages/engine-rs/**'
               - '.github/workflows/ci.yml'
 
-      - name: Setup Rust toolchain
+      - name: rustup stable + clippy + llvm-tools
         if: steps.rust-changes.outputs.rust == 'true'
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -82,24 +84,24 @@ jobs:
         if: steps.rust-changes.outputs.rust == 'true'
         uses: taiki-e/install-action@cargo-llvm-cov
 
-      - name: Cache Cargo
+      - name: Cache Cargo (packages/engine-rs)
         if: steps.rust-changes.outputs.rust == 'true'
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: packages/engine-rs
 
       # mk-python must be checked here; excluding it let PyO3 bumps merge without compiling.
-      - name: Clippy
+      - name: cargo clippy — entire workspace, warnings denied
         if: steps.rust-changes.outputs.rust == 'true'
         working-directory: packages/engine-rs
         run: cargo clippy --workspace -- -D warnings
 
-      - name: Test with coverage
+      - name: cargo llvm-cov — unit tests (mk-python excluded from coverage)
         if: steps.rust-changes.outputs.rust == 'true'
         working-directory: packages/engine-rs
         run: cargo llvm-cov --workspace --exclude mk-python --lcov --output-path lcov.info
 
-      - name: Upload to Codecov
+      - name: Upload lcov to Codecov
         if: steps.rust-changes.outputs.rust == 'true'
         uses: codecov/codecov-action@v6
         with:
