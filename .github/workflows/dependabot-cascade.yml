@@ -1,4 +1,4 @@
-name: Dependabot Cascade Rebase
+name: Dependabot — cascade rebase
 
 on:
   pull_request:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   cascade:
-    name: Rebase open Dependabot PRs
+    name: Dependabot — rebase open PRs after a merge to main
     runs-on: ubuntu-latest
     if: github.event.pull_request.merged == true
 

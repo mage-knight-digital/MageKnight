@@ -1,4 +1,4 @@
-name: Dependabot Auto-merge
+name: Dependabot — auto-merge
 
 on:
   pull_request:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   auto-merge:
-    name: Auto-merge safe Dependabot updates
+    name: Dependabot — enable auto-merge (patch + GitHub Actions bumps)
     runs-on: ubuntu-latest
     if: github.actor == 'dependabot[bot]'
 
