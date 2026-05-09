@@ -13,6 +13,9 @@ import { TurnNotificationProvider } from "./contexts/TurnNotificationContext";
 import { GameView } from "./components/GameView";
 import { DebugPanel } from "./components/DebugPanel";
 import { ReplayLoadScreen } from "./components/Replay";
+import { SetupScreen } from "./components/Setup";
+import type { GameConfig } from "@mage-knight/shared";
+import { HERO_ARYTHEA } from "@mage-knight/shared";
 
 const MODE_PARAM = "mode" as const;
 const SERVER_URL_PARAM = "serverUrl" as const;
@@ -59,6 +62,8 @@ const RUNTIME_RUST_CONFIG = getRuntimeRustConfig();
 const REPLAY_MODE_REQUESTED = isReplayModeRequested();
 
 export function App() {
+  const [gameConfig, setGameConfig] = useState<GameConfig | null>(null);
+
   // Replay mode state
   const [replayArtifact, setReplayArtifact] = useState<ArtifactData | null>(null);
   const [replayPlayerId, setReplayPlayerId] = useState<string | null>(null);
@@ -105,14 +110,17 @@ export function App() {
     );
   }
 
+  if (!gameConfig) {
+    return <SetupScreen onComplete={setGameConfig} />;
+  }
+
   // Default: connect to Rust mk-server
   return (
     <GameProvider
       serverUrl={RUNTIME_RUST_CONFIG.serverUrl}
-      hero={RUNTIME_RUST_CONFIG.hero}
+      hero={gameConfig.heroIds[0] ?? HERO_ARYTHEA}
       seed={RUNTIME_RUST_CONFIG.seed}
       playerId={RUNTIME_RUST_CONFIG.playerId}
-      scenario={RUNTIME_RUST_CONFIG.scenario}
     >
       {gameShell}
     </GameProvider>
