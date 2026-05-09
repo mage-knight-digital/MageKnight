@@ -399,7 +399,7 @@ pub fn apply_legal_action(
         }
 
         LegalAction::PlunderSite => {
-            // Irreversible: burns site + reputation loss
+            // Irreversible: reputation loss + card draw (village not destroyed)
             undo_stack.set_checkpoint();
             sites::apply_plunder_site(state, player_idx)?
         }

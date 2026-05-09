@@ -385,12 +385,12 @@ pub(super) fn apply_plunder_site(
         .get_mut(&hex_key)
         .ok_or_else(|| ApplyError::InternalError("PlunderSite: hex not found".into()))?;
 
-    let site = hex
-        .site
-        .as_mut()
-        .ok_or_else(|| ApplyError::InternalError("PlunderSite: no site on hex".into()))?;
+    if hex.site.is_none() {
+        return Err(ApplyError::InternalError("PlunderSite: no site on hex".into()));
+    }
 
-    site.is_burned = true;
+    // Village plunder (rulebook): draw 2 cards and −1 reputation only.
+    // "Burned" / destroyed is monastery-only (Burn Monastery combat), not plunder.
 
     // Reputation loss (capped at -7)
     let player = &mut state.players[player_idx];

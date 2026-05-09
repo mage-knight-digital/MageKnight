@@ -6,7 +6,7 @@ use super::*;
 
 use arrayvec::ArrayVec;
 use mk_types::hex::HexCoord;
-use mk_types::ids::{CombatInstanceId, EnemyId};
+use mk_types::ids::{CombatInstanceId, EnemyId, UnitId};
 use mk_types::state::CombatEnemy;
 
 /// Helper: place player on a hex with a specific site.
@@ -383,7 +383,7 @@ fn plunder_decision_offered_at_unconquered_village() {
 }
 
 #[test]
-fn plunder_burns_site_and_rep_hit() {
+fn plunder_village_draws_cards_and_rep_hit_without_burning_site() {
     let mut state = setup_playing_game(vec!["march"]);
     let coord = place_player_on_site(&mut state, SiteType::Village);
     state.players[0].pending.active = Some(ActivePending::PlunderDecision);
@@ -397,13 +397,63 @@ fn plunder_burns_site_and_rep_hit() {
     apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlunderSite, epoch).unwrap();
 
     let site = state.map.hexes.get(&coord.key()).unwrap().site.as_ref().unwrap();
-    assert!(site.is_burned, "Site should be burned");
+    assert!(
+        !site.is_burned,
+        "plundering a village must not mark the site burned (monastery-only)"
+    );
     assert_eq!(state.players[0].reputation, rep_before - 1, "Reputation -1");
     assert!(state.players[0].flags.contains(PlayerFlags::HAS_PLUNDERED_THIS_TURN));
     assert!(!state.players[0].pending.has_active(), "Pending should be cleared");
     // Should have drawn 2 cards
     assert_eq!(state.players[0].hand.len(), hand_before + 2, "Should draw 2 cards");
     assert!(state.players[0].deck.is_empty(), "Deck should be empty after draw");
+}
+
+#[test]
+fn plunder_village_leaves_unit_recruitment_available() {
+    let mut state = setup_playing_game(vec!["march"]);
+    let _coord = place_player_on_site(&mut state, SiteType::Village);
+    state.players[0].pending.active = Some(ActivePending::PlunderDecision);
+    state.players[0].deck = vec![CardId::from("rage"), CardId::from("swiftness")];
+    state.offers.units = vec![
+        UnitId::from("peasants"),
+        UnitId::from("foresters"),
+        UnitId::from("herbalist"),
+    ];
+    state.players[0].influence_points = 20;
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlunderSite, epoch).unwrap();
+
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
+    let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+    assert!(
+        actions.actions.iter().any(|a| matches!(a, LegalAction::RecruitUnit { .. })),
+        "recruitment must remain available at a plundered village"
+    );
+}
+
+#[test]
+fn plunder_site_errors_when_hex_has_no_site() {
+    let mut state = setup_playing_game(vec!["march"]);
+    let coord = place_player_on_site(&mut state, SiteType::Village);
+    state.players[0].pending.active = Some(ActivePending::PlunderDecision);
+    state.map.hexes.get_mut(&coord.key()).unwrap().site = None;
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    let result = apply_legal_action(
+        &mut state,
+        &mut undo,
+        0,
+        &LegalAction::PlunderSite,
+        epoch,
+    );
+    assert!(
+        result.is_err(),
+        "PlunderSite internal guard should fail when hex has no site"
+    );
 }
 
 #[test]

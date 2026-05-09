@@ -254,7 +254,7 @@ Units (max 8), banners (max 4), kept enemies (max 4) use `ArrayVec` to avoid hea
 
 ### Sites
 - Dungeon/Tomb: `units_allowed=false`, `night_mana_rules=true`, re-enterable
-- Plunder: burns site + rep -1
+- Plunder (village): draw 2, rep −1 (village stays usable; “burned” is monastery-only)
 - Commerce: BuySpell (7 influence), LearnAA (6 influence), BurnMonastery (-3 rep, violet enemy, artifact reward)
 - Conquest rewards: `queue_site_reward` → auto-grant or defer → `promote_site_reward`
 - City-color commerce: Blue (spells), Green (AA from offer or deck), Red (artifact blind draw), White (elite unit + all types)
