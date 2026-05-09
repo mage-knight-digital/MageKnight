@@ -1278,7 +1278,9 @@ mod tests {
         assert!(!env.state.game_ended, "Game should not have ended naturally");
     }
 
-    /// Reproduce: seed=42048 with 53 LegalActions yields 0 legal actions.
+    /// Reproduce: seed=42048 replay must reach non-empty legal actions after 53 steps.
+    /// After village plunder, the site is not burned (rulebook), so a later turn can
+    /// offer `PlunderDecision` again — the golden trace includes `DeclinePlunder` for that.
     /// Last action is BeginInteraction at a conquered mage tower with empty hand.
     #[test]
     fn replay_seed_42048_zero_actions() {
@@ -1297,6 +1299,7 @@ mod tests {
             "PlunderSite",
             {"ChallengeRampaging":{"hex":{"q":3,"r":-3}}},
             "EndTurn",
+            "DeclinePlunder",
             {"PlayCardPowered":{"card_id":"march","hand_index":3,"mana_color":"green"}},
             {"Explore":{"target_center":{"q":4,"r":-5}}},
             {"PlayCardSideways":{"card_id":"improvisation","hand_index":0,"sideways_as":"move"}},

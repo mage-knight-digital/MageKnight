@@ -1,5 +1,13 @@
 #!/bin/bash
-# Run clippy (matching CI) before push to catch lint errors early.
+# Pre-push checks (see .github/workflows/ci.yml):
+#
+# - "Rust Build, Lint & Test": clippy + the same workspace unit tests CI runs via
+#   `cargo llvm-cov --workspace --exclude mk-python` (root: `bun run test`).
+#   This catches golden replays in mk-env and other cross-crate failures.
+# - "Build & Lint": `bun run lint` (oxlint).
+#
+# Clippy uses `--exclude mk-python` for faster local pushes when PyO3 is not built;
+# CI runs full `cargo clippy --workspace` when engine-rs changes.
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
@@ -10,5 +18,23 @@ cd "$REPO_ROOT/packages/engine-rs" && \
 if [ $? -ne 0 ]; then
     echo ""
     echo "Clippy failed. Fix the errors above before pushing."
+    exit 1
+fi
+
+echo "Running bun run lint..."
+cd "$REPO_ROOT" && bun run lint
+
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "bun run lint failed. Fix the errors above before pushing."
+    exit 1
+fi
+
+echo "Running bun run test (cargo test workspace, excludes mk-python)..."
+cd "$REPO_ROOT" && bun run test
+
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "bun run test failed. Fix the errors above before pushing."
     exit 1
 fi
