@@ -435,6 +435,28 @@ fn plunder_village_leaves_unit_recruitment_available() {
 }
 
 #[test]
+fn plunder_site_errors_when_hex_has_no_site() {
+    let mut state = setup_playing_game(vec!["march"]);
+    let coord = place_player_on_site(&mut state, SiteType::Village);
+    state.players[0].pending.active = Some(ActivePending::PlunderDecision);
+    state.map.hexes.get_mut(&coord.key()).unwrap().site = None;
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    let result = apply_legal_action(
+        &mut state,
+        &mut undo,
+        0,
+        &LegalAction::PlunderSite,
+        epoch,
+    );
+    assert!(
+        result.is_err(),
+        "PlunderSite internal guard should fail when hex has no site"
+    );
+}
+
+#[test]
 fn plunder_draws_fewer_if_deck_small() {
     let mut state = setup_playing_game(vec!["march"]);
     place_player_on_site(&mut state, SiteType::Village);
