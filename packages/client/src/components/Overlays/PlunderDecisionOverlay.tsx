@@ -27,7 +27,8 @@ export function PlunderDecisionOverlay() {
       <div className="overlay__content choice-selection">
         <h2 className="choice-selection__title">Plunder Site</h2>
         <p style={{ color: "#999", marginBottom: "1rem", textAlign: "center" }}>
-          Plundering burns the site and costs 1 reputation.
+          Plundering draws two cards and costs 1 reputation. The village remains
+          usable for recruiting and healing.
         </p>
         <div
           className="choice-selection__options"
