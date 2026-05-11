@@ -15,6 +15,10 @@ import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 import { UI_COLORS } from "./utils/colorHelpers";
 import { getCardTexture } from "../../utils/pixiTextureLoader";
 import { PIXI_Z_INDEX } from "../../utils/pixiLayers";
+import {
+  makeInvisiblePointerHitTarget,
+  makePointerPassthrough,
+} from "./pixiHitTesting";
 
 // ============================================================================
 // Types
@@ -295,6 +299,7 @@ export function PieMenuRenderer({
       });
       label.anchor.set(0.5);
       label.position.set(labelPos.x, labelPos.y - labelOffset);
+      makePointerPassthrough(label);
       wedgeContainer.addChild(label);
 
       // Sublabel
@@ -310,18 +315,37 @@ export function PieMenuRenderer({
         });
         sublabel.anchor.set(0.5);
         sublabel.position.set(labelPos.x, labelPos.y + sublabelFontSize * 0.9);
+        makePointerPassthrough(sublabel);
         wedgeContainer.addChild(sublabel);
       }
+
+      const hitTarget = new Graphics();
+      drawWedge(
+        hitTarget,
+        innerRadius,
+        outerRadius,
+        wedge.startAngle,
+        wedge.endAngle,
+        0x000000,
+        0x000000,
+        0
+      );
+      wedgeContainer.addChild(hitTarget);
 
       if (wedge.disabled) {
         wedgeContainer.alpha = 0.5;
       }
 
       // Interactivity
-      shape.eventMode = wedge.disabled ? "none" : "static";
-      shape.cursor = wedge.disabled ? "not-allowed" : "pointer";
+      shape.eventMode = "none";
+      if (wedge.disabled) {
+        hitTarget.eventMode = "none";
+        hitTarget.cursor = "not-allowed";
+      } else {
+        makeInvisiblePointerHitTarget(hitTarget);
+      }
 
-      shape.on("pointerenter", () => {
+      hitTarget.on("pointerenter", () => {
         if (wedge.disabled || isDestroyedRef.current) return;
 
         wedgeContainer.zIndex = 100;
@@ -351,7 +375,7 @@ export function PieMenuRenderer({
         );
       });
 
-      shape.on("pointerleave", () => {
+      hitTarget.on("pointerleave", () => {
         if (wedge.disabled || isDestroyedRef.current) return;
 
         wedgeContainer.zIndex = index;
@@ -381,7 +405,7 @@ export function PieMenuRenderer({
         );
       });
 
-      shape.on("pointerdown", () => {
+      hitTarget.on("pointerdown", () => {
         if (wedge.disabled || isDestroyedRef.current) return;
 
         animManager.animate(`wedge-select-${index}`, wedgeContainer, {
@@ -444,6 +468,7 @@ export function PieMenuRenderer({
       cardSprite.position.set(0, 0);
       cardSprite.alpha = 0.3; // Start partially visible for smooth crossfade
       cardSprite.zIndex = 500; // Above wedges
+      makePointerPassthrough(cardSprite);
       menuContainer.addChild(cardSprite);
 
       // Animate card fade in immediately (no delay) to crossfade with hand card
@@ -468,6 +493,7 @@ export function PieMenuRenderer({
       centerText.anchor.set(0.5);
       centerText.position.set(0, 0);
       centerText.alpha = 0;
+      makePointerPassthrough(centerText);
       menuContainer.addChild(centerText);
 
       const labelTimeoutId = window.setTimeout(() => {
