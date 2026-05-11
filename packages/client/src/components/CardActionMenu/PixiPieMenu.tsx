@@ -18,6 +18,10 @@ import { usePixiApp } from "../../contexts/PixiAppContext";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 import { cleanupFilters } from "../../utils/pixiFilterCleanup";
 import { PIXI_Z_INDEX } from "../../utils/pixiLayers";
+import {
+  makeInvisiblePointerHitTarget,
+  makePointerPassthrough,
+} from "../CardInteraction/pixiHitTesting";
 
 // ============================================
 // Types
@@ -269,6 +273,7 @@ export function PixiPieMenu({
       });
       label.anchor.set(0.5);
       label.position.set(labelPos.x, labelPos.y - labelOffset);
+      makePointerPassthrough(label);
       wedgeContainer.addChild(label);
 
       // Sublabel
@@ -284,18 +289,37 @@ export function PixiPieMenu({
         });
         sublabel.anchor.set(0.5);
         sublabel.position.set(labelPos.x, labelPos.y + sublabelFontSize * 0.9);
+        makePointerPassthrough(sublabel);
         wedgeContainer.addChild(sublabel);
       }
+
+      const hitTarget = new Graphics();
+      drawWedge(
+        hitTarget,
+        innerRadius,
+        outerRadius,
+        wedge.startAngle,
+        wedge.endAngle,
+        0x000000,
+        0x000000,
+        0
+      );
+      wedgeContainer.addChild(hitTarget);
 
       if (wedge.disabled) {
         wedgeContainer.alpha = 0.5;
       }
 
       // Interactivity
-      shape.eventMode = wedge.disabled ? "none" : "static";
-      shape.cursor = wedge.disabled ? "not-allowed" : "pointer";
+      shape.eventMode = "none";
+      if (wedge.disabled) {
+        hitTarget.eventMode = "none";
+        hitTarget.cursor = "not-allowed";
+      } else {
+        makeInvisiblePointerHitTarget(hitTarget);
+      }
 
-      shape.on("pointerenter", () => {
+      hitTarget.on("pointerenter", () => {
         if (wedge.disabled || isDestroyedRef.current) return;
 
         wedgeContainer.zIndex = 100;
@@ -316,7 +340,7 @@ export function PixiPieMenu({
         drawWedge(shape, innerRadius, outerRadius, wedge.startAngle, wedge.endAngle, wedge.hoverColor, COLORS.STROKE_HOVER, 3);
       });
 
-      shape.on("pointerleave", () => {
+      hitTarget.on("pointerleave", () => {
         if (wedge.disabled || isDestroyedRef.current) return;
 
         wedgeContainer.zIndex = index;
@@ -337,7 +361,7 @@ export function PixiPieMenu({
         drawWedge(shape, innerRadius, outerRadius, wedge.startAngle, wedge.endAngle, wedge.color, strokeColor, 2);
       });
 
-      shape.on("pointerdown", () => {
+      hitTarget.on("pointerdown", () => {
         if (wedge.disabled || isDestroyedRef.current) return;
 
         animManager.animate(`wedge-select-${index}`, wedgeContainer, {
@@ -402,6 +426,7 @@ export function PixiPieMenu({
       centerText.anchor.set(0.5);
       centerText.position.set(0, 0);
       centerText.alpha = 0;
+      makePointerPassthrough(centerText);
       menuContainer.addChild(centerText);
 
       const labelTimeoutId = window.setTimeout(() => {
