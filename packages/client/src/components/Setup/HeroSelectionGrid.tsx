@@ -51,8 +51,8 @@ export function HeroSelectionGrid({
     <div className="hero-selection-grid">
       <h2 className="setup-section-title">
         {allSelected
-          ? "All heroes selected"
-          : `Select Hero for Player ${currentPlayerIndex + 1}`}
+          ? "Warband ready"
+          : `Mage Knight ${currentPlayerIndex + 1}: choose your hero`}
       </h2>
       <div className="hero-grid">
         {availableHeroes.map((hero) => {

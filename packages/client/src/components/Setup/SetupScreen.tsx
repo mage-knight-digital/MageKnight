@@ -5,7 +5,11 @@
 
 import { useState, useCallback } from "react";
 import type { GameConfig, HeroId } from "@mage-knight/shared";
-import { ALL_HEROES, SCENARIO_FIRST_RECONNAISSANCE } from "@mage-knight/shared";
+import {
+  ALL_HEROES,
+  SCENARIO_DISPLAY_NAMES,
+  SCENARIO_FIRST_RECONNAISSANCE,
+} from "@mage-knight/shared";
 import { PlayerCountSelector } from "./PlayerCountSelector";
 import { HeroSelectionGrid } from "./HeroSelectionGrid";
 import "./SetupScreen.css";
@@ -80,33 +84,41 @@ export function SetupScreen({ onComplete }: SetupScreenProps) {
     });
   }, [allSelected, playerCount, selectedHeroes, onComplete]);
 
+  const scenarioTitle =
+    SCENARIO_DISPLAY_NAMES[SCENARIO_FIRST_RECONNAISSANCE];
+
   return (
     <div className="setup-screen">
-      <h1 className="setup-screen__title">Mage Knight</h1>
+      <header className="setup-screen__header">
+        <h1 className="setup-screen__title">Mage Knight</h1>
+        <p className="setup-screen__scenario">{scenarioTitle}</p>
+      </header>
 
-      <div className="setup-screen__content">
-        <PlayerCountSelector
-          selectedCount={playerCount}
-          onSelectCount={handlePlayerCountChange}
-        />
+      <div className="setup-screen__panel">
+        <div className="setup-screen__content">
+          <PlayerCountSelector
+            selectedCount={playerCount}
+            onSelectCount={handlePlayerCountChange}
+          />
 
-        <HeroSelectionGrid
-          availableHeroes={ALL_HEROES}
-          selectedHeroes={selectedHeroes}
-          onSelectHero={handleSelectHero}
-          currentPlayerIndex={
-            currentPlayerIndex >= 0 ? currentPlayerIndex : playerCount - 1
-          }
-        />
+          <HeroSelectionGrid
+            availableHeroes={ALL_HEROES}
+            selectedHeroes={selectedHeroes}
+            onSelectHero={handleSelectHero}
+            currentPlayerIndex={
+              currentPlayerIndex >= 0 ? currentPlayerIndex : playerCount - 1
+            }
+          />
 
-        <button
-          type="button"
-          className="start-game-button"
-          disabled={!allSelected}
-          onClick={handleStartGame}
-        >
-          Start Game
-        </button>
+          <button
+            type="button"
+            className="start-game-button"
+            disabled={!allSelected}
+            onClick={handleStartGame}
+          >
+            Begin scenario
+          </button>
+        </div>
       </div>
     </div>
   );

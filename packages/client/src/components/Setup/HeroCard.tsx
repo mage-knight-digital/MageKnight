@@ -8,8 +8,8 @@ import { HERO_NAMES } from "@mage-knight/shared";
 import { getHeroTokenUrl } from "../../assets/assetPaths";
 import "./SetupScreen.css";
 
-// Player colors for badges (matches existing game UI)
-const PLAYER_COLORS = ["#FF6B6B", "#4ECDC4", "#FFE66D", "#95E1D3"];
+// Distinct, saturated tones that keep light badge labels readable
+const PLAYER_COLORS = ["#8b4513", "#1a4d3e", "#7c5e10", "#2c4a6e"];
 
 interface HeroCardProps {
   /** Hero to display */
