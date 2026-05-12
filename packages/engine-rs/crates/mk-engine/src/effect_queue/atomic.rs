@@ -6,6 +6,8 @@ use mk_types::ids::{CardId, ModifierId};
 use mk_types::modifier::*;
 use mk_types::state::*;
 
+use crate::undo::UndoStack;
+
 use mk_types::pending::ChoiceResolution;
 
 use super::ResolveResult;
@@ -276,11 +278,21 @@ pub(super) fn apply_gain_mana(
     ResolveResult::Applied
 }
 
-pub(super) fn apply_draw_cards(state: &mut GameState, player_idx: usize, count: u32) -> ResolveResult {
+pub(super) fn apply_draw_cards(
+    state: &mut GameState,
+    player_idx: usize,
+    count: u32,
+    undo: &mut Option<&mut UndoStack>,
+) -> ResolveResult {
     let player = &mut state.players[player_idx];
     let actual_draw = (count as usize).min(player.deck.len());
     let drawn: Vec<CardId> = player.deck.drain(..actual_draw).collect();
     player.hand.extend(drawn);
+    if actual_draw > 0 {
+        if let Some(stack) = undo.as_mut() {
+            stack.set_checkpoint();
+        }
+    }
     ResolveResult::Applied
 }
 

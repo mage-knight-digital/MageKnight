@@ -15,7 +15,14 @@ use super::multi_step::*;
 use super::spells::*;
 use super::utils::scale_effect;
 
-pub(super) fn resolve_one(state: &mut GameState, player_idx: usize, effect: &CardEffect) -> ResolveResult {
+use crate::undo::UndoStack;
+
+pub(super) fn resolve_one(
+    state: &mut GameState,
+    player_idx: usize,
+    effect: &CardEffect,
+    undo: &mut Option<&mut UndoStack>,
+) -> ResolveResult {
     match effect {
         // === Atomic effects ===
         CardEffect::GainMove { amount } => {
@@ -38,7 +45,7 @@ pub(super) fn resolve_one(state: &mut GameState, player_idx: usize, effect: &Car
         CardEffect::GainMana { color, amount } => {
             apply_gain_mana(state, player_idx, *color, *amount)
         }
-        CardEffect::DrawCards { count } => apply_draw_cards(state, player_idx, *count),
+        CardEffect::DrawCards { count } => apply_draw_cards(state, player_idx, *count, undo),
         CardEffect::GainFame { amount } => {
             state.players[player_idx].fame += amount;
             // TODO: level-up threshold check (Phase 3)

@@ -28,6 +28,7 @@ import { useCardMenuPosition } from "../../context/CardMenuPositionContext";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 import { PIXI_Z_INDEX } from "../../utils/pixiLayers";
 import { STANDARD_VIEW_MODE_OFFSETS, VIEW_MODE_TRANSITION_MS } from "../../utils/carouselViewModes";
+import { shouldIgnoreHandClick } from "./handPointerGuards";
 
 // Animation timing constants
 const HOVER_LIFT_DURATION_MS = CARD_FAN_HOVER.durationSec * 1000; // ~265ms synced to audio
@@ -565,16 +566,17 @@ export function PixiFloatingHand({
     if (!handContainer || !isAppReady) return;
 
     const handleClick = (e: MouseEvent) => {
-      // Don't process clicks when hand is hidden (board mode or inactive pane)
-      if (viewMode === "board" || !isActive) return;
-
-      // Don't intercept clicks when an overlay (like CardActionMenu) is active
-      // This allows clicks on the menu to work properly
-      // Exceptions:
-      // 1. Allow clicks in focus mode where WE are the overlay (to suppress hex tooltips)
-      // 2. Allow clicks during combat - combat registers as an overlay to hide hex tooltips,
-      //    but we still want card clicks to work
-      if (isOverlayActive && viewMode !== "focus" && !inCombat) return;
+      if (
+        shouldIgnoreHandClick({
+          viewMode,
+          isActive,
+          isOverlayActive,
+          inCombat,
+          cardInteractionType: cardInteractionState.type,
+        })
+      ) {
+        return;
+      }
 
       // Check if click target is an interactive element - let those clicks through
       // This allows combat overlay buttons, enemy card actions, etc. to work
@@ -696,7 +698,7 @@ export function PixiFloatingHand({
     return () => {
       document.removeEventListener("click", handleClick, true);
     };
-  }, [isAppReady, viewMode, findCardAtPosition, visibleHand, getOriginalIndex, playableCards, cardWidth, cardHeight, onCardClick, isOverlayActive, inCombat, setVisualScale, isActive]);
+  }, [isAppReady, viewMode, findCardAtPosition, visibleHand, getOriginalIndex, playableCards, cardWidth, cardHeight, onCardClick, isOverlayActive, inCombat, setVisualScale, isActive, cardInteractionState.type]);
 
   // Track previous hovered index for animation
   const prevHoveredIndexRef = useRef<number | null>(null);

@@ -8,6 +8,7 @@
     "dev:vite": "vite",
     "build": "bun run ./build.ts",
     "build:vite": "vite build",
+    "test": "bun test",
     "typecheck": "tsc -b",
     "preview": "vite preview"
   },

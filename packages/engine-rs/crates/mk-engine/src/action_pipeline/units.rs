@@ -9,6 +9,7 @@ use mk_types::state::*;
 use mk_types::modifier::ModifierEffect;
 
 use crate::{combat_resolution, mana};
+use crate::undo::UndoStack;
 
 use super::{ApplyError, ApplyResult};
 use super::skills_complex;
@@ -951,6 +952,7 @@ pub(super) fn apply_resolve_select_enemy(
     state: &mut GameState,
     player_idx: usize,
     choice_index: usize,
+    undo_stack: &mut UndoStack,
 ) -> Result<ApplyResult, ApplyError> {
     let pending = state.players[player_idx]
         .pending
@@ -992,7 +994,7 @@ pub(super) fn apply_resolve_select_enemy(
                     .collect(),
             );
 
-            match queue.drain(state, player_idx) {
+            match queue.drain_with_undo(state, player_idx, Some(undo_stack)) {
                 DrainResult::Complete => {}
                 DrainResult::NeedsChoice {
                     options,
