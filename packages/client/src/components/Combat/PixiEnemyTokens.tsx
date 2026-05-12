@@ -15,11 +15,12 @@
 
 import { useEffect, useRef, useId, useCallback, useState } from "react";
 import { Container, Graphics, Sprite, Texture, Assets } from "pixi.js";
-import type { ClientCombatEnemy, EnemyId } from "@mage-knight/shared";
+import type { ClientCombatEnemy } from "@mage-knight/shared";
 import { usePixiApp } from "../../contexts/PixiAppContext";
 import { useCombatDragOptional } from "../../contexts/CombatDragContext";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 import { PIXI_Z_INDEX } from "../../utils/pixiLayers";
+import { getEnemyImageUrl } from "../../assets/assetPaths";
 
 // Colors
 const COLORS = {
@@ -35,11 +36,6 @@ const COLORS = {
   TARGETED_GLOW: 0xd4a574, // Antique gold
   DROP_HIGHLIGHT: 0xffd700, // Gold for drop target
 };
-
-// Get enemy token image URL
-function getEnemyImageUrl(enemyId: EnemyId): string {
-  return `/assets/enemies/${enemyId}.jpg`;
-}
 
 interface EnemyTokenData {
   enemy: ClientCombatEnemy;

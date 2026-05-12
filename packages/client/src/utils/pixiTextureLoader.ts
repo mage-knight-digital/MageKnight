@@ -19,6 +19,7 @@
 
 import { Texture, Rectangle, Assets } from "pixi.js";
 import type { CardId, UnitId, TacticId } from "@mage-knight/shared";
+import { assetUrl } from "../assets/assetPaths";
 import { getCardSpriteData, getUnitSpriteData, getTacticSpriteData, type SpriteData } from "./cardAtlas";
 
 // ============================================================================
@@ -109,7 +110,7 @@ export async function loadAtlasData(): Promise<AtlasData> {
   if (atlasData) return atlasData;
   if (atlasLoadPromise) return atlasLoadPromise;
 
-  atlasLoadPromise = fetch("/assets/atlas.json")
+  atlasLoadPromise = fetch(assetUrl("atlas.json"))
     .then((res) => res.json())
     .then((data: AtlasData) => {
       atlasData = data;
@@ -156,7 +157,7 @@ export async function getCardTextureFromAtlas(cardId: string): Promise<Texture |
   }
 
   // Load or get base texture
-  const sheetUrl = `/assets/${sheet.file}`;
+  const sheetUrl = assetUrl(sheet.file);
   const loadPromise = (async () => {
     const baseTexture = await Assets.load(sheetUrl);
 
@@ -334,7 +335,7 @@ export async function preloadCardTextures(cardIds: string[]): Promise<void> {
  */
 export async function preloadAllSpriteSheets(): Promise<void> {
   const atlas = await loadAtlasData();
-  const sheetUrls = Object.values(atlas.sheets).map((s) => `/assets/${s.file}`);
+  const sheetUrls = Object.values(atlas.sheets).map((s) => assetUrl(s.file));
   const uniqueUrls = [...new Set(sheetUrls)];
 
   // Load all sheets via PixiJS Assets (this uploads to GPU)

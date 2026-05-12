@@ -15,6 +15,7 @@ import type { ClientHexEnemy, EnemyAbilityType, Element } from "@mage-knight/sha
 import { ENEMIES, ABILITY_DESCRIPTIONS } from "@mage-knight/shared";
 import { GameIcon, type GameIconType } from "../Icons";
 import { getEnemyAttacks, groupEnemyAttacks } from "../../utils/enemyAttacks";
+import { getEnemyTokenBackUrl } from "../../assets/assetPaths";
 
 export interface EnemyTooltipContentProps {
   enemies: readonly ClientHexEnemy[];
@@ -29,13 +30,13 @@ export interface EnemyTooltipContentProps {
 
 // Enemy token back images by color
 const TOKEN_BACK_PATHS: Record<string, string> = {
-  green: "/assets/enemies/backs/green.png",
-  gray: "/assets/enemies/backs/grey.png",
-  grey: "/assets/enemies/backs/grey.png",
-  brown: "/assets/enemies/backs/brown.png",
-  violet: "/assets/enemies/backs/violet.png",
-  red: "/assets/enemies/backs/red.png",
-  white: "/assets/enemies/backs/white.png",
+  green: getEnemyTokenBackUrl("green"),
+  gray: getEnemyTokenBackUrl("grey"),
+  grey: getEnemyTokenBackUrl("grey"),
+  brown: getEnemyTokenBackUrl("brown"),
+  violet: getEnemyTokenBackUrl("violet"),
+  red: getEnemyTokenBackUrl("red"),
+  white: getEnemyTokenBackUrl("white"),
 };
 
 function getAttackIconType(element: Element): GameIconType {

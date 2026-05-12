@@ -5,6 +5,7 @@
 
 import type { HeroId } from "@mage-knight/shared";
 import { HERO_NAMES } from "@mage-knight/shared";
+import { getHeroTokenUrl } from "../../assets/assetPaths";
 import "./SetupScreen.css";
 
 // Player colors for badges (matches existing game UI)
@@ -30,7 +31,7 @@ export function HeroCard({
   playerIndex,
   onClick,
 }: HeroCardProps) {
-  const imagePath = `/assets/heroes/${hero}_card.png`;
+  const imagePath = getHeroTokenUrl(hero);
   const heroName = HERO_NAMES[hero];
 
   return (

@@ -27,6 +27,7 @@ import {
   BASIC_MANA_COLORS,
 } from "@mage-knight/shared";
 import type { ManaColor, AvailableDie } from "@mage-knight/shared";
+import { assetUrl } from "../../assets/assetPaths";
 import "./ManaSourceOverlay.css";
 
 function getManaIconUrl(color: string): string {
@@ -39,7 +40,7 @@ function getManaIconUrl(color: string): string {
     [MANA_BLACK]: "black",
   };
   const colorName = colorMap[color] || "white";
-  return `/assets/mana_icons/glossy/${colorName}.png`;
+  return assetUrl(`mana_icons/glossy/${colorName}.png`);
 }
 
 // Animation durations must match CSS

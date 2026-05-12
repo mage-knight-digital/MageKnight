@@ -30,6 +30,7 @@ import { useCombatDrag, type BlockChipData } from "../../contexts/CombatDragCont
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 import { PIXI_Z_INDEX } from "../../utils/pixiLayers";
 import { chipRowLayout } from "../../utils/pixiLayout";
+import { assetUrl } from "../../assets/assetPaths";
 
 // ============================================================================
 // Constants
@@ -37,12 +38,14 @@ import { chipRowLayout } from "../../utils/pixiLayout";
 
 const DRAG_THRESHOLD = 8; // pixels before drag starts
 
+const icon = (file: string): string => assetUrl(`icons/${file}`);
+
 // Block icon paths
 const BLOCK_ICONS: Record<AttackElement, string> = {
-  physical: "/assets/icons/block.png",
-  fire: "/assets/icons/fire_attack.png",
-  ice: "/assets/icons/ice_attack.png",
-  coldFire: "/assets/icons/cold_fire_attack.png",
+  physical: icon("block.png"),
+  fire: icon("fire_attack.png"),
+  ice: icon("ice_attack.png"),
+  coldFire: icon("cold_fire_attack.png"),
 };
 
 // All block elements in display order

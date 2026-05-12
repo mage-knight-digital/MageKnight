@@ -13,6 +13,7 @@
  * - Resistances: fire_resist, ice_resist, physical_resist
  */
 
+import { assetUrl } from "../../assets/assetPaths";
 import "./GameIcon.css";
 
 export type GameIconType =
@@ -45,35 +46,37 @@ export type GameIconType =
   | "ice_resist"
   | "physical_resist";
 
+const icon = (file: string): string => assetUrl(`icons/${file}`);
+
 const ICON_PATHS: Record<GameIconType, string> = {
-  attack: "/assets/icons/attack.png",
-  combat: "/assets/icons/combat.png",
-  block: "/assets/icons/block.png",
-  fortified: "/assets/icons/fortified.png",
-  fame: "/assets/icons/fame.png",
-  heal: "/assets/icons/heal.png",
-  spell: "/assets/icons/spell.png",
-  influence: "/assets/icons/influence.png",
-  end_turn: "/assets/icons/end_turn.png",
+  attack: icon("attack.png"),
+  combat: icon("combat.png"),
+  block: icon("block.png"),
+  fortified: icon("fortified.png"),
+  fame: icon("fame.png"),
+  heal: icon("heal.png"),
+  spell: icon("spell.png"),
+  influence: icon("influence.png"),
+  end_turn: icon("end_turn.png"),
   // Enemy abilities
-  swift: "/assets/icons/swift.png",
-  brutal: "/assets/icons/brutal.png",
-  poison: "/assets/icons/poison.png",
-  paralyze: "/assets/icons/paralyze.png",
-  summon: "/assets/icons/summon.png",
-  cumbersome: "/assets/icons/cumbersome.png",
-  unfortified: "/assets/icons/unfortified.png",
-  vampiric: "/assets/icons/heal.png", // TODO: Add dedicated vampiric icon
-  armor: "/assets/icons/armor.png",
-  arcane_immune: "/assets/icons/arcane_immune.png",
+  swift: icon("swift.png"),
+  brutal: icon("brutal.png"),
+  poison: icon("poison.png"),
+  paralyze: icon("paralyze.png"),
+  summon: icon("summon.png"),
+  cumbersome: icon("cumbersome.png"),
+  unfortified: icon("unfortified.png"),
+  vampiric: icon("heal.png"), // TODO: Add dedicated vampiric icon
+  armor: icon("armor.png"),
+  arcane_immune: icon("arcane_immune.png"),
   // Attack elements
-  fire: "/assets/icons/fire_attack.png",
-  ice: "/assets/icons/ice_attack.png",
-  cold_fire: "/assets/icons/cold_fire_attack.png",
+  fire: icon("fire_attack.png"),
+  ice: icon("ice_attack.png"),
+  cold_fire: icon("cold_fire_attack.png"),
   // Resistances
-  fire_resist: "/assets/icons/fire_resist.png",
-  ice_resist: "/assets/icons/ice_resist.png",
-  physical_resist: "/assets/icons/physical_resist.png",
+  fire_resist: icon("fire_resist.png"),
+  ice_resist: icon("ice_resist.png"),
+  physical_resist: icon("physical_resist.png"),
 };
 
 /** Preset sizes for responsive icons */

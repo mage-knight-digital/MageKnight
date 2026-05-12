@@ -32,6 +32,7 @@ import { useCombatDrag, type DamageChipData } from "../../contexts/CombatDragCon
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 import { PIXI_Z_INDEX } from "../../utils/pixiLayers";
 import { chipRowLayout } from "../../utils/pixiLayout";
+import { assetUrl } from "../../assets/assetPaths";
 
 // ============================================================================
 // Constants
@@ -39,12 +40,14 @@ import { chipRowLayout } from "../../utils/pixiLayout";
 
 const DRAG_THRESHOLD = 8; // pixels before drag starts
 
+const icon = (file: string): string => assetUrl(`icons/${file}`);
+
 // Element icon paths
 const ELEMENT_ICONS: Record<AttackElement, string> = {
-  physical: "/assets/icons/attack.png",
-  fire: "/assets/icons/fire_attack.png",
-  ice: "/assets/icons/ice_attack.png",
-  coldFire: "/assets/icons/cold_fire_attack.png",
+  physical: icon("attack.png"),
+  fire: icon("fire_attack.png"),
+  ice: icon("ice_attack.png"),
+  coldFire: icon("cold_fire_attack.png"),
 };
 
 // Attack type labels

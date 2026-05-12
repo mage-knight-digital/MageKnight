@@ -1,6 +1,7 @@
 import type { CardId, UnitId, TacticId } from "@mage-knight/shared";
+import { assetUrl } from "../assets/assetPaths";
 
-// Atlas data - matches public/assets/atlas.json
+// Atlas data — layout matches bundled atlas.json (served from the static game asset root)
 interface SheetInfo {
   file: string;
   width: number;
@@ -122,7 +123,7 @@ export interface SpriteData {
  * separately by PixiJS Assets.load() in preloadAllSpriteSheets().
  */
 async function preloadImage(file: string): Promise<void> {
-  const url = `/assets/${file}`;
+  const url = assetUrl(file);
 
   try {
     const img = new Image();
@@ -212,7 +213,7 @@ function computeSpriteStyle(
   const bgHeight = sheet.height * scale;
 
   return {
-    backgroundImage: `url(/assets/${sheet.file})`,
+    backgroundImage: `url(${assetUrl(sheet.file)})`,
     backgroundPosition: `-${bgX}px -${bgY}px`,
     backgroundSize: `${bgWidth}px ${bgHeight}px`,
     width: `${displayWidth}px`,
@@ -331,7 +332,7 @@ function computeIconSpriteStyle(
   const bgHeight = sheet.height * scale;
 
   return {
-    backgroundImage: `url(/assets/${sheet.file})`,
+    backgroundImage: `url(${assetUrl(sheet.file)})`,
     backgroundPosition: `-${bgX}px -${bgY}px`,
     backgroundSize: `${bgWidth}px ${bgHeight}px`,
     width: `${displayWidth}px`,
@@ -365,7 +366,7 @@ function precomputeCrystalStyles(atlasData: RawAtlasData, displayHeight: number)
 export async function loadAtlas(): Promise<void> {
   if (atlasLoaded) return;
 
-  const response = await fetch("/assets/atlas.json");
+  const response = await fetch(assetUrl("atlas.json"));
   const rawData = (await response.json()) as RawAtlasData;
 
   // Cast to AtlasData for card/unit/tactic functions (they only access SheetInfo sheets)
@@ -590,7 +591,7 @@ export function getUnitSpriteData(unitId: UnitId): SpriteData | null {
   const physicalRow = sheet.hasEvenOddLayout ? position.row * 2 : position.row;
 
   return {
-    src: `/assets/${sheet.file}`,
+    src: assetUrl(sheet.file),
     spriteWidth: sheet.cardWidth,
     spriteHeight: fullCardHeight,
     col: position.col,
@@ -619,7 +620,7 @@ export function getTacticSpriteData(tacticId: TacticId): SpriteData | null {
 
   // Tactics sheet doesn't use even/odd layout
   return {
-    src: `/assets/${sheet.file}`,
+    src: assetUrl(sheet.file),
     spriteWidth: sheet.cardWidth,
     spriteHeight: sheet.cardHeight,
     col: position.col,
@@ -655,7 +656,7 @@ export function getCardSpriteData(cardId: CardId): SpriteData | null {
       const physicalRow = sheet.hasEvenOddLayout ? position.row * 2 : position.row;
 
       return {
-        src: `/assets/${sheet.file}`,
+        src: assetUrl(sheet.file),
         spriteWidth: sheet.cardWidth,
         spriteHeight: fullCardHeight,
         col: position.col,

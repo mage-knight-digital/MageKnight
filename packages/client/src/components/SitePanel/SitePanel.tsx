@@ -27,6 +27,7 @@ import {
   type Element,
 } from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
+import { getEnemyTokenBackUrl } from "../../assets/assetPaths";
 import { SiteIcon, GameIcon, type SiteIconType, type GameIconType } from "../Icons";
 import { getEnemyAttackElements, getEnemyAttacks, groupEnemyAttacks } from "../../utils/enemyAttacks";
 import "./SitePanel.css";
@@ -68,13 +69,13 @@ function getUnitsRecruitableAtSite(
 
 // Token back images by color
 const TOKEN_BACK_PATHS: Record<string, string> = {
-  green: "/assets/enemies/backs/green.png",
-  gray: "/assets/enemies/backs/grey.png",
-  grey: "/assets/enemies/backs/grey.png",
-  brown: "/assets/enemies/backs/brown.png",
-  violet: "/assets/enemies/backs/violet.png",
-  red: "/assets/enemies/backs/red.png",
-  white: "/assets/enemies/backs/white.png",
+  green: getEnemyTokenBackUrl("green"),
+  gray: getEnemyTokenBackUrl("grey"),
+  grey: getEnemyTokenBackUrl("grey"),
+  brown: getEnemyTokenBackUrl("brown"),
+  violet: getEnemyTokenBackUrl("violet"),
+  red: getEnemyTokenBackUrl("red"),
+  white: getEnemyTokenBackUrl("white"),
 };
 
 

@@ -1,10 +1,11 @@
 /**
  * SiteIcon - Renders a site icon from individual PNG files
  *
- * All sites use individual cropped images from /assets/sites/
+ * All sites use individual cropped images from the static sites/ folder.
  */
 
 import "./SiteIcon.css";
+import { assetUrl } from "../../assets/assetPaths";
 
 export type SiteIconType =
   | "ancient_ruins"
@@ -29,27 +30,29 @@ export type SiteIconType =
   | "dungeon";
 
 // Map site types to individual image files
+const site = (file: string): string => assetUrl(`sites/${file}`);
+
 const SITE_IMAGE_PATHS: Record<SiteIconType, string> = {
-  ancient_ruins: "/assets/sites/ancient_ruins.png",
-  blue_city: "/assets/sites/city_blue.png",
-  green_city: "/assets/sites/city_green.png",
-  red_city: "/assets/sites/city_red.png",
-  white_city: "/assets/sites/city_white.png",
-  mine: "/assets/sites/crystal_mine.png",
-  deep_mine: "/assets/sites/deep_mine.png",
-  draconum: "/assets/sites/draconum.png",
-  keep: "/assets/sites/keep.png",
-  mage_tower: "/assets/sites/mage_tower.png",
-  maze: "/assets/sites/labyrinth.png",
-  labyrinth: "/assets/sites/labyrinth.png",
-  monastery: "/assets/sites/monastery.png",
-  village: "/assets/sites/village.png",
-  spawning_grounds: "/assets/sites/spawning_grounds.png",
-  magical_glade: "/assets/sites/magic_glade.png",
-  camp: "/assets/sites/refugee_camp.png",
-  monster_den: "/assets/sites/orc_marauder.png",
-  tomb: "/assets/sites/tomb.png",
-  dungeon: "/assets/sites/deep_mine.png",  // Dungeon uses mine/cave image
+  ancient_ruins: site("ancient_ruins.png"),
+  blue_city: site("city_blue.png"),
+  green_city: site("city_green.png"),
+  red_city: site("city_red.png"),
+  white_city: site("city_white.png"),
+  mine: site("crystal_mine.png"),
+  deep_mine: site("deep_mine.png"),
+  draconum: site("draconum.png"),
+  keep: site("keep.png"),
+  mage_tower: site("mage_tower.png"),
+  maze: site("labyrinth.png"),
+  labyrinth: site("labyrinth.png"),
+  monastery: site("monastery.png"),
+  village: site("village.png"),
+  spawning_grounds: site("spawning_grounds.png"),
+  magical_glade: site("magic_glade.png"),
+  camp: site("refugee_camp.png"),
+  monster_den: site("orc_marauder.png"),
+  tomb: site("tomb.png"),
+  dungeon: site("deep_mine.png"), // Dungeon uses mine/cave image
 };
 
 export interface SiteIconProps {
