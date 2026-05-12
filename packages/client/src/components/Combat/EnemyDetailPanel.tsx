@@ -13,18 +13,21 @@ import { ABILITY_DESCRIPTIONS, RESISTANCE_DESCRIPTIONS, ENEMIES } from "@mage-kn
 import type { ResistanceType } from "@mage-knight/shared";
 import { GameIcon, type GameIconType } from "../Icons";
 import { getEnemyAttackElements, getEnemyAttacks, groupEnemyAttacks } from "../../utils/enemyAttacks";
+import { assetUrl, getEnemyImageUrl } from "../../assets/assetPaths";
 import "./EnemyDetailPanel.css";
 
 // Icon paths for abilities (fallback for abilities without GameIcon support)
+const icon = (file: string): string => assetUrl(`icons/${file}`);
+
 const ABILITY_ICONS: Record<string, string> = {
-  fortified: "/assets/icons/fortified.png",
-  unfortified: "/assets/icons/unfortified.png",
-  swift: "/assets/icons/swift.png",
-  brutal: "/assets/icons/brutal.png",
-  poison: "/assets/icons/poison.png",
-  paralyze: "/assets/icons/paralyze.png",
-  summon: "/assets/icons/summon.png",
-  cumbersome: "/assets/icons/cumbersome.png",
+  fortified: icon("fortified.png"),
+  unfortified: icon("unfortified.png"),
+  swift: icon("swift.png"),
+  brutal: icon("brutal.png"),
+  poison: icon("poison.png"),
+  paralyze: icon("paralyze.png"),
+  summon: icon("summon.png"),
+  cumbersome: icon("cumbersome.png"),
 };
 
 // Icon paths for resistances
@@ -113,7 +116,7 @@ export function EnemyDetailPanel({ enemy, onClose }: EnemyDetailPanelProps) {
         <div className="enemy-detail-header">
           <div className="enemy-detail-header-content">
             <img
-              src={`/assets/enemies/${enemy.enemyId}.jpg`}
+              src={getEnemyImageUrl(enemy.enemyId)}
               alt={enemy.name}
               className="enemy-detail-portrait"
             />

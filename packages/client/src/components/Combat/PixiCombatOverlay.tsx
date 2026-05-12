@@ -22,10 +22,11 @@ import { useGame } from "../../hooks/useGame";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 import { cleanupFilters } from "../../utils/pixiFilterCleanup";
 import { PIXI_Z_INDEX } from "../../utils/pixiLayers";
+import { assetUrl } from "../../assets/assetPaths";
 
 // Site sprite sheet configuration (matches CombatOverlay.tsx)
 const SITES_SHEET = {
-  src: "/assets/sites/sites_sprite_sheet.png",
+  src: assetUrl("sites/sites_sprite_sheet.png"),
   width: 1280,
   height: 1024,
   spriteWidth: 256,

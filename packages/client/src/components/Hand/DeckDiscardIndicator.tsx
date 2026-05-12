@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useGameIntro, UI_REVEAL_TIMING } from "../../contexts/GameIntroContext";
+import { assetUrl } from "../../assets/assetPaths";
 import "./DeckDiscardIndicator.css";
 
 interface DeckDiscardIndicatorProps {
@@ -59,7 +60,7 @@ export function DeckDiscardIndicator({ deckCount, discardCount, isHidden }: Deck
     <div className={className}>
       <div className="floating-hand__deck" title={`${deckCount} cards in deck`}>
         <img
-          src="/assets/atlas/cards/card_back.jpg"
+          src={assetUrl("atlas/cards/card_back.jpg")}
           alt="Deck"
           className="floating-hand__deck-image"
         />

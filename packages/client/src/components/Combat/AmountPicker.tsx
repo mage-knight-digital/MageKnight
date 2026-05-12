@@ -7,14 +7,17 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { AttackType, AttackElement } from "@mage-knight/shared";
+import { assetUrl } from "../../assets/assetPaths";
 import "./AmountPicker.css";
+
+const icon = (file: string): string => assetUrl(`icons/${file}`);
 
 // Element icon paths
 const ELEMENT_ICONS: Record<AttackElement, string> = {
-  physical: "/assets/icons/attack.png",
-  fire: "/assets/icons/fire_attack.png",
-  ice: "/assets/icons/ice_attack.png",
-  coldFire: "/assets/icons/cold_fire_attack.png",
+  physical: icon("attack.png"),
+  fire: icon("fire_attack.png"),
+  ice: icon("ice_attack.png"),
+  coldFire: icon("cold_fire_attack.png"),
 };
 
 const TYPE_NAMES: Record<AttackType, string> = {
@@ -25,10 +28,10 @@ const TYPE_NAMES: Record<AttackType, string> = {
 
 // Block element icons (use block icon for physical)
 const BLOCK_ICONS: Record<AttackElement, string> = {
-  physical: "/assets/icons/block.png",
-  fire: "/assets/icons/fire_attack.png",
-  ice: "/assets/icons/ice_attack.png",
-  coldFire: "/assets/icons/cold_fire_attack.png",
+  physical: icon("block.png"),
+  fire: icon("fire_attack.png"),
+  ice: icon("ice_attack.png"),
+  coldFire: icon("cold_fire_attack.png"),
 };
 
 interface AmountPickerProps {
