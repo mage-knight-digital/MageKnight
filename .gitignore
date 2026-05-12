@@ -49,8 +49,19 @@ sim-artifacts/
 # Generated eval replays
 packages/python-sdk/eval_replays/
 
-# Impeccable / agent design exports (regeneratable; narrative lives in DESIGN.md)
-.impeccable/
+# Impeccable (https://github.com/pbakaus/impeccable/blob/main/.gitignore):
+# track PRODUCT.md, DESIGN.md, and root DESIGN.json; keep live/cache/history local.
+.impeccable/live/server.json
+.impeccable/live/sessions/
+.impeccable/live/annotations/
+.impeccable/live/cache/
+.impeccable/history/
+.impeccable-live.json
+.impeccable-live/
+# Legacy per-project design context (pre-v3.1; teach migrates to PRODUCT.md)
+.impeccable.md
+# Sidecar lives at repo root (DESIGN.json); ignore harness mirror if present.
+.impeccable/design.json
 
 # Viewer cache (converted replay artifacts)
 .viewer-cache/
