@@ -475,6 +475,45 @@ fn undo_restores_state() {
 }
 
 #[test]
+fn tranquility_draw_after_basic_play_clears_undo_stack() {
+    // Tranquility basic: heal vs draw. With no wounds, only draw resolves and
+    // reveals a card from the deck — undo must not rewind past hidden info.
+    let mut state = setup_playing_game(vec!["tranquility"]);
+    assert!(
+        !state.players[0].deck.is_empty(),
+        "test requires a non-empty deck so tranquility resolves to draw",
+    );
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+
+    apply_legal_action(
+        &mut state,
+        &mut undo,
+        0,
+        &LegalAction::PlayCardBasic {
+            hand_index: 0,
+            card_id: CardId::from("tranquility"),
+        },
+        epoch,
+    )
+    .unwrap();
+
+    assert_eq!(state.players[0].hand.len(), 1, "expected one drawn card in hand");
+    assert!(
+        !undo.can_undo(),
+        "undo stack should be cleared after drawing from the deck",
+    );
+    let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
+    assert!(
+        !legal
+            .actions
+            .iter()
+            .any(|a| matches!(a, LegalAction::Undo)),
+        "Undo must not be offered after a hidden-information draw",
+    );
+}
+
+#[test]
 fn blood_powered_choice_events_have_descriptions() {
     use mk_types::pending::{ActivePending, ChoiceResolution, PendingChoice};
 

@@ -8,6 +8,8 @@ use mk_types::pending::{
 };
 use mk_types::state::*;
 
+use crate::undo::UndoStack;
+
 use super::{DrainResult, EffectQueue, QueuedEffect, MAX_CRYSTALS_PER_COLOR, WOUND_CARD_ID};
 
 pub(super) fn discard_eligible_cards(
@@ -210,6 +212,7 @@ pub(super) fn resume_continuation(
     player_idx: usize,
     source_card_id: Option<CardId>,
     continuation: Vec<ContinuationEntry>,
+    undo: Option<&mut UndoStack>,
 ) {
     if continuation.is_empty() {
         return;
@@ -224,7 +227,7 @@ pub(super) fn resume_continuation(
             })
             .collect(),
     );
-    match queue.drain(state, player_idx) {
+    match queue.drain_with_undo(state, player_idx, undo) {
         DrainResult::Complete => {}
         DrainResult::NeedsChoice {
             options,

@@ -13,6 +13,7 @@ use mk_types::pending::{ActivePending, ChoiceResolution, ContinuationEntry, Pend
 use mk_types::state::*;
 
 use crate::effect_queue::{DrainResult, EffectQueue};
+use crate::undo::UndoStack;
 
 // =============================================================================
 // Error types
@@ -48,20 +49,25 @@ pub enum CardPlayResult {
 // Play card (basic or powered)
 // =============================================================================
 
-/// Play a card from hand (basic or powered mode).
-///
-/// Steps:
-/// 1. Validate card is in hand at the given index
-/// 2. Look up card definition
-/// 3. If powered, validate and consume mana (token or crystal)
-/// 4. Move card from hand to play area
-/// 5. Resolve the card's effect via effect queue
+/// Play a card from hand (basic or powered).
+/// For pipeline undo integration, use [`play_card_with_undo`].
 pub fn play_card(
     state: &mut GameState,
     player_idx: usize,
     hand_index: usize,
     powered: bool,
     override_mana_color: Option<BasicManaColor>,
+) -> Result<CardPlayResult, CardPlayError> {
+    play_card_with_undo(state, player_idx, hand_index, powered, override_mana_color, None)
+}
+
+pub(crate) fn play_card_with_undo(
+    state: &mut GameState,
+    player_idx: usize,
+    hand_index: usize,
+    powered: bool,
+    override_mana_color: Option<BasicManaColor>,
+    undo: Option<&mut UndoStack>,
 ) -> Result<CardPlayResult, CardPlayError> {
     let player = &state.players[player_idx];
 
@@ -163,7 +169,7 @@ pub fn play_card(
     let card_id_str: Box<str> = card_id.as_str().into();
     let mut queue = EffectQueue::new();
     queue.push(effect, Some(card_id.clone()));
-    let result = match queue.drain(state, player_idx) {
+    let result = match queue.drain_with_undo(state, player_idx, undo) {
         DrainResult::Complete => Ok(CardPlayResult::Complete),
         DrainResult::NeedsChoice {
             options,

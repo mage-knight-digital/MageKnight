@@ -16,8 +16,16 @@ pub(super) fn apply_play_card(
     hand_index: usize,
     powered: bool,
     override_mana_color: Option<BasicManaColor>,
+    undo_stack: &mut UndoStack,
 ) -> Result<ApplyResult, ApplyError> {
-    card_play::play_card(state, player_idx, hand_index, powered, override_mana_color)
+    card_play::play_card_with_undo(
+        state,
+        player_idx,
+        hand_index,
+        powered,
+        override_mana_color,
+        Some(undo_stack),
+    )
         .map(|_| ApplyResult {
             needs_reenumeration: true,
             game_ended: false,
