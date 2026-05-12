@@ -29,7 +29,8 @@ export function PlayerCountSelector({
 
   return (
     <div className="player-count-selector">
-      <h2 className="setup-section-title">Number of Players</h2>
+      <h2 className="setup-section-title">Mage Knights</h2>
+      <p className="setup-section-hint">How many players at the table?</p>
       <div className="count-buttons">
         {counts.map((count) => (
           <button

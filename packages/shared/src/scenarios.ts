@@ -37,6 +37,12 @@ export type ScenarioId =
   | typeof SCENARIO_FIRST_RECONNAISSANCE
   | typeof SCENARIO_FULL_CONQUEST;
 
+/** Human-readable scenario titles for UI copy */
+export const SCENARIO_DISPLAY_NAMES: Record<ScenarioId, string> = {
+  [SCENARIO_FIRST_RECONNAISSANCE]: "First Reconnaissance",
+  [SCENARIO_FULL_CONQUEST]: "Full Conquest",
+};
+
 // === Map Shape Types ===
 export const MAP_SHAPE_WEDGE = "wedge" as const;
 export const MAP_SHAPE_OPEN = "open" as const;
