@@ -49,6 +49,9 @@ sim-artifacts/
 # Generated eval replays
 packages/python-sdk/eval_replays/
 
+# Impeccable / agent design exports (regeneratable; narrative lives in DESIGN.md)
+.impeccable/
+
 # Viewer cache (converted replay artifacts)
 .viewer-cache/
 *.json.ndjson
