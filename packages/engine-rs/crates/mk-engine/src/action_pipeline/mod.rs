@@ -172,7 +172,7 @@ pub fn apply_legal_action(
                 effect_description: effect_desc,
                 mana_color: None,
             });
-            turn_flow::apply_play_card(state, player_idx, *hand_index, false, None)?
+            turn_flow::apply_play_card(state, player_idx, *hand_index, false, None, undo_stack)?
         }
 
         LegalAction::PlayCardPowered {
@@ -191,7 +191,7 @@ pub fn apply_legal_action(
                 effect_description: effect_desc,
                 mana_color: *mana_color,
             });
-            turn_flow::apply_play_card(state, player_idx, *hand_index, true, *mana_color)?
+            turn_flow::apply_play_card(state, player_idx, *hand_index, true, *mana_color, undo_stack)?
         }
 
         LegalAction::PlayCardSideways {
@@ -274,7 +274,7 @@ pub fn apply_legal_action(
                 skill_id: source_skill,
                 chosen_description: chosen_desc,
             });
-            choices::apply_resolve_choice(state, player_idx, *choice_index)?
+            choices::apply_resolve_choice(state, player_idx, *choice_index, undo_stack)?
         }
 
         LegalAction::ResolveDiscardForBonus {
@@ -283,13 +283,13 @@ pub fn apply_legal_action(
         } => {
             // Reversible: save snapshot
             undo_stack.save(state);
-            choices::apply_resolve_discard_for_bonus(state, player_idx, *choice_index, *discard_count)?
+            choices::apply_resolve_discard_for_bonus(state, player_idx, *choice_index, *discard_count, undo_stack)?
         }
 
         LegalAction::ResolveDecompose { hand_index } => {
             // Reversible: save snapshot
             undo_stack.save(state);
-            choices::apply_resolve_decompose(state, player_idx, *hand_index)?
+            choices::apply_resolve_decompose(state, player_idx, *hand_index, undo_stack)?
         }
 
         LegalAction::ResolveDiscardForCrystal { .. } => {
@@ -353,7 +353,11 @@ pub fn apply_legal_action(
         LegalAction::BeginPeacefulMomentHealing => {
             // Reversible: clears flags, enters conversion pending.
             undo_stack.save(state);
-            crate::effect_queue::enter_peaceful_moment_conversion(state, player_idx);
+            crate::effect_queue::enter_peaceful_moment_conversion_with_undo(
+                state,
+                player_idx,
+                Some(undo_stack),
+            );
             ApplyResult {
                 needs_reenumeration: true,
                 game_ended: false,
@@ -670,18 +674,18 @@ pub fn apply_legal_action(
 
         LegalAction::ResolveTomeOfAllSpells { selection_index } => {
             undo_stack.save(state);
-            choices::apply_resolve_tome_of_all_spells(state, player_idx, *selection_index)?
+            choices::apply_resolve_tome_of_all_spells(state, player_idx, *selection_index, undo_stack)?
         }
 
         LegalAction::ResolveCircletOfProficiency { selection_index } => {
             undo_stack.save(state);
-            choices::apply_resolve_circlet_of_proficiency(state, player_idx, *selection_index)?
+            choices::apply_resolve_circlet_of_proficiency(state, player_idx, *selection_index, undo_stack)?
         }
 
         LegalAction::ResolveMaximalEffect { hand_index } => {
             // Reversible: save snapshot
             undo_stack.save(state);
-            choices::apply_resolve_maximal_effect(state, player_idx, *hand_index)?
+            choices::apply_resolve_maximal_effect(state, player_idx, *hand_index, undo_stack)?
         }
 
         LegalAction::ResolveMeditation {

@@ -1486,3 +1486,50 @@ fn cumbersome_not_enumerated_for_non_cumbersome() {
 
     assert!(actions.is_empty());
 }
+
+// =========================================================================
+// Battle Versatility (Arythea hero card)
+// =========================================================================
+
+#[test]
+fn battle_versatility_basic_playable_in_ranged_siege() {
+    // Basic has Ranged Attack 1 as one option — should be available in RangedSiege.
+    let mut state = setup_game(vec!["arythea_battle_versatility"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::RangedSiege,
+        ..CombatState::default()
+    }));
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let basic = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == "arythea_battle_versatility"),
+    );
+    assert!(
+        basic,
+        "arythea_battle_versatility basic (Choice with Ranged Attack 1) should be playable in RangedSiege; actions: {:?}",
+        legal.actions
+    );
+}
+
+#[test]
+fn battle_versatility_powered_playable_in_ranged_siege() {
+    // Powered has Ranged Attack 3 and Siege Attack 2 as options — should be available in RangedSiege.
+    let mut state = setup_game(vec!["arythea_battle_versatility"]);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::RangedSiege,
+        ..CombatState::default()
+    }));
+    // Red source die for powered play
+    setup_source_dice(&mut state, vec![(ManaColor::Red, false)]);
+
+    let legal = enumerate_legal_actions(&state, 0);
+
+    let powered = legal.actions.iter().any(
+        |a| matches!(a, LegalAction::PlayCardPowered { card_id, .. } if card_id.as_str() == "arythea_battle_versatility"),
+    );
+    assert!(
+        powered,
+        "arythea_battle_versatility powered (Choice with Ranged/Siege Attack) should be playable in RangedSiege; actions: {:?}",
+        legal.actions
+    );
+}

@@ -5,6 +5,7 @@ use mk_types::ids::CardId;
 use mk_types::pending::ActivePending;
 use mk_types::state::*;
 
+use crate::undo::UndoStack;
 use crate::{effect_queue, end_turn, mana};
 
 use super::{ApplyError, ApplyResult};
@@ -20,6 +21,7 @@ pub(super) fn apply_resolve_choice(
     state: &mut GameState,
     player_idx: usize,
     choice_index: usize,
+    undo_stack: &mut UndoStack,
 ) -> Result<ApplyResult, ApplyError> {
     // Check if this is a DeepMineChoice (handled separately from standard Choice)
     if let Some(ActivePending::DeepMineChoice { ref colors }) =
@@ -51,7 +53,7 @@ pub(super) fn apply_resolve_choice(
     if let Some(ActivePending::SelectCombatEnemy { .. }) =
         state.players[player_idx].pending.active
     {
-        return units::apply_resolve_select_enemy(state, player_idx, choice_index);
+        return units::apply_resolve_select_enemy(state, player_idx, choice_index, undo_stack);
     }
 
     // Capture skill_id before resolving (pending is consumed)
@@ -63,7 +65,7 @@ pub(super) fn apply_resolve_choice(
         None
     };
 
-    effect_queue::resolve_pending_choice(state, player_idx, choice_index).map_err(|e| {
+    effect_queue::resolve_pending_choice_with_undo(state, player_idx, choice_index, Some(undo_stack)).map_err(|e| {
         ApplyError::InternalError(format!("resolve_pending_choice failed: {:?}", e))
     })?;
 
@@ -327,6 +329,7 @@ pub(super) fn apply_resolve_tome_of_all_spells(
     state: &mut GameState,
     player_idx: usize,
     selection_index: usize,
+    undo_stack: &mut UndoStack,
 ) -> Result<ApplyResult, ApplyError> {
     use mk_types::pending::{ActivePending, TomeOfAllSpellsPhase};
 
@@ -398,7 +401,7 @@ pub(super) fn apply_resolve_tome_of_all_spells(
                 // The spell stays in the offer (not consumed)
                 let mut queue = effect_queue::EffectQueue::new();
                 queue.push(effect, Some(spell_id.clone()));
-                queue.drain(state, player_idx);
+                queue.drain_with_undo(state, player_idx, Some(undo_stack));
             }
 
             Ok(ApplyResult { needs_reenumeration: true, game_ended: false, events: vec![] })
@@ -411,6 +414,7 @@ pub(super) fn apply_resolve_circlet_of_proficiency(
     state: &mut GameState,
     player_idx: usize,
     selection_index: usize,
+    undo_stack: &mut UndoStack,
 ) -> Result<ApplyResult, ApplyError> {
     use mk_types::pending::ActivePending;
 
@@ -439,7 +443,7 @@ pub(super) fn apply_resolve_circlet_of_proficiency(
                 if let Some(effect) = def.effect {
                     let mut queue = effect_queue::EffectQueue::new();
                     queue.push(effect, None);
-                    queue.drain(state, player_idx);
+                    queue.drain_with_undo(state, player_idx, Some(undo_stack));
                 }
             }
         }
@@ -464,6 +468,7 @@ pub(super) fn apply_resolve_maximal_effect(
     state: &mut GameState,
     player_idx: usize,
     hand_index: usize,
+    undo_stack: &mut UndoStack,
 ) -> Result<ApplyResult, ApplyError> {
     use mk_types::pending::ActivePending;
 
@@ -505,7 +510,7 @@ pub(super) fn apply_resolve_maximal_effect(
         queue.push(effect.clone(), Some(card_id.clone()));
     }
 
-    match queue.drain(state, player_idx) {
+    match queue.drain_with_undo(state, player_idx, Some(undo_stack)) {
         effect_queue::DrainResult::Complete => {
             Ok(ApplyResult {
                 needs_reenumeration: true,
@@ -672,8 +677,9 @@ pub(super) fn apply_resolve_decompose(
     state: &mut GameState,
     player_idx: usize,
     hand_index: usize,
+    undo_stack: &mut UndoStack,
 ) -> Result<ApplyResult, ApplyError> {
-    effect_queue::resolve_decompose(state, player_idx, hand_index).map_err(|e| {
+    effect_queue::resolve_decompose_with_undo(state, player_idx, hand_index, Some(undo_stack)).map_err(|e| {
         ApplyError::InternalError(format!("resolve_decompose failed: {:?}", e))
     })?;
     Ok(ApplyResult {
@@ -690,8 +696,15 @@ pub(super) fn apply_resolve_discard_for_bonus(
     player_idx: usize,
     choice_index: usize,
     discard_count: usize,
+    undo_stack: &mut UndoStack,
 ) -> Result<ApplyResult, ApplyError> {
-    effect_queue::resolve_discard_for_bonus(state, player_idx, choice_index, discard_count)
+    effect_queue::resolve_discard_for_bonus_with_undo(
+        state,
+        player_idx,
+        choice_index,
+        discard_count,
+        Some(undo_stack),
+    )
         .map_err(|e| {
             ApplyError::InternalError(format!("resolve_discard_for_bonus failed: {:?}", e))
         })?;
