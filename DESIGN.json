@@ -1,0 +1,253 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-12T12:00:00.000Z",
+  "title": "Design System: Mage Knight Client",
+  "extensions": {
+    "colorMeta": {
+      "void-indigo": {
+        "role": "primary",
+        "displayName": "Void Indigo Midnight",
+        "canonical": "#1a1a2e",
+        "tonalRamp": [
+          "oklch(12% 0.018 278)",
+          "oklch(16% 0.02 278)",
+          "oklch(20% 0.022 278)",
+          "oklch(26% 0.026 278)",
+          "oklch(34% 0.03 278)",
+          "oklch(44% 0.035 278)",
+          "oklch(58% 0.04 278)",
+          "oklch(72% 0.038 278)"
+        ]
+      },
+      "canvas-abyss": {
+        "role": "neutral",
+        "displayName": "Canvas Abyss",
+        "canonical": "#0f0f23",
+        "tonalRamp": [
+          "oklch(10% 0.02 280)",
+          "oklch(14% 0.024 280)",
+          "oklch(18% 0.028 280)",
+          "oklch(24% 0.032 280)",
+          "oklch(32% 0.036 280)",
+          "oklch(42% 0.04 280)",
+          "oklch(55% 0.042 280)",
+          "oklch(70% 0.04 280)"
+        ]
+      },
+      "panel-midnight": {
+        "role": "neutral",
+        "displayName": "Panel Midnight Slate",
+        "canonical": "#16213e",
+        "tonalRamp": [
+          "oklch(14% 0.038 268)",
+          "oklch(18% 0.042 268)",
+          "oklch(22% 0.046 268)",
+          "oklch(28% 0.05 268)",
+          "oklch(36% 0.054 268)",
+          "oklch(46% 0.056 268)",
+          "oklch(58% 0.055 268)",
+          "oklch(74% 0.048 268)"
+        ]
+      },
+      "combat-antique-gold": {
+        "role": "secondary",
+        "displayName": "Antique Combat Gold",
+        "canonical": "#d4a574",
+        "tonalRamp": [
+          "oklch(32% 0.06 65)",
+          "oklch(40% 0.075 65)",
+          "oklch(48% 0.09 65)",
+          "oklch(56% 0.1 65)",
+          "oklch(64% 0.11 72)",
+          "oklch(72% 0.11 75)",
+          "oklch(80% 0.095 78)",
+          "oklch(88% 0.07 80)"
+        ]
+      },
+      "setup-deep-oklch": {
+        "role": "neutral",
+        "displayName": "Setup Parchment Shadow",
+        "canonical": "oklch(0.14 0.022 58)",
+        "tonalRamp": [
+          "oklch(14% 0.022 58)",
+          "oklch(20% 0.026 57)",
+          "oklch(26% 0.03 56)",
+          "oklch(34% 0.035 56)",
+          "oklch(46% 0.045 60)",
+          "oklch(58% 0.058 62)",
+          "oklch(72% 0.075 70)",
+          "oklch(86% 0.065 78)"
+        ]
+      },
+      "setup-gold-oklch": {
+        "role": "secondary",
+        "displayName": "Setup Metallized Gold",
+        "canonical": "oklch(0.78 0.11 82)",
+        "tonalRamp": [
+          "oklch(36% 0.07 76)",
+          "oklch(44% 0.085 78)",
+          "oklch(52% 0.095 80)",
+          "oklch(60% 0.103 82)",
+          "oklch(68% 0.108 82)",
+          "oklch(74% 0.11 82)",
+          "oklch(80% 0.098 82)",
+          "oklch(88% 0.08 84)"
+        ]
+      },
+      "parchment-body-cream": {
+        "role": "neutral",
+        "displayName": "Parchment Body Cream",
+        "canonical": "#f0e6d2",
+        "tonalRamp": [
+          "oklch(22% 0.02 75)",
+          "oklch(30% 0.026 76)",
+          "oklch(38% 0.032 78)",
+          "oklch(48% 0.038 80)",
+          "oklch(58% 0.045 82)",
+          "oklch(72% 0.05 82)",
+          "oklch(82% 0.042 84)",
+          "oklch(92% 0.032 82)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Ceremonial setup titles only; oversized tracked uppercase context."
+      },
+      "headline-section": {
+        "displayName": "Headline Section",
+        "purpose": "Overlay section titles inside modals."
+      },
+      "body-reading": {
+        "displayName": "Body Reading",
+        "purpose": "Default explanatory copy tuned for constrained line length."
+      },
+      "label-dense-cap": {
+        "displayName": "Label Dense Caps",
+        "purpose": "Top HUD identity row and compact headings."
+      }
+    },
+    "shadows": [
+      {
+        "name": "parchment-tray",
+        "value": "0 8px 32px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.06)",
+        "purpose": "Framed parchment reward surfaces."
+      },
+      {
+        "name": "active-player-ring",
+        "value": "0 0 12px rgba(241, 196, 15, 0.6)",
+        "purpose": "Active turn emphasis on roster chips layered over gold borders."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-expo-setup",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Preferred calm easing echoed from Setup interactive tokens."
+      },
+      {
+        "name": "topbar-intro-legacy-ease",
+        "value": "cubic-bezier(0.34, 1.56, 0.64, 1)",
+        "purpose": "Historical overshoot easing on TOP_BAR intro; refactor toward expo per PRODUCT atmosphere."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Midnight HUD Panel",
+      "kind": "card",
+      "refersTo": "panel-chrome-base",
+      "description": "Default chrome container for explanatory panels atop the abyss canvas.",
+      "html": "<div class=\"ds-panel\"><p class=\"ds-panel__text\">Mana / tactic context copy.</p></div>",
+      "css": ".ds-panel { background: #16213e; color: #eeeeee; border-radius: 8px; padding: 16px; font-family: system-ui, sans-serif; } .ds-panel__text { margin: 0; line-height: 1.45; font-size: 1rem; }"
+    },
+    {
+      "name": "Overlay Sheet",
+      "kind": "card",
+      "refersTo": "overlay-sheet-base",
+      "description": "Modal interiors matching global `.overlay__content` posture.",
+      "html": "<div class=\"ds-overlay-sheet\"><h2 class=\"ds-overlay-sheet__title\">Select reward</h2><p class=\"ds-overlay-sheet__body\">Short supporting line.</p></div>",
+      "css": ".ds-overlay-sheet { background: #16213e; border-radius: 12px; padding: 32px; color: #eeeeee; max-width: min(720px, 90vw); } .ds-overlay-sheet__title { font-size: 1.5rem; margin: 0 0 12px; font-weight: 600; font-family: system-ui, sans-serif; } .ds-overlay-sheet__body { margin: 0; font-size: 1rem; line-height: 1.45; opacity: 0.85; }"
+    },
+    {
+      "name": "Selectable Reward Tile",
+      "kind": "button",
+      "refersTo": "reward-option-card-rest",
+      "description": "Card-sized affordance borrowing reward grid cues.",
+      "html": "<button type=\"button\" class=\"ds-reward-option\">Crystallize</button>",
+      "css": ".ds-reward-option { background: #0f0f23; color: #eeeeee; border: 2px solid #333; border-radius: 8px; padding: 16px; font-size: 1rem; cursor: pointer; transition: transform 0.15s ease-out, border-color 0.15s ease-out, background 0.15s ease-out; } .ds-reward-option:hover { border-color: #f39c12; background: #1a1a3e; transform: translateY(-2px); } .ds-reward-option:focus-visible { outline: 2px solid #f39c12; outline-offset: 2px; }"
+    },
+    {
+      "name": "HUD Top Strip",
+      "kind": "nav",
+      "refersTo": "chrome-top-strip",
+      "description": "Condensed translucent header band over the battlefield.",
+      "html": "<nav class=\"ds-top-strip\"><span class=\"ds-top-strip__hero\">Lord Koll</span></nav>",
+      "css": ".ds-top-strip { display: flex; align-items: center; height: 36px; padding: 0 16px; background: rgba(10, 10, 25, 0.9); color: #fff; border-bottom: 1px solid rgba(255, 255, 255, 0.1); font-family: system-ui, sans-serif; } .ds-top-strip__hero { font-size: 0.85rem; font-weight: 600; text-transform: capitalize; }"
+    },
+    {
+      "name": "Active Player Bubble",
+      "kind": "chip",
+      "refersTo": "panel-chrome-base",
+      "description": "Multiplayer roster active state echoes gold ring plus glow cues.",
+      "html": "<div class=\"ds-player-chip ds-player-chip--active\"><span>Gorg</span></div>",
+      "css": ".ds-player-chip { display: inline-flex; align-items: center; padding: 6px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(10,10,25,0.6); font-size: 0.75rem; font-weight: 600; color: #ffffff; font-family: system-ui, sans-serif; } .ds-player-chip--active { border: 2px solid #f1c40f; box-shadow: 0 0 12px rgba(241,196,15,0.6); background: rgba(241,196,15,0.1); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Map Room",
+    "overview": "The client currently reads as **two coordinated families** rather than one flat token bundle. Global play chrome (shell, hex canvas, reusable panels, many overlays, top bar, player bubbles) favors **cold midnight blues** and **neutral system sans** tuned for hierarchy of game state over decoration. Dedicated flows (especially setup, parchment-style rewards and level-ups, combat CSS notes and Pixi atmosphere) deliberately adopt **muted brass, earth borders, antiqued parchment cream text** so menu moments feel grounded and map-table-ish without drifting into flashy fantasy UI.\n\nPRODUCT.md asks for clarity before spectacle and rejects dominant mystical cliché plus heroic bombast. This dual track is pragmatic today: overlays already document their intent in CSS comments (setup aligned with overlays; combat palette aligned with Pixi atmospherics). Going forward the goal is to **narrow drift**: promote shared primitives (radii tier, tonal borders, eased motion vocabulary) upward so new screens inherit one spine even when palettes branch.\n\nThe system rejects **looks-over-scanability** chrome: dense stat rows, multi-panel combat, solo cognitive load demand consistent hit targets and readable captions over flair.",
+    "keyCharacteristics": [
+      "Midnight **void-indigo / canvas-abyss** pair frames the Pixi hex board and many cards.",
+      "**Parchment-earth** overlays provide warm episodic containment without implying mystic gimmickery.",
+      "**System UI sans** everywhere today: fast, predictable, slightly generic unless weight and letter-spacing cues mark titles.",
+      "**Stat accent colors** intentionally flat and categorical (purple fame track legacy, teal only in debug-heavy replay tooling).",
+      "**Motion** is uneven: tactical dimming filters on `body`/`app`; some intros use overshoot easing that should converge on calm expo easing for PRODUCT alignment."
+    ],
+    "rules": [
+      {
+        "name": "The Two-Family Rule",
+        "body": "When adding a panel, declare whether it belongs to **cold chrome** (void / abyss / midnight) or **parchment session** overlays. Avoid inventing a third decorative stack per feature.",
+        "section": "colors"
+      },
+      {
+        "name": "The Stat Color Semantics Rule",
+        "body": "Reuse categorical stat hues (`stat-level-amethyst`, `stat-fame-gold`, `stat-armor-slate`, `stat-influence-sky`) wherever matching hero identity labels to reinforce recognition; do not recolor arbitrarily per screen.",
+        "section": "colors"
+      },
+      {
+        "name": "The OKLCH Setup Lane Rule",
+        "body": "`.setup-screen` uses nested OKLCH custom properties documented in-component; migrating those tokens onto `:root` is preferred long-term while keeping authored OKLCH as canonical for that lane.",
+        "section": "colors"
+      },
+      {
+        "name": "The System Spine Rule",
+        "body": "Until a purposeful display face is introduced, retain the single stack everywhere; differentiation is spacing and weight rather than pairing.",
+        "section": "typography"
+      },
+      {
+        "name": "The Legibility Spine Rule",
+        "body": "Never set long instructional copy smaller than Body Reading tokens; PRODUCT solo clarity depends on deliberate reading comfort.",
+        "section": "typography"
+      }
+    ],
+    "dos": [
+      "**Do** reuse the **void → abyss → panel** tier ladder for new HUD unless a flow participates in parchment or combat palettes intentionally.",
+      "**Do** cite **OKLCH setup tokens** or promote them upward when refactoring rather than cloning approximate hex anew.",
+      "**Do** anchor combat-adjacent gold accents around **Antique Combat Gold** (#d4a574 family) documented alongside Pixi's illustrated layers.",
+      "**Do** preserve **readable flat hierarchy** inside dense flows (solo cognitive load mandate).",
+      "**Do** consolidate radii (`6px`, `8px`, `12px`) as the default scale before inventing orphan radii.",
+      "**Do** plan audio direction **ambient grounded map energy** complementary to subdued UI contrasts ( INTERFACE NOT THE HERO ).",
+      "**Do** implement future motion on **exponential ease-out curves** resembling setup's `--ease-out-expo`."
+    ],
+    "donts": [
+      "**Don't** let **Dominant mystical fantasy cliché** (heavy rune shimmer, incense fog decorative noise) occlude authoritative engine-driven state readability.",
+      "**Don't** soundtrack or visually stage **Epic heroic bombast**: overwrought triumphant framing contradicts restrained crunch-forward mood.",
+      "**Don't** bury legibility under ornamental stacks that cause players to mistrust moves or LOS clarity (explicit PRODUCT anti-pattern on looks-over-scanability).",
+      "**Don't** sprinkle **neon candy accent rainbows** arbitrarily; limit categorical color to semantic stat roles (+ intentional debug telemetry hues like teal in replay tooling isolated from default play overlays).",
+      "**Don't** enlarge **glassmorphism + heavy blur layering** casually; tonal scrims suffice today.",
+      "**Don't** widen **thin side-stripe brand gimmicks (`border-left > 1px colored`)** purely for sparkle; impeccable shared prohibition."
+    ]
+  }
+}
