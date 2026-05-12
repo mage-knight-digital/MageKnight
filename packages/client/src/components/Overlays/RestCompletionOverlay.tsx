@@ -96,9 +96,9 @@ export function RestCompletionOverlay() {
               style={{
                 padding: "0.75rem 1.5rem",
                 borderRadius: "6px",
-                background: "#1a1a3e",
-                color: "#ddd",
-                border: "2px solid #333",
+                background: "var(--surface-hover-lift)",
+                color: "var(--text-secondary)",
+                border: "2px solid var(--border-on-raised)",
                 cursor: "pointer",
                 fontSize: "1rem",
               }}

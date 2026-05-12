@@ -5,8 +5,8 @@
   justify-content: center;
   min-height: 100vh;
   padding: 2rem;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  color: #eee;
+  background: linear-gradient(135deg, var(--surface-ground) 0%, var(--surface-raised) 100%);
+  color: var(--text-primary);
 }
 
 .replay-load-screen__title {
@@ -64,9 +64,9 @@
   gap: 0.75rem;
   width: 100%;
   padding: 1.5rem;
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in oklch, var(--text-primary) 5%, transparent);
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border-subtle);
 }
 
 .replay-load-screen__meta-row {
@@ -77,7 +77,7 @@
 
 .replay-load-screen__meta-label {
   font-weight: 600;
-  color: #aaa;
+  color: var(--text-muted);
   font-size: 0.9rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -85,7 +85,7 @@
 
 .replay-load-screen__meta-value {
   font-family: monospace;
-  color: #eee;
+  color: var(--text-primary);
 }
 
 .replay-load-screen__player-select {
@@ -98,8 +98,8 @@
 .replay-load-screen__select {
   padding: 0.4rem 0.75rem;
   font-size: 0.95rem;
-  background: #1a1a2e;
-  color: #eee;
+  background: var(--surface-ground);
+  color: var(--text-primary);
   border: 2px solid #4ecdc4;
   border-radius: 8px;
   outline: none;
@@ -112,7 +112,7 @@
   background: linear-gradient(135deg, #4ecdc4 0%, #44b3ab 100%);
   border: none;
   border-radius: 12px;
-  color: #1a1a2e;
+  color: var(--surface-ground);
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: 0 4px 16px rgba(78, 205, 196, 0.4);
@@ -137,9 +137,9 @@
   flex: 1;
   padding: 0.6rem 0.75rem;
   font-size: 0.9rem;
-  background: #1a1a2e;
-  color: #eee;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: var(--surface-ground);
+  color: var(--text-primary);
+  border: 2px solid var(--border-default);
   border-radius: 8px;
   outline: none;
   cursor: pointer;
@@ -156,7 +156,7 @@
   font-size: 0.95rem;
   font-weight: 600;
   background: #4ecdc4;
-  color: #1a1a2e;
+  color: var(--surface-ground);
   border: none;
   border-radius: 8px;
   cursor: pointer;

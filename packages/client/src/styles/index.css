@@ -2,6 +2,34 @@
    Global Reset & Base Styles
    ============================================ */
 
+:root {
+  /* Map-room shell: warm low-chroma neutrals (OKLCH) */
+  --surface-ground: oklch(0.21 0.012 78);
+  --surface-canvas: oklch(0.17 0.011 80);
+  --surface-raised: oklch(0.265 0.013 77);
+  --surface-chrome: oklch(0.195 0.012 79);
+  --surface-hover-lift: oklch(0.22 0.013 76);
+
+  --scrim-overlay: oklch(0.12 0.012 78 / 0.86);
+  --scrim-soft: oklch(0.12 0.012 78 / 0.76);
+  --scrim-combat: oklch(0.1 0.011 78 / 0.92);
+
+  --text-primary: oklch(0.93 0.008 82);
+  --text-secondary: oklch(0.86 0.01 80);
+  --text-muted: oklch(0.72 0.012 78);
+  --text-faint: oklch(0.58 0.014 76);
+
+  --border-subtle: oklch(0.92 0.006 82 / 0.12);
+  --border-default: oklch(0.92 0.008 82 / 0.22);
+  --border-strong: oklch(0.92 0.01 82 / 0.3);
+  --border-on-raised: oklch(0.38 0.012 76);
+
+  --accent: oklch(0.74 0.085 72);
+  --accent-muted: oklch(0.74 0.05 72 / 0.35);
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -10,8 +38,8 @@
 
 body {
   font-family: system-ui, -apple-system, sans-serif;
-  background: #1a1a2e;
-  color: #eee;
+  background: var(--surface-ground);
+  color: var(--text-primary);
   min-height: 100vh;
 }
 
@@ -111,7 +139,7 @@ body {
   justify-content: center;
   min-height: 100vh;
   font-size: 1.25rem;
-  color: #888;
+  color: var(--text-faint);
 }
 
 /* ============================================
@@ -119,7 +147,7 @@ body {
    ============================================ */
 
 .panel {
-  background: #16213e;
+  background: var(--surface-raised);
   border-radius: 8px;
   padding: 1rem;
 }
@@ -131,7 +159,7 @@ body {
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.85);
+  background: var(--scrim-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -139,7 +167,7 @@ body {
 }
 
 .overlay__content {
-  background: #16213e;
+  background: var(--surface-raised);
   border-radius: 12px;
   padding: 2rem;
   max-width: 90vw;
@@ -152,7 +180,7 @@ body {
    ============================================ */
 
 .hex-grid {
-  background: #0f0f23;
+  background: var(--surface-canvas);
   border-radius: 8px;
 }
 
@@ -167,7 +195,7 @@ body {
 .combat-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.9);
+  background: var(--scrim-combat);
   display: flex;
   align-items: center;
   justify-content: center;

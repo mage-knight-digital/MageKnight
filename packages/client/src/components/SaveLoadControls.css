@@ -11,14 +11,14 @@
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  background: #0f0f23;
+  background: var(--surface-canvas);
   border-radius: 4px;
   padding: 0.25rem 0.5rem;
 }
 
 .save-slot__label {
   font-size: 0.625rem;
-  color: #888;
+  color: var(--text-faint);
   min-width: 80px;
   text-align: center;
 }

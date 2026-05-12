@@ -30,7 +30,7 @@
   right: 1rem;
   width: 350px;
   max-height: 80vh;
-  background: #1a1a2e;
+  background: var(--surface-ground);
   border: 2px solid #3498db;
   border-radius: 8px;
   z-index: 9999;
@@ -419,7 +419,7 @@
   padding: 0.25rem;
   border-radius: 3px;
   border: 1px solid #444;
-  background: #1a1a2e;
+  background: var(--surface-ground);
   color: #ddd;
   font-size: 0.7rem;
 }

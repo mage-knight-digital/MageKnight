@@ -61,6 +61,9 @@ const loadingTextures = new Map<string, Promise<Texture>>();
 let placeholderTexture: Texture | null = null;
 let placeholderCanvas: HTMLCanvasElement | null = null;
 
+/** sRGB aligned with `index.css` `--surface-ground` for shared placeholder tiles. */
+const SURFACE_GROUND_PLACEHOLDER_HEX = "#1b1a17";
+
 // Atlas data cache (for PixiCardCanvas which uses atlas.json directly)
 let atlasData: AtlasData | null = null;
 let atlasLoadPromise: Promise<AtlasData> | null = null;
@@ -81,7 +84,7 @@ export function getPlaceholderTexture(): Texture {
     const ctx = placeholderCanvas.getContext("2d");
     if (ctx) {
       // Dark background
-      ctx.fillStyle = "#1a1a2e";
+      ctx.fillStyle = SURFACE_GROUND_PLACEHOLDER_HEX;
       ctx.fillRect(0, 0, 200, 300);
       // Border
       ctx.strokeStyle = "#333";

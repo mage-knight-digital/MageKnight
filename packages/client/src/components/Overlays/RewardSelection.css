@@ -11,14 +11,14 @@
 
 .reward-selection__description {
   font-size: 1rem;
-  color: #aaa;
+  color: var(--text-muted);
   text-align: center;
   margin-bottom: 1rem;
 }
 
 .reward-selection__remaining {
   font-size: 0.875rem;
-  color: #888;
+  color: var(--text-faint);
   text-align: center;
   margin-bottom: 1.5rem;
 }
@@ -33,19 +33,19 @@
 }
 
 .reward-selection__card {
-  background: #0f0f23;
-  border: 2px solid #333;
+  background: var(--surface-canvas);
+  border: 2px solid var(--border-on-raised);
   border-radius: 8px;
   padding: 1rem;
   cursor: pointer;
   transition: all 0.15s;
   text-align: center;
-  color: #eee;
+  color: var(--text-primary);
 }
 
 .reward-selection__card:hover {
-  border-color: #f39c12;
-  background: #1a1a3e;
+  border-color: var(--accent);
+  background: var(--surface-hover-lift);
   transform: translateY(-2px);
 }
 
@@ -56,8 +56,8 @@
 }
 
 .reward-selection__card--selected {
-  border-color: #f39c12;
-  background: #1a1a3e;
+  border-color: var(--accent);
+  background: var(--surface-hover-lift);
 }
 
 .reward-selection__card-name {
