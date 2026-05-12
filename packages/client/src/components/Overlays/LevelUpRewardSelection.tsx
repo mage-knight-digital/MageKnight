@@ -16,6 +16,7 @@ import {
 } from "../../rust/legalActionUtils";
 import type { LegalAction } from "../../rust/types";
 import { getCardSpriteStyle } from "../../utils/cardAtlas";
+import { skillImagePath } from "../../utils/skillImagePath";
 import "./LevelUpRewardSelection.css";
 
 // Display height for AA card sprites in the level-up modal
@@ -27,11 +28,6 @@ function formatName(id: string): string {
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
-}
-
-// Skill images live at /assets/skills/{skillId}.jpg
-function skillImagePath(skillId: SkillId): string {
-  return `/assets/skills/${skillId}.jpg`;
 }
 
 interface SkillOptionProps {

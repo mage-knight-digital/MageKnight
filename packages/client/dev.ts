@@ -3,7 +3,9 @@
  * Bun fullstack dev server with HMR
  * Alternative to Vite dev server
  *
- * Usage: bun run dev:bun
+ * Port: defaults to 3000. If busy, tries 3001, 3002, … Prefer
+ * CLIENT_DEV_PORT (SERVER also honors PORT via mk-server — use CLIENT_DEV_PORT
+ * to target only this dev server). From this package: `bun run dev`.
  */
 
 import homepage from "./index.html";
@@ -86,47 +88,96 @@ async function handleArtifactRequest(url: URL): Promise<Response | null> {
 // Dev server
 // ---------------------------------------------------------------------------
 
-const server = Bun.serve({
-  port: 3000,
+const DEFAULT_CLIENT_DEV_PORT = 3000;
+/** How many ports to try (base, base+1, …) when the preferred port is taken. */
+const CLIENT_DEV_PORT_TRIES = 64;
 
-  // Enable HMR and dev features
-  development: {
-    hmr: true,
-    console: true,
-  },
+function parseTcpPort(raw: string | undefined): number | undefined {
+  if (raw === undefined || raw === "") return undefined;
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 1 && n <= 65535 ? n : undefined;
+}
 
-  routes: {
-    // Serve the app at root
-    "/": homepage,
-  },
+function errnoCode(err: unknown): string | undefined {
+  return typeof err === "object" && err !== null && "code" in err
+    ? String((err as { code?: unknown }).code)
+    : undefined;
+}
 
-  // Handle API routes and static files
-  async fetch(req) {
-    const url = new URL(req.url);
+/** Prefer CLIENT_DEV_PORT. PORT matches mk-server convention but both read it if set in `.env`. */
+const preferredClientDevPort =
+  parseTcpPort(process.env["CLIENT_DEV_PORT"]) ??
+  parseTcpPort(process.env["PORT"]) ??
+  DEFAULT_CLIENT_DEV_PORT;
 
-    // Artifact API for replay viewer
-    const artifactResponse = await handleArtifactRequest(url);
-    if (artifactResponse) return artifactResponse;
+let server: ReturnType<typeof Bun.serve>;
+for (let offset = 0; offset < CLIENT_DEV_PORT_TRIES; offset++) {
+  const port = preferredClientDevPort + offset;
+  if (port > 65535) break;
+  try {
+    server = Bun.serve({
+      port,
 
-    // Serve static files from public folder
-    if (url.pathname.startsWith("/public/")) {
-      const filePath = `./public${url.pathname.slice(7)}`;
-      const file = Bun.file(filePath);
-      if (await file.exists()) {
-        return new Response(file);
-      }
+      // Enable HMR and dev features
+      development: {
+        hmr: true,
+        console: true,
+      },
+
+      routes: {
+        // Serve the app at root
+        "/": homepage,
+      },
+
+      // Handle API routes and static files
+      async fetch(req) {
+        const url = new URL(req.url);
+
+        // Artifact API for replay viewer
+        const artifactResponse = await handleArtifactRequest(url);
+        if (artifactResponse) return artifactResponse;
+
+        // Serve static files from public folder
+        if (url.pathname.startsWith("/public/")) {
+          const filePath = `./public${url.pathname.slice(7)}`;
+          const file = Bun.file(filePath);
+          if (await file.exists()) {
+            return new Response(file);
+          }
+        }
+
+        // Serve files directly from public without /public prefix
+        const publicFile = Bun.file(`./public${url.pathname}`);
+        if (await publicFile.exists()) {
+          return new Response(publicFile);
+        }
+
+        // 404 for unhandled routes
+        return new Response("Not Found", { status: 404 });
+      },
+    });
+    if (offset > 0) {
+      console.warn(
+        `[client dev] port ${preferredClientDevPort} in use; listening on ${port} (set CLIENT_DEV_PORT to pick a port)`,
+      );
     }
-
-    // Serve files directly from public without /public prefix
-    const publicFile = Bun.file(`./public${url.pathname}`);
-    if (await publicFile.exists()) {
-      return new Response(publicFile);
+    break;
+  } catch (err) {
+    if (errnoCode(err) === "EADDRINUSE" && offset < CLIENT_DEV_PORT_TRIES - 1) {
+      continue;
     }
+    throw err;
+  }
+}
 
-    // 404 for unhandled routes
-    return new Response("Not Found", { status: 404 });
-  },
-});
+if (typeof server === "undefined") {
+  throw new Error(
+    `[client dev] no free TCP port in ${preferredClientDevPort}..${Math.min(
+      preferredClientDevPort + CLIENT_DEV_PORT_TRIES - 1,
+      65535,
+    )}; set CLIENT_DEV_PORT`,
+  );
+}
 
 console.log(`
   🚀 Bun dev server running at http://localhost:${server.port}
