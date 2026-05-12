@@ -17,17 +17,17 @@
 }
 
 .choice-selection__option {
-  background: #0f0f23;
-  border: 2px solid #333;
+  background: var(--surface-canvas);
+  border: 2px solid var(--border-on-raised);
   border-radius: 8px;
   padding: 1rem;
   cursor: pointer;
   transition: all 0.15s;
   text-align: left;
-  color: #eee;
+  color: var(--text-primary);
 }
 
 .choice-selection__option:hover {
-  border-color: #4fc3f7;
-  background: #1a1a3e;
+  border-color: var(--accent);
+  background: var(--surface-hover-lift);
 }
