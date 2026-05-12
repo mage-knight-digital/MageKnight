@@ -10,6 +10,8 @@ use mk_types::pending::{
 };
 use mk_types::state::*;
 
+use crate::undo::UndoStack;
+
 use super::{DrainResult, EffectQueue, QueuedEffect, ResolveResult, WOUND_CARD_ID};
 use super::spells::{
     execute_free_recruit, execute_mana_claim_mode, execute_possess_enemy,
@@ -39,6 +41,15 @@ pub fn resolve_pending_choice(
     state: &mut GameState,
     player_idx: usize,
     choice_index: usize,
+) -> Result<(), ResolveChoiceError> {
+    resolve_pending_choice_with_undo(state, player_idx, choice_index, None)
+}
+
+pub(crate) fn resolve_pending_choice_with_undo(
+    state: &mut GameState,
+    player_idx: usize,
+    choice_index: usize,
+    undo: Option<&mut UndoStack>,
 ) -> Result<(), ResolveChoiceError> {
     // Extract the pending choice
     let pending = state.players[player_idx]
@@ -490,7 +501,7 @@ pub fn resolve_pending_choice(
                 // Resolve the powered effect via effect queue
                 let mut queue = EffectQueue::new();
                 queue.push(effect.clone(), card_id.clone());
-                match queue.drain(state, player_idx) {
+                match queue.drain_with_undo(state, player_idx, undo) {
                     DrainResult::Complete => {
                         // Pending is already cleared (we took it above)
                     }
@@ -594,7 +605,7 @@ pub fn resolve_pending_choice(
                         source_card_id: c.source_card_id,
                     }).collect(),
                 );
-                match queue.drain(state, player_idx) {
+                match queue.drain_with_undo(state, player_idx, undo) {
                     DrainResult::Complete => {}
                     DrainResult::NeedsChoice { options, continuation, resolution: new_res } => {
                         state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
@@ -626,7 +637,7 @@ pub fn resolve_pending_choice(
                         source_card_id: c.source_card_id,
                     }).collect(),
                 );
-                match queue.drain(state, player_idx) {
+                match queue.drain_with_undo(state, player_idx, undo) {
                     DrainResult::Complete => {}
                     DrainResult::NeedsChoice { options, continuation, resolution: new_res } => {
                         state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
@@ -652,7 +663,7 @@ pub fn resolve_pending_choice(
                         effect: c.effect, source_card_id: c.source_card_id,
                     }).collect(),
                 );
-                match queue.drain(state, player_idx) {
+                match queue.drain_with_undo(state, player_idx, undo) {
                     DrainResult::Complete => {}
                     DrainResult::NeedsChoice { options, continuation, resolution: new_res } => {
                         state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
@@ -689,7 +700,7 @@ pub fn resolve_pending_choice(
                         effect: c.effect, source_card_id: c.source_card_id,
                     }).collect(),
                 );
-                match queue.drain(state, player_idx) {
+                match queue.drain_with_undo(state, player_idx, undo) {
                     DrainResult::Complete => {}
                     DrainResult::NeedsChoice { options, continuation, resolution: new_res } => {
                         state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
@@ -750,7 +761,7 @@ pub fn resolve_pending_choice(
                         effect: c.effect, source_card_id: c.source_card_id,
                     }).collect(),
                 );
-                match queue.drain(state, player_idx) {
+                match queue.drain_with_undo(state, player_idx, undo) {
                     DrainResult::Complete => {}
                     DrainResult::NeedsChoice { options, continuation, resolution: new_res } => {
                         state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
@@ -819,7 +830,7 @@ pub fn resolve_pending_choice(
                         effect: c.effect, source_card_id: c.source_card_id,
                     }).collect(),
                 );
-                match queue.drain(state, player_idx) {
+                match queue.drain_with_undo(state, player_idx, undo) {
                     DrainResult::Complete => {}
                     DrainResult::NeedsChoice { options, continuation, resolution: new_res } => {
                         state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
@@ -874,7 +885,7 @@ pub fn resolve_pending_choice(
                         effect: c.effect, source_card_id: c.source_card_id,
                     }).collect(),
                 );
-                match queue.drain(state, player_idx) {
+                match queue.drain_with_undo(state, player_idx, undo) {
                     DrainResult::Complete => {}
                     DrainResult::NeedsChoice { options, continuation, resolution: new_res } => {
                         state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
@@ -913,7 +924,7 @@ pub fn resolve_pending_choice(
                     effect: c.effect, source_card_id: c.source_card_id,
                 }).collect(),
             );
-            match queue.drain(state, player_idx) {
+            match queue.drain_with_undo(state, player_idx, undo) {
                 DrainResult::Complete => {}
                 DrainResult::NeedsChoice { options, continuation, resolution: new_res } => {
                     state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
@@ -970,7 +981,7 @@ pub fn resolve_pending_choice(
                             effect: c.effect, source_card_id: c.source_card_id,
                         }).collect(),
                     );
-                    match queue.drain(state, player_idx) {
+                    match queue.drain_with_undo(state, player_idx, undo) {
                         DrainResult::Complete => {}
                         DrainResult::NeedsChoice { options, continuation, resolution: new_res } => {
                             state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
@@ -1001,7 +1012,7 @@ pub fn resolve_pending_choice(
                             effect: c.effect, source_card_id: c.source_card_id,
                         }).collect(),
                     );
-                    match queue.drain(state, player_idx) {
+                    match queue.drain_with_undo(state, player_idx, undo) {
                         DrainResult::Complete => {}
                         DrainResult::NeedsChoice { options, continuation, resolution: new_res } => {
                             state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
@@ -1042,7 +1053,7 @@ pub fn resolve_pending_choice(
                         effect: c.effect, source_card_id: c.source_card_id,
                     }).collect(),
                 );
-                match queue.drain(state, player_idx) {
+                match queue.drain_with_undo(state, player_idx, undo) {
                     DrainResult::Complete => {}
                     DrainResult::NeedsChoice { options, continuation, resolution: new_res } => {
                         state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
@@ -1066,7 +1077,7 @@ pub fn resolve_pending_choice(
             if choice_index < available_colors.len() {
                 let color = available_colors[choice_index];
                 resolve_mana_radiance(state, player_idx, color);
-                resume_continuation(state, player_idx, source_card_id, choice.continuation);
+                resume_continuation(state, player_idx, source_card_id, choice.continuation, undo);
                 return Ok(());
             }
         }
@@ -1080,7 +1091,7 @@ pub fn resolve_pending_choice(
             ];
             if choice_index < colors.len() {
                 apply_gain_crystal_color(state, player_idx, colors[choice_index]);
-                resume_continuation(state, player_idx, source_card_id, choice.continuation);
+                resume_continuation(state, player_idx, source_card_id, choice.continuation, undo);
                 return Ok(());
             }
         }
@@ -1111,7 +1122,7 @@ pub fn resolve_pending_choice(
                                     source_card_id: c.source_card_id,
                                 }).collect(),
                             );
-                            match queue.drain(state, player_idx) {
+                            match queue.drain_with_undo(state, player_idx, undo) {
                                 DrainResult::Complete => {}
                                 DrainResult::NeedsChoice { options, continuation, resolution: new_res } => {
                                     state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
@@ -1146,7 +1157,7 @@ pub fn resolve_pending_choice(
                         }
                     }
                 }
-                resume_continuation(state, player_idx, source_card_id, choice.continuation);
+                resume_continuation(state, player_idx, source_card_id, choice.continuation, undo);
                 return Ok(());
             }
         }
@@ -1161,7 +1172,7 @@ pub fn resolve_pending_choice(
                         source_card_id: c.source_card_id,
                     }).collect(),
                 );
-                match queue.drain(state, player_idx) {
+                match queue.drain_with_undo(state, player_idx, undo) {
                     DrainResult::Complete => {}
                     DrainResult::NeedsChoice { options, continuation, resolution: new_res } => {
                         state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
@@ -1182,7 +1193,7 @@ pub fn resolve_pending_choice(
             if choice_index < eligible_unit_indices.len() {
                 let offer_idx = eligible_unit_indices[choice_index];
                 execute_free_recruit(state, player_idx, offer_idx);
-                resume_continuation(state, player_idx, source_card_id, choice.continuation);
+                resume_continuation(state, player_idx, source_card_id, choice.continuation, undo);
                 return Ok(());
             }
         }
@@ -1195,7 +1206,7 @@ pub fn resolve_pending_choice(
             let done_offset = if targets_so_far > 0 { 1 } else { 0 };
             if targets_so_far > 0 && choice_index == 0 {
                 // Done — stop targeting
-                resume_continuation(state, player_idx, source_card_id, choice.continuation);
+                resume_continuation(state, player_idx, source_card_id, choice.continuation, undo);
                 return Ok(());
             }
             let enemy_idx = choice_index - done_offset;
@@ -1247,6 +1258,7 @@ pub fn resolve_pending_choice(
                             player_idx,
                             source_card_id,
                             choice.continuation,
+                            undo,
                         );
                     }
                 }
@@ -1257,7 +1269,7 @@ pub fn resolve_pending_choice(
             if choice_index < eligible_enemy_ids.len() {
                 let enemy_id = eligible_enemy_ids[choice_index].clone();
                 execute_possess_enemy(state, player_idx, &enemy_id);
-                resume_continuation(state, player_idx, source_card_id, choice.continuation);
+                resume_continuation(state, player_idx, source_card_id, choice.continuation, undo);
                 return Ok(());
             }
         }
@@ -1267,7 +1279,7 @@ pub fn resolve_pending_choice(
         } => {
             if choice_index == 0 {
                 // "Done"
-                resume_continuation(state, player_idx, source_card_id, choice.continuation);
+                resume_continuation(state, player_idx, source_card_id, choice.continuation, undo);
                 return Ok(());
             }
             let unit_idx_in_list = choice_index - 1;
@@ -1296,11 +1308,12 @@ pub fn resolve_pending_choice(
                                 player_idx,
                                 source_card_id,
                                 choice.continuation,
+                                undo,
                             );
                         }
                     }
                 } else {
-                    resume_continuation(state, player_idx, source_card_id, choice.continuation);
+                    resume_continuation(state, player_idx, source_card_id, choice.continuation, undo);
                 }
                 return Ok(());
             }
@@ -1342,7 +1355,7 @@ pub fn resolve_pending_choice(
     );
 
     // Drain the queue
-    match queue.drain(state, player_idx) {
+    match queue.drain_with_undo(state, player_idx, undo) {
         DrainResult::Complete => {
             // Pending is already cleared (we took it above)
             Ok(())
@@ -1392,6 +1405,16 @@ pub fn resolve_discard_for_bonus(
     choice_index: usize,
     discard_count: usize,
 ) -> Result<(), ResolveChoiceError> {
+    resolve_discard_for_bonus_with_undo(state, player_idx, choice_index, discard_count, None)
+}
+
+pub(crate) fn resolve_discard_for_bonus_with_undo(
+    state: &mut GameState,
+    player_idx: usize,
+    choice_index: usize,
+    discard_count: usize,
+    undo: Option<&mut UndoStack>,
+) -> Result<(), ResolveChoiceError> {
     // Extract the pending
     let pending = state.players[player_idx]
         .pending
@@ -1430,7 +1453,7 @@ pub fn resolve_discard_for_bonus(
     let source_card_id = Some(dfb.source_card_id);
     let mut queue = EffectQueue::new();
     queue.push(final_effect, source_card_id.clone());
-    match queue.drain(state, player_idx) {
+    match queue.drain_with_undo(state, player_idx, undo) {
         DrainResult::Complete => Ok(()),
         DrainResult::NeedsChoice {
             options,
@@ -1470,6 +1493,15 @@ pub fn resolve_decompose(
     state: &mut GameState,
     player_idx: usize,
     hand_index: usize,
+) -> Result<(), ResolveChoiceError> {
+    resolve_decompose_with_undo(state, player_idx, hand_index, None)
+}
+
+pub(crate) fn resolve_decompose_with_undo(
+    state: &mut GameState,
+    player_idx: usize,
+    hand_index: usize,
+    undo: Option<&mut UndoStack>,
 ) -> Result<(), ResolveChoiceError> {
     // Extract the pending
     let pending = state.players[player_idx]
@@ -1548,7 +1580,7 @@ pub fn resolve_decompose(
     let source_card_id = Some(decompose.source_card_id);
     let mut queue = EffectQueue::new();
     queue.push_all(effects, source_card_id.clone());
-    match queue.drain(state, player_idx) {
+    match queue.drain_with_undo(state, player_idx, undo) {
         DrainResult::Complete => Ok(()),
         DrainResult::NeedsChoice {
             options,

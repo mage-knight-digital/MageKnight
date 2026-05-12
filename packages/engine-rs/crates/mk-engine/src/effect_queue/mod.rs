@@ -46,8 +46,15 @@ use mk_types::pending::{
 };
 use mk_types::state::*;
 
+use crate::undo::UndoStack;
+
 pub use self::choice_resolution::{
-    resolve_decompose, resolve_discard_for_bonus, resolve_pending_choice, ResolveChoiceError,
+    resolve_decompose, resolve_discard_for_bonus, resolve_pending_choice,
+    ResolveChoiceError,
+};
+pub(crate) use self::choice_resolution::{
+    resolve_pending_choice_with_undo, resolve_decompose_with_undo,
+    resolve_discard_for_bonus_with_undo,
 };
 pub(crate) use self::conditions::is_resolvable;
 pub(crate) use self::utils::{gain_crystal_color, replenish_aa_offer, replenish_spell_offer};
@@ -160,9 +167,21 @@ impl EffectQueue {
 
     /// Drain the queue, resolving effects until it's empty or a choice is needed.
     pub fn drain(&mut self, state: &mut GameState, player_idx: usize) -> DrainResult {
+        self.drain_with_undo(state, player_idx, None)
+    }
+
+    /// Like [`Self::drain`], plus optional undo stack integration: drawing from the
+    /// deed deck calls [`crate::undo::UndoStack::set_checkpoint`].
+    pub fn drain_with_undo(
+        &mut self,
+        state: &mut GameState,
+        player_idx: usize,
+        undo: Option<&mut UndoStack>,
+    ) -> DrainResult {
+        let mut undo_holder = undo;
         while let Some(queued) = self.queue.pop_front() {
             let source = queued.source_card_id.clone();
-            match resolve::resolve_one(state, player_idx, &queued.effect) {
+            match resolve::resolve_one(state, player_idx, &queued.effect, &mut undo_holder) {
                 ResolveResult::Applied => continue,
                 ResolveResult::Skipped => continue,
                 ResolveResult::Decomposed(sub_effects) => {
@@ -247,6 +266,14 @@ impl EffectQueue {
 /// `PeacefulMomentConvert` effect through the queue. If options exist, a pending
 /// choice is set; otherwise, nothing happens (e.g. influence was 0).
 pub fn enter_peaceful_moment_conversion(state: &mut GameState, player_idx: usize) {
+    enter_peaceful_moment_conversion_with_undo(state, player_idx, None)
+}
+
+pub(crate) fn enter_peaceful_moment_conversion_with_undo(
+    state: &mut GameState,
+    player_idx: usize,
+    undo: Option<&mut UndoStack>,
+) {
     let allow_refresh = state.players[player_idx]
         .flags
         .contains(PlayerFlags::PEACEFUL_MOMENT_ALLOW_REFRESH);
@@ -271,7 +298,7 @@ pub fn enter_peaceful_moment_conversion(state: &mut GameState, player_idx: usize
         None,
     );
     let peaceful_moment_card_id: Option<CardId> = None;
-    match queue.drain(state, player_idx) {
+    match queue.drain_with_undo(state, player_idx, undo) {
         DrainResult::Complete => {
             // Nothing to convert (shouldn't happen if enumeration was correct).
         }

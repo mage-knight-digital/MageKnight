@@ -499,6 +499,11 @@ fn arythea_battle_versatility() -> CardDefinition {
                     amount: 2,
                     element: Element::Physical,
                 },
+                CardEffect::GainAttack {
+                    amount: 1,
+                    combat_type: CombatType::Ranged,
+                    element: Element::Physical,
+                },
             ],
         },
         powered_effect: CardEffect::Choice {
@@ -510,6 +515,25 @@ fn arythea_battle_versatility() -> CardDefinition {
                 },
                 CardEffect::GainBlock {
                     amount: 4,
+                    element: Element::Physical,
+                },
+                CardEffect::GainAttack {
+                    amount: 3,
+                    combat_type: CombatType::Melee,
+                    element: Element::Fire,
+                },
+                CardEffect::GainBlock {
+                    amount: 3,
+                    element: Element::Fire,
+                },
+                CardEffect::GainAttack {
+                    amount: 3,
+                    combat_type: CombatType::Ranged,
+                    element: Element::Physical,
+                },
+                CardEffect::GainAttack {
+                    amount: 2,
+                    combat_type: CombatType::Siege,
                     element: Element::Physical,
                 },
             ],

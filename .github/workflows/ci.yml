@@ -45,6 +45,9 @@ jobs:
       - name: bun run build (all packages)
         run: bun run build
 
+      - name: bun test (client)
+        run: bun run --filter @mage-knight/client test
+
       - name: oxlint (packages/*/src)
         run: bun run lint
 
