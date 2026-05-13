@@ -4,8 +4,6 @@
 
 /** Default web path for static game assets (served as `/assets` in dev and production). */
 const DEFAULT_ASSETS_BASE = "/assets";
-const ASSETS_BASE_QUERY_PARAM = "assetsBase";
-const ASSETS_BASE_STORAGE_KEY = "mk.assetsBaseUrl";
 
 type RuntimeImportMeta = ImportMeta & {
   env?: {
@@ -20,105 +18,33 @@ let lastLoggedAssetsBaseUrl: string | null = null;
 function normalizeAssetsBaseUrl(baseUrl: string | null | undefined): string | null {
   const trimmed = baseUrl?.trim();
   if (!trimmed) return null;
-
-  const withoutTrailingSlashes = trimmed.replace(/\/+$/, "");
-  return withoutTrailingSlashes || "/";
-}
-
-/**
- * Returns true only for safe asset base URLs: absolute https/http origins or
- * same-origin paths starting with "/". Rejects javascript:, data:, and other
- * protocols that could be used to load content from untrusted sources.
- */
-function isSafeAssetBaseUrl(url: string): boolean {
-  if (url.startsWith("/")) return true;
-  try {
-    const { protocol } = new URL(url);
-    return protocol === "https:" || protocol === "http:";
-  } catch {
-    return false;
-  }
-}
-
-function getConfiguredAssetsBaseUrl(): string {
-  return (
-    sessionAssetsBaseUrl ??
-    normalizeAssetsBaseUrl((import.meta as RuntimeImportMeta).env?.VITE_ASSETS_BASE_URL) ??
-    DEFAULT_ASSETS_BASE
-  );
-}
-
-function getBrowserWindow(): Window | undefined {
-  return typeof window === "undefined" ? undefined : window;
-}
-
-function getStoredAssetsBaseUrl(): string | null {
-  try {
-    const stored = normalizeAssetsBaseUrl(getBrowserWindow()?.localStorage.getItem(ASSETS_BASE_STORAGE_KEY));
-    return stored !== null && isSafeAssetBaseUrl(stored) ? stored : null;
-  } catch {
-    return null;
-  }
-}
-
-function setStoredAssetsBaseUrl(baseUrl: string | null): void {
-  try {
-    const storage = getBrowserWindow()?.localStorage;
-    if (!storage) return;
-
-    if (baseUrl === null) {
-      storage.removeItem(ASSETS_BASE_STORAGE_KEY);
-    } else {
-      storage.setItem(ASSETS_BASE_STORAGE_KEY, baseUrl);
-    }
-  } catch {
-    // Ignore storage errors. Asset loading should still fall back to configured defaults.
-  }
-}
-
-function getQueryAssetsBaseUrl(): string | null | undefined {
-  const search = getBrowserWindow()?.location.search;
-  if (!search) return undefined;
-
-  const queryValue = new URLSearchParams(search).get(ASSETS_BASE_QUERY_PARAM);
-  if (queryValue === null) return undefined;
-
-  if (queryValue.trim().toLowerCase() === "default") {
-    setStoredAssetsBaseUrl(null);
-    return null;
-  }
-
-  const normalized = normalizeAssetsBaseUrl(queryValue);
-  if (normalized && isSafeAssetBaseUrl(normalized)) {
-    setStoredAssetsBaseUrl(normalized);
-    return normalized;
-  }
-  setStoredAssetsBaseUrl(null);
-  return null;
+  return trimmed.replace(/\/+$/, "") || "/";
 }
 
 function logAssetsBaseUrlForDevelopment(baseUrl: string): void {
   const env = (import.meta as RuntimeImportMeta).env;
   if (!env?.DEV || lastLoggedAssetsBaseUrl === baseUrl) return;
-
   lastLoggedAssetsBaseUrl = baseUrl;
   console.info(`[assets] Using asset base: ${baseUrl}`);
 }
 
+/**
+ * Override the asset base URL for the current session. Pass null to reset to
+ * the build-time default. Useful for testing CDN deploys without a rebuild:
+ * call from app init code or the browser console.
+ */
 export function setAssetsBaseUrlForSession(baseUrl: string | null): void {
   sessionAssetsBaseUrl = normalizeAssetsBaseUrl(baseUrl) ?? undefined;
   lastLoggedAssetsBaseUrl = null;
 }
 
 export function getAssetsBaseUrl(): string {
-  const queryAssetsBaseUrl = getQueryAssetsBaseUrl();
-  const assetsBaseUrl =
-    queryAssetsBaseUrl !== undefined
-      ? queryAssetsBaseUrl ?? getConfiguredAssetsBaseUrl()
-      : getStoredAssetsBaseUrl() ?? getConfiguredAssetsBaseUrl();
-
-  logAssetsBaseUrlForDevelopment(assetsBaseUrl);
-  return assetsBaseUrl;
+  const url =
+    sessionAssetsBaseUrl ??
+    normalizeAssetsBaseUrl((import.meta as RuntimeImportMeta).env?.VITE_ASSETS_BASE_URL) ??
+    DEFAULT_ASSETS_BASE;
+  logAssetsBaseUrlForDevelopment(url);
+  return url;
 }
 
 /**

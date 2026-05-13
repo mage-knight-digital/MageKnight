@@ -295,7 +295,7 @@ export function ManaSourceOverlay() {
               onKeyDown={isClickable ? (e) => { if (e.key === "Enter" || e.key === " ") handleDieClick(die.id, die.color); } : undefined}
             >
               <img
-                src={/* CodeQL[js/xss-through-dom, js/client-side-url-redirect] -- img src cannot execute scripts; URL base is protocol-validated in assetPaths.ts */ getManaIconUrl(die.color)}
+                src={getManaIconUrl(die.color)}
                 alt={die.color}
                 className="mana-source-overlay__die-icon"
                 style={
@@ -320,7 +320,7 @@ export function ManaSourceOverlay() {
                       title={color}
                       type="button"
                     >
-                      <img src={/* CodeQL[js/xss-through-dom, js/client-side-url-redirect] -- img src cannot execute scripts; URL base is protocol-validated in assetPaths.ts */ getManaIconUrl(color)} alt={color} />
+                      <img src={getManaIconUrl(color)} alt={color} />
                     </button>
                   ))}
                 </div>

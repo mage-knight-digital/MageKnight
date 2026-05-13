@@ -212,7 +212,6 @@ export async function renderEnemies(
 
         layers.enemies.addChild(enemyContainer);
       } catch (error) {
-        // CodeQL[js/tainted-format-string] -- JS template literals have no printf-style format string vulnerability; logging the URL for debugging is intentional
         console.error(`Failed to load enemy texture: ${imageUrl}`, error);
       }
     }
@@ -359,7 +358,6 @@ export async function animateEnemyFlips(
           },
         });
       } catch (error) {
-        // CodeQL[js/tainted-format-string] -- JS template literals have no printf-style format string vulnerability; logging the URL for debugging is intentional
         console.error(`[animateEnemyFlips] Failed to load texture: ${revealedUrl}`, error);
         completedCount++;
         if (completedCount === totalToAnimate) {

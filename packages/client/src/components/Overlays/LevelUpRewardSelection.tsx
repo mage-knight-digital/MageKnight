@@ -45,7 +45,7 @@ function SkillOption({ skillId, onSelect, isFromCommonPool }: SkillOptionProps) 
     >
       <img
         className="level-up__skill-image"
-        src={/* CodeQL[js/xss-through-dom, js/client-side-url-redirect] -- img src cannot execute scripts; URL base is protocol-validated in assetPaths.ts */ skillImagePath(skillId)}
+        src={skillImagePath(skillId)}
         alt={formatName(skillId)}
       />
       <span className="level-up__skill-name">{formatName(skillId)}</span>

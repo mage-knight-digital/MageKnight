@@ -116,7 +116,7 @@ export function EnemyDetailPanel({ enemy, onClose }: EnemyDetailPanelProps) {
         <div className="enemy-detail-header">
           <div className="enemy-detail-header-content">
             <img
-              src={/* CodeQL[js/xss-through-dom, js/client-side-url-redirect] -- img src cannot execute scripts; URL base is protocol-validated in assetPaths.ts */ getEnemyImageUrl(enemy.enemyId)}
+              src={getEnemyImageUrl(enemy.enemyId)}
               alt={enemy.name}
               className="enemy-detail-portrait"
             />
