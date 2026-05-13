@@ -6,7 +6,7 @@ COPY package.json bun.lock ./
 COPY packages/client/package.json packages/client/
 COPY packages/shared/package.json packages/shared/
 COPY packages/mage-dev/package.json packages/mage-dev/
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # Source
 COPY packages/client/ packages/client/
