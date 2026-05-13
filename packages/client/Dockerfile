@@ -2,7 +2,7 @@ FROM oven/bun:1 AS builder
 WORKDIR /build
 
 # Install step — cache this layer separately from source
-COPY package.json bun.lock ./
+COPY package.json bun.lock tsconfig.json ./
 COPY packages/client/package.json packages/client/
 COPY packages/shared/package.json packages/shared/
 COPY packages/mage-dev/package.json packages/mage-dev/
