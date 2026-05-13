@@ -48,7 +48,7 @@ export function HeroCard({
       }}
     >
       <img
-        src={imagePath}
+        src={/* CodeQL[js/xss-through-dom, js/client-side-url-redirect] -- img src cannot execute scripts; URL base is protocol-validated in assetPaths.ts */ imagePath}
         alt={heroName}
         className="hero-card__image"
         decoding="async"

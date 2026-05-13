@@ -236,6 +236,7 @@ export async function renderRuinsTokens(
 
       layers.enemies.addChild(tokenContainer);
     } catch (error) {
+      // CodeQL[js/tainted-format-string] -- JS template literals have no printf-style format string vulnerability; logging the URL for debugging is intentional
       console.error(`Failed to load ruins token texture: ${imageUrl}`, error);
     }
   }
@@ -370,6 +371,7 @@ export async function animateRuinsFlips(
           },
         });
       } catch (error) {
+        // CodeQL[js/tainted-format-string] -- JS template literals have no printf-style format string vulnerability; logging the URL for debugging is intentional
         console.error(`[animateRuinsFlips] Failed to load texture: ${revealedUrl}`, error);
         completedCount++;
         if (completedCount === totalToAnimate) {

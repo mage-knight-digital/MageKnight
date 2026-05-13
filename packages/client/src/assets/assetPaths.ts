@@ -25,6 +25,21 @@ function normalizeAssetsBaseUrl(baseUrl: string | null | undefined): string | nu
   return withoutTrailingSlashes || "/";
 }
 
+/**
+ * Returns true only for safe asset base URLs: absolute https/http origins or
+ * same-origin paths starting with "/". Rejects javascript:, data:, and other
+ * protocols that could be used to load content from untrusted sources.
+ */
+function isSafeAssetBaseUrl(url: string): boolean {
+  if (url.startsWith("/")) return true;
+  try {
+    const { protocol } = new URL(url);
+    return protocol === "https:" || protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
 function getConfiguredAssetsBaseUrl(): string {
   return (
     sessionAssetsBaseUrl ??
@@ -39,7 +54,8 @@ function getBrowserWindow(): Window | undefined {
 
 function getStoredAssetsBaseUrl(): string | null {
   try {
-    return normalizeAssetsBaseUrl(getBrowserWindow()?.localStorage.getItem(ASSETS_BASE_STORAGE_KEY));
+    const stored = normalizeAssetsBaseUrl(getBrowserWindow()?.localStorage.getItem(ASSETS_BASE_STORAGE_KEY));
+    return stored !== null && isSafeAssetBaseUrl(stored) ? stored : null;
   } catch {
     return null;
   }
@@ -73,12 +89,12 @@ function getQueryAssetsBaseUrl(): string | null | undefined {
   }
 
   const normalized = normalizeAssetsBaseUrl(queryValue);
-  if (normalized) {
+  if (normalized && isSafeAssetBaseUrl(normalized)) {
     setStoredAssetsBaseUrl(normalized);
-  } else {
-    setStoredAssetsBaseUrl(null);
+    return normalized;
   }
-  return normalized;
+  setStoredAssetsBaseUrl(null);
+  return null;
 }
 
 function logAssetsBaseUrlForDevelopment(baseUrl: string): void {

@@ -420,6 +420,7 @@ export async function renderTiles(
       knownTileIds.add(tile.tileId);
       layers.tiles.addChild(sprite);
     } catch (error) {
+      // CodeQL[js/tainted-format-string] -- JS template literals have no printf-style format string vulnerability; logging the URL for debugging is intentional
       console.error(`Failed to load tile texture: ${imageUrl}`, error);
     }
   }

@@ -103,6 +103,28 @@ describe("assetUrl", () => {
     );
   });
 
+  it("rejects unsafe protocols in query param and falls back to configured base", () => {
+    const localStorage = installBrowserGlobals(
+      "?assetsBase=javascript%3Aalert(1)"
+    );
+    setAssetsBaseUrlForSession("https://cdn.example.com/mageknight/v2/assets/");
+
+    expect(assetUrl("icons/attack.png")).toBe(
+      "https://cdn.example.com/mageknight/v2/assets/icons/attack.png"
+    );
+    expect(localStorage.getItem("mk.assetsBaseUrl")).toBeNull();
+  });
+
+  it("rejects unsafe protocols stored in localStorage", () => {
+    const localStorage = installBrowserGlobals();
+    localStorage.setItem("mk.assetsBaseUrl", "javascript:alert(1)");
+    setAssetsBaseUrlForSession("https://cdn.example.com/mageknight/v2/assets/");
+
+    expect(assetUrl("icons/attack.png")).toBe(
+      "https://cdn.example.com/mageknight/v2/assets/icons/attack.png"
+    );
+  });
+
   it("clears a persisted override when the query param is default", () => {
     const localStorage = installBrowserGlobals("?assetsBase=default");
     localStorage.setItem("mk.assetsBaseUrl", "https://cdn.example.com/mageknight/v4/assets");
