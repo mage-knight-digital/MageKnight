@@ -10,6 +10,8 @@ import { join } from "node:path";
 const ROOT = import.meta.dir;
 const DIST = join(ROOT, "dist");
 const PUBLIC = join(ROOT, "public");
+const mkBundleAssets = process.env["MK_BUNDLE_ASSETS"];
+const BUNDLE_ASSETS = mkBundleAssets === "1" || mkBundleAssets === "true";
 
 async function clean() {
   await rm(DIST, { recursive: true, force: true });
@@ -17,9 +19,10 @@ async function clean() {
 }
 
 async function copyPublicAssets() {
-  // Copy public folder contents to dist
+  // Copy public folder contents to dist. The large gitignored asset pack is
+  // CDN-hosted by default; bundle it only for explicit offline/local builds.
   try {
-    const entries = await readdir(PUBLIC);
+    const entries = (await readdir(PUBLIC)).filter((entry) => BUNDLE_ASSETS || entry !== "assets");
     await Promise.all(
       entries.map((entry) =>
         cp(join(PUBLIC, entry), join(DIST, entry), { recursive: true })

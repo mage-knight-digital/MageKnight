@@ -1,0 +1,10 @@
+hcloud_token = "REPLACE_ME"
+
+# Leave these null to point DNS at the Terraform-created Hetzner server.
+# Set them only when using an origin managed outside this environment.
+app_origin_ipv4 = null
+api_origin_ipv4 = null
+
+create_app_server = true
+enable_r2_assets  = true
+ssh_allowed_ips   = ["0.0.0.0/0", "::/0"]

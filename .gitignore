@@ -40,6 +40,16 @@ packages/client/dev.js
 packages/engine-rs/target/
 **/target/
 
+# Terraform local state/plans and credentials
+**/.terraform/
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/*.tfvars
+!**/terraform.tfvars.example
+**/tfplan*
+**/backend.hcl
+!**/backend.hcl.example
+
 # Simulation artifacts (large binary data, training checkpoints)
 sim-artifacts/
 

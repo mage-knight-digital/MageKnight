@@ -4,6 +4,106 @@
 
 /** Default web path for static game assets (served as `/assets` in dev and production). */
 const DEFAULT_ASSETS_BASE = "/assets";
+const ASSETS_BASE_QUERY_PARAM = "assetsBase";
+const ASSETS_BASE_STORAGE_KEY = "mk.assetsBaseUrl";
+
+type RuntimeImportMeta = ImportMeta & {
+  env?: {
+    DEV?: boolean;
+    VITE_ASSETS_BASE_URL?: string;
+  };
+};
+
+let sessionAssetsBaseUrl: string | undefined;
+let lastLoggedAssetsBaseUrl: string | null = null;
+
+function normalizeAssetsBaseUrl(baseUrl: string | null | undefined): string | null {
+  const trimmed = baseUrl?.trim();
+  if (!trimmed) return null;
+
+  const withoutTrailingSlashes = trimmed.replace(/\/+$/, "");
+  return withoutTrailingSlashes || "/";
+}
+
+function getConfiguredAssetsBaseUrl(): string {
+  return (
+    sessionAssetsBaseUrl ??
+    normalizeAssetsBaseUrl((import.meta as RuntimeImportMeta).env?.VITE_ASSETS_BASE_URL) ??
+    DEFAULT_ASSETS_BASE
+  );
+}
+
+function getBrowserWindow(): Window | undefined {
+  return typeof window === "undefined" ? undefined : window;
+}
+
+function getStoredAssetsBaseUrl(): string | null {
+  try {
+    return normalizeAssetsBaseUrl(getBrowserWindow()?.localStorage.getItem(ASSETS_BASE_STORAGE_KEY));
+  } catch {
+    return null;
+  }
+}
+
+function setStoredAssetsBaseUrl(baseUrl: string | null): void {
+  try {
+    const storage = getBrowserWindow()?.localStorage;
+    if (!storage) return;
+
+    if (baseUrl === null) {
+      storage.removeItem(ASSETS_BASE_STORAGE_KEY);
+    } else {
+      storage.setItem(ASSETS_BASE_STORAGE_KEY, baseUrl);
+    }
+  } catch {
+    // Ignore storage errors. Asset loading should still fall back to configured defaults.
+  }
+}
+
+function getQueryAssetsBaseUrl(): string | null | undefined {
+  const search = getBrowserWindow()?.location.search;
+  if (!search) return undefined;
+
+  const queryValue = new URLSearchParams(search).get(ASSETS_BASE_QUERY_PARAM);
+  if (queryValue === null) return undefined;
+
+  if (queryValue.trim().toLowerCase() === "default") {
+    setStoredAssetsBaseUrl(null);
+    return null;
+  }
+
+  const normalized = normalizeAssetsBaseUrl(queryValue);
+  if (normalized) {
+    setStoredAssetsBaseUrl(normalized);
+  } else {
+    setStoredAssetsBaseUrl(null);
+  }
+  return normalized;
+}
+
+function logAssetsBaseUrlForDevelopment(baseUrl: string): void {
+  const env = (import.meta as RuntimeImportMeta).env;
+  if (!env?.DEV || lastLoggedAssetsBaseUrl === baseUrl) return;
+
+  lastLoggedAssetsBaseUrl = baseUrl;
+  console.info(`[assets] Using asset base: ${baseUrl}`);
+}
+
+export function setAssetsBaseUrlForSession(baseUrl: string | null): void {
+  sessionAssetsBaseUrl = normalizeAssetsBaseUrl(baseUrl) ?? undefined;
+  lastLoggedAssetsBaseUrl = null;
+}
+
+export function getAssetsBaseUrl(): string {
+  const queryAssetsBaseUrl = getQueryAssetsBaseUrl();
+  const assetsBaseUrl =
+    queryAssetsBaseUrl !== undefined
+      ? queryAssetsBaseUrl ?? getConfiguredAssetsBaseUrl()
+      : getStoredAssetsBaseUrl() ?? getConfiguredAssetsBaseUrl();
+
+  logAssetsBaseUrlForDevelopment(assetsBaseUrl);
+  return assetsBaseUrl;
+}
 
 /**
  * Returns an absolute URL path under the game asset root.
@@ -11,10 +111,11 @@ const DEFAULT_ASSETS_BASE = "/assets";
  * The implementation reserves a single place to swap in a CDN base or version prefix later.
  */
 export function assetUrl(path: string): string {
+  const assetsBaseUrl = getAssetsBaseUrl();
   const trimmed = path.trim();
-  if (!trimmed) return DEFAULT_ASSETS_BASE;
+  if (!trimmed) return assetsBaseUrl;
   const relative = trimmed.replace(/^\/+/, "");
-  return `${DEFAULT_ASSETS_BASE}/${relative}`;
+  return `${assetsBaseUrl}/${relative}`;
 }
 
 export function getEnemyImageUrl(enemyId: string): string {

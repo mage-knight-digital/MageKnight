@@ -60,6 +60,68 @@ jobs:
         with:
           args: check packages/python-sdk scripts --config packages/python-sdk/pyproject.toml
 
+  terraform:
+    name: Terraform Fmt & Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Paths filter — run only if terraform or this workflow changed
+        id: tf-changes
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            terraform:
+              - 'terraform/**'
+              - '.github/workflows/ci.yml'
+
+      - name: Setup Terraform
+        if: steps.tf-changes.outputs.terraform == 'true'
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.5"
+
+      - name: terraform fmt
+        if: steps.tf-changes.outputs.terraform == 'true'
+        run: terraform fmt -check -recursive terraform/
+
+      - name: terraform validate — prod
+        if: steps.tf-changes.outputs.terraform == 'true'
+        working-directory: terraform/environments/prod
+        run: |
+          terraform init -backend=false
+          terraform validate
+
+      - name: terraform validate — dev
+        if: steps.tf-changes.outputs.terraform == 'true'
+        working-directory: terraform/environments/dev
+        run: |
+          terraform init -backend=false
+          terraform validate
+
+      - name: terraform validate — bootstrap/cloudflare-token
+        if: steps.tf-changes.outputs.terraform == 'true'
+        working-directory: terraform/bootstrap/cloudflare-token
+        run: |
+          terraform init -backend=false
+          terraform validate
+
+      # Uncomment to enable plan checks on PRs (requires GitHub Actions secrets):
+      #   TF_BACKEND_ACCESS_KEY  — R2 access key ID
+      #   TF_BACKEND_SECRET_KEY  — R2 secret access key
+      #   TF_VAR_hcloud_token    — Hetzner Cloud API token
+      #
+      # - name: terraform plan — prod
+      #   if: steps.tf-changes.outputs.terraform == 'true' && github.event_name == 'pull_request'
+      #   working-directory: terraform/environments/prod
+      #   env:
+      #     AWS_ACCESS_KEY_ID: ${{ secrets.TF_BACKEND_ACCESS_KEY }}
+      #     AWS_SECRET_ACCESS_KEY: ${{ secrets.TF_BACKEND_SECRET_KEY }}
+      #     TF_VAR_hcloud_token: ${{ secrets.TF_VAR_hcloud_token }}
+      #   run: |
+      #     terraform init -backend-config=../../environments/prod/backend.hcl
+      #     terraform plan -var-file=terraform.tfvars -out=tfplan
+
   rust:
     name: Rust Build, Lint & Test
     runs-on: ubuntu-latest

@@ -1,0 +1,20 @@
+# Copy this file to backend.hcl and fill in real credentials.
+# backend.hcl is gitignored — never commit the real file.
+#
+# How to get access_key / secret_key:
+#   Cloudflare dashboard → R2 → "Manage R2 API Tokens" → Create API Token
+#   Permissions: Object Read & Write, scoped to bucket: mageknight-terraform-state
+#   Copy the "Access Key ID" and "Secret Access Key" shown once on creation.
+
+bucket                      = "mageknight-terraform-state"
+key                         = "prod/terraform.tfstate"
+region                      = "auto"
+endpoints                   = { s3 = "https://dda00d5415786eed42e96d0440148710.r2.cloudflarestorage.com" }
+access_key                  = "REPLACE_WITH_R2_ACCESS_KEY_ID"
+secret_key                  = "REPLACE_WITH_R2_SECRET_ACCESS_KEY"
+skip_credentials_validation = true
+skip_region_validation      = true
+skip_requesting_account_id  = true
+skip_metadata_api_check     = true
+use_path_style              = true
+use_lockfile                = true
