@@ -5,16 +5,59 @@
 /** Default web path for static game assets (served as `/assets` in dev and production). */
 const DEFAULT_ASSETS_BASE = "/assets";
 
+type RuntimeImportMeta = ImportMeta & {
+  env?: {
+    DEV?: boolean;
+    VITE_ASSETS_BASE_URL?: string;
+  };
+};
+
+let sessionAssetsBaseUrl: string | undefined;
+let lastLoggedAssetsBaseUrl: string | null = null;
+
+function normalizeAssetsBaseUrl(baseUrl: string | null | undefined): string | null {
+  const trimmed = baseUrl?.trim();
+  if (!trimmed) return null;
+  return trimmed.replace(/\/+$/, "") || "/";
+}
+
+function logAssetsBaseUrlForDevelopment(baseUrl: string): void {
+  const env = (import.meta as RuntimeImportMeta).env;
+  if (!env?.DEV || lastLoggedAssetsBaseUrl === baseUrl) return;
+  lastLoggedAssetsBaseUrl = baseUrl;
+  console.info(`[assets] Using asset base: ${baseUrl}`);
+}
+
+/**
+ * Override the asset base URL for the current session. Pass null to reset to
+ * the build-time default. Useful for testing CDN deploys without a rebuild:
+ * call from app init code or the browser console.
+ */
+export function setAssetsBaseUrlForSession(baseUrl: string | null): void {
+  sessionAssetsBaseUrl = normalizeAssetsBaseUrl(baseUrl) ?? undefined;
+  lastLoggedAssetsBaseUrl = null;
+}
+
+export function getAssetsBaseUrl(): string {
+  const url =
+    sessionAssetsBaseUrl ??
+    normalizeAssetsBaseUrl((import.meta as RuntimeImportMeta).env?.VITE_ASSETS_BASE_URL) ??
+    DEFAULT_ASSETS_BASE;
+  logAssetsBaseUrlForDevelopment(url);
+  return url;
+}
+
 /**
  * Returns an absolute URL path under the game asset root.
  * Leading slashes on `path` are ignored so `icons/x.png` and `/icons/x.png` resolve the same.
  * The implementation reserves a single place to swap in a CDN base or version prefix later.
  */
 export function assetUrl(path: string): string {
+  const assetsBaseUrl = getAssetsBaseUrl();
   const trimmed = path.trim();
-  if (!trimmed) return DEFAULT_ASSETS_BASE;
+  if (!trimmed) return assetsBaseUrl;
   const relative = trimmed.replace(/^\/+/, "");
-  return `${DEFAULT_ASSETS_BASE}/${relative}`;
+  return `${assetsBaseUrl}/${relative}`;
 }
 
 export function getEnemyImageUrl(enemyId: string): string {

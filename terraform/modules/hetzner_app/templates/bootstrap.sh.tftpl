@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+export HOME=/root
+
+REPO_DIR=/opt/mage-knight
+REPO_URL="${repo_url}"
+REPO_BRANCH="${repo_branch}"
+APP_DOMAIN="${app_domain}"
+API_DOMAIN="${api_domain}"
+ASSETS_BASE_URL="${assets_base_url}"
+SERVER_PORT="${server_port}"
+DEPLOY_INTERVAL_SEC="${deploy_interval_sec}"
+
+apt-get update
+apt-get install -y ca-certificates curl git unzip build-essential pkg-config libssl-dev caddy
+
+if ! command -v bun >/dev/null 2>&1; then
+  curl -fsSL https://bun.sh/install | bash
+fi
+
+export BUN_INSTALL=/root/.bun
+export PATH="$BUN_INSTALL/bin:$PATH"
+
+if ! command -v rustup >/dev/null 2>&1; then
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+fi
+
+source /root/.cargo/env
+rustup default stable
+
+if [ ! -d "$REPO_DIR/.git" ]; then
+  rm -rf "$REPO_DIR"
+  git clone --branch "$REPO_BRANCH" "$REPO_URL" "$REPO_DIR"
+fi
+
+cat >/etc/profile.d/mage-knight-path.sh <<'EOF'
+export BUN_INSTALL=/root/.bun
+export PATH=/root/.cargo/bin:/root/.bun/bin:$PATH
+EOF
+
+cat >/etc/systemd/system/mage-knight-server.service <<EOF
+[Unit]
+Description=Mage Knight WebSocket Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=$REPO_DIR
+Environment=PATH=/root/.cargo/bin:/root/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=PORT=$SERVER_PORT
+ExecStart=/root/.cargo/bin/cargo run --release -p mk-server --manifest-path packages/engine-rs/Cargo.toml
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+cat >/usr/local/bin/mage-knight-deploy <<'DEPLOY_EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_DIR=/opt/mage-knight
+LOCK=/run/mage-knight-deploy.lock
+LOG=/var/log/mage-knight-deploy.log
+BRANCH="${repo_branch}"
+ASSETS_BASE_URL="${assets_base_url}"
+
+exec 200>"$LOCK"
+flock -n 200 || exit 0
+
+export BUN_INSTALL=/root/.bun
+export PATH=/root/.cargo/bin:/root/.bun/bin:$PATH
+
+cd "$REPO_DIR"
+git fetch origin "$BRANCH" --quiet
+
+LOCAL=$(git rev-parse HEAD)
+REMOTE=$(git rev-parse "origin/$BRANCH")
+
+if [ "$LOCAL" != "$REMOTE" ]; then
+  git checkout "$BRANCH"
+  git reset --hard "$REMOTE"
+fi
+
+bun install >> "$LOG" 2>&1
+bun run --filter @mage-knight/shared build >> "$LOG" 2>&1
+VITE_ASSETS_BASE_URL="$ASSETS_BASE_URL" bun run --filter @mage-knight/client build >> "$LOG" 2>&1
+
+systemctl restart mage-knight-server.service
+systemctl reload caddy || systemctl restart caddy
+
+echo "$(date -u +%FT%TZ) deployed $(git rev-parse --short HEAD)" >> "$LOG"
+DEPLOY_EOF
+chmod 0755 /usr/local/bin/mage-knight-deploy
+
+cat >/etc/systemd/system/mage-knight-deploy.service <<'EOF'
+[Unit]
+Description=Deploy Mage Knight Digital
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/mage-knight-deploy
+EOF
+
+cat >/etc/systemd/system/mage-knight-deploy.timer <<EOF
+[Unit]
+Description=Poll GitHub for Mage Knight Digital deploys
+
+[Timer]
+OnBootSec=30
+OnUnitActiveSec=$DEPLOY_INTERVAL_SEC
+Unit=mage-knight-deploy.service
+
+[Install]
+WantedBy=timers.target
+EOF
+
+cat >/etc/caddy/Caddyfile <<EOF
+$APP_DOMAIN {
+  root * $REPO_DIR/packages/client/dist
+  try_files {path} /index.html
+  file_server
+}
+
+$API_DOMAIN {
+  reverse_proxy 127.0.0.1:$SERVER_PORT
+}
+EOF
+
+systemctl daemon-reload
+/usr/local/bin/mage-knight-deploy
+systemctl enable --now mage-knight-server.service
+systemctl enable --now caddy
+systemctl enable --now mage-knight-deploy.timer
