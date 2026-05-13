@@ -1,0 +1,26 @@
+services:
+  mk-server:
+    image: ${SERVER_IMAGE:-ghcr.io/mage-knight-digital/mk-server:latest}
+    restart: unless-stopped
+    environment:
+      PORT: "3030"
+
+  mk-client:
+    image: ${CLIENT_IMAGE:-ghcr.io/mage-knight-digital/mk-client:latest}
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN}
+    depends_on:
+      - mk-server
+
+volumes:
+  caddy_data:
+  caddy_config:

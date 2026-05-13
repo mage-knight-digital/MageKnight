@@ -1,0 +1,9 @@
+{$APP_DOMAIN} {
+    root * /srv
+    try_files {path} /index.html
+    file_server
+}
+
+{$API_DOMAIN} {
+    reverse_proxy mk-server:3030
+}

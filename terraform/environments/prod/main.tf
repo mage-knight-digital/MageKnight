@@ -76,6 +76,5 @@ module "hetzner_app" {
   repo_branch         = var.repo_branch
   app_domain          = "play.${local.domain_name}"
   api_domain          = "api.${local.domain_name}"
-  assets_base_url     = local.assets_base_url
-  server_port         = 3030
+  ghcr_token          = var.ghcr_token
 }

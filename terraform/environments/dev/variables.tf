@@ -75,3 +75,10 @@ variable "repo_branch" {
   type        = string
   default     = "main"
 }
+
+variable "ghcr_token" {
+  description = "GitHub PAT with read:packages scope for pulling GHCR images. Leave null for public packages."
+  type        = string
+  sensitive   = true
+  default     = null
+}
