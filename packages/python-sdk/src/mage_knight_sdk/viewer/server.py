@@ -7,6 +7,8 @@ import threading
 from pathlib import Path
 
 from flask import Flask, jsonify, request, send_from_directory
+from werkzeug.exceptions import NotFound
+from werkzeug.security import safe_join
 
 from .ndjson_index import (
     build_ndjson_and_index,
@@ -34,19 +36,17 @@ VIEWER_CACHE_DIR = ".viewer-cache"
 def _safe_artifact_path(root: Path, name: str) -> Path | None:
     """Return the resolved path for an artifact name, or None if it escapes root.
 
-    Takes only the final path component from name so URL segments like
-    '../../etc/passwd' are reduced to 'passwd' before resolution.
-    Then resolves to an absolute path and confirms it stays inside root.
+    Uses werkzeug.security.safe_join (a known path-traversal sanitizer) after
+    stripping all directory components from name, so '../../etc/passwd' reduces
+    to 'passwd' before the join is attempted.
     """
     safe_name = Path(name).name  # discard any directory components
     if not safe_name or safe_name.startswith("."):
         return None
-    candidate = (root.resolve() / safe_name)
     try:
-        candidate.relative_to(root.resolve())
-    except ValueError:
+        return Path(safe_join(str(root.resolve()), safe_name))
+    except NotFound:
         return None
-    return candidate
 
 
 # In-progress build state: artifact name -> "building" | total_count

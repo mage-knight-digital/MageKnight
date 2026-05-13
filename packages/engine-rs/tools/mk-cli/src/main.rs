@@ -238,6 +238,7 @@ fn run_replay(replay_path: PathBuf, step_mode: bool, from_step: Option<usize>) {
             println!("  Candidates ({}):", action_set.actions.len());
             for (i, a) in action_set.actions.iter().enumerate() {
                 let marker = if i == action_index { ">>" } else { "  " };
+                // lgtm[rust/cleartext-logging] — local interactive CLI; game state displayed intentionally to the operator
                 println!("  {} [{:>3}] {}", marker, i, format_action(a, &state, player_idx));
             }
             println!();
