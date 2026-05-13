@@ -71,7 +71,26 @@ variable "server_port" {
 }
 
 variable "deploy_interval_sec" {
-  description = "How often systemd checks for main branch updates."
+  description = "How often systemd checks for new Docker images."
   type        = number
   default     = 60
+}
+
+variable "ghcr_token" {
+  description = "GitHub PAT with read:packages scope for pulling GHCR images. Leave null for public packages."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+variable "server_image" {
+  description = "Docker image for mk-server."
+  type        = string
+  default     = "ghcr.io/mage-knight-digital/mk-server:latest"
+}
+
+variable "client_image" {
+  description = "Docker image for mk-client."
+  type        = string
+  default     = "ghcr.io/mage-knight-digital/mk-client:latest"
 }

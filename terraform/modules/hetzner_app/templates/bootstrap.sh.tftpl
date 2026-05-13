@@ -4,104 +4,95 @@ set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 export HOME=/root
 
-REPO_DIR=/opt/mage-knight
-REPO_URL="${repo_url}"
-REPO_BRANCH="${repo_branch}"
 APP_DOMAIN="${app_domain}"
 API_DOMAIN="${api_domain}"
-ASSETS_BASE_URL="${assets_base_url}"
-SERVER_PORT="${server_port}"
 DEPLOY_INTERVAL_SEC="${deploy_interval_sec}"
+SERVER_IMAGE="${server_image}"
+CLIENT_IMAGE="${client_image}"
+%{ if ghcr_token != null ~}
+GHCR_TOKEN="${ghcr_token}"
+%{ endif ~}
 
+DEPLOY_DIR=/opt/mage-knight
+
+# Install Docker
 apt-get update
-apt-get install -y ca-certificates curl git unzip build-essential pkg-config libssl-dev caddy
+apt-get install -y ca-certificates curl
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
+  https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+  >/etc/apt/sources.list.d/docker.list
+apt-get update
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+systemctl enable --now docker
 
-if ! command -v bun >/dev/null 2>&1; then
-  curl -fsSL https://bun.sh/install | bash
-fi
+mkdir -p "$DEPLOY_DIR"
 
-export BUN_INSTALL=/root/.bun
-export PATH="$BUN_INSTALL/bin:$PATH"
+cat >"$DEPLOY_DIR/docker-compose.yml" <<'COMPOSE_EOF'
+services:
+  mk-server:
+    image: ${server_image}
+    restart: unless-stopped
+    environment:
+      PORT: "3030"
 
-if ! command -v rustup >/dev/null 2>&1; then
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-fi
+  mk-client:
+    image: ${client_image}
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      APP_DOMAIN: $APP_DOMAIN
+      API_DOMAIN: $API_DOMAIN
+    depends_on:
+      - mk-server
 
-source /root/.cargo/env
-rustup default stable
+volumes:
+  caddy_data:
+  caddy_config:
+COMPOSE_EOF
 
-if [ ! -d "$REPO_DIR/.git" ]; then
-  rm -rf "$REPO_DIR"
-  git clone --branch "$REPO_BRANCH" "$REPO_URL" "$REPO_DIR"
-fi
-
-cat >/etc/profile.d/mage-knight-path.sh <<'EOF'
-export BUN_INSTALL=/root/.bun
-export PATH=/root/.cargo/bin:/root/.bun/bin:$PATH
-EOF
-
-cat >/etc/systemd/system/mage-knight-server.service <<EOF
-[Unit]
-Description=Mage Knight WebSocket Server
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-WorkingDirectory=$REPO_DIR
-Environment=PATH=/root/.cargo/bin:/root/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-Environment=PORT=$SERVER_PORT
-ExecStart=/root/.cargo/bin/cargo run --release -p mk-server --manifest-path packages/engine-rs/Cargo.toml
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
+cat >"$DEPLOY_DIR/.env" <<EOF
+APP_DOMAIN=$APP_DOMAIN
+API_DOMAIN=$API_DOMAIN
+SERVER_IMAGE=$SERVER_IMAGE
+CLIENT_IMAGE=$CLIENT_IMAGE
 EOF
 
 cat >/usr/local/bin/mage-knight-deploy <<'DEPLOY_EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_DIR=/opt/mage-knight
+DEPLOY_DIR=/opt/mage-knight
 LOCK=/run/mage-knight-deploy.lock
 LOG=/var/log/mage-knight-deploy.log
-BRANCH="${repo_branch}"
-ASSETS_BASE_URL="${assets_base_url}"
 
 exec 200>"$LOCK"
 flock -n 200 || exit 0
 
-export BUN_INSTALL=/root/.bun
-export PATH=/root/.cargo/bin:/root/.bun/bin:$PATH
+%{ if ghcr_token != null ~}
+echo "$GHCR_TOKEN" | docker login ghcr.io -u mage-knight-digital --password-stdin
+%{ endif ~}
 
-cd "$REPO_DIR"
-git fetch origin "$BRANCH" --quiet
+docker compose -f "$DEPLOY_DIR/docker-compose.yml" --env-file "$DEPLOY_DIR/.env" pull
+docker compose -f "$DEPLOY_DIR/docker-compose.yml" --env-file "$DEPLOY_DIR/.env" up -d --remove-orphans
 
-LOCAL=$(git rev-parse HEAD)
-REMOTE=$(git rev-parse "origin/$BRANCH")
-
-if [ "$LOCAL" != "$REMOTE" ]; then
-  git checkout "$BRANCH"
-  git reset --hard "$REMOTE"
-fi
-
-bun install >> "$LOG" 2>&1
-bun run --filter @mage-knight/shared build >> "$LOG" 2>&1
-VITE_ASSETS_BASE_URL="$ASSETS_BASE_URL" bun run --filter @mage-knight/client build >> "$LOG" 2>&1
-
-systemctl restart mage-knight-server.service
-systemctl reload caddy || systemctl restart caddy
-
-echo "$(date -u +%FT%TZ) deployed $(git rev-parse --short HEAD)" >> "$LOG"
+echo "$(date -u +%FT%TZ) deployed" >>"$LOG"
 DEPLOY_EOF
 chmod 0755 /usr/local/bin/mage-knight-deploy
 
 cat >/etc/systemd/system/mage-knight-deploy.service <<'EOF'
 [Unit]
 Description=Deploy Mage Knight Digital
-After=network-online.target
-Wants=network-online.target
+After=docker.service
+Wants=docker.service
 
 [Service]
 Type=oneshot
@@ -110,7 +101,7 @@ EOF
 
 cat >/etc/systemd/system/mage-knight-deploy.timer <<EOF
 [Unit]
-Description=Poll GitHub for Mage Knight Digital deploys
+Description=Poll GHCR for Mage Knight Digital updates
 
 [Timer]
 OnBootSec=30
@@ -121,20 +112,6 @@ Unit=mage-knight-deploy.service
 WantedBy=timers.target
 EOF
 
-cat >/etc/caddy/Caddyfile <<EOF
-$APP_DOMAIN {
-  root * $REPO_DIR/packages/client/dist
-  try_files {path} /index.html
-  file_server
-}
-
-$API_DOMAIN {
-  reverse_proxy 127.0.0.1:$SERVER_PORT
-}
-EOF
-
 systemctl daemon-reload
 /usr/local/bin/mage-knight-deploy
-systemctl enable --now mage-knight-server.service
-systemctl enable --now caddy
 systemctl enable --now mage-knight-deploy.timer

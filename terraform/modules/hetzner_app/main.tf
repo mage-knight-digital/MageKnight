@@ -1,12 +1,11 @@
 locals {
   bootstrap_script = templatefile("${path.module}/templates/bootstrap.sh.tftpl", {
-    repo_url            = var.repo_url
-    repo_branch         = var.repo_branch
     app_domain          = var.app_domain
     api_domain          = var.api_domain
-    assets_base_url     = var.assets_base_url
-    server_port         = var.server_port
     deploy_interval_sec = var.deploy_interval_sec
+    ghcr_token          = var.ghcr_token
+    server_image        = var.server_image
+    client_image        = var.client_image
   })
 }
 
