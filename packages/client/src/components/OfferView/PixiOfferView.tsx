@@ -18,6 +18,7 @@ import { usePixiApp } from "../../contexts/PixiAppContext";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { getOfferCardTexture } from "../../utils/pixiTextureLoader";
+import { isEditableHotkeyTarget, matchesHotkey } from "../../utils/hotkeys";
 import { AnimationManager, Easing } from "../GameBoard/pixi/animations";
 import {
   UNITS,
@@ -660,19 +661,21 @@ export function PixiOfferView({ isVisible, onClose, initialTab = "units" }: Pixi
     if (!isVisible) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      if (isEditableHotkeyTarget(e.target)) {
         return;
       }
 
-      const key = e.key.toLowerCase();
-
-      if (key === "q") {
+      if (matchesHotkey(e, ["q"], ["KeyQ"])) {
         switchPane("units");
-      } else if (key === "w") {
+      } else if (matchesHotkey(e, ["w"], ["KeyW"])) {
         switchPane("spells");
-      } else if (key === "e") {
+      } else if (matchesHotkey(e, ["e"], ["KeyE"])) {
         switchPane("advancedActions");
-      } else if (key === "2" || key === "s" || key === "escape") {
+      } else if (
+        matchesHotkey(e, ["2"], ["Digit2", "Numpad2"]) ||
+        matchesHotkey(e, ["s"], ["KeyS"]) ||
+        matchesHotkey(e, ["escape"], ["Escape"])
+      ) {
         onCloseRef.current();
       }
     };
