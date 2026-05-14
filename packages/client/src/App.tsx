@@ -14,14 +14,13 @@ import { GameView } from "./components/GameView";
 import { DebugPanel } from "./components/DebugPanel";
 import { ReplayLoadScreen } from "./components/Replay";
 import { SetupScreen } from "./components/Setup";
+import { getRuntimeRustServerUrl } from "./runtime/rustServerUrl";
 import type { GameConfig } from "@mage-knight/shared";
 import { HERO_ARYTHEA } from "@mage-knight/shared";
 
 const MODE_PARAM = "mode" as const;
-const SERVER_URL_PARAM = "serverUrl" as const;
 const PLAYER_ID_PARAM = "playerId" as const;
 const MODE_REPLAY = "replay" as const;
-const DEFAULT_RUST_SERVER_URL = "ws://localhost:3030/ws" as const;
 const HERO_PARAM = "hero" as const;
 const SEED_PARAM = "seed" as const;
 const SCENARIO_PARAM = "scenario" as const;
@@ -43,7 +42,7 @@ function getRuntimeRustConfig(): RuntimeRustConfig {
   const urlParams = new URLSearchParams(window.location.search);
 
   const hero = urlParams.get(HERO_PARAM) ?? "arythea";
-  const serverUrl = urlParams.get(SERVER_URL_PARAM) ?? DEFAULT_RUST_SERVER_URL;
+  const serverUrl = getRuntimeRustServerUrl(urlParams);
   const playerId = urlParams.get(PLAYER_ID_PARAM) ?? undefined;
   const seedParam = urlParams.get(SEED_PARAM);
   const seed = seedParam ? parseInt(seedParam, 10) : undefined;

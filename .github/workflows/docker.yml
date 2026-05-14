@@ -58,6 +58,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=mk-client
           build-args: |
             VITE_ASSETS_BASE_URL=/assets
+            VITE_RUST_SERVER_URL=wss://api.mageknightdigital.app/ws
           tags: |
             ghcr.io/${{ github.repository_owner }}/mk-client:latest
             ghcr.io/${{ github.repository_owner }}/mk-client:${{ github.sha }}

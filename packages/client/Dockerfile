@@ -14,7 +14,9 @@ COPY packages/shared/ packages/shared/
 COPY packages/mage-dev/ packages/mage-dev/
 
 ARG VITE_ASSETS_BASE_URL=/assets
+ARG VITE_RUST_SERVER_URL=wss://api.mageknightdigital.app/ws
 ENV VITE_ASSETS_BASE_URL=$VITE_ASSETS_BASE_URL
+ENV VITE_RUST_SERVER_URL=$VITE_RUST_SERVER_URL
 
 RUN bun run --filter @mage-knight/shared build && \
     bun run --filter @mage-knight/client build

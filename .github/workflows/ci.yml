@@ -45,6 +45,13 @@ jobs:
       - name: bun run build (all packages)
         run: bun run build
 
+      - name: check production client server URLs
+        env:
+          VITE_RUST_SERVER_URL: wss://api.mageknightdigital.app/ws
+        run: |
+          bun run --filter @mage-knight/client build
+          bash scripts/check-client-production-bundle.sh
+
       - name: bun test (client)
         run: bun run --filter @mage-knight/client test
 
