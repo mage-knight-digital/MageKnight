@@ -2,8 +2,8 @@
  * WebSocket client for the Rust mk-server.
  *
  * Protocol:
- *   Client -> Server: { type: "new_game", hero, seed } | { type: "action", action, epoch } | { type: "undo" }
- *   Server -> Client: { type: "state_update", state, events, legal_actions, epoch } | { type: "error", message }
+ *   Client -> Server: { type: "new_game", hero, seed } | { type: "action", action, epoch } | { type: "ping" } | { type: "undo" }
+ *   Server -> Client: { type: "state_update", state, events, legal_actions, epoch } | { type: "error", message } | { type: "pong" }
  */
 
 import type { LegalAction, ServerMessage } from "./types";
@@ -19,12 +19,14 @@ export interface RustGameConnectionOptions {
 
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_BASE_DELAY_MS = 500;
+const HEARTBEAT_INTERVAL_MS = 25_000;
 
 export class RustGameConnection {
   private ws: WebSocket | null = null;
   private options: RustGameConnectionOptions;
   private reconnectAttempts = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private pendingNewGame: { hero: string; seed?: number; scenario?: string } | null = null;
 
   constructor(options: RustGameConnectionOptions) {
@@ -38,6 +40,7 @@ export class RustGameConnection {
     this.ws.onopen = () => {
       this.reconnectAttempts = 0;
       this.options.onStatusChange("connected");
+      this.startHeartbeat();
       // Send pending new_game if we have one
       if (this.pendingNewGame) {
         this.sendRaw({
@@ -59,6 +62,7 @@ export class RustGameConnection {
     };
 
     this.ws.onclose = () => {
+      this.stopHeartbeat();
       this.ws = null;
       this.tryReconnect();
     };
@@ -73,6 +77,7 @@ export class RustGameConnection {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    this.stopHeartbeat();
     if (this.ws) {
       this.ws.onclose = null; // prevent reconnect
       this.ws.close();
@@ -99,6 +104,20 @@ export class RustGameConnection {
   private sendRaw(msg: unknown): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
+    }
+  }
+
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+    this.heartbeatTimer = setInterval(() => {
+      this.sendRaw({ type: "ping" });
+    }, HEARTBEAT_INTERVAL_MS);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
     }
   }
 

@@ -55,6 +55,7 @@ enum ClientMessage {
         action: LegalAction,
         epoch: u64,
     },
+    Ping,
     Undo,
 }
 
@@ -117,6 +118,7 @@ enum ServerMessage {
     Error {
         message: String,
     },
+    Pong,
 }
 
 // =============================================================================
@@ -266,6 +268,8 @@ async fn handle_socket(mut socket: WebSocket) {
                 },
             },
 
+            ClientMessage::Ping => ServerMessage::Pong,
+
             ClientMessage::Undo => match session.as_mut() {
                 None => ServerMessage::Error {
                     message: "No active game. Send new_game first.".into(),
@@ -345,6 +349,16 @@ mod tests {
         match msg {
             ClientMessage::NewGame { seed, .. } => assert_eq!(seed, Some(12345)),
             _ => panic!("expected new_game"),
+        }
+    }
+
+    #[test]
+    fn ping_message_deserializes() {
+        let msg: ClientMessage = serde_json::from_str(r#"{"type":"ping"}"#).unwrap();
+
+        match msg {
+            ClientMessage::Ping => {}
+            _ => panic!("expected ping"),
         }
     }
 
