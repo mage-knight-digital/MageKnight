@@ -21,6 +21,8 @@ use axum::{
 };
 use metrics_exporter_prometheus::PrometheusHandle;
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 use tower_http::cors::CorsLayer;
 
 use mk_engine::action_pipeline::{apply_legal_action, initial_events, ApplyError};
@@ -43,8 +45,8 @@ use mk_types::state::GameState;
 enum ClientMessage {
     NewGame {
         hero: Hero,
-        #[serde(default = "default_seed")]
-        seed: u32,
+        #[serde(default)]
+        seed: Option<u32>,
         /// Optional JSON string for TrainingScenario (e.g. ExplorationDrill).
         #[serde(default)]
         scenario: Option<String>,
@@ -56,8 +58,20 @@ enum ClientMessage {
     Undo,
 }
 
-fn default_seed() -> u32 {
-    42
+static GENERATED_SEED_COUNTER: AtomicU32 = AtomicU32::new(0);
+
+fn generate_seed() -> u32 {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos() as u64)
+        .unwrap_or(0);
+    let counter = GENERATED_SEED_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let mixed = nanos ^ nanos.rotate_left(17) ^ u64::from(counter);
+    (mixed as u32) ^ ((mixed >> 32) as u32)
+}
+
+fn resolve_new_game_seed(seed: Option<u32>) -> u32 {
+    seed.unwrap_or_else(generate_seed)
 }
 
 /// Parse a scenario string: either a named preset or raw JSON.
@@ -207,7 +221,12 @@ async fn handle_socket(mut socket: WebSocket) {
         };
 
         let response = match client_msg {
-            ClientMessage::NewGame { hero, seed, scenario } => {
+            ClientMessage::NewGame {
+                hero,
+                seed,
+                scenario,
+            } => {
+                let seed = resolve_new_game_seed(seed);
                 let training_scenario = match scenario.as_deref() {
                     None | Some("") => TrainingScenario::FullGame,
                     Some(s) => match parse_scenario_string(s) {
@@ -269,10 +288,7 @@ async fn handle_socket(mut socket: WebSocket) {
     }
 }
 
-async fn send_json(
-    socket: &mut WebSocket,
-    msg: &ServerMessage,
-) -> Result<(), axum::Error> {
+async fn send_json(socket: &mut WebSocket, msg: &ServerMessage) -> Result<(), axum::Error> {
     let json = serde_json::to_string(msg).expect("ServerMessage should serialize");
     socket.send(Message::Text(json.into())).await
 }
@@ -306,6 +322,41 @@ ws.onopen = () => ws.send(JSON.stringify({ type: "new_game", hero: "arythea", se
     )
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_game_without_seed_deserializes_as_unseeded() {
+        let msg: ClientMessage =
+            serde_json::from_str(r#"{"type":"new_game","hero":"arythea"}"#).unwrap();
+
+        match msg {
+            ClientMessage::NewGame { seed, .. } => assert_eq!(seed, None),
+            _ => panic!("expected new_game"),
+        }
+    }
+
+    #[test]
+    fn new_game_with_seed_preserves_explicit_seed() {
+        let msg: ClientMessage =
+            serde_json::from_str(r#"{"type":"new_game","hero":"arythea","seed":12345}"#).unwrap();
+
+        match msg {
+            ClientMessage::NewGame { seed, .. } => assert_eq!(seed, Some(12345)),
+            _ => panic!("expected new_game"),
+        }
+    }
+
+    #[test]
+    fn generated_seed_is_not_fixed() {
+        let first = resolve_new_game_seed(None);
+        let second = resolve_new_game_seed(None);
+
+        assert_ne!(first, second);
+    }
+}
+
 #[tokio::main]
 async fn main() {
     let port = std::env::var("PORT")
@@ -335,11 +386,13 @@ async fn main() {
 
     let addr = format!("0.0.0.0:{port}");
 
-    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap_or_else(|e| {
-        eprintln!("Failed to bind to {addr}: {e}");
-        eprintln!("Hint: kill the old process with `lsof -ti:{port} | xargs kill`");
-        std::process::exit(1);
-    });
+    let listener = tokio::net::TcpListener::bind(&addr)
+        .await
+        .unwrap_or_else(|e| {
+            eprintln!("Failed to bind to {addr}: {e}");
+            eprintln!("Hint: kill the old process with `lsof -ti:{port} | xargs kill`");
+            std::process::exit(1);
+        });
     println!("mk-server listening on {addr}");
     axum::serve(listener, app).await.unwrap();
 }
