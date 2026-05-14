@@ -13,6 +13,7 @@ const PUBLIC = join(ROOT, "public");
 const mkBundleAssets = process.env["MK_BUNDLE_ASSETS"];
 const BUNDLE_ASSETS = mkBundleAssets === "1" || mkBundleAssets === "true";
 const ASSETS_BASE_URL = process.env["VITE_ASSETS_BASE_URL"];
+const RUST_SERVER_URL = process.env["VITE_RUST_SERVER_URL"];
 
 async function clean() {
   await rm(DIST, { recursive: true, force: true });
@@ -48,6 +49,7 @@ async function build() {
         DEV: false,
         PROD: true,
         VITE_ASSETS_BASE_URL: ASSETS_BASE_URL,
+        VITE_RUST_SERVER_URL: RUST_SERVER_URL,
       }),
     },
     // External packages that should not be bundled
