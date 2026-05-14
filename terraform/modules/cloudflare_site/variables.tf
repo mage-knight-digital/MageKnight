@@ -44,6 +44,12 @@ variable "asset_pack_path" {
   default     = "mageknight/v1/assets"
 }
 
+variable "assets_cors_allowed_origins" {
+  description = "Browser origins allowed to fetch R2-hosted game assets."
+  type        = list(string)
+  default     = ["https://play.mageknightdigital.app"]
+}
+
 variable "play_subdomain" {
   description = "Subdomain for the web app."
   type        = string
