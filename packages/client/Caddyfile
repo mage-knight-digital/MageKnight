@@ -1,7 +1,17 @@
 {$APP_DOMAIN} {
     root * /srv
-    try_files {path} /index.html
-    file_server
+
+    handle_path /assets/* {
+        rewrite * /mageknight/v1/assets{path}
+        reverse_proxy https://assets.mageknightdigital.app {
+            header_up Host assets.mageknightdigital.app
+        }
+    }
+
+    handle {
+        try_files {path} /index.html
+        file_server
+    }
 }
 
 {$API_DOMAIN} {

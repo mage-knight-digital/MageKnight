@@ -57,7 +57,7 @@ jobs:
           cache-from: type=gha,scope=mk-client
           cache-to: type=gha,mode=max,scope=mk-client
           build-args: |
-            VITE_ASSETS_BASE_URL=https://assets.mageknightdigital.app/mageknight/v1/assets
+            VITE_ASSETS_BASE_URL=/assets
           tags: |
             ghcr.io/${{ github.repository_owner }}/mk-client:latest
             ghcr.io/${{ github.repository_owner }}/mk-client:${{ github.sha }}

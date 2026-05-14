@@ -13,7 +13,7 @@ COPY packages/client/ packages/client/
 COPY packages/shared/ packages/shared/
 COPY packages/mage-dev/ packages/mage-dev/
 
-ARG VITE_ASSETS_BASE_URL=https://assets.mageknightdigital.app/mageknight/v1/assets
+ARG VITE_ASSETS_BASE_URL=/assets
 ENV VITE_ASSETS_BASE_URL=$VITE_ASSETS_BASE_URL
 
 RUN bun run --filter @mage-knight/shared build && \

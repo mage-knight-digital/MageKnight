@@ -23,6 +23,23 @@ resource "cloudflare_r2_custom_domain" "assets" {
   min_tls     = "1.2"
 }
 
+resource "cloudflare_r2_bucket_cors" "assets" {
+  count = var.enable_r2_assets ? 1 : 0
+
+  account_id  = var.cloudflare_account_id
+  bucket_name = cloudflare_r2_bucket.assets[0].name
+
+  rules = [{
+    id = "public-game-assets"
+    allowed = {
+      methods = ["GET", "HEAD"]
+      origins = var.assets_cors_allowed_origins
+      headers = ["*"]
+    }
+    max_age_seconds = 3600
+  }]
+}
+
 resource "cloudflare_dns_record" "play" {
   count = var.create_app_record ? 1 : 0
 
