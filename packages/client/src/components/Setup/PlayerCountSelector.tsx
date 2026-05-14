@@ -1,9 +1,11 @@
 /**
  * Player count selector for game setup.
- * Displays 1-4 buttons to choose the number of players.
+ * Displays 1-4 controls to choose the number of players.
  */
 
 import "./SetupScreen.css";
+
+const SETUP_PLAYERS_GROUP_ARIA = "Number of players" as const;
 
 interface PlayerCountSelectorProps {
   /** Currently selected player count */
@@ -28,16 +30,20 @@ export function PlayerCountSelector({
   );
 
   return (
-    <div className="player-count-selector">
-      <h2 className="setup-section-title">Mage Knights</h2>
-      <p className="setup-section-hint">How many players at the table?</p>
-      <div className="count-buttons">
+    <div
+      className="setup-players"
+      role="group"
+      aria-label={SETUP_PLAYERS_GROUP_ARIA}
+    >
+      <span className="setup-players__label">Players</span>
+      <div className="setup-players__rail">
         {counts.map((count) => (
           <button
             key={count}
             type="button"
-            className={`count-button ${count === selectedCount ? "count-button--selected" : ""}`}
+            className={`setup-players__btn ${count === selectedCount ? "setup-players__btn--on" : ""}`}
             onClick={() => onSelectCount(count)}
+            aria-pressed={count === selectedCount}
           >
             {count}
           </button>

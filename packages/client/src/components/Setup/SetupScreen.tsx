@@ -7,12 +7,17 @@ import { useState, useCallback } from "react";
 import type { GameConfig, HeroId } from "@mage-knight/shared";
 import {
   ALL_HEROES,
+  HERO_NAMES,
   SCENARIO_DISPLAY_NAMES,
   SCENARIO_FIRST_RECONNAISSANCE,
 } from "@mage-knight/shared";
 import { PlayerCountSelector } from "./PlayerCountSelector";
 import { HeroSelectionGrid } from "./HeroSelectionGrid";
 import "./SetupScreen.css";
+
+const SETUP_BEGIN_ARIA_READY = "Begin scenario" as const;
+const SETUP_BEGIN_ARIA_PENDING =
+  "Begin scenario, locked until every player seat has a hero" as const;
 
 interface SetupScreenProps {
   /** Callback when setup is complete and game should start */
@@ -87,39 +92,66 @@ export function SetupScreen({ onComplete }: SetupScreenProps) {
   const scenarioTitle =
     SCENARIO_DISPLAY_NAMES[SCENARIO_FIRST_RECONNAISSANCE];
 
+  const activeSeatIndex =
+    currentPlayerIndex >= 0 ? currentPlayerIndex : playerCount - 1;
+
   return (
     <div className="setup-screen">
-      <header className="setup-screen__header">
-        <h1 className="setup-screen__title">Mage Knight</h1>
-        <p className="setup-screen__scenario">{scenarioTitle}</p>
-      </header>
+      <header className="setup-screen__hud">
+        <div className="setup-screen__brand">
+          <p className="setup-screen__scenario">{scenarioTitle}</p>
+        </div>
 
-      <div className="setup-screen__panel">
-        <div className="setup-screen__content">
+        <div className="setup-screen__party">
           <PlayerCountSelector
             selectedCount={playerCount}
             onSelectCount={handlePlayerCountChange}
           />
 
-          <HeroSelectionGrid
-            availableHeroes={ALL_HEROES}
-            selectedHeroes={selectedHeroes}
-            onSelectHero={handleSelectHero}
-            currentPlayerIndex={
-              currentPlayerIndex >= 0 ? currentPlayerIndex : playerCount - 1
-            }
-          />
+          <div className="setup-screen__seats" aria-label="Player seats">
+            {selectedHeroes.map((hero, index) => {
+              const isActive = !allSelected && index === activeSeatIndex;
+              const heroName = hero ? HERO_NAMES[hero] : "Open";
 
-          <button
-            type="button"
-            className="start-game-button"
-            disabled={!allSelected}
-            onClick={handleStartGame}
-          >
-            Begin scenario
-          </button>
+              return (
+                <div
+                  key={`seat-${index + 1}`}
+                  className={`setup-seat-chip ${isActive ? "setup-seat-chip--active" : ""} ${
+                    hero ? "setup-seat-chip--filled" : ""
+                  }`}
+                  aria-current={isActive ? "step" : undefined}
+                >
+                  <span className="setup-seat-chip__label">P{index + 1}</span>
+                  <span className="setup-seat-chip__value">{heroName}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      </header>
+
+      <main className="setup-screen__roster">
+        <HeroSelectionGrid
+          availableHeroes={ALL_HEROES}
+          selectedHeroes={selectedHeroes}
+          onSelectHero={handleSelectHero}
+          currentPlayerIndex={activeSeatIndex}
+        />
+      </main>
+
+      <footer className="setup-screen__footer">
+        <button
+          type="button"
+          className="setup-screen__begin"
+          disabled={!allSelected}
+          onClick={handleStartGame}
+          aria-label={
+            allSelected ? SETUP_BEGIN_ARIA_READY : SETUP_BEGIN_ARIA_PENDING
+          }
+        >
+          Begin scenario
+        </button>
+      </footer>
     </div>
   );
 }

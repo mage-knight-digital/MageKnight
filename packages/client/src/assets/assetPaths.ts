@@ -94,8 +94,7 @@ export function getCardBackUrl(): string {
 }
 
 export function getHeroTokenUrl(heroId: string): string {
-  // Note: "_card" files are actually the octagonal portrait tokens for the board
-  // "_token" files are smaller circular tokens (naming is backwards in assets)
+  // Octagonal agon portrait tokens used on the board and setup splash (not circular chips).
   return assetUrl(`heroes/${heroId}_card.png`);
 }
 
