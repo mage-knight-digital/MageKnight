@@ -12,6 +12,7 @@ import { useIsMyTurn } from "../../hooks/useIsMyTurn";
 import { useCardInteraction } from "../CardInteraction";
 import { useRegisterOverlay } from "../../contexts/OverlayContext";
 import { groupCardActions, extractTacticOptions, extractUnitActions } from "../../rust/legalActionUtils";
+import { isEditableHotkeyTarget, matchesHotkey } from "../../utils/hotkeys";
 
 // Menu state types
 type MenuState =
@@ -123,22 +124,24 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if user is typing in an input
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      if (isEditableHotkeyTarget(e.target)) {
         return;
       }
 
-      const key = e.key.toLowerCase();
-
       // View mode keys: 1=focus, 2=ready, 3=board (map), 4=offer
-      if (key === "1") {
+      if (matchesHotkey(e, ["1"], ["Digit1", "Numpad1"])) {
         setHandView("focus");
-      } else if (key === "2") {
+      } else if (matchesHotkey(e, ["2"], ["Digit2", "Numpad2"])) {
         setHandView("ready");
-      } else if (key === "3") {
+      } else if (matchesHotkey(e, ["3"], ["Digit3", "Numpad3"])) {
         setHandView("board");
-      } else if (key === "4") {
+      } else if (matchesHotkey(e, ["4"], ["Digit4", "Numpad4"])) {
         setHandView("offer");
-      } else if (key === "q" || key === "w" || key === "e") {
+      } else if (
+        matchesHotkey(e, ["q"], ["KeyQ"]) ||
+        matchesHotkey(e, ["w"], ["KeyW"]) ||
+        matchesHotkey(e, ["e"], ["KeyE"])
+      ) {
         // Q/W/E carousel navigation - only when NOT in offer view
         // (Offer view has its own Q/W/E handling for Units/Spells/AAs)
         setHandView(current => {
@@ -147,15 +150,15 @@ export function PlayerHand({ onOfferViewChange }: PlayerHandProps = {}) {
             return current;
           }
 
-          if (key === "q") {
+          if (matchesHotkey(e, ["q"], ["KeyQ"])) {
             // Tactics pane - only if tactic selection is needed
             if (needsTacticSelection) {
               setCarouselPane("tactics");
             }
-          } else if (key === "w") {
+          } else if (matchesHotkey(e, ["w"], ["KeyW"])) {
             // Cards pane
             setCarouselPane("cards");
-          } else if (key === "e") {
+          } else if (matchesHotkey(e, ["e"], ["KeyE"])) {
             // Units pane
             setCarouselPane("units");
           }
