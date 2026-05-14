@@ -150,9 +150,11 @@ export function isAction(action: LegalAction, type: string): boolean {
 export type ClientMessage =
   | { type: "new_game"; hero: string; seed?: number }
   | { type: "action"; action: LegalAction; epoch: number }
+  | { type: "ping" }
   | { type: "undo" };
 
 /** Messages the server sends to the client. */
 export type ServerMessage =
   | { type: "state_update"; state: Record<string, unknown>; events: unknown[]; legal_actions: LegalAction[]; epoch: number }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  | { type: "pong" };
