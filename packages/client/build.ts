@@ -12,6 +12,7 @@ const DIST = join(ROOT, "dist");
 const PUBLIC = join(ROOT, "public");
 const mkBundleAssets = process.env["MK_BUNDLE_ASSETS"];
 const BUNDLE_ASSETS = mkBundleAssets === "1" || mkBundleAssets === "true";
+const ASSETS_BASE_URL = process.env["VITE_ASSETS_BASE_URL"];
 
 async function clean() {
   await rm(DIST, { recursive: true, force: true });
@@ -42,6 +43,13 @@ async function build() {
     minify: true,
     sourcemap: "external",
     splitting: true,
+    define: {
+      "import.meta.env": JSON.stringify({
+        DEV: false,
+        PROD: true,
+        VITE_ASSETS_BASE_URL: ASSETS_BASE_URL,
+      }),
+    },
     // External packages that should not be bundled
     // (none for browser - bundle everything)
   });
