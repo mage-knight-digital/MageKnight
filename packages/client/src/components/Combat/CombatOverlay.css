@@ -1,43 +1,28 @@
 /* ============================================================================
-   MAGE KNIGHT COMBAT THEME
-   Color palette aligned with PixiJS background atmosphere
+   Combat scene (HTML layer over Pixi combat backdrop)
 
-   Day palette: warm brown #3d3528 → #1a1610
-   Night palette: deep blue-purple #1a1d2e → #0a0a12
-
-   Combat accent colors (fantasy/earthy):
-   - Attack/Combat: Bronze #b87333, Copper #a06030, Rust #8b4513
-   - Block/Defense: Verdigris #2e6b5a, Forest #1a4d3e
-   - Targeting: Antique Gold #d4a574, #c9a86c
-   - Success: Moss #8b9a6b
-   - Warning: Burnt Sienna #a65d3f
-   - Fire: Deep Crimson #a04030
-   - Ice: Steel Blue #4a7090
-   - ColdFire: Dusty Purple #6a4a8a
+   Map-room tokens on :root, antique gold accents aligned with DESIGN.md
+   combat lane. No raw #000/#fff fills, no decorative backdrop blur.
    ============================================================================ */
 
-/* Combat Scene - full screen combat arena
- * z-index 200: must be above the PixiJS canvas (.hex-grid = 150 during combat)
- * so that action buttons (Attack, Confirm Targets, etc.) are clickable.
- * pointer-events: none lets clicks pass through to the canvas for hand cards. */
 .combat-scene {
+  --combat-ease: var(--ease-out-expo);
+  --combat-tray-fill: color-mix(in oklch, var(--surface-canvas) 92%, oklch(0.12 0.018 270));
+  --combat-tray-edge: color-mix(in oklch, var(--border-default) 70%, oklch(0.72 0.07 72));
+  --combat-antique: oklch(0.78 0.08 72);
+  --combat-attack-edge: color-mix(in oklch, oklch(0.58 0.12 55) 55%, var(--border-default));
+  --combat-block-edge: color-mix(in oklch, oklch(0.52 0.08 165) 50%, var(--border-default));
+
   position: fixed;
   inset: 0;
   z-index: 200;
   display: flex;
   flex-direction: column;
   pointer-events: none;
-
-  /* Background now rendered by PixiCombatOverlay */
   background: transparent;
-
-  /* Flash effect on combat start */
-  animation: combat-flash 0.4s ease-out;
+  animation: combat-flash 0.4s var(--combat-ease);
 }
 
-/* Site backdrop now rendered by PixiCombatOverlay.tsx */
-
-/* Main layout - phase rail overlaid on left, battle area full width */
 .combat-scene__layout {
   flex: 1;
   display: flex;
@@ -51,38 +36,44 @@
   pointer-events: auto;
 }
 
-/* Phase rail now rendered by PixiPhaseRail.tsx */
-
-/* Mana Source - positioned top right corner */
-.combat-scene__mana-source {
+/* --------------------------------------------------------------------------
+   Top tray: personal mana + shared dice, single horizontal rhythm (no stack)
+   -------------------------------------------------------------------------- */
+.combat-scene__top-tray {
   position: fixed;
-  top: 0.75rem;
-  right: 1rem;
-  pointer-events: auto;
-  z-index: 200;
+  top: calc(36px + 0.35rem);
+  right: max(0.5rem, env(safe-area-inset-right, 0px));
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  z-index: 210;
+  pointer-events: none;
 }
 
-/* Override mana source styles for combat */
+.combat-scene__top-tray > * {
+  pointer-events: auto;
+}
+
+.combat-scene__mana-resources:empty {
+  display: none;
+}
+
 .combat-scene__mana-source .mana-source-overlay {
   position: static !important;
   top: auto !important;
   right: auto !important;
-  /* Force visible - override intro animation states */
   opacity: 1 !important;
   transform: none !important;
   pointer-events: auto !important;
-  /* Match PixiJS night palette with antique gold accent */
-  background: linear-gradient(
-    135deg,
-    rgba(26, 29, 46, 0.95) 0%,
-    rgba(20, 22, 35, 0.95) 100%
-  );
-  border: 1px solid rgba(212, 165, 116, 0.35);
+  background: var(--combat-tray-fill);
+  border: 1px solid var(--combat-tray-edge);
   border-radius: 8px;
-  padding: 0.4rem 0.6rem;
+  padding: 0.4rem 0.55rem;
   box-shadow:
-    0 4px 20px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 rgba(212, 165, 116, 0.1);
+    0 6px 24px oklch(0.08 0.012 78 / 0.45),
+    inset 0 1px 0 oklch(0.95 0.01 82 / 0.06);
 }
 
 .combat-scene__mana-source .mana-source-overlay__dice {
@@ -92,7 +83,6 @@
 .combat-scene__mana-source .mana-source-overlay__die {
   width: clamp(1.8rem, 3vw, 2.5rem);
   height: clamp(1.8rem, 3vw, 2.5rem);
-  /* Force visible */
   opacity: 1 !important;
   animation: none !important;
 }
@@ -100,20 +90,53 @@
 .combat-scene__mana-source .mana-source-overlay__label {
   font-size: 0.5rem;
   margin-bottom: 0.25rem;
+  color: var(--text-muted);
+}
+
+/* Undo: left rail, clear of phase rail + top chrome */
+.combat-scene__undo {
+  position: fixed;
+  top: calc(36px + 0.35rem);
+  left: max(0.5rem, env(safe-area-inset-left, 0px));
+  z-index: 210;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: color-mix(in oklch, var(--surface-chrome) 92%, transparent);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: 0 4px 16px oklch(0.08 0.012 78 / 0.35);
+  transition:
+    color 0.18s var(--combat-ease),
+    border-color 0.18s var(--combat-ease),
+    background-color 0.18s var(--combat-ease);
+}
+
+.combat-scene__undo:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  background: color-mix(in oklch, var(--surface-hover-lift) 94%, transparent);
+}
+
+.combat-scene__undo:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 @keyframes combat-flash {
   0% {
-    background: rgba(212, 165, 116, 0.25);
+    background: color-mix(in oklch, var(--combat-antique) 22%, transparent);
   }
   100% {
     background: transparent;
   }
 }
 
-/* Screen effects (damage/block/attack flashes) now rendered by PixiScreenEffects.tsx */
-
-/* Battlefield - full width, enemies centered */
 .combat-scene__battlefield {
   flex: 1;
   display: flex;
@@ -121,7 +144,6 @@
   align-items: center;
   justify-content: center;
   padding: 1rem 2rem;
-  /* Leave space at bottom for hand cards */
   padding-bottom: clamp(200px, 26vh, 280px);
   pointer-events: none;
   position: relative;
@@ -131,32 +153,6 @@
   pointer-events: auto;
 }
 
-/* Undo button - top right of battle area */
-.combat-scene__undo {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  padding: 0.5rem 1rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #aaa;
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  z-index: 10;
-}
-
-.combat-scene__undo:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.3);
-}
-
-/* Enemies container */
 .combat-scene__enemies {
   display: flex;
   gap: 2rem;
@@ -164,191 +160,271 @@
   flex-wrap: wrap;
 }
 
-/* Accumulator HUD - fixed position above hand cards */
-.combat-hud__accumulator {
+/* --------------------------------------------------------------------------
+   Bottom dock: accumulator + CTAs stack once (no overlapping fixed layers)
+   -------------------------------------------------------------------------- */
+.combat-scene__dock {
   position: fixed;
-  bottom: clamp(190px, 26vh, 290px);
   left: 50%;
+  bottom: clamp(11rem, 30vh, 17rem);
   transform: translateX(-50%);
+  z-index: 210;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0.5rem 1.25rem;
-  /* Match PixiJS night palette */
-  background: linear-gradient(
-    135deg,
-    rgba(26, 29, 46, 0.92) 0%,
-    rgba(15, 15, 25, 0.95) 100%
-  );
+  gap: 0.55rem;
+  width: min(96vw, 32rem);
+  max-width: 100%;
+  pointer-events: none;
+}
+
+.combat-scene__dock-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  pointer-events: auto;
+}
+
+.combat-scene__dock-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.combat-scene__dock-btn {
+  padding: 0.45rem 1.1rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: none;
   border-radius: 8px;
-  border: 2px solid;
-  z-index: 150; /* Above hand cards */
-  backdrop-filter: blur(4px);
+  cursor: pointer;
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  background: color-mix(in oklch, var(--surface-raised) 94%, oklch(0.12 0.015 78));
+  box-shadow: 0 4px 14px oklch(0.08 0.012 78 / 0.35);
+  transition:
+    background-color 0.18s var(--combat-ease),
+    border-color 0.18s var(--combat-ease),
+    box-shadow 0.18s var(--combat-ease),
+    transform 0.18s var(--combat-ease);
+}
+
+.combat-scene__dock-btn:hover {
+  border-color: var(--combat-tray-edge);
+  background: color-mix(in oklch, var(--surface-hover-lift) 95%, transparent);
+}
+
+.combat-scene__dock-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.combat-scene__dock-btn--primary {
+  border-color: var(--combat-attack-edge);
+  background: color-mix(in oklch, oklch(0.32 0.06 55) 88%, var(--surface-canvas));
+  box-shadow:
+    0 4px 18px oklch(0.12 0.04 55 / 0.35),
+    inset 0 1px 0 oklch(0.92 0.04 72 / 0.08);
+}
+
+.combat-scene__dock-btn--primary:hover {
+  border-color: color-mix(in oklch, var(--combat-antique) 45%, var(--border-strong));
+}
+
+.combat-scene__dock-btn--secondary {
+  font-size: 0.72rem;
+  padding: 0.38rem 0.85rem;
+  color: var(--text-secondary);
+  background: color-mix(in oklch, var(--surface-chrome) 90%, transparent);
+}
+
+.combat-scene__dock-btn--accent {
+  border-color: color-mix(in oklch, oklch(0.62 0.12 72) 40%, var(--border-default));
+  background: color-mix(in oklch, oklch(0.28 0.04 72) 85%, var(--surface-canvas));
+}
+
+.combat-scene__dock-btn--pulse {
+  animation: combat-dock-pulse 2.4s var(--combat-ease) infinite;
+}
+
+@keyframes combat-dock-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 4px 14px oklch(0.08 0.012 78 / 0.35),
+      0 0 0 0 oklch(0.72 0.08 72 / 0);
+  }
+  50% {
+    box-shadow:
+      0 6px 22px oklch(0.1 0.03 55 / 0.4),
+      0 0 0 3px oklch(0.72 0.08 72 / 0.18);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .combat-scene {
+    animation: none;
+  }
+
+  .combat-scene__dock-btn--pulse {
+    animation: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Attack / block accumulator (inside dock; not position:fixed)
+   -------------------------------------------------------------------------- */
+.combat-hud__accumulator {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.45rem 1rem;
+  background: var(--combat-tray-fill);
+  border-radius: 10px;
+  border: 1px solid var(--border-default);
+  box-shadow:
+    0 8px 28px oklch(0.08 0.012 78 / 0.4),
+    inset 0 1px 0 oklch(0.95 0.01 82 / 0.05);
+  pointer-events: auto;
 }
 
 .combat-hud__accumulator--attack {
-  /* Bronze/copper attack accent */
-  border-color: rgba(184, 115, 51, 0.7);
-  box-shadow:
-    0 0 20px rgba(184, 115, 51, 0.25),
-    inset 0 1px 0 rgba(184, 115, 51, 0.15);
+  border-color: var(--combat-attack-edge);
 }
 
 .combat-hud__accumulator--block {
-  /* Verdigris/teal block accent */
-  border-color: rgba(46, 107, 90, 0.7);
-  box-shadow:
-    0 0 20px rgba(46, 107, 90, 0.25),
-    inset 0 1px 0 rgba(46, 107, 90, 0.15);
+  border-color: var(--combat-block-edge);
 }
 
 .combat-hud__accumulator-value {
-  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-size: clamp(1.35rem, 3.5vw, 1.85rem);
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
   line-height: 1;
 }
 
 .combat-hud__accumulator-label {
-  font-size: clamp(0.6rem, 1.5vw, 0.75rem);
+  font-size: clamp(0.62rem, 1.4vw, 0.72rem);
   font-weight: 600;
-  color: #888;
+  color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
 }
 
-/* Elemental breakdown display */
 .combat-hud__elements {
   display: flex;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  gap: 0.45rem;
+  margin-top: 0.45rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--border-subtle);
 }
 
 .combat-hud__element {
   display: flex;
   align-items: center;
   gap: 0.2rem;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  padding: 0.2rem 0.4rem;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.1);
+  padding: 0.2rem 0.45rem;
+  border-radius: 6px;
+  background: color-mix(in oklch, var(--surface-chrome) 75%, transparent);
 }
 
 .combat-hud__element--physical {
-  color: #a0a5aa;
-  background: rgba(120, 125, 130, 0.15);
+  color: var(--text-secondary);
 }
 
 .combat-hud__element--fire {
-  /* Deep crimson, not bright orange */
-  color: #c06040;
-  background: rgba(160, 64, 48, 0.2);
+  color: oklch(0.72 0.1 25);
+  background: color-mix(in oklch, oklch(0.35 0.08 25) 35%, transparent);
 }
 
 .combat-hud__element--ice {
-  /* Steel blue, muted */
-  color: #6090b0;
-  background: rgba(74, 112, 144, 0.2);
+  color: oklch(0.72 0.08 240);
+  background: color-mix(in oklch, oklch(0.32 0.06 240) 35%, transparent);
 }
 
 .combat-hud__element--coldFire {
-  /* Dusty purple */
-  color: #8a6aaa;
-  background: rgba(106, 74, 138, 0.2);
+  color: oklch(0.7 0.09 290);
+  background: color-mix(in oklch, oklch(0.3 0.07 290) 35%, transparent);
 }
 
 .combat-hud__element--halved {
-  opacity: 0.7;
+  opacity: 0.72;
   text-decoration: line-through;
-  text-decoration-color: rgba(255, 255, 255, 0.5);
+  text-decoration-color: var(--border-strong);
 }
 
 .combat-hud__halved-note {
-  font-size: 0.7rem;
-  /* Burnt sienna warning */
-  color: #c08050;
-  margin-left: 0.2rem;
+  font-size: 0.65rem;
+  color: oklch(0.72 0.1 55);
+  margin-left: 0.15rem;
   text-decoration: none !important;
 }
 
 .combat-hud__resistance-warning {
-  margin-top: 0.5rem;
-  font-size: 0.65rem;
-  /* Burnt sienna warning */
-  color: #c08050;
+  margin-top: 0.4rem;
+  font-size: 0.62rem;
+  color: oklch(0.72 0.1 55);
   text-align: center;
 }
 
-/* Split Ranged/Siege display */
 .combat-hud__accumulator--split {
   flex-direction: row;
-  gap: 1rem;
-  padding: 0.5rem 1rem;
+  gap: 0.85rem;
+  padding: 0.45rem 0.85rem;
 }
 
 .combat-hud__attack-type {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 50px;
+  min-width: 52px;
 }
 
-.combat-hud__attack-type--warning .combat-hud__accumulator-value {
-  /* Burnt sienna warning */
-  color: #c06040;
-}
-
+.combat-hud__attack-type--warning .combat-hud__accumulator-value,
 .combat-hud__attack-type--warning .combat-hud__accumulator-label {
-  color: #c06040;
+  color: oklch(0.7 0.14 25);
 }
 
 .combat-hud__attack-divider {
   width: 1px;
   align-self: stretch;
-  background: rgba(212, 165, 116, 0.2);
+  background: var(--border-subtle);
 }
 
 .combat-hud__siege-hint {
   font-size: 0.55rem;
-  /* Burnt sienna warning */
-  color: #c06040;
-  margin-top: 0.15rem;
+  color: oklch(0.68 0.12 25);
+  margin-top: 0.12rem;
   white-space: nowrap;
 }
 
-/* ============================================================================
-   Combat Mana Resources Display
-   ============================================================================ */
-
-.combat-scene__mana-resources {
-  position: fixed;
-  top: 0.75rem;
-  right: 8rem; /* To the left of mana source dice */
-  pointer-events: auto;
-  z-index: 200;
+.combat-hud__progress-separator {
+  font-size: 0.8em;
+  color: color-mix(in oklch, var(--combat-antique) 55%, var(--text-muted));
+  margin: 0 0.12em;
 }
 
+/* --------------------------------------------------------------------------
+   Combat mana (personal tray, pairs with dice in top tray)
+   -------------------------------------------------------------------------- */
 .combat-mana {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.4rem 0.6rem;
-  /* Match PixiJS night palette */
-  background: linear-gradient(
-    135deg,
-    rgba(26, 29, 46, 0.95) 0%,
-    rgba(20, 22, 35, 0.95) 100%
-  );
-  /* Dusty purple accent for mana */
-  border: 1px solid rgba(106, 74, 138, 0.4);
+  gap: 0.2rem;
+  padding: 0.35rem 0.5rem;
+  background: var(--combat-tray-fill);
+  border: 1px solid var(--combat-tray-edge);
   border-radius: 8px;
   box-shadow:
-    0 4px 20px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(106, 74, 138, 0.1);
+    0 6px 22px oklch(0.08 0.012 78 / 0.4),
+    inset 0 1px 0 oklch(0.95 0.01 82 / 0.05);
 }
 
 .combat-mana__label {
@@ -356,12 +432,12 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-muted);
 }
 
 .combat-mana__content {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.45rem;
   align-items: center;
 }
 
@@ -372,11 +448,10 @@
 }
 
 .combat-mana__group--tokens {
-  padding-left: 0.4rem;
-  border-left: 1px solid rgba(255, 255, 255, 0.15);
+  padding-left: 0.35rem;
+  border-left: 1px solid var(--border-subtle);
 }
 
-/* Crystals - compact squares with count */
 .combat-mana__crystal {
   display: flex;
   align-items: center;
@@ -384,219 +459,71 @@
   width: 20px;
   height: 20px;
   border-radius: 4px;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  color: var(--text-primary);
+  border: 1px solid color-mix(in oklch, currentColor 25%, var(--border-default));
 }
 
 .combat-mana__crystal--red {
-  /* Deep ruby red, more fantasy */
-  background: linear-gradient(135deg, #a04040, #802828);
-  box-shadow: 0 0 6px rgba(160, 64, 64, 0.5);
+  background: color-mix(in oklch, oklch(0.42 0.14 25) 90%, var(--surface-canvas));
 }
 
 .combat-mana__crystal--blue {
-  /* Steel blue, muted */
-  background: linear-gradient(135deg, #4a7090, #3a5a70);
-  box-shadow: 0 0 6px rgba(74, 112, 144, 0.5);
+  background: color-mix(in oklch, oklch(0.42 0.1 250) 90%, var(--surface-canvas));
 }
 
 .combat-mana__crystal--green {
-  /* Forest/verdigris green */
-  background: linear-gradient(135deg, #3a8060, #2a6048);
-  box-shadow: 0 0 6px rgba(58, 128, 96, 0.5);
+  background: color-mix(in oklch, oklch(0.42 0.1 145) 90%, var(--surface-canvas));
 }
 
 .combat-mana__crystal--white {
-  /* Ivory/parchment white */
-  background: linear-gradient(135deg, #e8e0d0, #c8c0b0);
-  box-shadow: 0 0 6px rgba(232, 224, 208, 0.5);
-  color: #3a3020;
+  background: color-mix(in oklch, oklch(0.88 0.02 82) 92%, var(--surface-canvas));
+  color: oklch(0.28 0.02 78);
 }
 
-/* Clickable crystals - convert to mana token */
 .combat-mana__crystal--clickable {
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 0.16s var(--combat-ease), box-shadow 0.16s var(--combat-ease);
 }
 
 .combat-mana__crystal--clickable:hover {
-  transform: scale(1.15);
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px oklch(0.08 0.012 78 / 0.35);
 }
 
 .combat-mana__crystal--clickable:active {
-  transform: scale(0.95);
+  transform: translateY(0);
 }
 
-/* Tokens - small colored circles */
 .combat-mana__token {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  box-shadow:
-    0 0 3px rgba(0, 0, 0, 0.4),
-    inset 0 1px 2px rgba(255, 255, 255, 0.2);
+  border: 1px solid color-mix(in oklch, var(--border-default) 60%, transparent);
+  box-shadow: inset 0 1px 2px oklch(0.95 0.01 82 / 0.12);
 }
 
 .combat-mana__token--red {
-  background: radial-gradient(circle at 30% 30%, #c06060, #802828);
+  background: radial-gradient(circle at 32% 28%, oklch(0.55 0.16 25), oklch(0.32 0.1 25));
 }
 
 .combat-mana__token--blue {
-  background: radial-gradient(circle at 30% 30%, #6090b0, #3a5a70);
+  background: radial-gradient(circle at 32% 28%, oklch(0.55 0.1 250), oklch(0.32 0.07 250));
 }
 
 .combat-mana__token--green {
-  background: radial-gradient(circle at 30% 30%, #50a080, #2a6048);
+  background: radial-gradient(circle at 32% 28%, oklch(0.52 0.11 145), oklch(0.32 0.08 145));
 }
 
 .combat-mana__token--white {
-  background: radial-gradient(circle at 30% 30%, #f0e8d8, #c8c0b0);
+  background: radial-gradient(circle at 32% 28%, oklch(0.9 0.02 82), oklch(0.72 0.02 82));
 }
 
 .combat-mana__token--gold {
-  /* Antique gold matching PixiJS dust palette */
-  background: radial-gradient(circle at 30% 30%, #d4a574, #a08050);
+  background: radial-gradient(circle at 32% 28%, oklch(0.78 0.1 72), oklch(0.55 0.08 72));
 }
 
 .combat-mana__token--black {
-  background: radial-gradient(circle at 30% 30%, #505560, #252830);
+  background: radial-gradient(circle at 32% 28%, oklch(0.42 0.02 78), oklch(0.22 0.015 78));
 }
-
-/* ============================================================================
-   Initiate Attack Buttons (pre-target-selection)
-   ============================================================================ */
-
-.combat-scene__initiate-attacks {
-  position: fixed;
-  bottom: clamp(190px, 26vh, 290px);
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 0.5rem;
-  z-index: 160;
-  pointer-events: auto;
-}
-
-.combat-scene__initiate-attack-btn {
-  padding: 0.6rem 1.5rem;
-  font-size: 0.85rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  color: #fff;
-  background: linear-gradient(135deg, #a06030, #8b4513);
-  border: 2px solid rgba(184, 115, 51, 0.8);
-  box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-
-.combat-scene__initiate-attack-btn:hover {
-  background: linear-gradient(135deg, #b87040, #9b5523);
-  box-shadow:
-    0 4px 20px rgba(184, 115, 51, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15);
-}
-
-.combat-scene__initiate-attack-btn--convert {
-  font-size: 0.7rem;
-  padding: 0.4rem 1rem;
-  background: linear-gradient(135deg, #4a5060, #3a3a48);
-  border-color: rgba(160, 165, 180, 0.5);
-}
-
-.combat-scene__initiate-attack-btn--convert:hover {
-  background: linear-gradient(135deg, #5a6070, #4a4a58);
-  border-color: rgba(160, 165, 180, 0.7);
-}
-
-/* ============================================================================
-   Target-First Combat Action Buttons
-   ============================================================================ */
-
-/* Shared base for all target-first action buttons */
-.combat-scene__declare-targets,
-.combat-scene__finalize-attack,
-.combat-scene__finalize-block {
-  position: fixed;
-  bottom: clamp(190px, 26vh, 290px);
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 0.6rem 1.5rem;
-  font-size: 0.85rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  z-index: 160;
-  pointer-events: auto;
-  box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-
-/* Declare Targets - bronze/attack accent */
-.combat-scene__declare-targets {
-  color: #fff;
-  background: linear-gradient(135deg, #a06030, #8b4513);
-  border: 2px solid rgba(184, 115, 51, 0.8);
-}
-
-.combat-scene__declare-targets:hover {
-  background: linear-gradient(135deg, #b87040, #9b5523);
-  box-shadow:
-    0 4px 20px rgba(184, 115, 51, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15);
-}
-
-/* Finalize Attack - bronze/copper accent */
-.combat-scene__finalize-attack {
-  color: #fff;
-  background: linear-gradient(135deg, #b87333, #a06030);
-  border: 2px solid rgba(184, 115, 51, 0.9);
-  animation: combat-btn-pulse 2s ease-in-out infinite;
-}
-
-.combat-scene__finalize-attack:hover {
-  background: linear-gradient(135deg, #c88343, #b07040);
-  box-shadow:
-    0 4px 20px rgba(184, 115, 51, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15);
-}
-
-/* Finalize Block - verdigris/defense accent */
-.combat-scene__finalize-block {
-  color: #fff;
-  background: linear-gradient(135deg, #2e6b5a, #1a4d3e);
-  border: 2px solid rgba(46, 107, 90, 0.9);
-  animation: combat-btn-pulse 2s ease-in-out infinite;
-}
-
-.combat-scene__finalize-block:hover {
-  background: linear-gradient(135deg, #3e7b6a, #2a5d4e);
-  box-shadow:
-    0 4px 20px rgba(46, 107, 90, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15);
-}
-
-@keyframes combat-btn-pulse {
-  0%, 100% { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
-  50% { box-shadow: 0 4px 24px rgba(255, 255, 255, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.15); }
-}
-
-
-/* Attack progress separator in accumulator */
-.combat-hud__progress-separator {
-  font-size: 0.8em;
-  color: rgba(212, 165, 116, 0.6);
-  margin: 0 0.15em;
-}
-

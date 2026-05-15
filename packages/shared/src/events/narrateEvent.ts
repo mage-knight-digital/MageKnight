@@ -152,7 +152,7 @@ export function narrateEvent(
     case "TURN_STARTED": {
       const name = heroNameByIndex(players, event.playerIndex);
       return {
-        text: `--- ${name}'s Turn ---`,
+        text: `${name}'s turn`,
         category: EVENT_CATEGORY.LIFECYCLE,
         isTurnBoundary: true,
       };

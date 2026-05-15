@@ -135,7 +135,7 @@ export function GameView() {
             onNavigateToUnitOffer={handleNavigateToUnitOffer}
             onNavigateToSpellOffer={handleNavigateToSpellOffer}
           />
-          <ManaSourceOverlay />
+          {!inCombat && <ManaSourceOverlay />}
         </div>
       </main>
 
