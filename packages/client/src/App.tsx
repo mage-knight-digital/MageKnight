@@ -110,7 +110,11 @@ export function App() {
   }
 
   if (!gameConfig) {
-    return <SetupScreen onComplete={setGameConfig} />;
+    return (
+      <div className="app">
+        <SetupScreen onComplete={setGameConfig} />
+      </div>
+    );
   }
 
   // Default: connect to Rust mk-server

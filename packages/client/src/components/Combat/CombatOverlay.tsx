@@ -499,6 +499,25 @@ function CombatOverlayInner({ combat }: CombatOverlayProps) {
       {/* PixiJS Screen Effects - damage/block/attack flashes */}
       <PixiScreenEffects activeEffect={activeEffect} effectKey={effectKey} />
 
+      <div className="combat-scene__top-tray" aria-label="Combat mana and dice">
+        <div className="combat-scene__mana-resources">
+          <CombatManaDisplay />
+        </div>
+        <div className="combat-scene__mana-source">
+          <ManaSourceOverlay />
+        </div>
+      </div>
+
+      {combatActions.canUndo && combatActions.undoAction && (
+        <button
+          className="combat-scene__undo"
+          onClick={() => sendAction(combatActions.undoAction!)}
+          type="button"
+        >
+          Undo
+        </button>
+      )}
+
       {/* PixiJS Phase Rail - renders to canvas */}
       <PixiPhaseRail
         currentPhase={phase}
@@ -529,41 +548,20 @@ function CombatOverlayInner({ combat }: CombatOverlayProps) {
       {/* Main layout: battle area */}
       <div className="combat-scene__layout">
         <div className="combat-scene__battlefield">
-          {/* Undo button */}
-          {combatActions.canUndo && combatActions.undoAction && (
-            <button
-              className="combat-scene__undo"
-              onClick={() => sendAction(combatActions.undoAction!)}
-              type="button"
-            >
-              Undo
-            </button>
-          )}
-
-          {/* Mana Source */}
-          <div className="combat-scene__mana-source">
-            <ManaSourceOverlay />
-          </div>
-
-          {/* Player's mana tokens/crystals */}
-          <div className="combat-scene__mana-resources">
-            <CombatManaDisplay />
-          </div>
-
           {/* Enemies - layout placeholder for positioning */}
           <div className="combat-scene__enemies" />
         </div>
       </div>
 
-      {/* === Action buttons — outside layout to avoid z-index stacking context === */}
-
-      {/* Convert Move to Attack buttons */}
+      <div className="combat-scene__dock" aria-label="Combat status and actions">
+        <AccumulatorDisplay />
+        <div className="combat-scene__dock-actions">
           {combatActions.convertMoveToAttack.length > 0 && !combatActions.isSelectingTargets && (
-            <div className="combat-scene__initiate-attacks">
+            <div className="combat-scene__dock-row combat-scene__dock-row--wrap">
               {combatActions.convertMoveToAttack.map((opt, i) => (
                 <button
                   key={`convert-move-${i}`}
-                  className="combat-scene__initiate-attack-btn combat-scene__initiate-attack-btn--convert"
+                  className="combat-scene__dock-btn combat-scene__dock-btn--secondary"
                   onClick={() => sendAction(opt.action)}
                   type="button"
                 >
@@ -573,60 +571,55 @@ function CombatOverlayInner({ combat }: CombatOverlayProps) {
             </div>
           )}
 
-          {/* Subset Confirm button (target selection active) */}
           {combatActions.isSelectingTargets && combatActions.subsetConfirmAction && (
             <button
-              className="combat-scene__declare-targets"
+              className="combat-scene__dock-btn combat-scene__dock-btn--primary"
               onClick={() => sendAction(combatActions.subsetConfirmAction!)}
               type="button"
             >
-              Confirm Targets
+              Confirm targets
             </button>
           )}
 
-{/* Resolve Attack button (targets declared, attack sufficient) */}
           {combatActions.resolveAttackAction && (
             <button
-              className="combat-scene__declare-targets"
+              className="combat-scene__dock-btn combat-scene__dock-btn--primary combat-scene__dock-btn--pulse"
               onClick={() => {
                 triggerEffect("attack");
                 sendAction(combatActions.resolveAttackAction!);
               }}
               type="button"
             >
-              Resolve Attack
+              Resolve attack
             </button>
           )}
 
-          {/* Convert Influence to Block buttons */}
           {combatActions.convertInfluenceToBlock.length > 0 && (
-            <div className="combat-scene__convert-influence">
+            <div className="combat-scene__dock-row combat-scene__dock-row--wrap">
               {combatActions.convertInfluenceToBlock.map((opt, i) => (
                 <button
                   key={`convert-inf-${i}`}
-                  className="combat-scene__convert-influence-btn"
+                  className="combat-scene__dock-btn combat-scene__dock-btn--secondary"
                   onClick={() => sendAction(opt.action)}
                   type="button"
                 >
-                  Convert {opt.influencePoints} Influence \u2192 Block
+                  Convert {opt.influencePoints} influence \u2192 block
                 </button>
               ))}
             </div>
           )}
 
-          {/* Heroes Assault action */}
           {combatActions.payHeroesAssaultAction && (
             <button
-              className="combat-scene__heroes-assault-btn"
+              className="combat-scene__dock-btn combat-scene__dock-btn--accent"
               onClick={() => sendAction(combatActions.payHeroesAssaultAction!)}
               type="button"
             >
               Pay Heroes Assault
             </button>
           )}
-
-      {/* Accumulated power display */}
-      <AccumulatorDisplay />
+        </div>
+      </div>
 
       {/* Enemy Detail Panel - full rulebook details */}
       {selectedEnemy && (

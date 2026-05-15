@@ -1,8 +1,8 @@
 /**
- * Hero card component for setup screen.
- * Displays a hero portrait with selection state.
+ * Hero strip tile for setup (octagonal agon portrait).
  */
 
+import type { CSSProperties } from "react";
 import type { HeroId } from "@mage-knight/shared";
 import { HERO_NAMES } from "@mage-knight/shared";
 import { getHeroTokenUrl } from "../../assets/assetPaths";
@@ -14,21 +14,27 @@ const PLAYER_COLORS = ["#8b4513", "#1a4d3e", "#7c5e10", "#2c4a6e"];
 interface HeroCardProps {
   /** Hero to display */
   hero: HeroId;
+  /** Compact agon tile for bottom filmstrip */
+  strip?: boolean;
   /** Whether this hero is currently selected by the active player slot */
   selected: boolean;
   /** Whether this hero is disabled (already selected by another player) */
   disabled: boolean;
   /** If selected, which player index (0-based) for the badge color */
   playerIndex?: number;
+  /** Hover preview on strip (updates spotlight hero) */
+  onHover?: () => void;
   /** Click handler */
   onClick: () => void;
 }
 
 export function HeroCard({
   hero,
+  strip = false,
   selected,
   disabled,
   playerIndex,
+  onHover,
   onClick,
 }: HeroCardProps) {
   const imagePath = getHeroTokenUrl(hero);
@@ -37,31 +43,35 @@ export function HeroCard({
   return (
     <button
       type="button"
-      className={`hero-card ${selected ? "hero-card--selected" : ""} ${disabled ? "hero-card--disabled" : ""}`}
+      className={`hero-card ${strip ? "hero-card--strip" : ""} ${selected ? "hero-card--selected" : ""} ${disabled ? "hero-card--disabled" : ""}`}
       onClick={disabled ? undefined : onClick}
+      onMouseEnter={strip && onHover && !disabled ? onHover : undefined}
       disabled={disabled}
-      style={{
-        borderColor:
-          selected && playerIndex !== undefined
-            ? PLAYER_COLORS[playerIndex]
-            : undefined,
-      }}
+      style={
+        selected && playerIndex !== undefined
+          ? ({
+              "--hero-seat-ring": PLAYER_COLORS[playerIndex],
+            } as CSSProperties)
+          : undefined
+      }
     >
-      <img
-        src={imagePath}
-        alt={heroName}
-        className="hero-card__image"
-        decoding="async"
-        draggable={false}
-      />
-      <div className="hero-card__name">{heroName}</div>
+      <span className="hero-card__figure">
+        <img
+          src={imagePath}
+          alt=""
+          className="hero-card__image"
+          decoding="async"
+          draggable={false}
+        />
+      </span>
+      <span className="hero-card__name">{heroName}</span>
       {playerIndex !== undefined && (
-        <div
+        <span
           className="hero-card__player-badge"
           style={{ backgroundColor: PLAYER_COLORS[playerIndex] }}
         >
           P{playerIndex + 1}
-        </div>
+        </span>
       )}
     </button>
   );

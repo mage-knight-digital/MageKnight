@@ -7,12 +7,23 @@ import { useState, useCallback } from "react";
 import type { GameConfig, HeroId } from "@mage-knight/shared";
 import {
   ALL_HEROES,
+  HERO_NAMES,
   SCENARIO_DISPLAY_NAMES,
   SCENARIO_FIRST_RECONNAISSANCE,
 } from "@mage-knight/shared";
-import { PlayerCountSelector } from "./PlayerCountSelector";
 import { HeroSelectionGrid } from "./HeroSelectionGrid";
 import "./SetupScreen.css";
+
+const SETUP_BEGIN_ARIA_READY = "Begin scenario" as const;
+const SETUP_BEGIN_ARIA_PENDING =
+  "Begin scenario, locked until every player seat has a hero" as const;
+const SETUP_MAX_PLAYERS = 4;
+type SetupStep = "table" | "heroes";
+
+function getSlotState(index: number, isEnabled: boolean): "Host" | "Seat" | "Closed" {
+  if (!isEnabled) return "Closed";
+  return index === 0 ? "Host" : "Seat";
+}
 
 interface SetupScreenProps {
   /** Callback when setup is complete and game should start */
@@ -20,6 +31,8 @@ interface SetupScreenProps {
 }
 
 export function SetupScreen({ onComplete }: SetupScreenProps) {
+  const [setupStep, setSetupStep] = useState<SetupStep>("table");
+
   // Player count (1-4)
   const [playerCount, setPlayerCount] = useState(1);
 
@@ -30,11 +43,13 @@ export function SetupScreen({ onComplete }: SetupScreenProps) {
 
   /**
    * Handle player count change.
-   * Resets hero selections when count changes.
+   * Preserves selections for seats that remain active.
    */
   const handlePlayerCountChange = useCallback((count: number) => {
     setPlayerCount(count);
-    setSelectedHeroes(Array(count).fill(null));
+    setSelectedHeroes((prev) =>
+      Array.from({ length: count }, (_, index) => prev[index] ?? null)
+    );
   }, []);
 
   /**
@@ -87,39 +102,149 @@ export function SetupScreen({ onComplete }: SetupScreenProps) {
   const scenarioTitle =
     SCENARIO_DISPLAY_NAMES[SCENARIO_FIRST_RECONNAISSANCE];
 
+  const activeSeatIndex =
+    currentPlayerIndex >= 0 ? currentPlayerIndex : playerCount - 1;
+
+  const renderSeatSockets = () => (
+    <div className="setup-screen__seats" aria-label="Player seats">
+      {Array.from({ length: SETUP_MAX_PLAYERS }, (_, index) => {
+        const hero = selectedHeroes[index] ?? null;
+        const isEnabled = index < playerCount;
+        const isActive =
+          isEnabled && !allSelected && index === activeSeatIndex;
+        const heroName = hero ? HERO_NAMES[hero] : "Open";
+        const seatLabel = isEnabled
+          ? `Player ${index + 1}: ${heroName}`
+          : `Player ${index + 1}: inactive`;
+
+        return (
+          <div
+            key={`seat-${index + 1}`}
+            className={`setup-seat-chip ${
+              isEnabled ? "setup-seat-chip--enabled" : ""
+            } ${isActive ? "setup-seat-chip--active" : ""} ${
+              hero ? "setup-seat-chip--filled" : ""
+            }`}
+            aria-current={isActive ? "step" : undefined}
+            aria-label={seatLabel}
+          >
+            <span className="setup-seat-chip__mark" aria-hidden="true" />
+          </div>
+        );
+      })}
+    </div>
+  );
+
   return (
     <div className="setup-screen">
-      <header className="setup-screen__header">
-        <h1 className="setup-screen__title">Mage Knight</h1>
-        <p className="setup-screen__scenario">{scenarioTitle}</p>
-      </header>
+      {setupStep === "table" ? (
+        <main className="setup-table" aria-label="Table setup">
+          <div className="setup-table__header">
+            <p className="setup-table__eyebrow">Scenario setup</p>
+            <h1 className="setup-table__title">Prepare the table</h1>
+          </div>
 
-      <div className="setup-screen__panel">
-        <div className="setup-screen__content">
-          <PlayerCountSelector
-            selectedCount={playerCount}
-            onSelectCount={handlePlayerCountChange}
-          />
+          <section className="setup-table__slots" aria-label="Player slots">
+            {Array.from({ length: SETUP_MAX_PLAYERS }, (_, index) => {
+              const isEnabled = index < playerCount;
+              const hero = selectedHeroes[index] ?? null;
+              const heroName = hero ? HERO_NAMES[hero] : "Open";
+              const slotState = getSlotState(index, isEnabled);
 
-          <HeroSelectionGrid
-            availableHeroes={ALL_HEROES}
-            selectedHeroes={selectedHeroes}
-            onSelectHero={handleSelectHero}
-            currentPlayerIndex={
-              currentPlayerIndex >= 0 ? currentPlayerIndex : playerCount - 1
-            }
-          />
+              return (
+                <button
+                  key={`table-seat-${index + 1}`}
+                  type="button"
+                  className={`setup-table-seat ${
+                    isEnabled ? "setup-table-seat--open" : ""
+                  }`}
+                  onClick={() => handlePlayerCountChange(index + 1)}
+                  aria-pressed={isEnabled}
+                >
+                  <span className="setup-table-seat__number">
+                    P{index + 1}
+                  </span>
+                  <span className="setup-table-seat__name">
+                    {isEnabled ? heroName : "Closed"}
+                  </span>
+                  <span className="setup-table-seat__state">{slotState}</span>
+                </button>
+              );
+            })}
+          </section>
 
-          <button
-            type="button"
-            className="start-game-button"
-            disabled={!allSelected}
-            onClick={handleStartGame}
+          <section
+            className="setup-table__settings"
+            aria-label="Scenario settings"
           >
-            Begin scenario
-          </button>
-        </div>
-      </div>
+            <div className="setup-table-setting">
+              <span className="setup-table-setting__label">Scenario</span>
+              <strong className="setup-table-setting__value">
+                {scenarioTitle}
+              </strong>
+            </div>
+            <div className="setup-table-setting">
+              <span className="setup-table-setting__label">Seats</span>
+              <strong className="setup-table-setting__value">
+                {playerCount}
+              </strong>
+            </div>
+            <div className="setup-table-setting setup-table-setting--muted">
+              <span className="setup-table-setting__label">Variants</span>
+              <strong className="setup-table-setting__value">Standard</strong>
+            </div>
+          </section>
+
+          <footer className="setup-table__footer">
+            <button
+              type="button"
+              className="setup-screen__begin setup-screen__begin--ready"
+              onClick={() => setSetupStep("heroes")}
+            >
+              Choose heroes
+            </button>
+          </footer>
+        </main>
+      ) : (
+        <>
+          <header className="setup-screen__hud">
+            <div className="setup-screen__brand">
+              <button
+                type="button"
+                className="setup-screen__back"
+                onClick={() => setSetupStep("table")}
+              >
+                Table
+              </button>
+            </div>
+
+            <div className="setup-screen__party">{renderSeatSockets()}</div>
+          </header>
+
+          <main className="setup-screen__roster">
+            <HeroSelectionGrid
+              availableHeroes={ALL_HEROES}
+              selectedHeroes={selectedHeroes}
+              onSelectHero={handleSelectHero}
+              currentPlayerIndex={activeSeatIndex}
+            />
+          </main>
+
+          <footer className="setup-screen__footer">
+            <button
+              type="button"
+              className="setup-screen__begin"
+              disabled={!allSelected}
+              onClick={handleStartGame}
+              aria-label={
+                allSelected ? SETUP_BEGIN_ARIA_READY : SETUP_BEGIN_ARIA_PENDING
+              }
+            >
+              Begin scenario
+            </button>
+          </footer>
+        </>
+      )}
     </div>
   );
 }

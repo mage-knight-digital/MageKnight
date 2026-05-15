@@ -6,17 +6,26 @@
 use mk_types::ids::UnitId;
 use mk_types::rng::RngState;
 
+use mk_types::enums::RecruitSite;
+
 use crate::units::{all_elite_unit_ids, all_regular_unit_ids, get_unit, is_elite_unit};
+
+fn is_village_recruitable(id: &str) -> bool {
+    get_unit(id).is_some_and(|u| u.recruit_sites.contains(&RecruitSite::Village))
+}
 
 /// Create the unit decks (regular + elite) and initial offer.
 ///
 /// Pool: `copies` instances of each unit type, shuffled.
 /// Initial offer: drawn from regular deck only (no Core tiles at game start).
+/// If `guarantee_village_unit` is true and the drawn offer contains no village-recruitable
+/// unit, the first such unit in the remaining deck is swapped into offer[0].
 /// Returns `(regular_deck, elite_deck, offer)`.
 pub fn create_unit_deck_and_offer(
     rng: &mut RngState,
     player_count: usize,
     elite_units_enabled: bool,
+    guarantee_village_unit: bool,
 ) -> (Vec<UnitId>, Vec<UnitId>, Vec<UnitId>) {
     // Build regular pool
     let mut regular_pool: Vec<UnitId> = Vec::new();
@@ -42,7 +51,17 @@ pub fn create_unit_deck_and_offer(
 
     // Initial offer from regular deck only
     let offer_size = (player_count + 2).min(regular_pool.len());
-    let offer: Vec<UnitId> = regular_pool.drain(..offer_size).collect();
+    let mut offer: Vec<UnitId> = regular_pool.drain(..offer_size).collect();
+
+    // Guarantee at least one village-recruitable unit in the offer
+    if guarantee_village_unit && !offer.iter().any(|u| is_village_recruitable(u.as_str())) {
+        if let Some(pos) = regular_pool.iter().position(|u| is_village_recruitable(u.as_str())) {
+            let village_unit = regular_pool.remove(pos);
+            let displaced = std::mem::replace(&mut offer[0], village_unit);
+            regular_pool.insert(0, displaced);
+        }
+    }
+
     (regular_pool, elite_pool, offer)
 }
 
@@ -127,7 +146,7 @@ mod tests {
     #[test]
     fn create_unit_deck_offer_sizes() {
         let mut rng = RngState::new(42);
-        let (deck, elite_deck, offer) = create_unit_deck_and_offer(&mut rng, 1, false);
+        let (deck, elite_deck, offer) = create_unit_deck_and_offer(&mut rng, 1, false, false);
         // Solo: offer = 1 + 2 = 3
         assert_eq!(offer.len(), 3);
         // Elite deck empty when disabled
@@ -143,7 +162,7 @@ mod tests {
     #[test]
     fn create_with_elite_enabled() {
         let mut rng = RngState::new(42);
-        let (regular_deck, elite_deck, offer) = create_unit_deck_and_offer(&mut rng, 1, true);
+        let (regular_deck, elite_deck, offer) = create_unit_deck_and_offer(&mut rng, 1, true, false);
         // Offer still drawn from regular only
         assert_eq!(offer.len(), 3);
         for unit in &offer {
@@ -166,9 +185,9 @@ mod tests {
     #[test]
     fn create_deterministic() {
         let mut rng1 = RngState::new(99);
-        let (deck1, elite1, offer1) = create_unit_deck_and_offer(&mut rng1, 1, true);
+        let (deck1, elite1, offer1) = create_unit_deck_and_offer(&mut rng1, 1, true, false);
         let mut rng2 = RngState::new(99);
-        let (deck2, elite2, offer2) = create_unit_deck_and_offer(&mut rng2, 1, true);
+        let (deck2, elite2, offer2) = create_unit_deck_and_offer(&mut rng2, 1, true, false);
         assert_eq!(offer1, offer2);
         assert_eq!(deck1, deck2);
         assert_eq!(elite1, elite2);
@@ -282,5 +301,51 @@ mod tests {
         // Check decks got returns
         assert!(regular_deck.iter().any(|u| u.as_str() == "peasants"));
         assert!(elite_deck.iter().any(|u| u.as_str() == "fire_mages"));
+    }
+
+    #[test]
+    fn guarantee_village_unit_always_present_across_seeds() {
+        // With guarantee_village_unit=true, every seed must produce an offer
+        // containing at least one village-recruitable unit.
+        for seed in 0u32..200 {
+            let mut rng = RngState::new(seed);
+            let (_, _, offer) = create_unit_deck_and_offer(&mut rng, 1, false, true);
+            assert!(
+                offer.iter().any(|u| is_village_recruitable(u.as_str())),
+                "seed {seed}: offer contained no village-recruitable unit: {:?}",
+                offer.iter().map(|u| u.as_str()).collect::<Vec<_>>()
+            );
+        }
+    }
+
+    #[test]
+    fn guarantee_false_can_produce_no_village_unit_in_offer() {
+        // Without the guarantee, some seeds produce offers with zero village units.
+        // Confirm at least one such seed exists in our range (sanity check).
+        let found_non_village_offer = (0u32..500).any(|seed| {
+            let mut rng = RngState::new(seed);
+            let (_, _, offer) = create_unit_deck_and_offer(&mut rng, 1, false, false);
+            !offer.iter().any(|u| is_village_recruitable(u.as_str()))
+        });
+        assert!(
+            found_non_village_offer,
+            "expected at least one seed to produce an all-non-village offer when flag=false"
+        );
+    }
+
+    #[test]
+    fn guarantee_preserves_total_card_count() {
+        // Swapping must not create or destroy cards.
+        for seed in 0u32..50 {
+            let mut rng_a = RngState::new(seed);
+            let (deck_a, elite_a, offer_a) = create_unit_deck_and_offer(&mut rng_a, 1, false, true);
+            let mut rng_b = RngState::new(seed);
+            let (deck_b, elite_b, offer_b) = create_unit_deck_and_offer(&mut rng_b, 1, false, false);
+            assert_eq!(
+                deck_a.len() + offer_a.len() + elite_a.len(),
+                deck_b.len() + offer_b.len() + elite_b.len(),
+                "seed {seed}: card count changed after guarantee swap"
+            );
+        }
     }
 }

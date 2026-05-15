@@ -25,6 +25,7 @@ pub fn first_reconnaissance() -> ScenarioConfig {
         starting_reputation: 0,
         skills_enabled: false,
         elite_units_enabled: false,
+        guarantee_village_unit_in_offer: true,
         pvp_enabled: false,
         spells_available: true,
         advanced_actions_available: true,
@@ -66,6 +67,7 @@ pub fn first_reconnaissance_2p() -> ScenarioConfig {
         starting_reputation: 0,
         skills_enabled: false,
         elite_units_enabled: false,
+        guarantee_village_unit_in_offer: true,
         pvp_enabled: false,
         spells_available: true,
         advanced_actions_available: true,
@@ -99,6 +101,7 @@ pub fn first_reconnaissance_3p() -> ScenarioConfig {
         starting_reputation: 0,
         skills_enabled: false,
         elite_units_enabled: false,
+        guarantee_village_unit_in_offer: true,
         pvp_enabled: false,
         spells_available: true,
         advanced_actions_available: true,
@@ -132,6 +135,7 @@ pub fn first_reconnaissance_4p() -> ScenarioConfig {
         starting_reputation: 0,
         skills_enabled: false,
         elite_units_enabled: false,
+        guarantee_village_unit_in_offer: true,
         pvp_enabled: false,
         spells_available: true,
         advanced_actions_available: true,
@@ -165,6 +169,7 @@ pub fn full_conquest() -> ScenarioConfig {
         starting_reputation: 0,
         skills_enabled: true,
         elite_units_enabled: true,
+        guarantee_village_unit_in_offer: false,
         pvp_enabled: true,
         spells_available: true,
         advanced_actions_available: true,
@@ -231,6 +236,7 @@ mod tests {
         assert_eq!(config.starting_reputation, 0);
         assert!(!config.skills_enabled);
         assert!(!config.elite_units_enabled);
+        assert!(config.guarantee_village_unit_in_offer);
         assert!(!config.pvp_enabled);
         assert!(config.spells_available);
         assert!(config.advanced_actions_available);

@@ -255,12 +255,8 @@ export function narrateRustEvent(
 
     case "gameStarted": {
       const hero = event["hero"] as string | undefined;
-      const seed = event["seed"] as number | undefined;
-      const heroLabel = hero ? capitalize(hero) : "Hero";
-      return msg(
-        `Game started — ${heroLabel}${seed != null ? ` (seed ${seed})` : ""}`,
-        EVENT_CATEGORY.LIFECYCLE,
-      );
+      const heroLabel = hero ? capitalize(hero) : "the mage-knight";
+      return msg(`The tale opens with ${heroLabel}.`, EVENT_CATEGORY.LIFECYCLE);
     }
 
     case "turnStarted": {
@@ -268,12 +264,14 @@ export function narrateRustEvent(
       const round = event["round"] as number | undefined;
       const tod = field(event, "time_of_day", "timeOfDay") as string | undefined;
       const todLabel = tod ? formatTimeOfDay(tod) : "";
-      return msg(
-        `--- ${name}'s Turn${round != null ? ` (Round ${round}${todLabel ? `, ${todLabel}` : ""})` : ""} ---`,
-        EVENT_CATEGORY.LIFECYCLE,
-        pid,
-        true,
-      );
+      const when =
+        round != null
+          ? todLabel
+            ? `Round ${round}, ${todLabel}`
+            : `Round ${round}`
+          : todLabel || "";
+      const text = when ? `${when}: ${name}'s turn` : `${name}'s turn`;
+      return msg(text, EVENT_CATEGORY.LIFECYCLE, pid, true);
     }
 
     case "turnEnded": {

@@ -12,18 +12,22 @@ import "./ActivityFeed.css";
 
 const MAX_MESSAGES = 50;
 
+const CHRONICLE_PANEL_ID = "activity-feed-chronicle" as const;
+const CHRONICLE_TOGGLE_LABEL = "Chronicle" as const;
+const CHRONICLE_EMPTY = "Nothing to report yet." as const;
+
 export function ActivityFeed() {
   const { state, events } = useGame();
   const [collapsed, setCollapsed] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  // Build players list for narration from state
+  const inCombat = state?.combat != null;
+
   const players: NarrationPlayer[] = useMemo(() => {
     if (!state) return [];
     return state.players.map((p) => ({ id: p.id, hero: p.hero }));
   }, [state]);
 
-  // Derive messages from events — pure computation, no effect needed
   const messages: ActivityMessage[] = useMemo(() => {
     if (events.length === 0 || players.length === 0) return [];
     const result: ActivityMessage[] = [];
@@ -36,17 +40,14 @@ export function ActivityFeed() {
     return result.slice(-MAX_MESSAGES);
   }, [events, players]);
 
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
     const el = messagesContainerRef.current;
     if (!el) return;
-    // Use rAF to ensure DOM has rendered new content before scrolling
     requestAnimationFrame(() => {
       el.scrollTop = el.scrollHeight;
     });
   }, [messages]);
 
-  // Keyboard shortcut: L to toggle
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (
@@ -68,19 +69,37 @@ export function ActivityFeed() {
 
   const feedClass = [
     "activity-feed",
+    inCombat && "activity-feed--combat",
     collapsed && "activity-feed--collapsed",
   ]
     .filter(Boolean)
     .join(" ");
 
   return (
-    <div className={feedClass}>
-      <button className="activity-feed__toggle" onClick={toggle}>
-        Log [L]
+    <aside className={feedClass} aria-label="Game chronicle">
+      <button
+        type="button"
+        className="activity-feed__toggle"
+        onClick={toggle}
+        aria-expanded={!collapsed}
+        aria-controls={CHRONICLE_PANEL_ID}
+        title="Toggle chronicle (keyboard L)"
+      >
+        <span className="activity-feed__toggle-label">{CHRONICLE_TOGGLE_LABEL}</span>
+        <kbd className="activity-feed__toggle-kbd" aria-hidden="true">
+          L
+        </kbd>
       </button>
-      <div className="activity-feed__messages" ref={messagesContainerRef}>
+      <div
+        id={CHRONICLE_PANEL_ID}
+        className="activity-feed__messages"
+        ref={messagesContainerRef}
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions"
+      >
         {messages.length === 0 ? (
-          <div className="activity-feed__empty">No events yet</div>
+          <div className="activity-feed__empty">{CHRONICLE_EMPTY}</div>
         ) : (
           messages.map((msg, i) => {
             const classes = [
@@ -98,6 +117,6 @@ export function ActivityFeed() {
           })
         )}
       </div>
-    </div>
+    </aside>
   );
 }

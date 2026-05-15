@@ -734,6 +734,7 @@ pub struct ScenarioConfig {
     // Special rules
     pub skills_enabled: bool,
     pub elite_units_enabled: bool,
+    pub guarantee_village_unit_in_offer: bool,
     pub pvp_enabled: bool,
     pub spells_available: bool,
     pub advanced_actions_available: bool,
