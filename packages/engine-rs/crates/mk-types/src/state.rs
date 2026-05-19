@@ -742,6 +742,12 @@ pub struct ScenarioConfig {
     pub fame_per_tile_explored: u32,
     pub cities_can_be_entered: bool,
     pub default_city_level: u32,
+    /// Extra fame granted each time the player crosses a fame track line (Blitz scenarios).
+    pub fame_per_level_crossed: u32,
+    /// Extra dice added to the Mana Source beyond the standard player_count + 2 (Blitz scenarios).
+    pub extra_source_dice: u32,
+    /// Extra slots added to the Unit offer beyond the standard player_count + 2 (Blitz scenarios).
+    pub extra_unit_offer_slots: u32,
     // Tactic handling
     pub tactic_removal_mode: TacticRemovalMode,
     pub dummy_tactic_order: DummyTacticOrder,

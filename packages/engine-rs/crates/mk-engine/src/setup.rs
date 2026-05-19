@@ -74,10 +74,11 @@ pub fn create_ruins_token_piles(rng: &mut RngState) -> RuinsTokenPiles {
 /// Black dice start depleted during daytime.
 pub fn create_mana_source(
     player_count: u32,
+    extra_dice: u32,
     time_of_day: TimeOfDay,
     rng: &mut RngState,
 ) -> ManaSource {
-    let dice_count = (player_count + 2) as usize;
+    let dice_count = (player_count + 2 + extra_dice) as usize;
     let min_basic = dice_count.div_ceil(2); // ceil(dice_count / 2)
 
     // Initial roll
@@ -306,7 +307,7 @@ pub fn create_solo_game(seed: u32, hero: Hero) -> GameState {
     );
 
     // Create mana source
-    let source = create_mana_source(1, TimeOfDay::Day, &mut rng);
+    let source = create_mana_source(1, scenario_config.extra_source_dice, TimeOfDay::Day, &mut rng);
 
     // Create enemy token piles
     let enemy_tokens = create_enemy_token_piles(&mut rng);
@@ -315,7 +316,7 @@ pub fn create_solo_game(seed: u32, hero: Hero) -> GameState {
     let (aa_deck, aa_offer) = create_aa_deck_and_offer(&mut rng);
     let (spell_deck, spell_offer) = create_spell_deck_and_offer(&mut rng);
     let (unit_deck, elite_unit_deck, unit_offer) =
-        create_unit_deck_and_offer(&mut rng, 1, scenario_config.elite_units_enabled, scenario_config.guarantee_village_unit_in_offer);
+        create_unit_deck_and_offer(&mut rng, 1 + scenario_config.extra_unit_offer_slots as usize, scenario_config.elite_units_enabled, scenario_config.guarantee_village_unit_in_offer);
 
     // Create dummy player for solo mode
     let dummy_hero = dummy_player::select_dummy_hero(&[hero], &mut rng);
@@ -453,8 +454,8 @@ pub fn create_multiplayer_game(
         players.push(player);
     }
 
-    // Create mana source (player_count + 2 dice)
-    let source = create_mana_source(player_count as u32, TimeOfDay::Day, &mut rng);
+    // Create mana source (player_count + 2 + extra_source_dice dice)
+    let source = create_mana_source(player_count as u32, scenario_config.extra_source_dice, TimeOfDay::Day, &mut rng);
 
     // Create enemy token piles
     let enemy_tokens = create_enemy_token_piles(&mut rng);
@@ -463,7 +464,7 @@ pub fn create_multiplayer_game(
     let (aa_deck, aa_offer) = create_aa_deck_and_offer(&mut rng);
     let (spell_deck, spell_offer) = create_spell_deck_and_offer(&mut rng);
     let (unit_deck, elite_unit_deck, unit_offer) =
-        create_unit_deck_and_offer(&mut rng, player_count, scenario_config.elite_units_enabled, scenario_config.guarantee_village_unit_in_offer);
+        create_unit_deck_and_offer(&mut rng, player_count + scenario_config.extra_unit_offer_slots as usize, scenario_config.elite_units_enabled, scenario_config.guarantee_village_unit_in_offer);
 
     // Day tactics
     let available_tactics: Vec<TacticId> =

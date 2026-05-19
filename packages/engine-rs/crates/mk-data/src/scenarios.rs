@@ -33,6 +33,9 @@ pub fn first_reconnaissance() -> ScenarioConfig {
         fame_per_tile_explored: 1,
         cities_can_be_entered: false,
         default_city_level: 1,
+        fame_per_level_crossed: 0,
+        extra_source_dice: 0,
+        extra_unit_offer_slots: 0,
         tactic_removal_mode: TacticRemovalMode::AllUsed,
         dummy_tactic_order: DummyTacticOrder::AfterHumans,
         end_trigger: ScenarioEndTrigger::CityRevealed,
@@ -75,6 +78,9 @@ pub fn first_reconnaissance_2p() -> ScenarioConfig {
         fame_per_tile_explored: 1,
         cities_can_be_entered: false,
         default_city_level: 1,
+        fame_per_level_crossed: 0,
+        extra_source_dice: 0,
+        extra_unit_offer_slots: 0,
         tactic_removal_mode: TacticRemovalMode::RemoveTwo,
         dummy_tactic_order: DummyTacticOrder::None,
         end_trigger: ScenarioEndTrigger::CityRevealed,
@@ -109,6 +115,9 @@ pub fn first_reconnaissance_3p() -> ScenarioConfig {
         fame_per_tile_explored: 1,
         cities_can_be_entered: false,
         default_city_level: 1,
+        fame_per_level_crossed: 0,
+        extra_source_dice: 0,
+        extra_unit_offer_slots: 0,
         tactic_removal_mode: TacticRemovalMode::RemoveOne,
         dummy_tactic_order: DummyTacticOrder::None,
         end_trigger: ScenarioEndTrigger::CityRevealed,
@@ -143,6 +152,9 @@ pub fn first_reconnaissance_4p() -> ScenarioConfig {
         fame_per_tile_explored: 1,
         cities_can_be_entered: false,
         default_city_level: 1,
+        fame_per_level_crossed: 0,
+        extra_source_dice: 0,
+        extra_unit_offer_slots: 0,
         tactic_removal_mode: TacticRemovalMode::None,
         dummy_tactic_order: DummyTacticOrder::None,
         end_trigger: ScenarioEndTrigger::CityRevealed,
@@ -197,6 +209,9 @@ pub fn full_conquest_2p() -> ScenarioConfig {
         fame_per_tile_explored: 0,
         cities_can_be_entered: true,
         default_city_level: 4,
+        fame_per_level_crossed: 0,
+        extra_source_dice: 0,
+        extra_unit_offer_slots: 0,
         tactic_removal_mode: TacticRemovalMode::RemoveTwo,
         dummy_tactic_order: DummyTacticOrder::None,
         end_trigger: ScenarioEndTrigger::CityConquered,
@@ -231,6 +246,9 @@ pub fn full_conquest_3p() -> ScenarioConfig {
         fame_per_tile_explored: 0,
         cities_can_be_entered: true,
         default_city_level: 4,
+        fame_per_level_crossed: 0,
+        extra_source_dice: 0,
+        extra_unit_offer_slots: 0,
         tactic_removal_mode: TacticRemovalMode::RemoveOne,
         dummy_tactic_order: DummyTacticOrder::None,
         end_trigger: ScenarioEndTrigger::CityConquered,
@@ -265,10 +283,145 @@ pub fn full_conquest_4p() -> ScenarioConfig {
         fame_per_tile_explored: 0,
         cities_can_be_entered: true,
         default_city_level: 4,
+        fame_per_level_crossed: 0,
+        extra_source_dice: 0,
+        extra_unit_offer_slots: 0,
         tactic_removal_mode: TacticRemovalMode::None,
         dummy_tactic_order: DummyTacticOrder::None,
         end_trigger: ScenarioEndTrigger::CityConquered,
         scoring_config: Some(full_conquest_scoring()),
+    }
+}
+
+fn blitz_conquest_scoring() -> ScenarioScoringConfig {
+    ScenarioScoringConfig {
+        base_score_mode: BaseScoreMode::IndividualFame,
+        achievements: AchievementsConfig {
+            enabled: true,
+            mode: AchievementMode::Competitive,
+            overrides: BTreeMap::new(),
+        },
+        modules: vec![ScoringModuleConfig::CityConquest(
+            CityConquestModuleConfig {
+                leader_points: 7,
+                participant_points: 4,
+                title_name: "Greatest City Conqueror".to_string(),
+                title_bonus: 5,
+                title_tied_bonus: 2,
+            },
+        )],
+    }
+}
+
+/// Blitz Conquest — 2-player variant.
+///
+/// Map: Wedge, 6 countryside + 1 non-city core + 2 city tiles. 4 rounds (2 day + 2 night).
+/// Cities are level 3. Starts with 1 Fame, +2 Reputation, extra Source die and Unit offer slot.
+pub fn blitz_conquest_2p() -> ScenarioConfig {
+    ScenarioConfig {
+        countryside_tile_count: 6,
+        core_tile_count: 1,
+        city_tile_count: 2,
+        map_shape: MapShape::Wedge,
+        day_rounds: 2,
+        night_rounds: 2,
+        total_rounds: 4,
+        min_players: 2,
+        max_players: 2,
+        starting_fame: 1,
+        starting_reputation: 2,
+        skills_enabled: true,
+        elite_units_enabled: true,
+        guarantee_village_unit_in_offer: false,
+        pvp_enabled: true,
+        spells_available: true,
+        advanced_actions_available: true,
+        enabled_expansions: vec![],
+        fame_per_tile_explored: 0,
+        cities_can_be_entered: true,
+        default_city_level: 3,
+        fame_per_level_crossed: 1,
+        extra_source_dice: 1,
+        extra_unit_offer_slots: 1,
+        tactic_removal_mode: TacticRemovalMode::RemoveTwo,
+        dummy_tactic_order: DummyTacticOrder::None,
+        end_trigger: ScenarioEndTrigger::CityConquered,
+        scoring_config: Some(blitz_conquest_scoring()),
+    }
+}
+
+/// Blitz Conquest — 3-player variant.
+///
+/// Map: Wedge, 7 countryside + 2 non-city core + 3 city tiles. 4 rounds (2 day + 2 night).
+/// Cities are level 3. Starts with 1 Fame, +2 Reputation, extra Source die and Unit offer slot.
+pub fn blitz_conquest_3p() -> ScenarioConfig {
+    ScenarioConfig {
+        countryside_tile_count: 7,
+        core_tile_count: 2,
+        city_tile_count: 3,
+        map_shape: MapShape::Wedge,
+        day_rounds: 2,
+        night_rounds: 2,
+        total_rounds: 4,
+        min_players: 3,
+        max_players: 3,
+        starting_fame: 1,
+        starting_reputation: 2,
+        skills_enabled: true,
+        elite_units_enabled: true,
+        guarantee_village_unit_in_offer: false,
+        pvp_enabled: true,
+        spells_available: true,
+        advanced_actions_available: true,
+        enabled_expansions: vec![],
+        fame_per_tile_explored: 0,
+        cities_can_be_entered: true,
+        default_city_level: 3,
+        fame_per_level_crossed: 1,
+        extra_source_dice: 1,
+        extra_unit_offer_slots: 1,
+        tactic_removal_mode: TacticRemovalMode::RemoveOne,
+        dummy_tactic_order: DummyTacticOrder::None,
+        end_trigger: ScenarioEndTrigger::CityConquered,
+        scoring_config: Some(blitz_conquest_scoring()),
+    }
+}
+
+/// Blitz Conquest — 4-player variant.
+///
+/// Map: Open4 (limited to 4 columns), 9 countryside + 3 non-city core + 4 city tiles.
+/// 4 rounds (2 day + 2 night). Cities are level 3. Starts with 1 Fame, +2 Reputation,
+/// extra Source die and Unit offer slot.
+pub fn blitz_conquest_4p() -> ScenarioConfig {
+    ScenarioConfig {
+        countryside_tile_count: 9,
+        core_tile_count: 3,
+        city_tile_count: 4,
+        map_shape: MapShape::Open4,
+        day_rounds: 2,
+        night_rounds: 2,
+        total_rounds: 4,
+        min_players: 4,
+        max_players: 4,
+        starting_fame: 1,
+        starting_reputation: 2,
+        skills_enabled: true,
+        elite_units_enabled: true,
+        guarantee_village_unit_in_offer: false,
+        pvp_enabled: true,
+        spells_available: true,
+        advanced_actions_available: true,
+        enabled_expansions: vec![],
+        fame_per_tile_explored: 0,
+        cities_can_be_entered: true,
+        default_city_level: 3,
+        fame_per_level_crossed: 1,
+        extra_source_dice: 1,
+        extra_unit_offer_slots: 1,
+        tactic_removal_mode: TacticRemovalMode::None,
+        dummy_tactic_order: DummyTacticOrder::None,
+        end_trigger: ScenarioEndTrigger::CityConquered,
+        scoring_config: Some(blitz_conquest_scoring()),
     }
 }
 
@@ -282,6 +435,9 @@ pub fn get_scenario(id: &str) -> Option<ScenarioConfig> {
         "full_conquest_2p" => Some(full_conquest_2p()),
         "full_conquest_3p" => Some(full_conquest_3p()),
         "full_conquest_4p" => Some(full_conquest_4p()),
+        "blitz_conquest_2p" => Some(blitz_conquest_2p()),
+        "blitz_conquest_3p" => Some(blitz_conquest_3p()),
+        "blitz_conquest_4p" => Some(blitz_conquest_4p()),
         _ => None,
     }
 }
