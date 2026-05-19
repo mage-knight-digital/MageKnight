@@ -140,6 +140,28 @@ pub(super) fn end_combat(state: &mut GameState, player_idx: usize) {
             }
         }
 
+        // CityConquered scenario end: triggered when ALL cities are now conquered
+        if !state.scenario_end_triggered
+            && state.scenario_config.end_trigger == ScenarioEndTrigger::CityConquered
+            && conquered_site_type == Some(SiteType::City)
+        {
+            let conquered_city_count = state
+                .map
+                .hexes
+                .values()
+                .filter(|h| {
+                    h.site
+                        .as_ref()
+                        .map(|s| s.site_type == SiteType::City && s.is_conquered)
+                        .unwrap_or(false)
+                })
+                .count() as u32;
+            if conquered_city_count >= state.scenario_config.city_tile_count {
+                state.scenario_end_triggered = true;
+                state.final_turns_remaining = Some(state.players.len() as u32);
+            }
+        }
+
         // BurnMonastery victory: if combat_context == BurnMonastery and all enemies defeated
         if combat.combat_context == CombatContext::BurnMonastery && all_defeated {
             if let Some(hex_coord) = combat.combat_hex_coord {
