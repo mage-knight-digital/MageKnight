@@ -22,6 +22,7 @@ interface UseHexInteractionParams {
   rustMoveActions?: Map<string, LegalAction>;
   rustExploreActions?: Map<string, LegalAction>;
   rustChallengeActions?: Map<string, LegalAction>;
+  isInteractionBlocked?: boolean;
 }
 
 interface UseHexInteractionReturn {
@@ -41,6 +42,7 @@ export function useHexInteraction({
   rustMoveActions,
   rustExploreActions,
   rustChallengeActions,
+  isInteractionBlocked = false,
 }: UseHexInteractionParams): UseHexInteractionReturn {
   // Movement highlight getter
   const getMoveHighlight = useCallback(
@@ -89,6 +91,8 @@ export function useHexInteraction({
   // Handle hex click for movement or challenge
   const handleHexClick = useCallback(
     (coord: HexCoord) => {
+      if (isInteractionBlocked) return;
+
       // Block interaction if not player's turn
       if (!isMyTurn) return;
 
@@ -131,12 +135,24 @@ export function useHexInteraction({
         }
       }
     },
-    [isMyTurn, playerPosition, validMoveTargets, reachableHexes, challengeTargetHexes, sendAction, rustMoveActions, rustChallengeActions]
+    [
+      isInteractionBlocked,
+      isMyTurn,
+      playerPosition,
+      validMoveTargets,
+      reachableHexes,
+      challengeTargetHexes,
+      sendAction,
+      rustMoveActions,
+      rustChallengeActions,
+    ]
   );
 
   // Handle explore click
   const handleExploreClick = useCallback(
     (target: ExploreTarget) => {
+      if (isInteractionBlocked) return;
+
       // Block interaction if not player's turn
       if (!isMyTurn) return;
 
@@ -144,7 +160,7 @@ export function useHexInteraction({
       const action = rustExploreActions?.get(key);
       if (action) sendAction(action);
     },
-    [isMyTurn, sendAction, rustExploreActions]
+    [isInteractionBlocked, isMyTurn, sendAction, rustExploreActions]
   );
 
   return {

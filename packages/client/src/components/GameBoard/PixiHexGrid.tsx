@@ -154,6 +154,8 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
 
   // Handler to open the site panel (from right-click on hex)
   const handleOpenSitePanel = useCallback((coord: HexCoord) => {
+    if (isOverlayActive || state?.combat !== null) return;
+
     // Only open if the hex has a site
     const hex = state?.map.hexes[hexKey(coord)];
     if (!hex?.site) return;
@@ -161,7 +163,7 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
     setSitePanelHex(coord);
     setIsSitePanelOpen(true);
     handleHexTooltipLeave();
-  }, [handleHexTooltipLeave, state?.map.hexes]);
+  }, [handleHexTooltipLeave, isOverlayActive, state?.combat, state?.map.hexes]);
 
   // Handler for right-click on hero token (opens site panel for hero's current location)
   const handleHeroRightClick = useCallback(() => {
@@ -240,7 +242,6 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
   const handleGameKeyDown = useCallback((event: KeyboardEvent) => {
     // Don't handle if overlays are active or site panel is open
     if (isOverlayActive || isSitePanelOpen) {
-      handleKeyDown(event);
       return;
     }
 
@@ -333,6 +334,9 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
 
   resetRendererRef.current = resetRenderer;
 
+  // Hide world and background when in combat (so hand overlay shows through transparent canvas)
+  const inCombat = state?.combat !== null;
+
   // Hex interaction handlers
   const { getMoveHighlight, handleHexClick, handleExploreClick } = useHexInteraction({
     validMoveTargets,
@@ -345,10 +349,9 @@ export function PixiHexGrid({ onNavigateToUnitOffer, onNavigateToSpellOffer }: P
     rustMoveActions,
     rustExploreActions,
     rustChallengeActions,
+    isInteractionBlocked: isOverlayActive || inCombat,
   });
 
-  // Hide world and background when in combat (so hand overlay shows through transparent canvas)
-  const inCombat = state?.combat !== null;
   useEffect(() => {
     if (!isInitialized) return;
     const world = worldRef.current;

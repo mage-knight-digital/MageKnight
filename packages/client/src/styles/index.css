@@ -108,6 +108,14 @@ body {
   pointer-events: auto; /* PixiJS phase rail and other combat UI needs canvas events */
 }
 
+/* Non-combat chrome should not accept hover/click while the combat layer is active. */
+.app--combat .top-bar,
+.app--combat .end-turn-seal,
+.app--combat .turn-actions,
+.app--combat .replay-controls {
+  pointer-events: none;
+}
+
 /* Boost hand z-index during combat so it's above the combat overlay */
 .app--combat .floating-hand {
   z-index: 150;

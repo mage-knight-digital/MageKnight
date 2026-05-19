@@ -288,21 +288,6 @@ export function PixiEnemyTokens({ enemies, onEnemyClick }: PixiEnemyTokensProps)
         tokenContainer.addChild(overlay);
       }
 
-      // Armor indicator (shows armor value below token)
-      if (!enemy.isDefeated) {
-        const armorWidth = 32;
-        const armorHeight = 18;
-        const armorY = radius + 8;
-
-        // Background pill
-        const armorBg = new Graphics();
-        armorBg.roundRect(-armorWidth / 2, armorY, armorWidth, armorHeight, 9);
-        armorBg.fill({ color: COLORS.HEALTH_BG, alpha: 0.9 });
-        armorBg.stroke({ color: COLORS.HEALTH_FILL, width: 1.5 });
-        armorBg.zIndex = 3;
-        tokenContainer.addChild(armorBg);
-      }
-
       // Click handling
       border.eventMode = "static";
       border.cursor = "pointer";
