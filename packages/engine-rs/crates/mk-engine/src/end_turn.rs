@@ -1840,6 +1840,52 @@ mod tests {
     }
 
     #[test]
+    fn blitz_fame_per_level_crossed_grants_bonus_on_level_up() {
+        // Level thresholds: L2=3, L3=8. Start at fame=6 (L2), level=1.
+        // Level-up: crosses L2 (lines_crossed=1) → bonus +1 fame → fame=7.
+        // 7 < 8, so no further crossing. Final: level=2, fame=7.
+        let mut state = setup_playing_game(vec!["march"]);
+        state.scenario_config.fame_per_level_crossed = 1;
+        state.players[0].fame = 6;
+        state.players[0].level = 1;
+
+        process_level_ups_pub(&mut state, 0);
+
+        assert_eq!(state.players[0].level, 2);
+        assert_eq!(state.players[0].fame, 7);
+    }
+
+    #[test]
+    fn blitz_fame_per_level_crossed_cascades() {
+        // Level thresholds: L2=3, L3=8, L4=14. Start at fame=13 (L3), level=1.
+        // Iteration 1: crosses L2+L3 (lines_crossed=2) → bonus +2 → fame=15.
+        // Iteration 2: 15 >= L4=14, crosses L4 (lines_crossed=1) → bonus +1 → fame=16.
+        // Iteration 3: get_level_from_fame(16)=4 == level=4 → break.
+        let mut state = setup_playing_game(vec!["march"]);
+        state.scenario_config.fame_per_level_crossed = 1;
+        state.players[0].fame = 13;
+        state.players[0].level = 1;
+
+        process_level_ups_pub(&mut state, 0);
+
+        assert_eq!(state.players[0].level, 4);
+        assert_eq!(state.players[0].fame, 16);
+    }
+
+    #[test]
+    fn blitz_zero_bonus_does_not_grant_extra_fame() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.scenario_config.fame_per_level_crossed = 0;
+        state.players[0].fame = 6;
+        state.players[0].level = 1;
+
+        process_level_ups_pub(&mut state, 0);
+
+        assert_eq!(state.players[0].level, 2);
+        assert_eq!(state.players[0].fame, 6); // No bonus
+    }
+
+    #[test]
     fn end_turn_no_level_down() {
         let mut state = setup_playing_game(vec!["march"]);
         state.players[0].fame = 3; // Level 2

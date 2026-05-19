@@ -551,6 +551,82 @@ mod tests {
         assert!(get_scenario("full_conquest_2p").is_some());
         assert!(get_scenario("full_conquest_3p").is_some());
         assert!(get_scenario("full_conquest_4p").is_some());
+        assert!(get_scenario("blitz_conquest_2p").is_some());
+        assert!(get_scenario("blitz_conquest_3p").is_some());
+        assert!(get_scenario("blitz_conquest_4p").is_some());
         assert!(get_scenario("nonexistent_scenario").is_none());
+    }
+
+    #[test]
+    fn blitz_conquest_2p_config() {
+        let config = blitz_conquest_2p();
+        assert_eq!(config.map_shape, MapShape::Wedge);
+        assert_eq!(config.countryside_tile_count, 6);
+        assert_eq!(config.core_tile_count, 1);
+        assert_eq!(config.city_tile_count, 2);
+        assert_eq!(config.total_rounds, 4);
+        assert_eq!(config.default_city_level, 3);
+        assert_eq!(config.min_players, 2);
+        assert_eq!(config.max_players, 2);
+        assert_eq!(config.starting_fame, 1);
+        assert_eq!(config.starting_reputation, 2);
+        assert_eq!(config.fame_per_level_crossed, 1);
+        assert_eq!(config.extra_source_dice, 1);
+        assert_eq!(config.extra_unit_offer_slots, 1);
+        assert_eq!(config.end_trigger, ScenarioEndTrigger::CityConquered);
+        assert_eq!(config.tactic_removal_mode, TacticRemovalMode::RemoveTwo);
+    }
+
+    #[test]
+    fn blitz_conquest_3p_config() {
+        let config = blitz_conquest_3p();
+        assert_eq!(config.map_shape, MapShape::Wedge);
+        assert_eq!(config.countryside_tile_count, 7);
+        assert_eq!(config.core_tile_count, 2);
+        assert_eq!(config.city_tile_count, 3);
+        assert_eq!(config.default_city_level, 3);
+        assert_eq!(config.min_players, 3);
+        assert_eq!(config.max_players, 3);
+        assert_eq!(config.tactic_removal_mode, TacticRemovalMode::RemoveOne);
+        assert_eq!(config.fame_per_level_crossed, 1);
+    }
+
+    #[test]
+    fn blitz_conquest_4p_config() {
+        let config = blitz_conquest_4p();
+        assert_eq!(config.map_shape, MapShape::Open4);
+        assert_eq!(config.countryside_tile_count, 9);
+        assert_eq!(config.core_tile_count, 3);
+        assert_eq!(config.city_tile_count, 4);
+        assert_eq!(config.default_city_level, 3);
+        assert_eq!(config.min_players, 4);
+        assert_eq!(config.max_players, 4);
+        assert_eq!(config.tactic_removal_mode, TacticRemovalMode::None);
+        assert_eq!(config.fame_per_level_crossed, 1);
+    }
+
+    #[test]
+    fn blitz_conquest_scoring_module_present() {
+        let config = blitz_conquest_2p();
+        let scoring = config.scoring_config.as_ref().unwrap();
+        assert_eq!(scoring.achievements.mode, AchievementMode::Competitive);
+        assert_eq!(scoring.modules.len(), 1);
+        if let ScoringModuleConfig::CityConquest(ref m) = scoring.modules[0] {
+            assert_eq!(m.leader_points, 7);
+            assert_eq!(m.participant_points, 4);
+            assert_eq!(m.title_bonus, 5);
+        } else {
+            panic!("expected CityConquest scoring module");
+        }
+    }
+
+    #[test]
+    fn existing_scenarios_have_zero_blitz_fields() {
+        for id in ["first_reconnaissance", "first_reconnaissance_2p", "full_conquest_2p"] {
+            let config = get_scenario(id).unwrap();
+            assert_eq!(config.fame_per_level_crossed, 0, "{id}: fame_per_level_crossed should be 0");
+            assert_eq!(config.extra_source_dice, 0, "{id}: extra_source_dice should be 0");
+            assert_eq!(config.extra_unit_offer_slots, 0, "{id}: extra_unit_offer_slots should be 0");
+        }
     }
 }
