@@ -331,6 +331,10 @@ function CombatOverlayInner({ combat }: CombatOverlayProps) {
   const { phase, enemies } = combat;
   const { sendAction } = useGame();
   const combatActions = useCombatActions();
+  const [viewportSize, setViewportSize] = useState(() => ({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  }));
 
   // Visual effect state - use a counter to force animation restart
   const [activeEffect, setActiveEffect] = useState<EffectType>(null);
@@ -386,6 +390,18 @@ function CombatOverlayInner({ combat }: CombatOverlayProps) {
   const isAttackPhase = phase === COMBAT_PHASE_ATTACK;
   const isRangedSiegePhase = phase === COMBAT_PHASE_RANGED_SIEGE;
 
+  useEffect(() => {
+    const handleResize = () => {
+      setViewportSize({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   // Reset damage assignment panel when phase changes
   useEffect(() => {
     setDamageAssignmentEnemy(null);
@@ -393,8 +409,8 @@ function CombatOverlayInner({ combat }: CombatOverlayProps) {
 
   // Calculate token positions for PixiEnemyCard (must match PixiEnemyTokens layout)
   const enemyCardData = useMemo(() => {
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
+    const vw = viewportSize.width;
+    const vh = viewportSize.height;
     const tokenSize = Math.min(Math.max(100, Math.min(vw * 0.18, vh * 0.28)), 280);
     const tokenRadius = tokenSize / 2;
 
@@ -470,7 +486,15 @@ function CombatOverlayInner({ combat }: CombatOverlayProps) {
           && combatActions.declaredAttackTargets.includes(enemy.instanceId),
       };
     });
-  }, [enemies, combatActions, isBlockPhase, isDamagePhase, isAttackPhase, isRangedSiegePhase]);
+  }, [
+    enemies,
+    combatActions,
+    isBlockPhase,
+    isDamagePhase,
+    isAttackPhase,
+    isRangedSiegePhase,
+    viewportSize,
+  ]);
 
   // Handle "Take Damage" button on enemy card
   // If units are available, show the DamageAssignmentPanel. Otherwise, send hero damage directly.

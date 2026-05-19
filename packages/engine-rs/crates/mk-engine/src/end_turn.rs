@@ -467,47 +467,58 @@ pub fn forfeit_turn(state: &mut GameState, player_idx: usize) -> Result<EndTurnR
 /// For even levels (2, 4, 6, 8, 10), draws hero skills and queues level-up rewards
 /// as deferred pending entries.
 fn process_level_ups(state: &mut GameState, player_idx: usize) {
-    let old_level = state.players[player_idx].level;
-    let new_level = get_level_from_fame(state.players[player_idx].fame);
+    let bonus_per_line = state.scenario_config.fame_per_level_crossed;
+    loop {
+        let old_level = state.players[player_idx].level;
+        let new_level = get_level_from_fame(state.players[player_idx].fame);
 
-    if new_level <= old_level {
-        return;
-    }
-
-    // Use the final level's stats
-    let stats = get_level_stats(new_level);
-    let player = &mut state.players[player_idx];
-    player.level = new_level;
-    player.armor = stats.armor;
-    player.hand_limit = stats.hand_limit;
-    player.command_tokens = stats.command_slots;
-
-    // Queue skill choices for each even level crossed
-    let mut rewards: Vec<PendingLevelUpReward> = Vec::new();
-    for level in (old_level + 1)..=new_level {
-        if is_skill_level_up(level) {
-            // Shuffle remaining_hero_skills, draw min(2, len)
-            let player = &mut state.players[player_idx];
-            state.rng.shuffle(&mut player.remaining_hero_skills);
-            let draw_count = player.remaining_hero_skills.len().min(MAX_DRAWN_SKILLS);
-            let mut drawn: ArrayVec<SkillId, MAX_DRAWN_SKILLS> = ArrayVec::new();
-            for _ in 0..draw_count {
-                drawn.push(player.remaining_hero_skills.pop().unwrap());
-            }
-            rewards.push(PendingLevelUpReward {
-                level: level as u8,
-                drawn_skills: drawn,
-                phase: mk_types::pending::LevelUpRewardPhase::SelectSkill,
-            });
+        if new_level <= old_level {
+            break;
         }
-    }
 
-    // Add as deferred pending — promoted to active when end_turn flow processes them
-    if !rewards.is_empty() {
-        state.players[player_idx]
-            .pending
-            .deferred
-            .push(DeferredPending::LevelUpRewards(rewards));
+        let lines_crossed = new_level - old_level;
+
+        // Use the final level's stats
+        let stats = get_level_stats(new_level);
+        let player = &mut state.players[player_idx];
+        player.level = new_level;
+        player.armor = stats.armor;
+        player.hand_limit = stats.hand_limit;
+        player.command_tokens = stats.command_slots;
+
+        // Queue skill choices for each even level crossed
+        let mut rewards: Vec<PendingLevelUpReward> = Vec::new();
+        for level in (old_level + 1)..=new_level {
+            if is_skill_level_up(level) {
+                let player = &mut state.players[player_idx];
+                state.rng.shuffle(&mut player.remaining_hero_skills);
+                let draw_count = player.remaining_hero_skills.len().min(MAX_DRAWN_SKILLS);
+                let mut drawn: ArrayVec<SkillId, MAX_DRAWN_SKILLS> = ArrayVec::new();
+                for _ in 0..draw_count {
+                    drawn.push(player.remaining_hero_skills.pop().unwrap());
+                }
+                rewards.push(PendingLevelUpReward {
+                    level: level as u8,
+                    drawn_skills: drawn,
+                    phase: mk_types::pending::LevelUpRewardPhase::SelectSkill,
+                });
+            }
+        }
+
+        // Add as deferred pending — promoted to active when end_turn flow processes them
+        if !rewards.is_empty() {
+            state.players[player_idx]
+                .pending
+                .deferred
+                .push(DeferredPending::LevelUpRewards(rewards));
+        }
+
+        // Blitz: grant bonus fame per line crossed, then loop to catch cascading level-ups
+        if bonus_per_line > 0 {
+            state.players[player_idx].fame += bonus_per_line * lines_crossed;
+        } else {
+            break;
+        }
     }
 }
 
@@ -1179,7 +1190,7 @@ pub(crate) fn end_round(state: &mut GameState) {
 
     // 2. Reset mana source (reroll all dice for new time of day)
     let player_count = state.players.len() as u32;
-    state.source = create_mana_source(player_count, state.time_of_day, &mut state.rng);
+    state.source = create_mana_source(player_count, state.scenario_config.extra_source_dice, state.time_of_day, &mut state.rng);
 
     // 3. Dummy offer gains (solo mode — before offer refresh)
     if let Some(ref mut dummy) = state.dummy_player {
@@ -1826,6 +1837,52 @@ mod tests {
         assert_eq!(state.players[0].armor, 3); // Level 3 armor
         assert_eq!(state.players[0].hand_limit, 5); // Level 3 hand limit
         assert_eq!(state.players[0].command_tokens, 2); // Level 3 command slots
+    }
+
+    #[test]
+    fn blitz_fame_per_level_crossed_grants_bonus_on_level_up() {
+        // Level thresholds: L2=3, L3=8. Start at fame=6 (L2), level=1.
+        // Level-up: crosses L2 (lines_crossed=1) → bonus +1 fame → fame=7.
+        // 7 < 8, so no further crossing. Final: level=2, fame=7.
+        let mut state = setup_playing_game(vec!["march"]);
+        state.scenario_config.fame_per_level_crossed = 1;
+        state.players[0].fame = 6;
+        state.players[0].level = 1;
+
+        process_level_ups_pub(&mut state, 0);
+
+        assert_eq!(state.players[0].level, 2);
+        assert_eq!(state.players[0].fame, 7);
+    }
+
+    #[test]
+    fn blitz_fame_per_level_crossed_cascades() {
+        // Level thresholds: L2=3, L3=8, L4=14. Start at fame=13 (L3), level=1.
+        // Iteration 1: crosses L2+L3 (lines_crossed=2) → bonus +2 → fame=15.
+        // Iteration 2: 15 >= L4=14, crosses L4 (lines_crossed=1) → bonus +1 → fame=16.
+        // Iteration 3: get_level_from_fame(16)=4 == level=4 → break.
+        let mut state = setup_playing_game(vec!["march"]);
+        state.scenario_config.fame_per_level_crossed = 1;
+        state.players[0].fame = 13;
+        state.players[0].level = 1;
+
+        process_level_ups_pub(&mut state, 0);
+
+        assert_eq!(state.players[0].level, 4);
+        assert_eq!(state.players[0].fame, 16);
+    }
+
+    #[test]
+    fn blitz_zero_bonus_does_not_grant_extra_fame() {
+        let mut state = setup_playing_game(vec!["march"]);
+        state.scenario_config.fame_per_level_crossed = 0;
+        state.players[0].fame = 6;
+        state.players[0].level = 1;
+
+        process_level_ups_pub(&mut state, 0);
+
+        assert_eq!(state.players[0].level, 2);
+        assert_eq!(state.players[0].fame, 6); // No bonus
     }
 
     #[test]

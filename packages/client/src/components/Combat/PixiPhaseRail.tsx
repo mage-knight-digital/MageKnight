@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useRef, useId, useCallback } from "react";
-import { Container, Graphics, Text } from "pixi.js";
+import { Container, Graphics, Rectangle, Text } from "pixi.js";
 import {
   COMBAT_PHASE_RANGED_SIEGE,
   COMBAT_PHASE_BLOCK,
@@ -55,25 +55,25 @@ const PHASES: { id: CombatPhase; label: string; icon: string; instruction: strin
   {
     id: COMBAT_PHASE_RANGED_SIEGE,
     label: "Ranged",
-    icon: "\u{1F3F9}", // Bow and arrow emoji
+    icon: "R",
     instruction: "Strike from afar before enemies close in",
   },
   {
     id: COMBAT_PHASE_BLOCK,
     label: "Block",
-    icon: "\u{1F6E1}", // Shield emoji
+    icon: "B",
     instruction: "Defend against enemy attacks",
   },
   {
     id: COMBAT_PHASE_ASSIGN_DAMAGE,
     label: "Damage",
-    icon: "\u{1F480}", // Skull emoji
+    icon: "D",
     instruction: "Unblocked enemies deal damage",
   },
   {
     id: COMBAT_PHASE_ATTACK,
     label: "Attack",
-    icon: "\u{2694}", // Crossed swords emoji
+    icon: "A",
     instruction: "Finish off remaining enemies",
   },
 ];
@@ -197,8 +197,9 @@ export function PixiPhaseRail({
       const icon = new Text({
         text: isCompleted ? "\u2713" : phase.icon, // Checkmark for completed
         style: {
-          fontFamily: "Arial, Segoe UI Emoji, sans-serif",
-          fontSize: sizes.iconSize * 0.6,
+          fontFamily: "Arial, sans-serif",
+          fontSize: sizes.iconSize * 0.48,
+          fontWeight: "700",
           fill: isCompleted ? COLORS.LABEL_COMPLETED : isActive ? 0xffffff : COLORS.LABEL_UPCOMING,
           align: "center",
         },
@@ -256,19 +257,6 @@ export function PixiPhaseRail({
         // Scale up active phase
         phaseContainer.scale.set(1.15);
       }
-
-      // Entry animation
-      phaseContainer.alpha = 0;
-      phaseContainer.scale.set(isActive ? 1.15 * 0.8 : 0.8);
-      setTimeout(() => {
-        if (isDestroyedRef.current || !phaseContainer.parent) return;
-        animManager.animate(`phase-entry-${index}`, phaseContainer, {
-          endAlpha: 1,
-          endScale: isActive ? 1.15 : 1,
-          duration: 300,
-          easing: Easing.easeOutBack,
-        });
-      }, 100 + index * 50);
 
       rootContainer.addChild(phaseContainer);
       yOffset += sizes.iconSize + sizes.labelFontSize + sizes.phaseGap;
@@ -340,10 +328,20 @@ export function PixiPhaseRail({
 
     // Button interactivity
     if (canEndPhase) {
-      button.eventMode = "static";
-      button.cursor = "pointer";
+      const hitWidth = isLastPhase ? 112 : sizes.buttonSize + 14;
+      const hitHeight = isLastPhase ? 52 : sizes.buttonSize + 14;
+      buttonContainer.hitArea = new Rectangle(
+        -hitWidth / 2,
+        -hitHeight / 2,
+        hitWidth,
+        hitHeight
+      );
+      buttonContainer.eventMode = "static";
+      buttonContainer.cursor = "pointer";
+      button.eventMode = "none";
+      buttonLabel.eventMode = "none";
 
-      button.on("pointerenter", () => {
+      buttonContainer.on("pointerenter", () => {
         if (isDestroyedRef.current) return;
         drawButton(true);
         animManager.animate("button-hover", buttonContainer, {
@@ -353,7 +351,7 @@ export function PixiPhaseRail({
         });
       });
 
-      button.on("pointerleave", () => {
+      buttonContainer.on("pointerleave", () => {
         if (isDestroyedRef.current) return;
         drawButton(false);
         animManager.animate("button-hover", buttonContainer, {
@@ -363,7 +361,7 @@ export function PixiPhaseRail({
         });
       });
 
-      button.on("pointertap", () => {
+      buttonContainer.on("pointertap", () => {
         if (isDestroyedRef.current) return;
         animManager.animate("button-click", buttonContainer, {
           endScale: 0.95,
@@ -397,20 +395,9 @@ export function PixiPhaseRail({
         pulseButton();
       }
     } else {
-      button.eventMode = "none";
+      buttonContainer.eventMode = "none";
       buttonContainer.alpha = 0.3;
     }
-
-    // Entry animation for button
-    buttonContainer.alpha = 0;
-    setTimeout(() => {
-      if (isDestroyedRef.current || !buttonContainer.parent) return;
-      animManager.animate("button-entry", buttonContainer, {
-        endAlpha: canEndPhase ? 1 : 0.3,
-        duration: 300,
-        easing: Easing.easeOutQuad,
-      });
-    }, 300);
 
     rootContainer.addChild(buttonContainer);
     yOffset += isLastPhase ? 50 : sizes.buttonSize + sizes.sectionGap;
