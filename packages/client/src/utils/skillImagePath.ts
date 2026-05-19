@@ -10,6 +10,7 @@ const SKILL_IMAGE_STEM_BY_ID = {
   braevalar_natures_vengeance: "braevalar_natures_vengeance_co-op",
   goldyx_source_opening: "goldyx_source_opening_co-op",
   krang_mana_enhancement: "krang_mana_enhancement_co-op",
+  norowas_prayer_of_weather: "norowas_calming_the_weather_co-op",
   tovak_mana_overload: "tovak_mana_overload_co-op",
   wolfhawk_wolfs_howl: "wolfhawk_howl_of_the_pack_co-op",
 } as const satisfies Record<string, string>;

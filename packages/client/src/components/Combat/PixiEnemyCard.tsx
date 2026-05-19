@@ -246,7 +246,7 @@ export function PixiEnemyCard({
       container.sortableChildren = true;
 
       container.x = position.x - CARD_WIDTH / 2;
-      container.y = position.y + tokenRadius + 8;
+      container.y = position.y + tokenRadius + 14;
 
       container.layout = {
         ...enemyCardRootLayout(),
@@ -259,7 +259,7 @@ export function PixiEnemyCard({
       const nameContainer = new Container();
       nameContainer.label = "name-section";
       nameContainer.layout = {
-        height: 20,
+        height: 24,
         alignItems: "center",
         justifyContent: "center",
       };
@@ -268,9 +268,12 @@ export function PixiEnemyCard({
         text: enemy.name,
         style: {
           fontFamily: "Arial, sans-serif",
-          fontSize: 14,
+          fontSize: 13,
           fontWeight: "600",
           fill: COLORS.TEXT_PRIMARY,
+          wordWrap: true,
+          wordWrapWidth: CARD_WIDTH,
+          align: "center",
         },
       });
       nameText.layout = {};
