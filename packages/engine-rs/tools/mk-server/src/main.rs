@@ -505,6 +505,46 @@ ws.onopen = () => ws.send(JSON.stringify({ type: "new_game", hero: "arythea", se
     )
 }
 
+#[tokio::main]
+async fn main() {
+    let port = std::env::var("PORT")
+        .ok()
+        .and_then(|p| p.parse::<u16>().ok())
+        .unwrap_or(3030);
+
+    let prometheus_handle = metrics_exporter_prometheus::PrometheusBuilder::new()
+        .install_recorder()
+        .expect("failed to install Prometheus metrics recorder");
+
+    let upkeep_handle = prometheus_handle.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            upkeep_handle.run_upkeep();
+        }
+    });
+
+    let app = Router::new()
+        .route("/", get(index))
+        .route("/health", get(health))
+        .route("/metrics", get(metrics_handler))
+        .route("/ws", get(ws_handler))
+        .layer(CorsLayer::permissive())
+        .layer(Extension(prometheus_handle));
+
+    let addr = format!("0.0.0.0:{port}");
+
+    let listener = tokio::net::TcpListener::bind(&addr)
+        .await
+        .unwrap_or_else(|e| {
+            eprintln!("Failed to bind to {addr}: {e}");
+            eprintln!("Hint: kill the old process with `lsof -ti:{port} | xargs kill`");
+            std::process::exit(1);
+        });
+    println!("mk-server listening on {addr}");
+    axum::serve(listener, app).await.unwrap();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -730,44 +770,4 @@ mod tests {
 
         assert_eq!(session.view_player_idx(), 0);
     }
-}
-
-#[tokio::main]
-async fn main() {
-    let port = std::env::var("PORT")
-        .ok()
-        .and_then(|p| p.parse::<u16>().ok())
-        .unwrap_or(3030);
-
-    let prometheus_handle = metrics_exporter_prometheus::PrometheusBuilder::new()
-        .install_recorder()
-        .expect("failed to install Prometheus metrics recorder");
-
-    let upkeep_handle = prometheus_handle.clone();
-    tokio::spawn(async move {
-        loop {
-            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-            upkeep_handle.run_upkeep();
-        }
-    });
-
-    let app = Router::new()
-        .route("/", get(index))
-        .route("/health", get(health))
-        .route("/metrics", get(metrics_handler))
-        .route("/ws", get(ws_handler))
-        .layer(CorsLayer::permissive())
-        .layer(Extension(prometheus_handle));
-
-    let addr = format!("0.0.0.0:{port}");
-
-    let listener = tokio::net::TcpListener::bind(&addr)
-        .await
-        .unwrap_or_else(|e| {
-            eprintln!("Failed to bind to {addr}: {e}");
-            eprintln!("Hint: kill the old process with `lsof -ti:{port} | xargs kill`");
-            std::process::exit(1);
-        });
-    println!("mk-server listening on {addr}");
-    axum::serve(listener, app).await.unwrap();
 }
