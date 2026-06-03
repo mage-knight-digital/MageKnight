@@ -1,0 +1,82 @@
+.hotseat-pass {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 4vw, 2rem);
+  color: var(--text-primary);
+  background:
+    radial-gradient(ellipse 52% 42% at 50% 44%, oklch(0.24 0.018 78 / 0.72), transparent 68%),
+    var(--scrim-overlay);
+}
+
+.hotseat-pass__panel {
+  width: min(100%, 26rem);
+  display: grid;
+  gap: 0.85rem;
+  padding: 1.4rem;
+  border: 1px solid var(--border-on-raised);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  box-shadow:
+    inset 0 1px 0 oklch(0.94 0.008 82 / 0.06),
+    0 24px 60px oklch(0.08 0.012 78 / 0.52);
+}
+
+.hotseat-pass__eyebrow,
+.hotseat-pass__seat {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.hotseat-pass__title {
+  margin: 0;
+  font-size: 1.45rem;
+  line-height: 1.18;
+  font-weight: 750;
+  color: var(--text-primary);
+}
+
+.hotseat-pass__copy {
+  max-width: 56ch;
+  margin: 0;
+  font-size: 0.96rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.hotseat-pass__seat {
+  width: fit-content;
+  padding: 0.42rem 0.62rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-canvas);
+}
+
+.hotseat-pass__button {
+  justify-self: start;
+  min-height: 2.6rem;
+  padding: 0 1rem;
+  border: 1px solid oklch(0.62 0.085 78 / 0.72);
+  border-radius: 6px;
+  color: oklch(0.16 0.012 78);
+  cursor: pointer;
+  background: var(--accent);
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.hotseat-pass__button:hover {
+  filter: brightness(1.04);
+}
+
+.hotseat-pass__button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}

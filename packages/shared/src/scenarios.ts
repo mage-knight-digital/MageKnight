@@ -31,16 +31,46 @@ export type DummyTacticOrder =
 
 // === Scenario IDs ===
 export const SCENARIO_FIRST_RECONNAISSANCE = "first_reconnaissance" as const;
+export const SCENARIO_FIRST_RECONNAISSANCE_2P = "first_reconnaissance_2p" as const;
+export const SCENARIO_FIRST_RECONNAISSANCE_3P = "first_reconnaissance_3p" as const;
+export const SCENARIO_FIRST_RECONNAISSANCE_4P = "first_reconnaissance_4p" as const;
 export const SCENARIO_FULL_CONQUEST = "full_conquest" as const;
+export const SCENARIO_FULL_CONQUEST_2P = "full_conquest_2p" as const;
+export const SCENARIO_FULL_CONQUEST_3P = "full_conquest_3p" as const;
+export const SCENARIO_FULL_CONQUEST_4P = "full_conquest_4p" as const;
+export const SCENARIO_BLITZ_CONQUEST = "blitz_conquest" as const;
+export const SCENARIO_BLITZ_CONQUEST_2P = "blitz_conquest_2p" as const;
+export const SCENARIO_BLITZ_CONQUEST_3P = "blitz_conquest_3p" as const;
+export const SCENARIO_BLITZ_CONQUEST_4P = "blitz_conquest_4p" as const;
 
 export type ScenarioId =
   | typeof SCENARIO_FIRST_RECONNAISSANCE
-  | typeof SCENARIO_FULL_CONQUEST;
+  | typeof SCENARIO_FIRST_RECONNAISSANCE_2P
+  | typeof SCENARIO_FIRST_RECONNAISSANCE_3P
+  | typeof SCENARIO_FIRST_RECONNAISSANCE_4P
+  | typeof SCENARIO_FULL_CONQUEST
+  | typeof SCENARIO_FULL_CONQUEST_2P
+  | typeof SCENARIO_FULL_CONQUEST_3P
+  | typeof SCENARIO_FULL_CONQUEST_4P
+  | typeof SCENARIO_BLITZ_CONQUEST
+  | typeof SCENARIO_BLITZ_CONQUEST_2P
+  | typeof SCENARIO_BLITZ_CONQUEST_3P
+  | typeof SCENARIO_BLITZ_CONQUEST_4P;
 
 /** Human-readable scenario titles for UI copy */
 export const SCENARIO_DISPLAY_NAMES: Record<ScenarioId, string> = {
   [SCENARIO_FIRST_RECONNAISSANCE]: "First Reconnaissance",
+  [SCENARIO_FIRST_RECONNAISSANCE_2P]: "First Reconnaissance",
+  [SCENARIO_FIRST_RECONNAISSANCE_3P]: "First Reconnaissance",
+  [SCENARIO_FIRST_RECONNAISSANCE_4P]: "First Reconnaissance",
   [SCENARIO_FULL_CONQUEST]: "Full Conquest",
+  [SCENARIO_FULL_CONQUEST_2P]: "Full Conquest",
+  [SCENARIO_FULL_CONQUEST_3P]: "Full Conquest",
+  [SCENARIO_FULL_CONQUEST_4P]: "Full Conquest",
+  [SCENARIO_BLITZ_CONQUEST]: "Blitz Conquest",
+  [SCENARIO_BLITZ_CONQUEST_2P]: "Blitz Conquest",
+  [SCENARIO_BLITZ_CONQUEST_3P]: "Blitz Conquest",
+  [SCENARIO_BLITZ_CONQUEST_4P]: "Blitz Conquest",
 };
 
 // === Map Shape Types ===
