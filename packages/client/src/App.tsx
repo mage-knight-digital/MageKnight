@@ -16,21 +16,18 @@ import { ReplayLoadScreen } from "./components/Replay";
 import { SetupScreen } from "./components/Setup";
 import { getRuntimeRustServerUrl } from "./runtime/rustServerUrl";
 import type { GameConfig } from "@mage-knight/shared";
-import { HERO_ARYTHEA } from "@mage-knight/shared";
 
 const MODE_PARAM = "mode" as const;
 const PLAYER_ID_PARAM = "playerId" as const;
 const MODE_REPLAY = "replay" as const;
 const HERO_PARAM = "hero" as const;
 const SEED_PARAM = "seed" as const;
-const SCENARIO_PARAM = "scenario" as const;
 
 interface RuntimeRustConfig {
   serverUrl: string;
   hero: string;
   seed?: number;
   playerId?: string;
-  scenario?: string;
 }
 
 function isReplayModeRequested(): boolean {
@@ -46,14 +43,12 @@ function getRuntimeRustConfig(): RuntimeRustConfig {
   const playerId = urlParams.get(PLAYER_ID_PARAM) ?? undefined;
   const seedParam = urlParams.get(SEED_PARAM);
   const seed = seedParam ? parseInt(seedParam, 10) : undefined;
-  const scenario = urlParams.get(SCENARIO_PARAM) ?? undefined;
 
   return {
     serverUrl,
     hero,
     seed: seed && !isNaN(seed) ? seed : undefined,
     playerId,
-    scenario,
   };
 }
 
@@ -121,7 +116,7 @@ export function App() {
   return (
     <GameProvider
       serverUrl={RUNTIME_RUST_CONFIG.serverUrl}
-      hero={gameConfig.heroIds[0] ?? HERO_ARYTHEA}
+      gameConfig={gameConfig}
       seed={RUNTIME_RUST_CONFIG.seed}
       playerId={RUNTIME_RUST_CONFIG.playerId}
     >

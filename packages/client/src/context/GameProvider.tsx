@@ -5,42 +5,91 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { ClientGameState, GameEvent } from "@mage-knight/shared";
+import {
+  GAME_LAUNCH_MODE_HOTSEAT,
+  type ClientGameState,
+  type GameConfig,
+  type GameEvent,
+} from "@mage-knight/shared";
 import { GameContext, type ActionLogEntry, type GameAction, type GameContextValue } from "./GameContext";
 import { RustGameConnection, type ConnectionStatus } from "../rust/RustGameConnection";
 import type { LegalAction } from "../rust/types";
+import { HotseatPassScreen } from "../components/HotseatPassScreen";
 
 interface GameProviderProps {
   children: ReactNode;
   serverUrl: string;
-  hero: string;
+  gameConfig: GameConfig;
   seed?: number;
   playerId?: string;
-  scenario?: string;
+}
+
+interface GameUpdatePayload {
+  readonly state: ClientGameState;
+  readonly legalActions: LegalAction[];
+  readonly epoch: number;
+  readonly events: readonly GameEvent[];
 }
 
 let nextLogId = 1;
 
 export function GameProvider(props: GameProviderProps) {
-  const { children, serverUrl, hero, seed, playerId, scenario } = props;
+  const { children, serverUrl, gameConfig, seed, playerId } = props;
   const [state, setState] = useState<ClientGameState | null>(null);
   const [events, setEvents] = useState<readonly GameEvent[]>([]);
   const [actionLog, setActionLog] = useState<ActionLogEntry[]>([]);
   const [isActionLogEnabled, setActionLogEnabled] = useState(true);
   const [legalActions, setLegalActions] = useState<LegalAction[]>([]);
   const [epoch, setEpoch] = useState(0);
+  const [visiblePlayerId, setVisiblePlayerId] = useState(playerId ?? "player_0");
+  const [pendingHotseatUpdate, setPendingHotseatUpdate] =
+    useState<GameUpdatePayload | null>(null);
   const [rustConnectionStatus, setRustConnectionStatus] = useState<ConnectionStatus | null>(null);
 
   const rustConnectionRef = useRef<RustGameConnection | null>(null);
   const isActionLogEnabledRef = useRef(isActionLogEnabled);
   const epochRef = useRef(0);
+  const stateRef = useRef<ClientGameState | null>(null);
+  const visiblePlayerIdRef = useRef(visiblePlayerId);
 
-  const myPlayerId = playerId ?? "player_0";
+  const isHotseat = gameConfig.launchMode === GAME_LAUNCH_MODE_HOTSEAT;
+  const myPlayerId = isHotseat ? visiblePlayerId : playerId ?? "player_0";
 
   // Keep ref in sync with state for use in callbacks
   useEffect(() => {
     isActionLogEnabledRef.current = isActionLogEnabled;
   }, [isActionLogEnabled]);
+
+  useEffect(() => {
+    visiblePlayerIdRef.current = visiblePlayerId;
+  }, [visiblePlayerId]);
+
+  const applyGameUpdate = useCallback((update: GameUpdatePayload) => {
+    const nextPlayerId =
+      update.state.currentPlayerId || update.state.players[0]?.id || "player_0";
+    stateRef.current = update.state;
+    setState(update.state);
+    setLegalActions([...update.legalActions]);
+    setEpoch(update.epoch);
+    epochRef.current = update.epoch;
+    visiblePlayerIdRef.current = nextPlayerId;
+    setVisiblePlayerId(nextPlayerId);
+
+    if (update.events.length > 0) {
+      setEvents((prev) => [...prev, ...update.events]);
+    }
+
+    if (import.meta.env.DEV) {
+      (window as unknown as { __MAGE_KNIGHT_STATE__: ClientGameState }).
+        __MAGE_KNIGHT_STATE__ = update.state;
+    }
+  }, []);
+
+  const handleHotseatContinue = useCallback(() => {
+    if (!pendingHotseatUpdate) return;
+    applyGameUpdate(pendingHotseatUpdate);
+    setPendingHotseatUpdate(null);
+  }, [applyGameUpdate, pendingHotseatUpdate]);
 
   // Connect via WebSocket to mk-server
   useEffect(() => {
@@ -48,13 +97,25 @@ export function GameProvider(props: GameProviderProps) {
       serverUrl,
       onGameUpdate: (rawState, actions, newEpoch, rawEvents) => {
         const gameState = rawState as unknown as ClientGameState;
-        setState(gameState);
-        setLegalActions(actions);
-        setEpoch(newEpoch);
-        epochRef.current = newEpoch;
-        if (rawEvents.length > 0) {
-          setEvents((prev) => [...prev, ...(rawEvents as GameEvent[])]);
+        const update: GameUpdatePayload = {
+          state: gameState,
+          legalActions: actions,
+          epoch: newEpoch,
+          events: rawEvents as GameEvent[],
+        };
+        const incomingPlayerId =
+          gameState.currentPlayerId || gameState.players[0]?.id || "player_0";
+
+        if (
+          isHotseat &&
+          stateRef.current != null &&
+          incomingPlayerId !== visiblePlayerIdRef.current
+        ) {
+          setPendingHotseatUpdate(update);
+          return;
         }
+
+        applyGameUpdate(update);
 
         if (import.meta.env.DEV) {
           const player = gameState.players?.[0];
@@ -68,11 +129,6 @@ export function GameProvider(props: GameProviderProps) {
           console.log("[Rust State]", gameState);
           console.log("[Rust LegalActions]", actions);
         }
-
-        if (import.meta.env.DEV) {
-          (window as unknown as { __MAGE_KNIGHT_STATE__: ClientGameState }).
-            __MAGE_KNIGHT_STATE__ = gameState;
-        }
       },
       onError: (message) => {
         console.error("[mk-server]", message);
@@ -84,13 +140,13 @@ export function GameProvider(props: GameProviderProps) {
 
     rustConnectionRef.current = connection;
     connection.connect();
-    connection.sendNewGame(hero, seed, scenario);
+    connection.sendNewGame(gameConfig, seed);
 
     return () => {
       connection.disconnect();
       rustConnectionRef.current = null;
     };
-  }, [serverUrl, hero, seed, scenario]);
+  }, [serverUrl, gameConfig, seed, isHotseat, applyGameUpdate]);
 
   const sendAction = useCallback((action: GameAction) => {
     if (isActionLogEnabledRef.current) {
@@ -137,6 +193,10 @@ export function GameProvider(props: GameProviderProps) {
     epoch,
   };
 
+  const pendingPlayer = pendingHotseatUpdate?.state.players.find(
+    (candidate) => candidate.id === pendingHotseatUpdate.state.currentPlayerId
+  );
+
   // Show loading/connection status
   if (rustConnectionStatus === "connecting" || rustConnectionStatus === null) {
     return (
@@ -175,5 +235,16 @@ export function GameProvider(props: GameProviderProps) {
     );
   }
 
-  return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
+  return (
+    <GameContext.Provider value={value}>
+      {children}
+      {pendingHotseatUpdate && (
+        <HotseatPassScreen
+          playerId={pendingHotseatUpdate.state.currentPlayerId}
+          hero={pendingPlayer?.hero}
+          onContinue={handleHotseatContinue}
+        />
+      )}
+    </GameContext.Provider>
+  );
 }
