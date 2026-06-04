@@ -6,32 +6,48 @@ import { preloadAllSpriteSheets } from "./components/PixiCard/PixiCardCanvas";
 import "./styles/index.css";
 import "./styles/animations/tile-reveal.css";
 
-// DEBUG: Instrument requestAnimationFrame to catch slow frames
-const originalRAF = window.requestAnimationFrame;
-window.requestAnimationFrame = (callback) => {
-  return originalRAF((time) => {
-    const start = performance.now();
-    callback(time);
-    const duration = performance.now() - start;
-    if (duration > 50) {
-      console.warn(`Slow rAF: ${duration.toFixed(1)}ms`, new Error().stack);
-    }
-  });
-};
+if (import.meta.env.DEV) {
+  const originalRAF = window.requestAnimationFrame;
+  window.requestAnimationFrame = (callback) => {
+    return originalRAF((time) => {
+      const start = performance.now();
+      callback(time);
+      const duration = performance.now() - start;
+      if (duration > 50) {
+        console.warn(`Slow rAF: ${duration.toFixed(1)}ms`, new Error().stack);
+      }
+    });
+  };
+}
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {
   throw new Error("Root element not found");
 }
 
-// Preload all assets before rendering:
-// 1. loadAtlas() - loads atlas.json and precomputes sprite styles
-// 2. preloadAllSpriteSheets() - uses PixiJS Assets.load() to upload textures to GPU
-// PixiJS properly handles GPU texture upload, unlike DOM/CSS approaches.
-Promise.all([loadAtlas(), preloadAllSpriteSheets()]).then(() => {
+// Atlas metadata is small and needed for sprite lookups. The large sheets are
+// warmed after first render so setup is visible while the cache fills.
+loadAtlas().then(() => {
   createRoot(rootElement).render(
     <StrictMode>
       <App />
     </StrictMode>
   );
+
+  warmSpriteSheetsAfterFirstPaint();
 });
+
+function warmSpriteSheetsAfterFirstPaint(): void {
+  const warmSpriteSheets = () => {
+    preloadAllSpriteSheets().catch((error) => {
+      console.warn("Failed to warm sprite sheets:", error);
+    });
+  };
+
+  if ("requestIdleCallback" in window) {
+    window.requestIdleCallback(warmSpriteSheets, { timeout: 1500 });
+    return;
+  }
+
+  globalThis.setTimeout(warmSpriteSheets, 0);
+}
