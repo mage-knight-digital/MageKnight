@@ -5511,3 +5511,94 @@ fn fortified_assault_rampaging_enemy_not_required_for_conquest() {
         "Player should stay at site after successful assault (rampaging enemy not required)"
     );
 }
+
+// =========================================================================
+// CityConquered scenario end trigger
+// =========================================================================
+
+fn setup_city_combat(state: &mut GameState, coord: HexCoord) {
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Attack,
+        enemies: vec![CombatEnemy {
+            instance_id: CombatInstanceId::from("enemy_0"),
+            enemy_id: EnemyId::from("diggers"),
+            is_blocked: false,
+            is_defeated: true,
+            damage_assigned: false,
+            is_required_for_conquest: true,
+            summoned_by_instance_id: None,
+            is_summoner_hidden: false,
+            attacks_blocked: vec![false],
+            attacks_damage_assigned: vec![false],
+            attacks_cancelled: vec![false],
+        }],
+        combat_hex_coord: Some(coord),
+        is_at_fortified_site: true,
+        ..CombatState::default()
+    }));
+}
+
+#[test]
+fn city_conquest_triggers_scenario_end_when_last_city() {
+    let mut state = setup_playing_game(vec!["march"]);
+    state.scenario_config.end_trigger = ScenarioEndTrigger::CityConquered;
+    state.scenario_config.city_tile_count = 1;
+    let coord = place_player_on_site(&mut state, SiteType::City);
+    setup_city_combat(&mut state, coord);
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+
+    assert!(state.scenario_end_triggered);
+    assert_eq!(state.final_turns_remaining, Some(1));
+}
+
+#[test]
+fn city_conquest_no_trigger_when_cities_remain() {
+    let mut state = setup_playing_game(vec!["march"]);
+    state.scenario_config.end_trigger = ScenarioEndTrigger::CityConquered;
+    state.scenario_config.city_tile_count = 2;
+    let coord = place_player_on_site(&mut state, SiteType::City);
+    setup_city_combat(&mut state, coord);
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+
+    assert!(!state.scenario_end_triggered);
+    assert!(state.final_turns_remaining.is_none());
+}
+
+#[test]
+fn city_conquest_no_trigger_for_non_city_sites() {
+    let mut state = setup_playing_game(vec!["march"]);
+    state.scenario_config.end_trigger = ScenarioEndTrigger::CityConquered;
+    state.scenario_config.city_tile_count = 1;
+    // Conquer a dungeon, not a city
+    let coord = place_player_on_site(&mut state, SiteType::Dungeon);
+    state.combat = Some(Box::new(CombatState {
+        phase: CombatPhase::Attack,
+        enemies: vec![CombatEnemy {
+            instance_id: CombatInstanceId::from("enemy_0"),
+            enemy_id: EnemyId::from("diggers"),
+            is_blocked: false,
+            is_defeated: true,
+            damage_assigned: false,
+            is_required_for_conquest: true,
+            summoned_by_instance_id: None,
+            is_summoner_hidden: false,
+            attacks_blocked: vec![false],
+            attacks_damage_assigned: vec![false],
+            attacks_cancelled: vec![false],
+        }],
+        combat_hex_coord: Some(coord),
+        ..CombatState::default()
+    }));
+
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::EndCombatPhase, epoch).unwrap();
+
+    assert!(!state.scenario_end_triggered);
+}

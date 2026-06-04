@@ -146,9 +146,14 @@ export function isAction(action: LegalAction, type: string): boolean {
 // Wire protocol messages
 // =============================================================================
 
+export interface NewGamePlayer {
+  readonly playerId: string;
+  readonly hero: string;
+}
+
 /** Messages the client sends to the server. */
 export type ClientMessage =
-  | { type: "new_game"; hero: string; seed?: number }
+  | { type: "new_game"; hero?: string; seed?: number; scenario?: string; launchMode?: string; scenarioId?: string; players?: readonly NewGamePlayer[] }
   | { type: "action"; action: LegalAction; epoch: number }
   | { type: "ping" }
   | { type: "undo" };
