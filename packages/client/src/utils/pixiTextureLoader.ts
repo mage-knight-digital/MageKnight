@@ -20,7 +20,15 @@
 import { Texture, Rectangle, Assets } from "pixi.js";
 import type { CardId, UnitId, TacticId } from "@mage-knight/shared";
 import { assetUrl } from "../assets/assetPaths";
-import { getCardSpriteData, getUnitSpriteData, getTacticSpriteData, type SpriteData } from "./cardAtlas";
+import {
+  getAtlasSheetFiles,
+  getCardSpriteData,
+  getUnitSpriteData,
+  getTacticSpriteData,
+  loadAtlas,
+  type SpriteData,
+} from "./cardAtlas";
+import { runWithConcurrency } from "./runWithConcurrency";
 
 // ============================================================================
 // Types
@@ -63,6 +71,7 @@ let placeholderCanvas: HTMLCanvasElement | null = null;
 
 /** sRGB aligned with `index.css` `--surface-ground` for shared placeholder tiles. */
 const SURFACE_GROUND_PLACEHOLDER_HEX = "#1b1a17";
+const SPRITE_SHEET_PRELOAD_CONCURRENCY = 2;
 
 // Atlas data cache (for PixiCardCanvas which uses atlas.json directly)
 let atlasData: AtlasData | null = null;
@@ -337,12 +346,10 @@ export async function preloadCardTextures(cardIds: string[]): Promise<void> {
  * Preload all sprite sheets (loads entire sheets to GPU).
  */
 export async function preloadAllSpriteSheets(): Promise<void> {
-  const atlas = await loadAtlasData();
-  const sheetUrls = Object.values(atlas.sheets).map((s) => assetUrl(s.file));
-  const uniqueUrls = [...new Set(sheetUrls)];
+  await loadAtlas();
 
-  // Load all sheets via PixiJS Assets (this uploads to GPU)
-  await Promise.all(uniqueUrls.map((url) => Assets.load(url)));
+  const sheetUrls = getAtlasSheetFiles().map(assetUrl);
+  await runWithConcurrency(sheetUrls, SPRITE_SHEET_PRELOAD_CONCURRENCY, (url) => Assets.load(url));
 }
 
 // ============================================================================

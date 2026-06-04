@@ -91,9 +91,6 @@ let atlasLoaded = false;
 // Store raw atlas data for sprite info lookups (used by SpriteImage component)
 let storedAtlasData: AtlasData | null = null;
 
-// Track preloaded images for reference
-const preloadedImages = new Map<string, HTMLImageElement>();
-
 /**
  * Raw sprite data for use with <img> elements instead of CSS background
  */
@@ -114,29 +111,6 @@ export interface SpriteData {
   sheetWidth: number;
   /** Total sheet height */
   sheetHeight: number;
-}
-
-/**
- * Preload an atlas image into browser cache.
- *
- * Note: This only handles browser HTTP cache. GPU texture upload is handled
- * separately by PixiJS Assets.load() in preloadAllSpriteSheets().
- */
-async function preloadImage(file: string): Promise<void> {
-  const url = assetUrl(file);
-
-  try {
-    const img = new Image();
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve();
-      img.onerror = () => reject(new Error(`Failed to load: ${url}`));
-      img.src = url;
-    });
-
-    preloadedImages.set(file, img);
-  } catch (error) {
-    console.warn(`Failed to preload atlas image: ${file}`, error);
-  }
 }
 
 // Hero prefixes used for hero-specific cards
@@ -388,15 +362,6 @@ export async function loadAtlas(): Promise<void> {
   // Store the atlas data for sprite info lookups
   storedAtlasData = atlasData;
 
-  // Preload all atlas images in parallel so they're decoded and ready
-  // IMPORTANT: We WAIT for all images to load before marking atlas as ready.
-  // This prevents the "card div visible but image missing" pop-in effect.
-  const sheetFiles = Object.values(rawData.sheets).map((sheet) => sheet.file);
-  const uniqueFiles = [...new Set(sheetFiles)];
-
-  await Promise.all(uniqueFiles.map(preloadImage));
-
-  // Mark as loaded only AFTER all images are ready
   atlasLoaded = true;
 }
 
@@ -405,6 +370,16 @@ export async function loadAtlas(): Promise<void> {
  */
 export function isAtlasLoaded(): boolean {
   return atlasLoaded;
+}
+
+/**
+ * Return every atlas sheet file after atlas metadata has been loaded.
+ */
+export function getAtlasSheetFiles(): string[] {
+  if (!atlasLoaded || !storedAtlasData) return [];
+
+  const sheetFiles = Object.values(storedAtlasData.sheets).map((sheet) => sheet.file);
+  return [...new Set(sheetFiles)];
 }
 
 /**
