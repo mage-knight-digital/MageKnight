@@ -8,7 +8,7 @@
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  animation: hotkey-fade-in 0.15s ease-out;
+  animation: hotkey-fade-in var(--dur-fast) var(--ease-out-expo);
 }
 
 @keyframes hotkey-fade-in {
@@ -21,15 +21,15 @@
 }
 
 .hotkey-help__modal {
-  background: linear-gradient(145deg, var(--surface-ground), var(--surface-raised));
+  background: var(--surface-raised);
   border: 1px solid var(--border-subtle);
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   width: 90%;
   max-width: 500px;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-  animation: hotkey-slide-in 0.2s ease-out;
+  box-shadow: var(--elev-3);
+  animation: hotkey-slide-in var(--dur-base) var(--ease-out-expo);
 }
 
 @keyframes hotkey-slide-in {
@@ -47,43 +47,43 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .hotkey-help__title {
   margin: 0;
   font-size: 1.1rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .hotkey-help__close {
   background: none;
   border: none;
-  color: #888;
+  color: var(--text-faint);
   font-size: 1.5rem;
   cursor: pointer;
   padding: 0;
   line-height: 1;
-  transition: color 0.15s;
+  transition: color var(--dur-fast) var(--ease-out-expo);
 }
 
 .hotkey-help__close:hover {
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .hotkey-help__content {
-  padding: 1rem 1.25rem;
+  padding: var(--space-5) var(--space-6);
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: var(--space-6);
 }
 
 .hotkey-help__section {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--space-3);
 }
 
 .hotkey-help__section-title {
@@ -92,13 +92,13 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #888;
+  color: var(--text-faint);
 }
 
 .hotkey-help__grid {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 0.5rem 1rem;
+  gap: var(--space-3) var(--space-5);
   align-items: center;
 }
 
@@ -107,33 +107,33 @@
   align-items: center;
   justify-content: center;
   min-width: 28px;
-  padding: 0.25rem 0.5rem;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+  padding: var(--space-1) var(--space-3);
+  background: color-mix(in oklch, var(--text-primary) 7%, transparent);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
   font-size: 0.75rem;
   font-weight: 600;
-  font-family: monospace;
-  color: #fff;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
   white-space: nowrap;
 }
 
 .hotkey-help__key--inline {
   display: inline-flex;
   min-width: auto;
-  padding: 0.15rem 0.35rem;
+  padding: 0.15rem var(--space-2);
   font-size: 0.7rem;
 }
 
 .hotkey-help__desc {
   font-size: 0.85rem;
-  color: #ccc;
+  color: var(--text-muted);
 }
 
 .hotkey-help__footer {
-  padding: 0.75rem 1.25rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--border-subtle);
   font-size: 0.75rem;
-  color: #666;
+  color: var(--text-faint);
   text-align: center;
 }
