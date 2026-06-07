@@ -45,6 +45,7 @@ async function build() {
     sourcemap: "external",
     splitting: true,
     define: {
+      "process.env.NODE_ENV": JSON.stringify("production"),
       "import.meta.env": JSON.stringify({
         DEV: false,
         PROD: true,
