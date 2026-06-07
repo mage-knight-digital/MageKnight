@@ -22,26 +22,11 @@ import {
   MANA_BLUE,
   MANA_GREEN,
   MANA_WHITE,
-  MANA_GOLD,
-  MANA_BLACK,
   BASIC_MANA_COLORS,
 } from "@mage-knight/shared";
 import type { ManaColor, AvailableDie } from "@mage-knight/shared";
-import { assetUrl } from "../../assets/assetPaths";
+import { getManaIconUrl } from "../../assets/assetPaths";
 import "./ManaSourceOverlay.css";
-
-function getManaIconUrl(color: string): string {
-  const colorMap: Record<string, string> = {
-    [MANA_RED]: "red",
-    [MANA_BLUE]: "blue",
-    [MANA_GREEN]: "green",
-    [MANA_WHITE]: "white",
-    [MANA_GOLD]: "gold",
-    [MANA_BLACK]: "black",
-  };
-  const colorName = colorMap[color] || "white";
-  return assetUrl(`mana_icons/glossy/${colorName}.png`);
-}
 
 // Animation durations must match CSS
 const ROLL_ANIMATION_MS = 700;

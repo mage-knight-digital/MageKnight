@@ -1,11 +1,27 @@
 import { useState, useEffect, useRef } from "react";
-import { TIME_OF_DAY_DAY, TIME_OF_DAY_NIGHT, LEVEL_THRESHOLDS } from "@mage-knight/shared";
+import {
+  LEVEL_THRESHOLDS,
+  MANA_BLUE,
+  MANA_GREEN,
+  MANA_RED,
+  MANA_WHITE,
+  TIME_OF_DAY_DAY,
+  TIME_OF_DAY_NIGHT,
+  type BasicManaColor,
+} from "@mage-knight/shared";
 import { useGame } from "../../hooks/useGame";
 import { useMyPlayer } from "../../hooks/useMyPlayer";
 import { useGameIntro, UI_REVEAL_TIMING } from "../../contexts/GameIntroContext";
+import { getManaIconUrl } from "../../assets/assetPaths";
 import { HotkeyHelp } from "./HotkeyHelp";
 import { PlayerListPanel } from "../PlayerList";
 import "./TopBar.css";
+
+const CRYSTAL_COLORS = [MANA_RED, MANA_BLUE, MANA_GREEN, MANA_WHITE] as const;
+
+function getCrystalTitle(color: BasicManaColor): string {
+  return `${color[0]?.toUpperCase() ?? ""}${color.slice(1)} Crystal`;
+}
 
 export function TopBar() {
   const { state } = useGame();
@@ -112,26 +128,25 @@ export function TopBar() {
       {/* Center section: Mana */}
       <div className="top-bar__section top-bar__section--center">
         <div className="top-bar__mana-group" title="Mana Crystals">
-          {player.crystals.red > 0 && (
-            <span className="top-bar__crystal top-bar__crystal--red" title="Red Crystal">
-              {player.crystals.red}
-            </span>
-          )}
-          {player.crystals.blue > 0 && (
-            <span className="top-bar__crystal top-bar__crystal--blue" title="Blue Crystal">
-              {player.crystals.blue}
-            </span>
-          )}
-          {player.crystals.green > 0 && (
-            <span className="top-bar__crystal top-bar__crystal--green" title="Green Crystal">
-              {player.crystals.green}
-            </span>
-          )}
-          {player.crystals.white > 0 && (
-            <span className="top-bar__crystal top-bar__crystal--white" title="White Crystal">
-              {player.crystals.white}
-            </span>
-          )}
+          {CRYSTAL_COLORS.map((color) => {
+            const count = player.crystals[color];
+            if (count <= 0) return null;
+            return (
+              <span
+                key={color}
+                className={`top-bar__crystal top-bar__crystal--${color}`}
+                title={getCrystalTitle(color)}
+              >
+                <img
+                  className="top-bar__mana-glyph"
+                  src={getManaIconUrl(color)}
+                  alt=""
+                  aria-hidden="true"
+                />
+                <span className="top-bar__crystal-count">{count}</span>
+              </span>
+            );
+          })}
         </div>
 
         {player.manaTokens.length > 0 && (
@@ -141,7 +156,14 @@ export function TopBar() {
                 key={i}
                 className={`top-bar__token top-bar__token--${token.color}`}
                 title={`${token.color} mana token`}
-              />
+              >
+                <img
+                  className="top-bar__mana-glyph"
+                  src={getManaIconUrl(token.color)}
+                  alt=""
+                  aria-hidden="true"
+                />
+              </span>
             ))}
           </div>
         )}
@@ -151,7 +173,14 @@ export function TopBar() {
             <span
               className={`top-bar__token top-bar__token--${player.stolenManaDie.color} top-bar__token--stolen`}
               title={`${player.stolenManaDie.color} mana (stolen via Mana Steal tactic - use anytime this turn)`}
-            />
+            >
+              <img
+                className="top-bar__mana-glyph"
+                src={getManaIconUrl(player.stolenManaDie.color)}
+                alt=""
+                aria-hidden="true"
+              />
+            </span>
           </div>
         )}
       </div>

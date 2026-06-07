@@ -21,14 +21,14 @@
 .player-list-panel {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding-left: 1rem;
-  border-left: 1px solid rgba(255, 255, 255, 0.2);
+  gap: var(--space-1);
+  padding-left: var(--space-5);
+  border-left: 1px solid var(--border-default);
   will-change: transform, opacity;
 }
 
 .player-list-panel--intro-reveal {
-  animation: player-list-slide 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation: player-list-slide 0.4s var(--ease-bounce) forwards;
 }
 
 /* Turn indicator */
@@ -37,7 +37,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #f1c40f;
+  color: var(--stat-fame);
   text-align: center;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
 }
@@ -45,13 +45,13 @@
 /* Player entries container */
 .player-list-panel__entries {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-3);
 }
 
 /* Responsive: stack vertically on narrow screens */
 @media (max-width: 900px) {
   .player-list-panel__entries {
     flex-direction: column;
-    gap: 0.25rem;
+    gap: var(--space-1);
   }
 }
