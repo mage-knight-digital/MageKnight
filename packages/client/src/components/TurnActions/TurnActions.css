@@ -32,13 +32,13 @@
   /* Circular seal shape */
   width: clamp(80px, 10vh, 140px);
   height: clamp(80px, 10vh, 140px);
-  border-radius: 50%;
+  border-radius: var(--radius-round);
 
   /* Medieval seal aesthetic */
-  background: radial-gradient(circle at 30% 30%, #8b6914, #5c4a0f 60%, #3d3108);
-  border: 4px solid #a67c00;
+  background: radial-gradient(circle at 30% 30%, var(--seal-core-1), var(--seal-core-2) 60%, var(--seal-core-3));
+  border: 4px solid var(--seal-rim);
   box-shadow:
-    0 4px 20px rgba(0, 0, 0, 0.5),
+    var(--elev-3),
     inset 0 2px 10px rgba(255, 215, 0, 0.2),
     0 0 0 2px #2a2a2a;
 
@@ -53,7 +53,7 @@
   /* GPU acceleration for stamp animation */
   will-change: transform, opacity;
   /* Only transition GPU-friendly properties */
-  transition: transform 0.2s ease, border-color 0.2s ease;
+  transition: transform var(--dur-fast) var(--ease-out-expo), border-color var(--dur-fast) var(--ease-out-expo);
 }
 
 /* Hidden during intro - before ui-settle phase */
@@ -65,7 +65,7 @@
 
 /* Animate in during ui-settle phase */
 .end-turn-seal--intro-reveal {
-  animation: seal-stamp 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation: seal-stamp 0.45s var(--ease-bounce) forwards;
 }
 
 .end-turn-seal:not(:disabled):hover {
@@ -73,7 +73,7 @@
   box-shadow:
     0 6px 25px rgba(0, 0, 0, 0.6),
     inset 0 2px 15px rgba(255, 215, 0, 0.3),
-    0 0 20px rgba(166, 124, 0, 0.4),
+    var(--glow-accent),
     0 0 0 2px #2a2a2a;
   border-color: #c9a227;
 }
@@ -90,14 +90,14 @@
 
 .end-turn-seal__icon {
   font-size: clamp(1.5rem, 3vh, 2.5rem);
-  color: #f4d03f;
+  color: var(--seal-gold);
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 .end-turn-seal__text {
   font-size: clamp(0.6rem, 1.2vh, 0.9rem);
   font-weight: 700;
-  color: #f4d03f;
+  color: var(--seal-gold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
@@ -115,77 +115,80 @@
 }
 
 .turn-actions__btn {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--border-on-raised);
+  border-radius: var(--radius-md);
+  background: var(--surface-canvas);
+  color: var(--text-secondary);
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
-  /* Only transition GPU-friendly properties */
-  transition: transform 0.15s ease, background 0.15s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  letter-spacing: 0.005em;
+  box-shadow: var(--elev-2);
+  transition:
+    transform var(--dur-fast) var(--ease-out-expo),
+    background var(--dur-fast) var(--ease-out-expo),
+    border-color var(--dur-fast) var(--ease-out-expo),
+    color var(--dur-fast) var(--ease-out-expo);
+}
+
+.turn-actions__btn:not(:disabled):hover {
+  background: var(--surface-hover-lift);
+  border-color: var(--accent);
+  color: var(--text-primary);
+  transform: translateX(-2px);
+}
+
+.turn-actions__btn:active {
+  transform: translateX(-1px);
 }
 
 .turn-actions__btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+  transform: none;
 }
 
 .turn-actions__btn--undo {
-  background: rgba(50, 50, 70, 0.9);
-  color: #fff;
   font-size: 1.25rem;
   padding: 0.5rem 0.75rem;
 }
 
-.turn-actions__btn--undo:not(:disabled):hover {
-  background: rgba(70, 70, 100, 0.9);
-  transform: translateX(-2px);
+.turn-actions__btn--tactic::before,
+.turn-actions__btn--tactic-dark::before,
+.turn-actions__btn--rest::before,
+.turn-actions__btn--announce::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  background: var(--turn-action-dot, var(--text-muted));
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3);
 }
 
 .turn-actions__btn--tactic {
-  background: linear-gradient(135deg, #f39c12, #e67e22);
-  color: #fff;
-}
-
-.turn-actions__btn--tactic:hover {
-  background: linear-gradient(135deg, #e67e22, #d35400);
-  transform: translateX(-2px);
+  --turn-action-dot: var(--parchment-gold);
 }
 
 .turn-actions__btn--tactic-dark {
-  background: linear-gradient(135deg, #8e44ad, #9b59b6);
-  color: #fff;
-}
-
-.turn-actions__btn--tactic-dark:hover {
-  background: linear-gradient(135deg, #9b59b6, #a569bd);
-  transform: translateX(-2px);
+  --turn-action-dot: var(--stat-level);
 }
 
 .turn-actions__btn--rest {
-  background: linear-gradient(135deg, #27ae60, #2ecc71);
-  color: #fff;
-}
-
-.turn-actions__btn--rest:hover {
-  background: linear-gradient(135deg, #2ecc71, #58d68d);
-  transform: translateX(-2px);
+  --turn-action-dot: var(--mana-green);
 }
 
 .turn-actions__btn--announce {
-  background: linear-gradient(135deg, #8e3b2f, #b04b3b);
-  color: #fff;
-}
-
-.turn-actions__btn--announce:hover {
-  background: linear-gradient(135deg, #b04b3b, #c85a47);
-  transform: translateX(-2px);
+  --turn-action-dot: #b04b3b;
 }
 
 .turn-actions__status {
   padding: 0.5rem 1rem;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   font-size: 0.875rem;
   font-weight: 600;
   text-align: center;

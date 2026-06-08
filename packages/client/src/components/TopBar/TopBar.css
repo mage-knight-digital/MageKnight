@@ -19,7 +19,7 @@
   align-items: center;
   justify-content: space-between;
   height: 36px;
-  padding: 0 1rem;
+  padding: 0 var(--space-5);
   background: var(--surface-chrome);
   border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
@@ -41,26 +41,26 @@
 .top-bar__section {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: var(--space-5);
 }
 
 .top-bar__section--left {
-  gap: 0.75rem;
+  gap: var(--space-4);
 }
 
 .top-bar__section--center {
-  gap: 1.5rem;
+  gap: var(--space-6);
 }
 
 .top-bar__section--right {
-  gap: 1rem;
+  gap: var(--space-5);
 }
 
 /* Hero identity */
 .top-bar__hero {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-3);
 }
 
 .top-bar__hero-name {
@@ -74,7 +74,7 @@
 .top-bar__stat {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--space-1);
   cursor: default;
 }
 
@@ -84,27 +84,27 @@
 }
 
 .top-bar__icon--level {
-  color: #9b59b6;
+  color: var(--stat-level);
 }
 
 .top-bar__icon--fame {
-  color: #f1c40f;
+  color: var(--stat-fame);
 }
 
 .top-bar__icon--armor {
-  color: #95a5a6;
+  color: var(--stat-armor);
 }
 
 .top-bar__icon--reputation {
-  color: #3498db;
+  color: var(--stat-reputation);
 }
 
 .top-bar__icon--move {
-  color: #4fc3f7;
+  color: var(--stat-move);
 }
 
 .top-bar__icon--influence {
-  color: #e91e63;
+  color: var(--stat-influence);
 }
 
 .top-bar__stat--move .top-bar__value,
@@ -117,7 +117,7 @@
   width: 1px;
   height: 20px;
   background: var(--border-default);
-  margin: 0 0.25rem;
+  margin: 0 var(--space-1);
 }
 
 .top-bar__value {
@@ -130,85 +130,73 @@
 .top-bar__mana-group {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: var(--space-2);
 }
 
 .top-bar__mana-group--tokens {
-  padding-left: 0.5rem;
+  padding-left: var(--space-3);
   border-left: 1px solid var(--border-default);
 }
 
 .top-bar__crystal {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 700;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-on-raised);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    var(--elev-1);
+}
+
+.top-bar__crystal-count {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: var(--radius-xs);
+  display: grid;
+  place-items: center;
+  background: var(--surface-chrome);
+  border: 1px solid var(--border-on-raised);
   color: var(--text-primary);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-}
-
-.top-bar__crystal--red {
-  background: linear-gradient(135deg, #e74c3c, #c0392b);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
-}
-
-.top-bar__crystal--blue {
-  background: linear-gradient(135deg, #3498db, #2980b9);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
-}
-
-.top-bar__crystal--green {
-  background: linear-gradient(135deg, #2ecc71, #27ae60);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
-}
-
-.top-bar__crystal--white {
-  background: linear-gradient(135deg, #ecf0f1, #bdc3c7);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
-  color: oklch(0.32 0.012 78);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 /* Mana tokens */
 .top-bar__token {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  box-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-round);
+  background: radial-gradient(circle at 50% 38%, var(--surface-hover-lift), var(--surface-canvas));
+  border: 1px solid var(--border-on-raised);
+  box-shadow: var(--elev-1);
 }
 
-.top-bar__token--red {
-  background: radial-gradient(circle at 30% 30%, #ff6b6b, #c0392b);
-}
-
-.top-bar__token--blue {
-  background: radial-gradient(circle at 30% 30%, #74b9ff, #2980b9);
-}
-
-.top-bar__token--green {
-  background: radial-gradient(circle at 30% 30%, #55efc4, #27ae60);
-}
-
-.top-bar__token--white {
-  background: radial-gradient(circle at 30% 30%, oklch(0.98 0.004 82), #bdc3c7);
-}
-
-.top-bar__token--gold {
-  background: radial-gradient(circle at 30% 30%, #ffeaa7, #f39c12);
-}
-
-.top-bar__token--black {
-  background: radial-gradient(circle at 30% 30%, #636e72, #2d3436);
+.top-bar__mana-glyph {
+  display: block;
+  width: 88%;
+  height: 88%;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
 }
 
 /* Round/Time */
 .top-bar__round {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: var(--space-2);
 }
 
 .top-bar__round-label {
@@ -230,20 +218,20 @@
   justify-content: center;
   width: 26px;
   height: 26px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   font-size: 1rem;
 }
 
 .top-bar__time--day {
-  background: linear-gradient(135deg, #f39c12, #e67e22);
+  background: linear-gradient(135deg, var(--time-day), #e67e22);
   color: var(--text-primary);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--elev-1);
 }
 
 .top-bar__time--night {
-  background: linear-gradient(135deg, #2c3e50, #1a252f);
+  background: linear-gradient(135deg, var(--time-night), #1a252f);
   color: #bdc3c7;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--elev-1);
 }
 
 /* Help button */
@@ -253,7 +241,7 @@
   justify-content: center;
   width: 24px;
   height: 24px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   border: 1px solid var(--border-default);
   background: color-mix(in oklch, var(--text-primary) 6%, transparent);
   color: var(--text-faint);
@@ -261,9 +249,9 @@
   font-weight: 600;
   cursor: pointer;
   transition:
-    background 0.15s var(--ease-out-expo),
-    border-color 0.15s var(--ease-out-expo),
-    color 0.15s var(--ease-out-expo);
+    background var(--dur-fast) var(--ease-out-expo),
+    border-color var(--dur-fast) var(--ease-out-expo),
+    color var(--dur-fast) var(--ease-out-expo);
 }
 
 .top-bar__help-btn:hover {
@@ -274,7 +262,7 @@
 
 /* Stolen mana section (Mana Steal tactic) */
 .top-bar__mana-group--stolen {
-  padding-left: 0.5rem;
+  padding-left: var(--space-3);
   border-left: 1px solid color-mix(in oklch, var(--accent) 45%, transparent);
 }
 
@@ -286,10 +274,10 @@
 
 /* Dashed amber border around stolen token */
 .top-bar__token--stolen::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: -3px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   border: 1.5px dashed color-mix(in oklch, var(--accent) 72%, transparent);
   animation: stolen-border-spin 8s linear infinite;
 }

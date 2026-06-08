@@ -27,7 +27,82 @@
   --accent: oklch(0.74 0.085 72);
   --accent-muted: oklch(0.74 0.05 72 / 0.35);
 
+  /* Game-semantic stat colors */
+  --stat-level: #9b59b6;
+  --stat-fame: #f1c40f;
+  --stat-armor: #95a5a6;
+  --stat-reputation: #3498db;
+  --stat-move: #4fc3f7;
+  --stat-influence: #e91e63;
+
+  /* Mana base hues */
+  --mana-red: #c0392b;
+  --mana-blue: #2980b9;
+  --mana-green: #27ae60;
+  --mana-white: #ecf0f1;
+  --mana-gold: #f39c12;
+  --mana-black: #2d3436;
+
+  /* Day / night and elemental resistances */
+  --time-day: #f39c12;
+  --time-night: #2c3e50;
+  --resist-fire: #e8a090;
+  --resist-ice: #90c8e8;
+  --resist-physical: #c4a882;
+
+  /* Parchment and seal surfaces */
+  --parchment-bg-a: rgba(45, 36, 28, 0.98);
+  --parchment-bg-b: rgba(35, 28, 22, 0.99);
+  --parchment-border: #5c4a3a;
+  --parchment-text: #f0e6d2;
+  --parchment-text-soft: #d4c4a8;
+  --parchment-text-faint: #a89878;
+  --parchment-gold: #e8c476;
+  --seal-core-1: #8b6914;
+  --seal-core-2: #5c4a0f;
+  --seal-core-3: #3d3108;
+  --seal-rim: #a67c00;
+  --seal-gold: #f4d03f;
+
+  /* Motion */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast: 0.15s;
+  --dur-base: 0.3s;
+  --dur-slow: 0.5s;
+
+  /* Spacing */
+  --space-1: 0.25rem;
+  --space-2: 0.35rem;
+  --space-3: 0.5rem;
+  --space-4: 0.75rem;
+  --space-5: 1rem;
+  --space-6: 1.5rem;
+  --space-7: 2rem;
+  --space-8: 3rem;
+
+  /* Radius */
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-pill: 999px;
+  --radius-round: 50%;
+
+  /* Elevation */
+  --elev-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --elev-2: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --elev-3: 0 4px 20px rgba(0, 0, 0, 0.5);
+  --elev-panel: -4px 0 24px rgba(0, 0, 0, 0.7);
+  --glow-fame: 0 0 10px rgba(241, 196, 15, 0.35);
+  --glow-accent: 0 0 20px rgba(166, 124, 0, 0.4);
+
+  /* Type */
+  --font-display: "Spectral", Georgia, "Times New Roman", serif;
+  --font-ui: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 * {
