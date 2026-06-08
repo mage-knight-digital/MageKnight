@@ -2,8 +2,29 @@
  * Asset path helpers for game sprites and images
  */
 
+import {
+  MANA_BLACK,
+  MANA_BLUE,
+  MANA_GOLD,
+  MANA_GREEN,
+  MANA_RED,
+  MANA_WHITE,
+  type ManaColor,
+} from "@mage-knight/shared";
+
 /** Default web path for static game assets (served as `/assets` in dev and production). */
 const DEFAULT_ASSETS_BASE = "/assets";
+
+type ManaIconVariant = "flat" | "glossy";
+
+const MANA_ICON_FILES: Record<ManaColor, string> = {
+  [MANA_RED]: "red",
+  [MANA_BLUE]: "blue",
+  [MANA_GREEN]: "green",
+  [MANA_WHITE]: "white",
+  [MANA_GOLD]: "gold",
+  [MANA_BLACK]: "black",
+};
 
 type RuntimeImportMeta = ImportMeta & {
   env?: {
@@ -91,6 +112,10 @@ export function getCardSheetUrl(sheet: "basic_actions" | "advanced_actions" | "s
 
 export function getCardBackUrl(): string {
   return assetUrl("cards/card_back.jpg");
+}
+
+export function getManaIconUrl(color: ManaColor, variant: ManaIconVariant = "flat"): string {
+  return assetUrl(`mana_icons/${variant}/${MANA_ICON_FILES[color]}.png`);
 }
 
 export function getHeroTokenUrl(heroId: string): string {

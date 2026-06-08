@@ -16,6 +16,12 @@ if grep -E 'ws://localhost|wss://localhost|http://localhost|127\.0\.0\.1:3030' $
   exit 1
 fi
 
+if grep -E 'Download the React DevTools for a better development experience|react[.-]development|react-dom[.-]development' $bundle_files >/dev/null; then
+  echo "Production client bundle contains React development-mode references." >&2
+  grep -n -E 'Download the React DevTools for a better development experience|react[.-]development|react-dom[.-]development' $bundle_files >&2
+  exit 1
+fi
+
 if ! grep 'wss://api.mageknightdigital.app/ws' $bundle_files >/dev/null; then
   echo "Production client bundle does not contain the expected API WebSocket URL." >&2
   exit 1

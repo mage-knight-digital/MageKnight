@@ -5,19 +5,23 @@
 .player-entry {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.35rem 0.5rem;
-  border-radius: 6px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
   background: color-mix(in oklch, var(--surface-chrome) 60%, transparent);
   border: 1px solid var(--border-subtle);
-  transition: all 0.2s ease;
+  transition:
+    opacity var(--dur-fast) var(--ease-out-expo),
+    background var(--dur-fast) var(--ease-out-expo),
+    border-color var(--dur-fast) var(--ease-out-expo),
+    box-shadow var(--dur-fast) var(--ease-out-expo);
   position: relative;
 }
 
 /* Active player - golden glow */
 .player-entry--active {
-  border: 2px solid #f1c40f;
-  box-shadow: 0 0 10px rgba(241, 196, 15, 0.35);
+  border: 2px solid var(--stat-fame);
+  box-shadow: var(--glow-fame);
   background: rgba(241, 196, 15, 0.1);
 }
 
@@ -46,7 +50,7 @@
 .player-entry__stat {
   display: flex;
   align-items: center;
-  gap: 0.15rem;
+  gap: var(--space-1);
 }
 
 .player-entry__icon {
@@ -62,34 +66,34 @@
 
 /* Stat colors (match TopBar) */
 .player-entry__stat--level .player-entry__icon {
-  color: #9b59b6;
+  color: var(--stat-level);
 }
 
 .player-entry__stat--fame .player-entry__icon {
-  color: #f1c40f;
+  color: var(--stat-fame);
 }
 
 .player-entry__stat--armor .player-entry__icon {
-  color: #95a5a6;
+  color: var(--stat-armor);
 }
 
 .player-entry__stat--move .player-entry__icon {
-  color: #4fc3f7;
+  color: var(--stat-move);
 }
 
 .player-entry__stat--influence .player-entry__icon {
-  color: #e91e63;
+  color: var(--stat-influence);
 }
 
 /* YOU badge */
 .player-entry__badge {
   font-size: 0.55rem;
   padding: 1px 4px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   background: rgba(241, 196, 15, 0.2);
-  color: #f1c40f;
+  color: var(--stat-fame);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  margin-left: 0.25rem;
+  margin-left: var(--space-1);
 }
