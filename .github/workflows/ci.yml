@@ -175,7 +175,7 @@ jobs:
 
       - name: Upload lcov to Codecov
         if: steps.rust-changes.outputs.rust == 'true'
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: packages/engine-rs/lcov.info
