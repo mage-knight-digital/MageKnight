@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -62,7 +62,7 @@ jobs:
     name: Python Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: astral-sh/ruff-action@v4.0.0
         with:
           args: check packages/python-sdk scripts --config packages/python-sdk/pyproject.toml
@@ -71,7 +71,7 @@ jobs:
     name: Terraform Fmt & Validate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Paths filter — run only if terraform or this workflow changed
         id: tf-changes
@@ -135,7 +135,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Paths filter — run Rust job only if engine-rs or this workflow changed
         id: rust-changes
@@ -175,7 +175,7 @@ jobs:
 
       - name: Upload lcov to Codecov
         if: steps.rust-changes.outputs.rust == 'true'
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: packages/engine-rs/lcov.info
