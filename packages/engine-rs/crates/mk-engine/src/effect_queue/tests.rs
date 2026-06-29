@@ -6389,7 +6389,8 @@ use mk_types::state::*;
         queue.drain(&mut state, 0);
 
         // 2 wounds removed, 2 cards drawn → net hand size change: -2 + 2 = 0
-        // But deck should have decreased by 2
+        assert_eq!(state.players[0].hand.len(), initial_hand_size);
+        // Deck decreased by 2 (cards drawn into hand)
         assert_eq!(state.players[0].deck.len(), initial_deck_size - 2);
     }
 
