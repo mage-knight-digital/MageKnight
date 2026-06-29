@@ -45,3 +45,7 @@ metrics = "0.24"
 
 # Testing
 proptest = "1"
+
+[profile.dev-opt]
+inherits = "dev"
+opt-level = 2

@@ -30,8 +30,8 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-echo "Running bun run test (cargo test workspace, excludes mk-python)..."
-cd "$REPO_ROOT" && bun run test
+echo "Running bun run test:fast (cargo test --profile dev-opt, excludes mk-python)..."
+cd "$REPO_ROOT" && bun run test:fast
 
 if [ $? -ne 0 ]; then
     echo ""

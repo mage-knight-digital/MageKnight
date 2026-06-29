@@ -11,6 +11,7 @@
     "train-rl": "packages/python-sdk/scripts/run-train-rl",
     "build": "bun run --filter '*' build",
     "test": "cd packages/engine-rs && cargo test --workspace --exclude mk-python",
+    "test:fast": "cd packages/engine-rs && cargo test --profile dev-opt --workspace --exclude mk-python",
     "lint": "oxlint -c .oxlintrc.json --deny-warnings packages/*/src",
     "clean": "rm -rf node_modules packages/*/node_modules packages/*/dist bun.lockb",
     "dev:client": "bun run --filter @mage-knight/client dev",
