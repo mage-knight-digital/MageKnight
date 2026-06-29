@@ -223,6 +223,16 @@ fn choose_skill_from_common_pool() {
         state.offers.common_skills.contains(&drawn_1),
         "Drawn skill 1 should go to common pool when picking from common"
     );
+    // Auto-resolved AA should be removed from the offer
+    assert!(
+        !state.offers.advanced_actions.contains(&lowest_aa_id),
+        "Auto-resolved AA should be removed from the offer"
+    );
+    // Auto-resolved AA should be in player's hand or deck (placed on top of deed deck)
+    assert!(
+        state.players[0].hand.contains(&lowest_aa_id) || state.players[0].deck.contains(&lowest_aa_id),
+        "Auto-resolved AA should be in player's hand or deck"
+    );
 }
 
 #[test]

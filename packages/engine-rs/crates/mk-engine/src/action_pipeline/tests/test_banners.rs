@@ -940,9 +940,6 @@ fn fortitude_damage_test(
     );
 
     let is_wounded = state.players[0].units.get(0).map(|u| u.wounded).unwrap_or(true);
-    let banner_used = state.players[0].attached_banners.get(0)
-        .map(|b| b.is_used_this_round)
-        .unwrap_or(false);
 
     (state, is_wounded)
 }
