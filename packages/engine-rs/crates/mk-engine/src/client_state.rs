@@ -244,7 +244,7 @@ fn pending_kind(active: &ActivePending) -> &'static str {
         ActivePending::UnitMaintenance(_) => "unit_maintenance",
         ActivePending::TerrainCostReduction(_) => "terrain_cost_reduction",
         ActivePending::CrystalJoyReclaim(_) => "crystal_joy_reclaim",
-        ActivePending::SteadyTempoDeckPlacement(_) => "steady_tempo_placement",
+        ActivePending::CardEndTurnEffect(_) => "card_end_turn_effect",
         ActivePending::UnitAbilityChoice { .. } => "unit_ability_choice",
         ActivePending::SubsetSelection(ss) => match &ss.kind {
             mk_types::pending::SubsetSelectionKind::Rethink => "rethink",
@@ -289,7 +289,7 @@ fn pending_label(active: &ActivePending) -> &'static str {
         ActivePending::UnitMaintenance(_) => "Unit maintenance",
         ActivePending::TerrainCostReduction(_) => "Terrain cost reduction",
         ActivePending::CrystalJoyReclaim(_) => "Crystal joy reclaim",
-        ActivePending::SteadyTempoDeckPlacement(_) => "Steady tempo placement",
+        ActivePending::CardEndTurnEffect(_) => "Card end-turn effect",
         ActivePending::UnitAbilityChoice { .. } => "Unit ability choice",
         ActivePending::SubsetSelection(ss) => match &ss.kind {
             mk_types::pending::SubsetSelectionKind::ManaSearch { .. } => "Select dice to reroll",

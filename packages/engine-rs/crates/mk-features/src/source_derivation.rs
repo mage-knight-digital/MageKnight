@@ -126,8 +126,8 @@ pub fn derive_source_str(action: &LegalAction, state: &GameState, player_idx: us
         LegalAction::ResolveCrystalJoyReclaim { discard_index } => {
             if discard_index.is_some() { "crystal_joy.card" } else { "crystal_joy.skip" }
         }
-        LegalAction::ResolveSteadyTempoDeckPlacement { place } => {
-            if *place { "steady_tempo.place" } else { "steady_tempo.skip" }
+        LegalAction::ResolveCardEndTurnEffect { accept } => {
+            if *accept { "steady_tempo.place" } else { "steady_tempo.skip" }
         }
         LegalAction::ResolveBannerProtection { remove_all } => {
             if *remove_all { "banner_protection.remove" } else { "banner_protection.skip" }

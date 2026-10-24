@@ -4,7 +4,9 @@
 //! All basic action cards have sideways_value = 1.
 //! All advanced action cards have sideways_value = 1.
 
-use mk_types::effect::{CardEffect, EffectCondition, EffectType, ScalingFactor};
+use mk_types::effect::{
+    CardDeckPosition, CardEffect, CardEndTurnEffect, EffectCondition, EffectType, ScalingFactor,
+};
 use mk_types::enums::{
     BasicManaColor, CardColor, CombatType, DeedCardType, DiscardForBonusFilter, Element,
     EnemyAbilityType, ManaColor, ResistanceElement, Terrain,
@@ -1355,16 +1357,34 @@ fn ice_bolt() -> CardDefinition {
 }
 
 fn steady_tempo() -> CardDefinition {
-    // Note: deck placement (basic: bottom, powered: top) is handled by
-    // the play card command, not by the effect itself.
     CardDefinition {
         id: "steady_tempo",
         name: "Steady Tempo",
         color: CardColor::Blue,
         card_type: DeedCardType::AdvancedAction,
         powered_by: PoweredBy::Single(BasicManaColor::Blue),
-        basic_effect: CardEffect::GainMove { amount: 2 },
-        powered_effect: CardEffect::GainMove { amount: 4 },
+        basic_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainMove { amount: 2 },
+                CardEffect::ScheduleEndTurn {
+                    effect: CardEndTurnEffect::OfferDeckPlacement {
+                        destination: CardDeckPosition::Bottom,
+                        requires_non_empty_deck: true,
+                    },
+                },
+            ],
+        },
+        powered_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::GainMove { amount: 4 },
+                CardEffect::ScheduleEndTurn {
+                    effect: CardEndTurnEffect::OfferDeckPlacement {
+                        destination: CardDeckPosition::Top,
+                        requires_non_empty_deck: false,
+                    },
+                },
+            ],
+        },
         sideways_value: 1,
         destroy_on_powered: false,
         basic_categories: &[CardCategory::Movement],
@@ -4858,11 +4878,29 @@ mod tests {
     }
 
     #[test]
-    fn steady_tempo_is_simple_move() {
+    fn steady_tempo_declares_move_and_end_turn_deck_placement() {
         let card = get_card("steady_tempo").unwrap();
         assert_eq!(card.color, CardColor::Blue);
-        assert!(matches!(card.basic_effect, CardEffect::GainMove { amount: 2 }));
-        assert!(matches!(card.powered_effect, CardEffect::GainMove { amount: 4 }));
+        for (effect, move_amount, destination, requires_non_empty_deck) in [
+            (&card.basic_effect, 2, CardDeckPosition::Bottom, true),
+            (&card.powered_effect, 4, CardDeckPosition::Top, false),
+        ] {
+            let CardEffect::Compound { effects } = effect else {
+                panic!("Expected a compound card effect")
+            };
+            assert_eq!(effects.len(), 2);
+            assert!(matches!(effects[0], CardEffect::GainMove { amount } if amount == move_amount));
+            assert!(matches!(
+                effects[1],
+                CardEffect::ScheduleEndTurn {
+                    effect: CardEndTurnEffect::OfferDeckPlacement {
+                        destination: actual_destination,
+                        requires_non_empty_deck: actual_requirement,
+                    }
+                } if actual_destination == destination
+                    && actual_requirement == requires_non_empty_deck
+            ));
+        }
     }
 
     // =========================================================================

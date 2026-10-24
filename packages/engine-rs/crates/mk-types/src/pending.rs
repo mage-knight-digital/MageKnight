@@ -7,7 +7,7 @@
 use arrayvec::ArrayVec;
 use serde::{Deserialize, Serialize};
 
-use crate::effect::CardEffect;
+use crate::effect::{CardEndTurnEffect, CardEffect};
 use crate::enums::*;
 use crate::ids::*;
 use crate::modifier::ShapeshiftTarget;
@@ -767,10 +767,11 @@ pub struct PendingCrystalJoyReclaim {
     pub version: EffectMode,
 }
 
-/// Pending Steady Tempo deck placement state.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct PendingSteadyTempoDeckPlacement {
-    pub version: EffectMode,
+/// Pending card lifecycle effect waiting for the player's decision.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PendingCardEndTurnEffect {
+    pub source_card_id: CardId,
+    pub effect: CardEndTurnEffect,
 }
 
 /// Site reward — what a player receives after conquering a site.
@@ -819,7 +820,7 @@ pub enum ActivePending {
     UnitMaintenance(ArrayVec<UnitMaintenanceEntry, MAX_UNIT_MAINTENANCE>),
     TerrainCostReduction(PendingTerrainCostReduction),
     CrystalJoyReclaim(PendingCrystalJoyReclaim),
-    SteadyTempoDeckPlacement(PendingSteadyTempoDeckPlacement),
+    CardEndTurnEffect(PendingCardEndTurnEffect),
     /// Unit ability that requires player choice (MoveOrInfluence, AttackOrBlockWoundSelf, Altem Mages).
     UnitAbilityChoice {
         unit_instance_id: UnitInstanceId,

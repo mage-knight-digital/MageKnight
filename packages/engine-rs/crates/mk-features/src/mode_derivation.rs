@@ -51,7 +51,8 @@ pub fn derive_mode_str(state: &GameState, player_idx: usize) -> &'static str {
                 }
             }
             ActivePending::CrystalJoyReclaim(_) => "pending_crystal_joy_reclaim",
-            ActivePending::SteadyTempoDeckPlacement(_) => "pending_steady_tempo",
+            // Preserve the existing RL pending-mode token during this internal refactor.
+            ActivePending::CardEndTurnEffect(_) => "pending_steady_tempo",
             ActivePending::UnitAbilityChoice { .. } => "pending_choice",
             ActivePending::SubsetSelection(_) => "pending_choice",
             ActivePending::SelectCombatEnemy { .. } => "pending_choice",

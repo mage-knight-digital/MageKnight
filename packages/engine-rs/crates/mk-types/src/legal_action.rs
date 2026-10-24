@@ -143,9 +143,9 @@ pub enum LegalAction {
         /// Index into discard pile, or None to skip.
         discard_index: Option<usize>,
     },
-    ResolveSteadyTempoDeckPlacement {
-        /// true = place card on deck, false = skip
-        place: bool,
+    ResolveCardEndTurnEffect {
+        /// true = perform the scheduled effect, false = skip
+        accept: bool,
     },
     ResolveBannerProtection {
         /// true = remove all wounds received this turn, false = keep them

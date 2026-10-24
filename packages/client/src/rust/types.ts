@@ -90,7 +90,7 @@ export type LegalAction =
   | { ResolveCircletOfProficiency: { selection_index: number } }
   | { ResolveMaximalEffect: { hand_index: number } }
   | { ResolveMeditation: { selection_index: number; place_on_top: boolean | null } }
-  | { ResolveSteadyTempoDeckPlacement: { place: boolean } }
+  | { ResolveCardEndTurnEffect: { accept: boolean } }
   | { ResolveBannerProtection: { remove_all: boolean } }
   // Hex/terrain cost reduction
   | { ResolveHexCostReduction: { coordinate: { q: number; r: number } } }

@@ -202,7 +202,7 @@ fn create_player(
         mysterious_box_state: None,
         end_turn_step: 0,
         crystal_joy_reclaim_version: None,
-        steady_tempo_version: None,
+        scheduled_card_effects: Vec::new(),
 
         flags: PlayerFlags::empty(),
         pending: mk_types::pending::PendingQueue::new(),

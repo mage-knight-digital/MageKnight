@@ -155,8 +155,8 @@ function formatActionType(actionType: string): string {
       return "assigned damage";
     case "ResolveSourceOpeningReroll":
       return "Source Opening";
-    case "ResolveSteadyTempoDeckPlacement":
-      return "Steady Tempo";
+    case "ResolveCardEndTurnEffect":
+      return "card end-turn effect";
     case "ResolveCrystalJoyReclaim":
       return "Crystal Joy reclaim";
     case "ForfeitUnitReward":

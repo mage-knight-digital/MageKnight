@@ -893,43 +893,51 @@ pub(super) fn apply_resolve_crystal_joy_reclaim(
 }
 
 
-pub(super) fn apply_resolve_steady_tempo(
+pub(super) fn apply_resolve_card_end_turn_effect(
     state: &mut GameState,
     player_idx: usize,
-    place: bool,
+    accept: bool,
 ) -> Result<ApplyResult, ApplyError> {
-    // Extract pending to get version
+    // Extract the pending card effect.
     let version = match state.players[player_idx].pending.active.take() {
-        Some(mk_types::pending::ActivePending::SteadyTempoDeckPlacement(p)) => p.version,
+        Some(ActivePending::CardEndTurnEffect(p)) => p,
         other => {
             state.players[player_idx].pending.active = other;
             return Err(ApplyError::InternalError(
-                "ResolveSteadyTempo: no SteadyTempoDeckPlacement pending".into(),
+                "ResolveCardEndTurnEffect: no card end-turn effect pending".into(),
             ));
         }
     };
 
-    if place {
-        // Remove steady_tempo from play_area and place on deck
-        if let Some(idx) = state.players[player_idx]
+    if accept {
+        let mk_types::effect::CardEndTurnEffect::OfferDeckPlacement {
+            destination,
+            requires_non_empty_deck,
+        } = version.effect;
+        let player = &mut state.players[player_idx];
+        if requires_non_empty_deck && player.deck.is_empty() {
+            player.pending.active = Some(ActivePending::CardEndTurnEffect(version));
+            return Err(ApplyError::InternalError(
+                "ResolveCardEndTurnEffect: deck placement requires a non-empty deck".into(),
+            ));
+        }
+        let Some(idx) = player
             .play_area
             .iter()
-            .position(|c| c.as_str() == "steady_tempo")
-        {
-            let card = state.players[player_idx].play_area.remove(idx);
-            match version {
-                mk_types::pending::EffectMode::Basic => {
-                    // Bottom of deck
-                    state.players[player_idx].deck.push(card);
-                }
-                mk_types::pending::EffectMode::Powered => {
-                    // Top of deck
-                    state.players[player_idx].deck.insert(0, card);
-                }
-            }
+            .position(|card| card == &version.source_card_id)
+        else {
+            player.pending.active = Some(ActivePending::CardEndTurnEffect(version));
+            return Err(ApplyError::InternalError(
+                "ResolveCardEndTurnEffect: source card is not in the play area".into(),
+            ));
+        };
+        let card = player.play_area.remove(idx);
+        match destination {
+            mk_types::effect::CardDeckPosition::Top => player.deck.insert(0, card),
+            mk_types::effect::CardDeckPosition::Bottom => player.deck.push(card),
         }
     }
-    // Skip: card stays in play_area, will be discarded normally in card flow
+    // Skip: source card stays in play area for normal end-of-turn card flow.
 
     // Resume end_turn flow
     turn_flow::end_turn_result_to_apply(end_turn::end_turn(state, player_idx), state)
