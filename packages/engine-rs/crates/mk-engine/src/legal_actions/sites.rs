@@ -365,6 +365,23 @@ pub(crate) fn compute_effective_influence(
     state: &GameState,
     player_idx: usize,
 ) -> u32 {
+    effective_influence_with_rep_sign(state, player_idx, 1)
+}
+
+/// Like [`compute_effective_influence`], but with the reputation bonus/penalty
+/// counted in reverse (used when recruiting Thugs). Shield bonuses are unaltered.
+pub(crate) fn compute_reversed_rep_influence(
+    state: &GameState,
+    player_idx: usize,
+) -> u32 {
+    effective_influence_with_rep_sign(state, player_idx, -1)
+}
+
+fn effective_influence_with_rep_sign(
+    state: &GameState,
+    player_idx: usize,
+    rep_sign: i32,
+) -> u32 {
     let player = &state.players[player_idx];
 
     // If bonus already applied (mutated into influence_points), just return current value
@@ -395,7 +412,7 @@ pub(crate) fn compute_effective_influence(
         return player.influence_points;
     }
 
-    bonus += reputation_influence_bonus(player.reputation);
+    bonus += rep_sign * reputation_influence_bonus(player.reputation);
 
     // Shield token bonus: each shield token of this player on a conquered City
     if site.site_type == SiteType::City && site.is_conquered {

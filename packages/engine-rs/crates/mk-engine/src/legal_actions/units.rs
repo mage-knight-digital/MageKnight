@@ -192,6 +192,10 @@ pub(super) fn enumerate_unit_actions(
 
     let is_glade = site.site_type == SiteType::MagicalGlade;
 
+    let rep_bonus_applied = player
+        .flags
+        .contains(PlayerFlags::REPUTATION_BONUS_APPLIED_THIS_TURN);
+
     // Effective influence accounts for blanket reputation bonus + shield tokens
     let effective_influence = super::sites::compute_effective_influence(state, player_idx);
 
@@ -230,8 +234,16 @@ pub(super) fn enumerate_unit_actions(
             0
         } else {
             let base_mod = reputation_cost_modifier(player.reputation);
-            if unit.reversed_reputation && base_mod != 0 {
-                // Thugs: reverse the blanket bonus AND apply the reversed amount
+            if unit.reversed_reputation && base_mod != 0 && !rep_bonus_applied {
+                // Thugs, bonus not yet applied: the blanket bonus (clamped at 0)
+                // is applied before payment, so charge exactly what leaves the
+                // player with `reversed_effective - base_cost` influence.
+                let applied = effective_influence as i32;
+                let reversed = super::sites::compute_reversed_rep_influence(state, player_idx) as i32;
+                applied - reversed
+            } else if unit.reversed_reputation && base_mod != 0 {
+                // Thugs, bonus already baked into influence_points: undo it and
+                // apply the reversed amount.
                 -2 * base_mod
             } else if is_hero_unit(unit_id.as_str()) && !has_recruited_hero {
                 // Heroes: add 1x more on top of the blanket bonus
