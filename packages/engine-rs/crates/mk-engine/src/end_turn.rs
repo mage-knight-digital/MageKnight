@@ -17,7 +17,7 @@ use mk_types::ids::*;
 use mk_types::modifier::{ModifierEffect, RuleOverride};
 use mk_types::pending::{
     ActivePending, DeferredPending, PendingCrystalJoyReclaim, PendingLevelUpReward,
-    PendingSteadyTempoDeckPlacement, MAX_DEEP_MINE_COLORS, MAX_DRAWN_SKILLS,
+    MAX_DEEP_MINE_COLORS, MAX_DRAWN_SKILLS,
 };
 use mk_types::state::*;
 
@@ -119,10 +119,17 @@ pub fn end_turn(state: &mut GameState, player_idx: usize) -> Result<EndTurnResul
         state.players[player_idx].end_turn_step = 2;
     }
 
-    // Step 3: Steady Tempo deck placement
+    // Step 3: Scheduled card lifecycle effects
     if step < 3 {
-        if check_steady_tempo_placement(state, player_idx) {
-            state.players[player_idx].end_turn_step = 3;
+        if !state.players[player_idx].scheduled_card_effects.is_empty() {
+            let scheduled = state.players[player_idx].scheduled_card_effects.remove(0);
+            state.players[player_idx].pending.active = Some(ActivePending::CardEndTurnEffect(
+                mk_types::pending::PendingCardEndTurnEffect {
+                    source_card_id: scheduled.source_card_id,
+                    effect: scheduled.effect,
+                },
+            ));
+            // Leave the step at 2 so re-entry processes the next scheduled effect.
             return Ok(EndTurnResult::AwaitingEndTurnChoice);
         }
         state.players[player_idx].end_turn_step = 3;
@@ -198,19 +205,6 @@ fn check_crystal_joy_reclaim(state: &mut GameState, player_idx: usize) -> bool {
     };
     state.players[player_idx].pending.active =
         Some(ActivePending::CrystalJoyReclaim(PendingCrystalJoyReclaim { version }));
-    true
-}
-
-/// Steady Tempo deck placement: offer to place the card on deck.
-/// Returns true if a pending choice was created.
-fn check_steady_tempo_placement(state: &mut GameState, player_idx: usize) -> bool {
-    let version = match state.players[player_idx].steady_tempo_version.take() {
-        Some(v) => v,
-        None => return false,
-    };
-    state.players[player_idx].pending.active = Some(
-        ActivePending::SteadyTempoDeckPlacement(PendingSteadyTempoDeckPlacement { version }),
-    );
     true
 }
 
@@ -818,7 +812,7 @@ fn reset_player_turn_inner(player: &mut PlayerState) {
     player.mysterious_box_state = None;
     player.end_turn_step = 0;
     player.crystal_joy_reclaim_version = None;
-    player.steady_tempo_version = None;
+    player.scheduled_card_effects.clear();
 }
 
 // =============================================================================
@@ -1608,6 +1602,26 @@ mod tests {
         state.round_phase = RoundPhase::PlayerTurns;
         state.players[0].hand = hand.into_iter().map(CardId::from).collect();
         state
+    }
+
+    fn schedule_test_deck_placement(
+        state: &mut GameState,
+        source_card_id: &str,
+        destination: mk_types::effect::CardDeckPosition,
+        requires_non_empty_deck: bool,
+    ) {
+        state.players[0]
+            .scheduled_card_effects
+            .push(mk_types::effect::ScheduledCardEffect {
+                source_card_id: CardId::from(source_card_id),
+                effect: mk_types::effect::CardEndTurnEffect::OfferDeckPlacement {
+                    destination,
+                    requires_non_empty_deck,
+                },
+            });
+        state.players[0]
+            .play_area
+            .push(CardId::from(source_card_id));
     }
 
     // =========================================================================
@@ -3387,8 +3401,7 @@ mod tests {
         state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
 
         play_card(&mut state, 0, 0, false, None).unwrap();
-        // play_card should set steady_tempo_version
-        assert!(state.players[0].steady_tempo_version.is_some());
+        assert_eq!(state.players[0].scheduled_card_effects.len(), 1);
 
         let result = end_turn(&mut state, 0).unwrap();
         assert!(
@@ -3398,7 +3411,7 @@ mod tests {
         );
         assert!(matches!(
             state.players[0].pending.active,
-            Some(ActivePending::SteadyTempoDeckPlacement(_))
+            Some(ActivePending::CardEndTurnEffect(_))
         ));
     }
 
@@ -3409,22 +3422,18 @@ mod tests {
         use crate::undo::UndoStack;
         use mk_types::legal_action::LegalAction;
 
-        let mut state = setup_playing_game(vec!["march"]);
+        let mut state = setup_playing_game(vec!["steady_tempo"]);
         state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
-        state.players[0].steady_tempo_version =
-            Some(mk_types::pending::EffectMode::Basic);
-        state.players[0]
-            .play_area
-            .push(CardId::from("steady_tempo"));
 
         play_card(&mut state, 0, 0, false, None).unwrap();
-        end_turn(&mut state, 0).unwrap();
-        // Pending SteadyTempoDeckPlacement
+        assert!(matches!(end_turn(&mut state, 0), Ok(EndTurnResult::AwaitingEndTurnChoice)));
 
         let legal = enumerate_legal_actions(&state, 0);
+        assert!(legal.actions.contains(&LegalAction::ResolveCardEndTurnEffect { accept: true }));
+        assert!(legal.actions.contains(&LegalAction::ResolveCardEndTurnEffect { accept: false }));
         let mut undo = UndoStack::new();
 
-        let action = LegalAction::ResolveSteadyTempoDeckPlacement { place: true };
+        let action = LegalAction::ResolveCardEndTurnEffect { accept: true };
         apply_legal_action(&mut state, &mut undo, 0, &action, legal.epoch).unwrap();
 
         // steady_tempo should be at the bottom of deck
@@ -3442,21 +3451,23 @@ mod tests {
         use crate::undo::UndoStack;
         use mk_types::legal_action::LegalAction;
 
-        let mut state = setup_playing_game(vec!["march"]);
+        let mut state = setup_playing_game(vec!["steady_tempo"]);
         state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
-        state.players[0].steady_tempo_version =
-            Some(mk_types::pending::EffectMode::Powered);
-        state.players[0]
-            .play_area
-            .push(CardId::from("steady_tempo"));
+        state.players[0].pure_mana.push(ManaToken {
+            color: ManaColor::Blue,
+            source: ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
 
-        play_card(&mut state, 0, 0, false, None).unwrap();
-        end_turn(&mut state, 0).unwrap();
+        play_card(&mut state, 0, 0, true, None).unwrap();
+        assert!(matches!(end_turn(&mut state, 0), Ok(EndTurnResult::AwaitingEndTurnChoice)));
 
         let legal = enumerate_legal_actions(&state, 0);
+        assert!(legal.actions.contains(&LegalAction::ResolveCardEndTurnEffect { accept: true }));
+        assert!(legal.actions.contains(&LegalAction::ResolveCardEndTurnEffect { accept: false }));
         let mut undo = UndoStack::new();
 
-        let action = LegalAction::ResolveSteadyTempoDeckPlacement { place: true };
+        let action = LegalAction::ResolveCardEndTurnEffect { accept: true };
         apply_legal_action(&mut state, &mut undo, 0, &action, legal.epoch).unwrap();
 
         // After resolve, end_turn resumes → card flow → draw up
@@ -3478,21 +3489,16 @@ mod tests {
         use crate::undo::UndoStack;
         use mk_types::legal_action::LegalAction;
 
-        let mut state = setup_playing_game(vec!["march"]);
+        let mut state = setup_playing_game(vec!["steady_tempo"]);
         state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
-        state.players[0].steady_tempo_version =
-            Some(mk_types::pending::EffectMode::Basic);
-        state.players[0]
-            .play_area
-            .push(CardId::from("steady_tempo"));
 
         play_card(&mut state, 0, 0, false, None).unwrap();
-        end_turn(&mut state, 0).unwrap();
+        assert!(matches!(end_turn(&mut state, 0), Ok(EndTurnResult::AwaitingEndTurnChoice)));
 
         let legal = enumerate_legal_actions(&state, 0);
         let mut undo = UndoStack::new();
 
-        let action = LegalAction::ResolveSteadyTempoDeckPlacement { place: false };
+        let action = LegalAction::ResolveCardEndTurnEffect { accept: false };
         apply_legal_action(&mut state, &mut undo, 0, &action, legal.epoch).unwrap();
 
         // Skip: steady_tempo stays in play_area → card flow moves to discard
@@ -3503,6 +3509,105 @@ mod tests {
                 .any(|c| c.as_str() == "steady_tempo"),
             "Skip: steady_tempo should end up in discard"
         );
+    }
+
+    #[test]
+    fn steady_tempo_basic_empty_deck_only_offers_skip() {
+        use crate::legal_actions::enumerate_legal_actions;
+        use mk_types::legal_action::LegalAction;
+
+        let mut state = setup_playing_game(vec!["steady_tempo"]);
+        state.players[0].deck.clear();
+        play_card(&mut state, 0, 0, false, None).unwrap();
+        assert!(matches!(end_turn(&mut state, 0), Ok(EndTurnResult::AwaitingEndTurnChoice)));
+
+        let legal = enumerate_legal_actions(&state, 0);
+        assert!(!legal.actions.contains(&LegalAction::ResolveCardEndTurnEffect { accept: true }));
+        assert!(legal.actions.contains(&LegalAction::ResolveCardEndTurnEffect { accept: false }));
+    }
+
+    #[test]
+    fn steady_tempo_powered_empty_deck_can_return_to_hand() {
+        use crate::action_pipeline::apply_legal_action;
+        use crate::legal_actions::enumerate_legal_actions;
+        use crate::undo::UndoStack;
+        use mk_types::legal_action::LegalAction;
+
+        let mut state = setup_playing_game(vec!["steady_tempo"]);
+        state.players[0].deck.clear();
+        state.players[0].pure_mana.push(ManaToken {
+            color: ManaColor::Blue,
+            source: ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+        play_card(&mut state, 0, 0, true, None).unwrap();
+        assert!(matches!(end_turn(&mut state, 0), Ok(EndTurnResult::AwaitingEndTurnChoice)));
+
+        let legal = enumerate_legal_actions(&state, 0);
+        let place = LegalAction::ResolveCardEndTurnEffect { accept: true };
+        assert!(legal.actions.contains(&place));
+        let mut undo = UndoStack::new();
+        apply_legal_action(&mut state, &mut undo, 0, &place, legal.epoch).unwrap();
+        assert!(state.players[0].hand.iter().any(|card| card.as_str() == "steady_tempo"));
+    }
+
+    #[test]
+    fn scheduled_card_end_turn_effects_resolve_in_order() {
+        use crate::action_pipeline::apply_legal_action;
+        use crate::legal_actions::enumerate_legal_actions;
+        use crate::undo::UndoStack;
+        use mk_types::legal_action::LegalAction;
+
+        let mut state = setup_playing_game(vec!["march"]);
+        state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
+        schedule_test_deck_placement(
+            &mut state,
+            "steady_tempo",
+            mk_types::effect::CardDeckPosition::Bottom,
+            true,
+        );
+        schedule_test_deck_placement(
+            &mut state,
+            "fixture_card",
+            mk_types::effect::CardDeckPosition::Top,
+            false,
+        );
+        play_card(&mut state, 0, 0, false, None).unwrap();
+
+        assert!(matches!(end_turn(&mut state, 0), Ok(EndTurnResult::AwaitingEndTurnChoice)));
+        assert!(matches!(
+            state.players[0].pending.active,
+            Some(ActivePending::CardEndTurnEffect(ref pending))
+                if pending.source_card_id.as_str() == "steady_tempo"
+        ));
+
+        let mut undo = UndoStack::new();
+        let legal = enumerate_legal_actions(&state, 0);
+        apply_legal_action(
+            &mut state,
+            &mut undo,
+            0,
+            &LegalAction::ResolveCardEndTurnEffect { accept: true },
+            legal.epoch,
+        )
+        .unwrap();
+        assert!(matches!(
+            state.players[0].pending.active,
+            Some(ActivePending::CardEndTurnEffect(ref pending))
+                if pending.source_card_id.as_str() == "fixture_card"
+        ));
+
+        let legal = enumerate_legal_actions(&state, 0);
+        apply_legal_action(
+            &mut state,
+            &mut undo,
+            0,
+            &LegalAction::ResolveCardEndTurnEffect { accept: true },
+            legal.epoch,
+        )
+        .unwrap();
+        assert!(state.players[0].hand.iter().any(|card| card.as_str() == "fixture_card"));
+        assert_eq!(state.players[0].deck.last().map(|card| card.as_str()), Some("steady_tempo"));
     }
 
     // =========================================================================
@@ -3663,11 +3768,12 @@ mod tests {
         // Set both crystal joy and steady tempo
         state.players[0].crystal_joy_reclaim_version =
             Some(mk_types::pending::EffectMode::Basic);
-        state.players[0].steady_tempo_version =
-            Some(mk_types::pending::EffectMode::Basic);
-        state.players[0]
-            .play_area
-            .push(CardId::from("steady_tempo"));
+        schedule_test_deck_placement(
+            &mut state,
+            "steady_tempo",
+            mk_types::effect::CardDeckPosition::Bottom,
+            true,
+        );
         state.players[0].discard = vec![CardId::from("rage")];
 
         play_card(&mut state, 0, 0, false, None).unwrap();
@@ -3689,16 +3795,16 @@ mod tests {
         };
         apply_legal_action(&mut state, &mut undo, 0, &action, legal.epoch).unwrap();
 
-        // After resolve, end_turn resumes → hits Steady Tempo (step 3)
-        assert_eq!(state.players[0].end_turn_step, 3);
+        // After resolve, end_turn resumes at the scheduled lifecycle effect.
+        assert_eq!(state.players[0].end_turn_step, 2);
         assert!(matches!(
             state.players[0].pending.active,
-            Some(ActivePending::SteadyTempoDeckPlacement(_))
+            Some(ActivePending::CardEndTurnEffect(_))
         ));
 
         // Resolve Steady Tempo (skip)
         let legal2 = enumerate_legal_actions(&state, 0);
-        let action2 = LegalAction::ResolveSteadyTempoDeckPlacement { place: false };
+        let action2 = LegalAction::ResolveCardEndTurnEffect { accept: false };
         apply_legal_action(&mut state, &mut undo, 0, &action2, legal2.epoch).unwrap();
 
         // Turn should complete normally now
@@ -3711,19 +3817,26 @@ mod tests {
     // =========================================================================
 
     #[test]
-    fn steady_tempo_card_play_sets_version_flag() {
+    fn steady_tempo_basic_play_schedules_bottom_placement() {
         let mut state = setup_playing_game(vec!["steady_tempo"]);
-        assert!(state.players[0].steady_tempo_version.is_none());
 
         play_card(&mut state, 0, 0, false, None).unwrap();
+        assert_eq!(state.players[0].scheduled_card_effects.len(), 1);
         assert_eq!(
-            state.players[0].steady_tempo_version,
-            Some(mk_types::pending::EffectMode::Basic)
+            state.players[0].scheduled_card_effects[0].source_card_id.as_str(),
+            "steady_tempo"
+        );
+        assert_eq!(
+            state.players[0].scheduled_card_effects[0].effect,
+            mk_types::effect::CardEndTurnEffect::OfferDeckPlacement {
+                destination: mk_types::effect::CardDeckPosition::Bottom,
+                requires_non_empty_deck: true,
+            }
         );
     }
 
     #[test]
-    fn steady_tempo_powered_sets_powered_version() {
+    fn steady_tempo_powered_play_schedules_top_placement() {
         let mut state = setup_playing_game(vec!["steady_tempo"]);
         // steady_tempo is powered by blue
         state.players[0].pure_mana.push(ManaToken {
@@ -3733,9 +3846,13 @@ mod tests {
         });
 
         play_card(&mut state, 0, 0, true, None).unwrap();
+        assert_eq!(state.players[0].scheduled_card_effects.len(), 1);
         assert_eq!(
-            state.players[0].steady_tempo_version,
-            Some(mk_types::pending::EffectMode::Powered)
+            state.players[0].scheduled_card_effects[0].effect,
+            mk_types::effect::CardEndTurnEffect::OfferDeckPlacement {
+                destination: mk_types::effect::CardDeckPosition::Top,
+                requires_non_empty_deck: false,
+            }
         );
     }
 
@@ -3883,9 +4000,12 @@ mod tests {
         let mut state = setup_playing_game(vec!["march"]);
         state.players[0].deck.clear(); // Empty deck!
 
-        state.players[0].steady_tempo_version =
-            Some(mk_types::pending::EffectMode::Basic);
-        state.players[0].play_area.push(CardId::from("steady_tempo"));
+        schedule_test_deck_placement(
+            &mut state,
+            "steady_tempo",
+            mk_types::effect::CardDeckPosition::Bottom,
+            true,
+        );
 
         play_card(&mut state, 0, 0, false, None).unwrap();
         let result = end_turn(&mut state, 0);
@@ -3894,7 +4014,7 @@ mod tests {
             Ok(EndTurnResult::AwaitingEndTurnChoice) => {
                 // Pending created even with empty deck (basic can't place, but still offers skip)
                 let pending = &state.players[0].pending.active;
-                assert!(matches!(pending, Some(ActivePending::SteadyTempoDeckPlacement(_))));
+                assert!(matches!(pending, Some(ActivePending::CardEndTurnEffect(_))));
             }
             Ok(EndTurnResult::NextPlayer { .. } | EndTurnResult::RoundEnded { .. }) => {
                 // Auto-skipped — also fine
@@ -4016,7 +4136,7 @@ mod tests {
     // Cross-system: Multi-artifact end-turn step ordering
     // =========================================================================
 
-    /// Crystal Joy (step 2) then Steady Tempo (step 3) fire sequentially.
+    /// Crystal Joy is followed by scheduled card lifecycle effects.
     #[test]
     fn end_turn_crystal_joy_then_steady_tempo_sequential() {
         use crate::action_pipeline::apply_legal_action;
@@ -4030,9 +4150,12 @@ mod tests {
         // Both active
         state.players[0].crystal_joy_reclaim_version =
             Some(mk_types::pending::EffectMode::Basic);
-        state.players[0].steady_tempo_version =
-            Some(mk_types::pending::EffectMode::Basic);
-        state.players[0].play_area.push(CardId::from("steady_tempo"));
+        schedule_test_deck_placement(
+            &mut state,
+            "steady_tempo",
+            mk_types::effect::CardDeckPosition::Bottom,
+            true,
+        );
         state.players[0].discard = vec![CardId::from("rage")];
 
         play_card(&mut state, 0, 0, false, None).unwrap();
@@ -4055,18 +4178,18 @@ mod tests {
             legal.epoch,
         ).unwrap();
 
-        // Step 2: Steady Tempo pending (step 3)
-        assert_eq!(state.players[0].end_turn_step, 3);
+        // Step 2: scheduled card effect pending.
+        assert_eq!(state.players[0].end_turn_step, 2);
         assert!(matches!(
             state.players[0].pending.active,
-            Some(ActivePending::SteadyTempoDeckPlacement(_))
+            Some(ActivePending::CardEndTurnEffect(_))
         ));
 
         // Resolve Steady Tempo (skip)
         let legal2 = enumerate_legal_actions(&state, 0);
         apply_legal_action(
             &mut state, &mut undo, 0,
-            &LegalAction::ResolveSteadyTempoDeckPlacement { place: false },
+            &LegalAction::ResolveCardEndTurnEffect { accept: false },
             legal2.epoch,
         ).unwrap();
 
@@ -4130,9 +4253,12 @@ mod tests {
         state.players[0].wounds_received_this_turn.discard = 0;
 
         // Also set steady tempo so we can verify it fires after banner prot is skipped
-        state.players[0].steady_tempo_version =
-            Some(mk_types::pending::EffectMode::Basic);
-        state.players[0].play_area.push(CardId::from("steady_tempo"));
+        schedule_test_deck_placement(
+            &mut state,
+            "steady_tempo",
+            mk_types::effect::CardDeckPosition::Bottom,
+            true,
+        );
 
         play_card(&mut state, 0, 0, false, None).unwrap();
 
@@ -4144,7 +4270,7 @@ mod tests {
         assert!(
             matches!(
                 state.players[0].pending.active,
-                Some(ActivePending::SteadyTempoDeckPlacement(_))
+                Some(ActivePending::CardEndTurnEffect(_))
             ),
             "Step 3 (Steady Tempo) should fire; step 4 (Banner Protection) is after this"
         );
@@ -4154,7 +4280,7 @@ mod tests {
         let mut undo = UndoStack::new();
         apply_legal_action(
             &mut state, &mut undo, 0,
-            &LegalAction::ResolveSteadyTempoDeckPlacement { place: false },
+            &LegalAction::ResolveCardEndTurnEffect { accept: false },
             legal.epoch,
         ).unwrap();
 

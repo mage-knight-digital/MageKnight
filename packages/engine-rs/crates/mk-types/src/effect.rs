@@ -370,6 +370,10 @@ pub enum CardEffect {
     },
     TakeWound,
     Noop,
+    /// Schedule an effect to run during the player's end-turn processing.
+    ScheduleEndTurn {
+        effect: CardEndTurnEffect,
+    },
 
     // === Multi-step / cost effects ===
     ConvertManaToCrystal,
@@ -635,6 +639,33 @@ pub enum CardEffect {
     Other {
         effect_type: EffectType,
     },
+}
+
+/// A card effect that runs during end-turn processing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum CardEndTurnEffect {
+    /// Optionally move the source card from play to the deck.
+    OfferDeckPlacement {
+        destination: CardDeckPosition,
+        /// Preserve card rules that require an existing deck before placement.
+        requires_non_empty_deck: bool,
+    },
+}
+
+/// Position at which an end-turn effect places a card in the deck.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CardDeckPosition {
+    Top,
+    Bottom,
+}
+
+/// A scheduled card effect waiting for its timing point.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ScheduledCardEffect {
+    pub source_card_id: crate::ids::CardId,
+    pub effect: CardEndTurnEffect,
 }
 
 impl CardEffect {
