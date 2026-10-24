@@ -235,18 +235,18 @@ pub(super) fn enumerate_pending(
                 discard_index: None,
             });
         }
-        ActivePending::SteadyTempoDeckPlacement(ref pending) => {
-            let can_place = match pending.version {
-                mk_types::pending::EffectMode::Basic => {
-                    !state.players[player_idx].deck.is_empty()
-                }
-                mk_types::pending::EffectMode::Powered => true,
+        ActivePending::CardEndTurnEffect(ref pending) => {
+            let can_accept = match pending.effect {
+                mk_types::effect::CardEndTurnEffect::OfferDeckPlacement {
+                    requires_non_empty_deck,
+                    ..
+                } => !requires_non_empty_deck || !state.players[player_idx].deck.is_empty(),
             };
-            if can_place {
-                actions.push(LegalAction::ResolveSteadyTempoDeckPlacement { place: true });
+            if can_accept {
+                actions.push(LegalAction::ResolveCardEndTurnEffect { accept: true });
             }
             // Always allow skipping
-            actions.push(LegalAction::ResolveSteadyTempoDeckPlacement { place: false });
+            actions.push(LegalAction::ResolveCardEndTurnEffect { accept: false });
         }
         ActivePending::BannerProtectionChoice => {
             actions.push(LegalAction::ResolveBannerProtection { remove_all: true });

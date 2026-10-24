@@ -90,7 +90,8 @@ fn derive_action_type(action: &LegalAction) -> u16 {
         LegalAction::SubsetSelect { .. } => "DECLARE_ATTACK_TARGETS",
         LegalAction::SubsetConfirm => "DECLARE_ATTACK_TARGETS",
         LegalAction::ResolveCrystalJoyReclaim { .. } => "RESOLVE_CRYSTAL_JOY_RECLAIM",
-        LegalAction::ResolveSteadyTempoDeckPlacement { .. } => "RESOLVE_STEADY_TEMPO",
+        // Keep the existing model token stable while the engine action is generalized.
+        LegalAction::ResolveCardEndTurnEffect { .. } => "RESOLVE_STEADY_TEMPO",
         LegalAction::ResolveBannerProtection { .. } => "RESOLVE_BANNER_PROTECTION",
         LegalAction::EndTurn => "END_TURN",
         LegalAction::DeclareRest => "DECLARE_REST",
@@ -665,8 +666,8 @@ fn extract_action_scalars(
         LegalAction::ResolveBannerProtection { remove_all } => {
             scalars[0] = if *remove_all { 1.0 } else { 0.0 };
         }
-        LegalAction::ResolveSteadyTempoDeckPlacement { place } => {
-            scalars[0] = if *place { 1.0 } else { 0.0 };
+        LegalAction::ResolveCardEndTurnEffect { accept } => {
+            scalars[0] = if *accept { 1.0 } else { 0.0 };
         }
         LegalAction::ResolveSourceOpeningReroll { reroll } => {
             scalars[0] = if *reroll { 1.0 } else { 0.0 };

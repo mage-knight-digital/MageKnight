@@ -124,22 +124,12 @@ pub(crate) fn play_card_with_undo(
     player.cards_played_this_turn = player.cards_played_this_turn.saturating_add(1);
 
     // Track artifact end-turn flags (consumed by end_turn artifact steps)
-    match card_id.as_str() {
-        "goldyx_crystal_joy" => {
-            player.crystal_joy_reclaim_version = Some(if powered {
-                mk_types::pending::EffectMode::Powered
-            } else {
-                mk_types::pending::EffectMode::Basic
-            });
-        }
-        "steady_tempo" => {
-            player.steady_tempo_version = Some(if powered {
-                mk_types::pending::EffectMode::Powered
-            } else {
-                mk_types::pending::EffectMode::Basic
-            });
-        }
-        _ => {}
+    if card_id.as_str() == "goldyx_crystal_joy" {
+        player.crystal_joy_reclaim_version = Some(if powered {
+            mk_types::pending::EffectMode::Powered
+        } else {
+            mk_types::pending::EffectMode::Basic
+        });
     }
 
     // If multiple mana sources: set pending choice and return early

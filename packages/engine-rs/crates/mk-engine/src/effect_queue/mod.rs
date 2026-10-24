@@ -181,7 +181,13 @@ impl EffectQueue {
         let mut undo_holder = undo;
         while let Some(queued) = self.queue.pop_front() {
             let source = queued.source_card_id.clone();
-            match resolve::resolve_one(state, player_idx, &queued.effect, &mut undo_holder) {
+            match resolve::resolve_one(
+                state,
+                player_idx,
+                &queued.effect,
+                queued.source_card_id.as_ref(),
+                &mut undo_holder,
+            ) {
                 ResolveResult::Applied => continue,
                 ResolveResult::Skipped => continue,
                 ResolveResult::Decomposed(sub_effects) => {

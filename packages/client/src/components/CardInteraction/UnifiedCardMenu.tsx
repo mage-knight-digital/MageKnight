@@ -10,7 +10,7 @@
  * interaction experience.
  */
 
-import { useCallback, useMemo, useEffect } from "react";
+import { useCallback, useMemo, useEffect, useRef } from "react";
 import {
   PLAY_CARD_ACTION,
   type ManaSourceInfo,
@@ -60,14 +60,8 @@ export function UnifiedCardMenu() {
   // Track mana source selection for sending action
   // This is needed because reducer transitions to "completing" but we need
   // the source to send the action
-  const lastManaSourceRef = useMemo(
-    () => ({ current: null as ManaSourceInfo | null }),
-    []
-  );
-  const lastBlackSourceRef = useMemo(
-    () => ({ current: null as ManaSourceInfo | null }),
-    []
-  );
+  const lastManaSourceRef = useRef<ManaSourceInfo | null>(null);
+  const lastBlackSourceRef = useRef<ManaSourceInfo | null>(null);
 
   // Get available mana sources for current state
   const manaSources = useMemo(() => {

@@ -54,7 +54,7 @@ export function RestCompletionOverlay() {
         if (action) sendAction(action);
       }
     },
-    [sendAction, legalActions, completeRestActions, player?.hand]
+    [sendAction, legalActions, completeRestActions, player]
   );
 
   const handleUndo = useCallback(() => {

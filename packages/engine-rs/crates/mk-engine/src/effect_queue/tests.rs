@@ -114,13 +114,40 @@ use mk_types::state::*;
             mysterious_box_state: None,
             end_turn_step: 0,
             crystal_joy_reclaim_version: None,
-            steady_tempo_version: None,
+            scheduled_card_effects: vec![],
             flags: PlayerFlags::empty(),
             pending: PendingQueue::new(),
         }
     }
 
     // ---- Atomic effects ----
+
+    #[test]
+    fn schedule_end_turn_effect_records_any_source_card() {
+        let mut state = test_state();
+        let mut queue = EffectQueue::new();
+        queue.push(
+            CardEffect::ScheduleEndTurn {
+                effect: CardEndTurnEffect::OfferDeckPlacement {
+                    destination: CardDeckPosition::Top,
+                    requires_non_empty_deck: false,
+                },
+            },
+            Some(CardId::from("fixture_card")),
+        );
+
+        assert!(matches!(queue.drain(&mut state, 0), DrainResult::Complete));
+        assert_eq!(
+            state.players[0].scheduled_card_effects,
+            vec![ScheduledCardEffect {
+                source_card_id: CardId::from("fixture_card"),
+                effect: CardEndTurnEffect::OfferDeckPlacement {
+                    destination: CardDeckPosition::Top,
+                    requires_non_empty_deck: false,
+                },
+            }]
+        );
+    }
 
     #[test]
     fn gain_move() {

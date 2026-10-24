@@ -5,9 +5,10 @@ import type { Agent } from "../lib/agents.js";
 interface AgentListProps {
   agents: Agent[];
   selectedIndex: number;
+  now: number;
 }
 
-export function AgentList({ agents, selectedIndex }: AgentListProps) {
+export function AgentList({ agents, selectedIndex, now }: AgentListProps) {
   return (
     <Box
       flexDirection="column"
@@ -25,6 +26,7 @@ export function AgentList({ agents, selectedIndex }: AgentListProps) {
             key={agent.issueNumber > 0 ? agent.issueNumber : `pending-${index}`}
             agent={agent}
             isSelected={index === selectedIndex}
+            now={now}
           />
         ))
       )}
@@ -35,9 +37,10 @@ export function AgentList({ agents, selectedIndex }: AgentListProps) {
 interface AgentRowProps {
   agent: Agent;
   isSelected: boolean;
+  now: number;
 }
 
-function AgentRow({ agent, isSelected }: AgentRowProps) {
+function AgentRow({ agent, isSelected, now }: AgentRowProps) {
   const pointer = isSelected ? "│" : " ";
   const bullet = isSelected ? "●" : "○";
 
@@ -58,7 +61,7 @@ function AgentRow({ agent, isSelected }: AgentRowProps) {
 
   // Format runtime if running
   const runtime = agent.startTime
-    ? formatDuration(Date.now() - agent.startTime.getTime())
+    ? formatDuration(now - agent.startTime.getTime())
     : "";
 
   return (

@@ -125,7 +125,9 @@ export function PixiOfferView({ isVisible, onClose, initialTab = "units" }: Pixi
   const hoveredCardIndexRef = useRef<number | null>(null);
 
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   // Calculate sizes based on viewport
   const screenWidth = typeof window !== "undefined" ? window.innerWidth : 1920;

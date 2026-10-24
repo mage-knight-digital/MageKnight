@@ -958,8 +958,8 @@ fn format_action(action: &LegalAction, state: &GameState, player_idx: usize) -> 
             Some(i) => format!("Reclaim card from discard (index {})", i),
             None => "Skip Crystal Joy reclaim".into(),
         },
-        LegalAction::ResolveSteadyTempoDeckPlacement { place } => {
-            if *place { "Place Steady Tempo on deck".into() } else { "Skip Steady Tempo placement".into() }
+        LegalAction::ResolveCardEndTurnEffect { accept } => {
+            if *accept { "Place card on deck".into() } else { "Skip card end-turn effect".into() }
         }
         LegalAction::ResolveBannerProtection { remove_all } => {
             if *remove_all { "Remove all wounds (Banner of Protection)".into() } else { "Keep wounds".into() }
@@ -1311,7 +1311,7 @@ fn pending_label(active: &ActivePending) -> &'static str {
         ActivePending::UnitMaintenance(_) => "Unit maintenance",
         ActivePending::TerrainCostReduction(_) => "Terrain cost reduction",
         ActivePending::CrystalJoyReclaim(_) => "Crystal joy reclaim",
-        ActivePending::SteadyTempoDeckPlacement(_) => "Steady tempo placement",
+        ActivePending::CardEndTurnEffect(_) => "Card end-turn effect",
         ActivePending::UnitAbilityChoice { .. } => "Unit ability choice",
         ActivePending::SubsetSelection(ss) => match &ss.kind {
             mk_types::pending::SubsetSelectionKind::ManaSearch { .. } => "Select dice to reroll",

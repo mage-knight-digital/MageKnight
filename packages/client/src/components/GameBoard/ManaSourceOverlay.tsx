@@ -56,9 +56,37 @@ export function ManaSourceOverlay() {
   const [rollingDieIds, setRollingDieIds] = useState<Set<string>>(new Set());
   const [takenDieIds, setTakenDieIds] = useState<Set<string>>(new Set());
 
-  // Track previous dice state to detect changes
-  const prevDiceColorsRef = useRef<Map<string, string>>(new Map());
-  const prevTakenByRef = useRef<Map<string, string | null>>(new Map());
+  // Keep the previous dice snapshot in state so animation changes are derived
+  // during render rather than triggering a synchronous effect update.
+  const dice = state?.source.dice;
+  const [previousDice, setPreviousDice] = useState(dice);
+
+  if (dice !== previousDice) {
+    const previousById = new Map(previousDice?.map((die) => [die.id, die]));
+    const changedDieIds = (dice ?? [])
+      .filter((die) => previousById.get(die.id)?.color !== undefined && previousById.get(die.id)?.color !== die.color)
+      .map((die) => die.id);
+    const newlyTakenDieIds = (dice ?? [])
+      .filter((die) => previousById.get(die.id)?.takenByPlayerId === null && die.takenByPlayerId !== null)
+      .map((die) => die.id);
+
+    setPreviousDice(dice);
+    if (changedDieIds.length > 0) setRollingDieIds(new Set(changedDieIds));
+    if (newlyTakenDieIds.length > 0) setTakenDieIds(new Set(newlyTakenDieIds));
+  }
+
+  useEffect(() => {
+    if (rollingDieIds.size === 0) return;
+    const duration = ROLL_ANIMATION_MS + rollingDieIds.size * STAGGER_DELAY_MS;
+    const timeout = setTimeout(() => setRollingDieIds(new Set()), duration);
+    return () => clearTimeout(timeout);
+  }, [rollingDieIds]);
+
+  useEffect(() => {
+    if (takenDieIds.size === 0) return;
+    const timeout = setTimeout(() => setTakenDieIds(new Set()), TAKEN_ANIMATION_MS);
+    return () => clearTimeout(timeout);
+  }, [takenDieIds]);
 
   // Trigger reveal animation when shouldRevealManaSource becomes true
   useEffect(() => {
@@ -103,84 +131,13 @@ export function ManaSourceOverlay() {
     }
   }, [isIntroComplete]);
 
-  // Detect dice color changes and trigger roll animation
-  useEffect(() => {
-    if (!state?.source.dice) return;
-
-    const prevColors = prevDiceColorsRef.current;
-    const changedDieIds: string[] = [];
-
-    // Find dice whose colors changed
-    for (const die of state.source.dice) {
-      const prevColor = prevColors.get(die.id);
-      if (prevColor !== undefined && prevColor !== die.color) {
-        changedDieIds.push(die.id);
-      }
-    }
-
-    // Update ref with current colors
-    const newColors = new Map<string, string>();
-    for (const die of state.source.dice) {
-      newColors.set(die.id, die.color);
-    }
-    prevDiceColorsRef.current = newColors;
-
-    // Trigger animation for changed dice
-    if (changedDieIds.length > 0) {
-      setRollingDieIds(new Set(changedDieIds));
-
-      // Clear animation after it completes (with stagger time)
-      const totalDuration =
-        ROLL_ANIMATION_MS + changedDieIds.length * STAGGER_DELAY_MS;
-      const timeout = setTimeout(() => {
-        setRollingDieIds(new Set());
-      }, totalDuration);
-
-      return () => clearTimeout(timeout);
-    }
-  }, [state?.source.dice]);
-
-  // Detect when dice are taken (used) and trigger taken animation
-  useEffect(() => {
-    if (!state?.source.dice) return;
-
-    const prevTakenBy = prevTakenByRef.current;
-    const newlyTakenDieIds: string[] = [];
-
-    // Find dice that just got taken (went from null to a playerId)
-    for (const die of state.source.dice) {
-      const prevTaken = prevTakenBy.get(die.id);
-      if (prevTaken === null && die.takenByPlayerId !== null) {
-        newlyTakenDieIds.push(die.id);
-      }
-    }
-
-    // Update ref with current taken state
-    const newTakenBy = new Map<string, string | null>();
-    for (const die of state.source.dice) {
-      newTakenBy.set(die.id, die.takenByPlayerId);
-    }
-    prevTakenByRef.current = newTakenBy;
-
-    // Trigger animation for newly taken dice
-    if (newlyTakenDieIds.length > 0) {
-      setTakenDieIds(new Set(newlyTakenDieIds));
-
-      const timeout = setTimeout(() => {
-        setTakenDieIds(new Set());
-      }, TAKEN_ANIMATION_MS);
-
-      return () => clearTimeout(timeout);
-    }
-  }, [state?.source.dice]);
-
   // Derive available dice from source state — untaken dice are clickable
   const availableDice: readonly AvailableDie[] = useMemo(() => {
-    if (!state?.source.dice) return [];
-    return state.source.dice
+    if (!dice) return [];
+    return dice
       .filter((d) => !d.takenByPlayerId)
       .map((d) => ({ dieId: d.id, color: d.color }));
-  }, [state?.source.dice]);
+  }, [dice]);
 
   const handleDieClick = useCallback((_dieId: string, dieColor: ManaColor) => {
     // Basic color dice: no standalone action needed (mana sourced inline via card play)

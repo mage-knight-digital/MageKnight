@@ -2,6 +2,7 @@
 
 use mk_types::effect::*;
 use mk_types::enums::*;
+use mk_types::ids::CardId;
 use mk_types::modifier::RuleOverride;
 use mk_types::pending::EffectMode;
 use mk_types::state::*;
@@ -21,6 +22,7 @@ pub(super) fn resolve_one(
     state: &mut GameState,
     player_idx: usize,
     effect: &CardEffect,
+    source_card_id: Option<&CardId>,
     undo: &mut Option<&mut UndoStack>,
 ) -> ResolveResult {
     match effect {
@@ -61,6 +63,19 @@ pub(super) fn resolve_one(
         CardEffect::GainCrystal { color } => apply_gain_crystal(state, player_idx, *color),
         CardEffect::TakeWound => apply_take_wound(state, player_idx),
         CardEffect::Noop => ResolveResult::Skipped,
+        CardEffect::ScheduleEndTurn { effect } => {
+            if let Some(source_card_id) = source_card_id {
+                state.players[player_idx]
+                    .scheduled_card_effects
+                    .push(mk_types::effect::ScheduledCardEffect {
+                        source_card_id: source_card_id.clone(),
+                        effect: *effect,
+                    });
+                ResolveResult::Applied
+            } else {
+                ResolveResult::Skipped
+            }
+        }
 
         // === Multi-step / cost effects ===
         CardEffect::ConvertManaToCrystal => apply_convert_mana_to_crystal(state, player_idx),

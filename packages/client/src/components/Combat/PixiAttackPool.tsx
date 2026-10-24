@@ -92,6 +92,10 @@ const CHIP_GAP = 6;
 const SECTION_GAP = 16;
 const POOL_PADDING = 12;
 
+function enablePixiStageEvents(stage: Container): void {
+  stage.eventMode = "static";
+}
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -684,7 +688,7 @@ export function PixiAttackPool({
     });
 
     // Attach global pointer handlers to stage
-    app.stage.eventMode = "static";
+    enablePixiStageEvents(app.stage);
     app.stage.on("pointermove", handlePointerMove);
     app.stage.on("pointerup", handlePointerUp);
     app.stage.on("pointerupoutside", handlePointerUp);

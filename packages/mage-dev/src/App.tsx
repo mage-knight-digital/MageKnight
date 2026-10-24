@@ -39,6 +39,7 @@ export function App() {
   const [activeTab, setActiveTab] = useState<TabType>("worktrees");
   const [worktrees, setWorktrees] = useState<Worktree[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [now, setNow] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [agentSelectedIndex, setAgentSelectedIndex] = useState(0);
   const [mode, setMode] = useState<Mode>({ type: "normal" });
@@ -61,6 +62,7 @@ export function App() {
   const refreshAgents = useCallback(() => {
     const ags = getAgents();
     setAgents(ags);
+    setNow(Date.now());
     // Keep selection in bounds
     setAgentSelectedIndex((prev) => Math.min(prev, Math.max(0, ags.length - 1)));
   }, []);
@@ -73,9 +75,12 @@ export function App() {
 
   // Initial load and auto-refresh
   useEffect(() => {
-    refresh();
+    const initialRefresh = setTimeout(refresh, 0);
     const interval = setInterval(refresh, 2000);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(initialRefresh);
+      clearInterval(interval);
+    };
   }, [refresh]);
 
   // Clear message after a delay
@@ -459,7 +464,7 @@ export function App() {
 
       {activeTab === "agents" && (
         <>
-          <AgentList agents={agents} selectedIndex={agentSelectedIndex} />
+          <AgentList agents={agents} selectedIndex={agentSelectedIndex} now={now} />
 
           {mode.type === "confirm-kill-agent" && (
             <Box marginTop={1}>

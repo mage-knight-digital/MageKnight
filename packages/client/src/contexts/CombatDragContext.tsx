@@ -128,7 +128,9 @@ export function CombatDragProvider({
 
   // Stable callback ref
   const onAssignRef = useRef(onAssign);
-  onAssignRef.current = onAssign;
+  useEffect(() => {
+    onAssignRef.current = onAssign;
+  }, [onAssign]);
 
   // Hit-test a position against registered enemy bounds
   const getHoveredEnemy = useCallback((position: Position): string | null => {

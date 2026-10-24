@@ -101,7 +101,9 @@ export function PixiPhaseRail({
 
   // Stable callback ref for onEndPhase
   const onEndPhaseRef = useRef(onEndPhase);
-  onEndPhaseRef.current = onEndPhase;
+  useEffect(() => {
+    onEndPhaseRef.current = onEndPhase;
+  }, [onEndPhase]);
 
   const currentIndex = PHASES.findIndex((p) => p.id === currentPhase);
   const isLastPhase = currentPhase === COMBAT_PHASE_ATTACK;
