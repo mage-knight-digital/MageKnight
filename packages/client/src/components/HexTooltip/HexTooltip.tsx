@@ -10,7 +10,6 @@
  * controlled by user settings later.
  */
 
-import { useEffect, useState } from "react";
 import type { HexCoord, ClientHexState, ClientSite, TimeOfDay } from "@mage-knight/shared";
 import { SiteTooltipContent } from "./SiteTooltipContent";
 import { EnemyTooltipContent } from "./EnemyTooltipContent";
@@ -92,18 +91,6 @@ export function HexTooltip({
   onMouseEnter,
   onMouseLeave,
 }: HexTooltipProps) {
-  // Track animation state for staggered reveals
-  const [isAnimating, setIsAnimating] = useState(false);
-
-  // Reset animation when tooltip becomes visible
-  useEffect(() => {
-    if (isVisible) {
-      setIsAnimating(true);
-    } else {
-      setIsAnimating(false);
-    }
-  }, [isVisible, coord?.q, coord?.r]);
-
   // Don't render if no data or not visible
   if (!hex || !position || !isVisible) {
     return null;
@@ -132,7 +119,8 @@ export function HexTooltip({
 
   return (
     <div
-      className={`hex-tooltip ${isAnimating ? "hex-tooltip--animating" : ""}`}
+      key={coord ? `${coord.q},${coord.r}` : undefined}
+      className="hex-tooltip hex-tooltip--animating"
       style={tooltipStyle}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
@@ -141,7 +129,7 @@ export function HexTooltip({
         {hasSite && hex.site && (
           <SiteTooltipContent
             site={hex.site}
-            isAnimating={isAnimating}
+            isAnimating
             timeOfDay={timeOfDay}
             enemies={hex.enemies}
           />
@@ -149,7 +137,7 @@ export function HexTooltip({
         {hasEnemies && hex.enemies && hex.enemies.length > 0 && (
           <EnemyTooltipContent
             enemies={hex.enemies}
-            isAnimating={isAnimating}
+            isAnimating
             showHeader={hasSite}
             startIndex={enemyStartIndex}
             isRampaging={hex.rampagingEnemies && hex.rampagingEnemies.length > 0}
@@ -160,9 +148,7 @@ export function HexTooltip({
           <div
             className="hex-tooltip__hint"
             style={{
-              animationDelay: isAnimating
-                ? `${(enemyStartIndex + (hasEnemies ? hex.enemies.length + 2 : 0)) * 0.08}s`
-                : "0s",
+              animationDelay: `${(enemyStartIndex + (hasEnemies ? hex.enemies.length + 2 : 0)) * 0.08}s`,
             }}
           >
             Space for actions &bull; Right-click for details

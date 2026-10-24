@@ -34,6 +34,13 @@ import { useCombatActions } from "../../hooks/useCombatActions";
 import type { LegalAction } from "../../rust/types";
 import "./CombatOverlay.css";
 
+type DamageAssignment = {
+  enemyIndex: number;
+  attackIndex: number;
+  heroAction: LegalAction;
+  unitActions: { unitInstanceId: string; action: LegalAction }[];
+};
+
 type EffectType = "damage" | "block" | "attack" | null;
 
 interface CombatOverlayProps {
@@ -348,12 +355,25 @@ function CombatOverlayInner({ combat }: CombatOverlayProps) {
 
   // Damage assignment panel state — tracks which enemy's damage is being assigned
   // When set, shows the DamageAssignmentPanel with available unit options
-  const [damageAssignmentEnemy, setDamageAssignmentEnemy] = useState<{
-    enemyIndex: number;
-    attackIndex: number;
-    heroAction: LegalAction;
-    unitActions: { unitInstanceId: string; action: LegalAction }[];
+  const [damageAssignmentSelection, setDamageAssignmentSelection] = useState<{
+    phase: typeof phase;
+    enemy: DamageAssignment;
   } | null>(null);
+  const [damageAssignmentPhase, setDamageAssignmentPhase] = useState(phase);
+  if (damageAssignmentPhase !== phase) {
+    setDamageAssignmentPhase(phase);
+    setDamageAssignmentSelection(null);
+  }
+  const damageAssignmentEnemy =
+    damageAssignmentSelection?.phase === phase
+      ? damageAssignmentSelection.enemy
+      : null;
+  const setDamageAssignmentEnemy = useCallback(
+    (enemy: DamageAssignment | null) => {
+      setDamageAssignmentSelection(enemy ? { phase, enemy } : null);
+    },
+    [phase]
+  );
 
   const triggerEffect = useCallback((effect: EffectType) => {
     setActiveEffect(effect);
@@ -401,11 +421,6 @@ function CombatOverlayInner({ combat }: CombatOverlayProps) {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
-
-  // Reset damage assignment panel when phase changes
-  useEffect(() => {
-    setDamageAssignmentEnemy(null);
-  }, [phase]);
 
   // Calculate token positions for PixiEnemyCard (must match PixiEnemyTokens layout)
   const enemyCardData = useMemo(() => {
@@ -516,7 +531,7 @@ function CombatOverlayInner({ combat }: CombatOverlayProps) {
       // No units — send damage directly to hero
       sendAction(heroOpt.action);
     }
-  }, [combatActions.damageToHeroOptions, combatActions.damageToUnitOptions, sendAction]);
+  }, [combatActions.damageToHeroOptions, combatActions.damageToUnitOptions, sendAction, setDamageAssignmentEnemy]);
 
   return (
     <div className="combat-scene" data-testid="combat-overlay">

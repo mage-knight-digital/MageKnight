@@ -1219,7 +1219,7 @@ pub(crate) fn end_round(state: &mut GameState) {
 
     // Monastery AA offer refresh: return old → draw new per unburned monastery
     let unburned_monastery_count = count_unburned_monasteries(&state.map.hexes);
-    let old_monastery_aas: Vec<CardId> = state.offers.monastery_advanced_actions.drain(..).collect();
+    let old_monastery_aas: Vec<CardId> = std::mem::take(&mut state.offers.monastery_advanced_actions);
     for card in old_monastery_aas {
         state.decks.advanced_action_deck.push(card);
     }

@@ -280,7 +280,7 @@ pub(super) fn apply_resolve_tactic_decision(
 
         TacticDecisionData::SparingPowerTake => {
             let player = &mut state.players[player_idx];
-            let stored: Vec<CardId> = player.tactic_state.sparing_power_stored.drain(..).collect();
+            let stored: Vec<CardId> = std::mem::take(&mut player.tactic_state.sparing_power_stored);
             for card_id in &stored {
                 events.push(GameEvent::CardGained {
                     player_id: player.id.clone(),

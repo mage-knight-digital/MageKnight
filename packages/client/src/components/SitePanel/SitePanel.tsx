@@ -648,13 +648,19 @@ export function SitePanel({
   const [isAnimating, setIsAnimating] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
 
+  if (isOpen && !shouldRender) {
+    setShouldRender(true);
+  }
+  if (!isOpen && isAnimating) {
+    setIsAnimating(false);
+  }
+
   // Get game state for unit offer
   const { state } = useGame();
 
   // Handle open/close animation
   useEffect(() => {
     if (isOpen) {
-      setShouldRender(true);
       // Small delay to trigger CSS transition
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -662,7 +668,6 @@ export function SitePanel({
         });
       });
     } else {
-      setIsAnimating(false);
       // Wait for animation to finish before unmounting
       const timer = setTimeout(() => {
         setShouldRender(false);
@@ -723,7 +728,7 @@ export function SitePanel({
     : null;
 
   return (
-    <div className={`site-panel ${isAnimating ? "site-panel--open" : ""}`}>
+    <div className={`site-panel ${isOpen && isAnimating ? "site-panel--open" : ""}`}>
       {/* Header */}
       <div className="site-panel__header">
         <div className="site-panel__title">

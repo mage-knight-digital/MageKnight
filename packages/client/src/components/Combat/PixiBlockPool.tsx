@@ -85,6 +85,10 @@ const CHIP_GAP = 6;
 // Pool layout
 const POOL_PADDING = 12;
 
+function enablePixiStageEvents(stage: Container): void {
+  stage.eventMode = "static";
+}
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -538,7 +542,7 @@ export function PixiBlockPool({ availableBlock }: PixiBlockPoolProps) {
     rootContainer.addChild(sectionContainer);
 
     // Attach global pointer handlers to stage
-    app.stage.eventMode = "static";
+    enablePixiStageEvents(app.stage);
     app.stage.on("pointermove", handlePointerMove);
     app.stage.on("pointerup", handlePointerUp);
     app.stage.on("pointerupoutside", handlePointerUp);

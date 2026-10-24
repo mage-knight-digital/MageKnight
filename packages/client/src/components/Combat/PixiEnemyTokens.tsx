@@ -58,13 +58,17 @@ export function PixiEnemyTokens({ enemies, onEnemyClick }: PixiEnemyTokensProps)
   const tokenContainersRef = useRef<Map<string, Container>>(new Map());
   const dropHighlightsRef = useRef<Map<string, Graphics>>(new Map());
   const isDestroyedRef = useRef(false);
-  const [texturesLoaded, setTexturesLoaded] = useState(false);
+  const textureKey = enemies.map((enemy) => enemy.enemy.enemyId).join("|");
+  const [loadedTextureKey, setLoadedTextureKey] = useState<string | null>(null);
+  const texturesLoaded = loadedTextureKey === textureKey;
   // Track which enemies have already played their entry animation
   const animatedEnemiesRef = useRef<Set<string>>(new Set());
 
   // Stable callback ref
   const onEnemyClickRef = useRef(onEnemyClick);
-  onEnemyClickRef.current = onEnemyClick;
+  useEffect(() => {
+    onEnemyClickRef.current = onEnemyClick;
+  }, [onEnemyClick]);
 
   // Calculate token size based on viewport (matching CSS clamp)
   const getTokenSize = useCallback(() => {
@@ -96,7 +100,7 @@ export function PixiEnemyTokens({ enemies, onEnemyClick }: PixiEnemyTokensProps)
 
   // Preload enemy textures
   useEffect(() => {
-    setTexturesLoaded(false);
+    let isActive = true;
 
     const loadTextures = async () => {
       const urls = enemies.map((e) => getEnemyImageUrl(e.enemy.enemyId));
@@ -111,15 +115,18 @@ export function PixiEnemyTokens({ enemies, onEnemyClick }: PixiEnemyTokensProps)
             })
           )
         );
-        setTexturesLoaded(true);
+        if (isActive) setLoadedTextureKey(textureKey);
       } catch {
         // Continue anyway with placeholders
-        setTexturesLoaded(true);
+        if (isActive) setLoadedTextureKey(textureKey);
       }
     };
 
     loadTextures();
-  }, [enemies]);
+    return () => {
+      isActive = false;
+    };
+  }, [enemies, textureKey]);
 
   // Build the enemy tokens
   useEffect(() => {

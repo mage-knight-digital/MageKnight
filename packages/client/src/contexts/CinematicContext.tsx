@@ -24,6 +24,7 @@ import {
   useState,
   useCallback,
   useRef,
+  useEffect,
   type ReactNode,
 } from "react";
 
@@ -104,7 +105,7 @@ export function CinematicProvider({ children }: { children: ReactNode }) {
   // Track step completion timer
   const stepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Track if cinematics are blocked
-  const blockCountRef = useRef(0);
+  const [blockCount, setBlockCount] = useState(0);
 
   // Use a ref to break the circular dependency between executeStep and advanceToNextStep
   const advanceToNextStepRef = useRef<(sequence: CinematicSequence, currentIndex: number) => void>(() => {});
@@ -163,14 +164,16 @@ export function CinematicProvider({ children }: { children: ReactNode }) {
   }, [executeStep]);
 
   // Keep the ref in sync with the latest callback
-  advanceToNextStepRef.current = advanceToNextStep;
+  useEffect(() => {
+    advanceToNextStepRef.current = advanceToNextStep;
+  }, [advanceToNextStep]);
 
   /**
    * Start playing a cinematic sequence
    */
   const playCinematic = useCallback((sequence: CinematicSequence) => {
     // Don't start if blocked
-    if (blockCountRef.current > 0) {
+    if (blockCount > 0) {
       console.log(`[Cinematic] Blocked, skipping: ${sequence.name}`);
       sequence.onComplete?.();
       return;
@@ -194,7 +197,7 @@ export function CinematicProvider({ children }: { children: ReactNode }) {
 
     // Start first step
     executeStep(sequence, 0);
-  }, [state.isPlaying, state.sequence?.name, executeStep]);
+  }, [state.isPlaying, state.sequence?.name, executeStep, blockCount]);
 
   /**
    * Signal that the current async step is complete
@@ -238,9 +241,9 @@ export function CinematicProvider({ children }: { children: ReactNode }) {
    * Block cinematics temporarily
    */
   const blockCinematics = useCallback((): (() => void) => {
-    blockCountRef.current += 1;
+    setBlockCount((count) => count + 1);
     return () => {
-      blockCountRef.current -= 1;
+      setBlockCount((count) => Math.max(0, count - 1));
     };
   }, []);
 
@@ -253,7 +256,7 @@ export function CinematicProvider({ children }: { children: ReactNode }) {
     playCinematic,
     completeStep,
     requestSkip,
-    areCinematicsBlocked: blockCountRef.current > 0,
+    areCinematicsBlocked: blockCount > 0,
     blockCinematics,
   };
 
