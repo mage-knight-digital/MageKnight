@@ -1,5 +1,5 @@
 use mk_types::enums::{CombatPhase, DeedCardType, DiscardForBonusFilter, GladeWoundChoice};
-use mk_types::legal_action::{LegalAction, TacticDecisionData};
+use mk_types::legal_action::{CardEndTurnDecision, LegalAction, TacticDecisionData};
 use mk_types::pending::{ActivePending, PendingLevelUpReward, PendingTacticDecision, SiteReward};
 use mk_types::state::PlayerFlags;
 
@@ -223,13 +223,15 @@ pub(super) fn enumerate_pending(
                     let player = &state.players[player_idx];
                     for (i, card) in player.discard.iter().enumerate() {
                         if allow_wounds || card.as_str() != WOUND_CARD_ID {
-                            actions.push(LegalAction::ResolveCrystalJoyReclaim {
-                                discard_index: Some(i),
+                            actions.push(LegalAction::ResolveCardEndTurnEffect {
+                                decision: CardEndTurnDecision::SelectDiscard {
+                                    discard_index: Some(i),
+                                },
                             });
                         }
                     }
-                    actions.push(LegalAction::ResolveCrystalJoyReclaim {
-                        discard_index: None,
+                    actions.push(LegalAction::ResolveCardEndTurnEffect {
+                        decision: CardEndTurnDecision::Skip,
                     });
                 }
                 mk_types::effect::CardEndTurnEffect::OfferDeckPlacement {
@@ -237,9 +239,13 @@ pub(super) fn enumerate_pending(
                     ..
                 } => {
                     if !requires_non_empty_deck || !state.players[player_idx].deck.is_empty() {
-                        actions.push(LegalAction::ResolveCardEndTurnEffect { accept: true });
+                        actions.push(LegalAction::ResolveCardEndTurnEffect {
+                            decision: CardEndTurnDecision::Accept,
+                        });
                     }
-                    actions.push(LegalAction::ResolveCardEndTurnEffect { accept: false });
+                    actions.push(LegalAction::ResolveCardEndTurnEffect {
+                        decision: CardEndTurnDecision::Skip,
+                    });
                 }
             }
         }

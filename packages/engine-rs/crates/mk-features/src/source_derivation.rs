@@ -123,12 +123,11 @@ pub fn derive_source_str(action: &LegalAction, state: &GameState, player_idx: us
         }
         LegalAction::ResolveTraining { .. } => "training.card",
         LegalAction::ResolveMaximalEffect { .. } => "maximal_effect.card",
-        LegalAction::ResolveCrystalJoyReclaim { discard_index } => {
-            if discard_index.is_some() { "crystal_joy.card" } else { "crystal_joy.skip" }
-        }
-        LegalAction::ResolveCardEndTurnEffect { accept } => {
-            if *accept { "steady_tempo.place" } else { "steady_tempo.skip" }
-        }
+        LegalAction::ResolveCardEndTurnEffect { decision } => match decision {
+            mk_types::legal_action::CardEndTurnDecision::Accept => "card_end_turn.accept",
+            mk_types::legal_action::CardEndTurnDecision::Skip => "card_end_turn.skip",
+            mk_types::legal_action::CardEndTurnDecision::SelectDiscard { .. } => "card_end_turn.select_discard",
+        },
         LegalAction::ResolveBannerProtection { remove_all } => {
             if *remove_all { "banner_protection.remove" } else { "banner_protection.skip" }
         }

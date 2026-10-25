@@ -89,9 +89,7 @@ fn derive_action_type(action: &LegalAction) -> u16 {
         LegalAction::ChooseLevelUpAdvancedAction { .. } => "CHOOSE_LEVEL_UP_AA",
         LegalAction::SubsetSelect { .. } => "DECLARE_ATTACK_TARGETS",
         LegalAction::SubsetConfirm => "DECLARE_ATTACK_TARGETS",
-        LegalAction::ResolveCrystalJoyReclaim { .. } => "RESOLVE_CRYSTAL_JOY_RECLAIM",
-        // Keep the existing model token stable while the engine action is generalized.
-        LegalAction::ResolveCardEndTurnEffect { .. } => "RESOLVE_STEADY_TEMPO",
+        LegalAction::ResolveCardEndTurnEffect { .. } => "RESOLVE_CARD_END_TURN_EFFECT",
         LegalAction::ResolveBannerProtection { .. } => "RESOLVE_BANNER_PROTECTION",
         LegalAction::EndTurn => "END_TURN",
         LegalAction::DeclareRest => "DECLARE_REST",
@@ -666,8 +664,17 @@ fn extract_action_scalars(
         LegalAction::ResolveBannerProtection { remove_all } => {
             scalars[0] = if *remove_all { 1.0 } else { 0.0 };
         }
-        LegalAction::ResolveCardEndTurnEffect { accept } => {
-            scalars[0] = if *accept { 1.0 } else { 0.0 };
+        LegalAction::ResolveCardEndTurnEffect { decision } => {
+            match decision {
+                mk_types::legal_action::CardEndTurnDecision::Accept => scalars[0] = 1.0,
+                mk_types::legal_action::CardEndTurnDecision::Skip => scalars[0] = 0.0,
+                mk_types::legal_action::CardEndTurnDecision::SelectDiscard { discard_index } => {
+                    scalars[0] = 0.5;
+                    if let Some(index) = discard_index {
+                        scalars[19] = scale(*index as f32, 20.0);
+                    }
+                }
+            }
         }
         LegalAction::ResolveSourceOpeningReroll { reroll } => {
             scalars[0] = if *reroll { 1.0 } else { 0.0 };
@@ -1195,6 +1202,19 @@ mod tests {
         assert!(ACTION_TYPE_VOCAB.encode("MOVE") > 0);
         assert!(ACTION_TYPE_VOCAB.encode("END_TURN") > 0);
         assert!(ACTION_TYPE_VOCAB.encode("EXPLORE") > 0);
+        assert!(ACTION_TYPE_VOCAB.encode("RESOLVE_CARD_END_TURN_EFFECT") > 0);
+    }
+
+    #[test]
+    fn card_end_turn_decision_encodes_choice_and_discard_index() {
+        let action = LegalAction::ResolveCardEndTurnEffect {
+            decision: mk_types::legal_action::CardEndTurnDecision::SelectDiscard {
+                discard_index: Some(3),
+            },
+        };
+        let scalars = scalars_for(&action);
+        assert_eq!(scalars[0], 0.5, "select-discard decision marker");
+        assert_eq!(scalars[19], scale(3.0, 20.0), "discard index");
     }
 
     // =========================================================================

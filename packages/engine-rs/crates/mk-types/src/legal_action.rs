@@ -25,6 +25,15 @@ pub enum TacticDecisionData {
     SparingPowerTake,
 }
 
+/// Player decision for a scheduled card end-turn effect.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum CardEndTurnDecision {
+    Accept,
+    Skip,
+    SelectDiscard { discard_index: Option<usize> },
+}
+
 /// A fully parameterized, executable action.
 ///
 /// Every variant carries all data needed for execution — no further
@@ -139,13 +148,8 @@ pub enum LegalAction {
     SubsetSelect { index: usize },
     /// Confirm the current subset selection (execute it).
     SubsetConfirm,
-    ResolveCrystalJoyReclaim {
-        /// Index into discard pile, or None to skip.
-        discard_index: Option<usize>,
-    },
     ResolveCardEndTurnEffect {
-        /// true = perform the scheduled effect, false = skip
-        accept: bool,
+        decision: CardEndTurnDecision,
     },
     ResolveBannerProtection {
         /// true = remove all wounds received this turn, false = keep them
@@ -335,4 +339,32 @@ pub struct LegalActionSet {
     pub player_idx: usize,
     /// The legal actions, in deterministic order.
     pub actions: Vec<LegalAction>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CardEndTurnDecision, LegalAction};
+
+    #[test]
+    fn card_end_turn_decisions_have_stable_wire_shape() {
+        let accept = serde_json::to_value(LegalAction::ResolveCardEndTurnEffect {
+            decision: CardEndTurnDecision::Accept,
+        })
+        .unwrap();
+        assert_eq!(accept, serde_json::json!({
+            "ResolveCardEndTurnEffect": { "decision": { "type": "accept" } }
+        }));
+
+        let select_discard = serde_json::to_value(LegalAction::ResolveCardEndTurnEffect {
+            decision: CardEndTurnDecision::SelectDiscard {
+                discard_index: Some(2),
+            },
+        })
+        .unwrap();
+        assert_eq!(select_discard, serde_json::json!({
+            "ResolveCardEndTurnEffect": {
+                "decision": { "type": "select_discard", "discard_index": 2 }
+            }
+        }));
+    }
 }

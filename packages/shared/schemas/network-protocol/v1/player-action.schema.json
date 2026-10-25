@@ -132,10 +132,7 @@
       "$ref": "#/definitions/ResolveDeepMineAction"
     },
     {
-      "$ref": "#/definitions/ResolveCrystalJoyReclaimAction"
-    },
-    {
-      "$ref": "#/definitions/ResolveSteadyTempoAction"
+      "$ref": "#/definitions/ResolveCardEndTurnEffectAction"
     },
     {
       "$ref": "#/definitions/ResolveBannerProtectionAction"
@@ -511,6 +508,56 @@
         "type"
       ],
       "type": "object"
+    },
+    "CardEndTurnDecision": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "accept",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "skip",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "discardIndex": {
+              "type": [
+                "null",
+                "number"
+              ]
+            },
+            "type": {
+              "const": "select_discard",
+              "type": "string"
+            }
+          },
+          "required": [
+            "discardIndex",
+            "type"
+          ],
+          "type": "object"
+        }
+      ]
     },
     "ChallengeRampagingAction": {
       "additionalProperties": false,
@@ -1490,6 +1537,23 @@
       ],
       "type": "object"
     },
+    "ResolveCardEndTurnEffectAction": {
+      "additionalProperties": false,
+      "properties": {
+        "decision": {
+          "$ref": "#/definitions/CardEndTurnDecision"
+        },
+        "type": {
+          "const": "RESOLVE_CARD_END_TURN_EFFECT",
+          "type": "string"
+        }
+      },
+      "required": [
+        "decision",
+        "type"
+      ],
+      "type": "object"
+    },
     "ResolveChoiceAction": {
       "additionalProperties": false,
       "properties": {
@@ -1503,23 +1567,6 @@
       },
       "required": [
         "choiceIndex",
-        "type"
-      ],
-      "type": "object"
-    },
-    "ResolveCrystalJoyReclaimAction": {
-      "additionalProperties": false,
-      "properties": {
-        "cardId": {
-          "description": "Branded ID types shared between client and server\n\nThese are used in actions and events that flow between client and server.",
-          "type": "string"
-        },
-        "type": {
-          "const": "RESOLVE_CRYSTAL_JOY_RECLAIM",
-          "type": "string"
-        }
-      },
-      "required": [
         "type"
       ],
       "type": "object"
@@ -1740,23 +1787,6 @@
       },
       "required": [
         "reroll",
-        "type"
-      ],
-      "type": "object"
-    },
-    "ResolveSteadyTempoAction": {
-      "additionalProperties": false,
-      "properties": {
-        "place": {
-          "type": "boolean"
-        },
-        "type": {
-          "const": "RESOLVE_STEADY_TEMPO",
-          "type": "string"
-        }
-      },
-      "required": [
-        "place",
         "type"
       ],
       "type": "object"

@@ -82,7 +82,7 @@ export type LegalAction =
   | { InitiateManaSearch: Record<string, never> }
   | { ResolveSourceOpeningReroll: { reroll: boolean } }
   | { ResolveCrystalRollColor: { color: string } }
-  | { ResolveCrystalJoyReclaim: { discard_index: number | null } }
+  | { ResolveCardEndTurnEffect: { decision: CardEndTurnDecisionWire } }
   // Artifact resolution
   | { ResolveTraining: { selection_index: number } }
   | { ResolveBookOfWisdom: { selection_index: number } }
@@ -90,7 +90,6 @@ export type LegalAction =
   | { ResolveCircletOfProficiency: { selection_index: number } }
   | { ResolveMaximalEffect: { hand_index: number } }
   | { ResolveMeditation: { selection_index: number; place_on_top: boolean | null } }
-  | { ResolveCardEndTurnEffect: { accept: boolean } }
   | { ResolveBannerProtection: { remove_all: boolean } }
   // Hex/terrain cost reduction
   | { ResolveHexCostReduction: { coordinate: { q: number; r: number } } }
@@ -120,6 +119,11 @@ export type LegalAction =
   | "ForfeitTurn"
   | "SubsetConfirm"
   | "BuyCityAdvancedActionFromDeck";
+
+export type CardEndTurnDecisionWire =
+  | { type: "accept" }
+  | { type: "skip" }
+  | { type: "select_discard"; discard_index: number | null };
 
 // =============================================================================
 // Helper functions
