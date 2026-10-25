@@ -201,7 +201,6 @@ fn create_player(
         time_bending_set_aside_cards: Vec::new(),
         mysterious_box_state: None,
         end_turn_step: 0,
-        crystal_joy_reclaim_version: None,
         scheduled_card_effects: Vec::new(),
 
         flags: PlayerFlags::empty(),

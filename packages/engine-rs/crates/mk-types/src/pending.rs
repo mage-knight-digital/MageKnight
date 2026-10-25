@@ -761,12 +761,6 @@ pub enum MeditationPhase {
     PlaceCards,
 }
 
-/// Pending Crystal Joy reclaim state.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct PendingCrystalJoyReclaim {
-    pub version: EffectMode,
-}
-
 /// Pending card lifecycle effect waiting for the player's decision.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PendingCardEndTurnEffect {
@@ -819,7 +813,6 @@ pub enum ActivePending {
     PlunderDecision,
     UnitMaintenance(ArrayVec<UnitMaintenanceEntry, MAX_UNIT_MAINTENANCE>),
     TerrainCostReduction(PendingTerrainCostReduction),
-    CrystalJoyReclaim(PendingCrystalJoyReclaim),
     CardEndTurnEffect(PendingCardEndTurnEffect),
     /// Unit ability that requires player choice (MoveOrInfluence, AttackOrBlockWoundSelf, Altem Mages).
     UnitAbilityChoice {

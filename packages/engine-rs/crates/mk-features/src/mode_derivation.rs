@@ -50,9 +50,13 @@ pub fn derive_mode_str(state: &GameState, player_idx: usize) -> &'static str {
                     mk_types::pending::TerrainCostReductionMode::Terrain => "pending_terrain_cost_reduction",
                 }
             }
-            ActivePending::CrystalJoyReclaim(_) => "pending_crystal_joy_reclaim",
-            // Preserve the existing RL pending-mode token during this internal refactor.
-            ActivePending::CardEndTurnEffect(_) => "pending_steady_tempo",
+            ActivePending::CardEndTurnEffect(pending) => match pending.effect {
+                mk_types::effect::CardEndTurnEffect::OfferDiscardReclaim { .. } => {
+                    "pending_crystal_joy_reclaim"
+                }
+                // Preserve the existing RL pending-mode token for deck-placement effects.
+                mk_types::effect::CardEndTurnEffect::OfferDeckPlacement { .. } => "pending_steady_tempo",
+            },
             ActivePending::UnitAbilityChoice { .. } => "pending_choice",
             ActivePending::SubsetSelection(_) => "pending_choice",
             ActivePending::SelectCombatEnemy { .. } => "pending_choice",

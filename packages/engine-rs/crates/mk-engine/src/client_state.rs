@@ -202,8 +202,9 @@ fn pending_card_ids(active: &ActivePending, player: &PlayerState) -> Vec<CardId>
             // Expose discard pile card IDs so the client can show card images
             player.discard.clone()
         }
-        ActivePending::CrystalJoyReclaim(_) => {
-            // Expose discard pile card IDs for reclaim selection
+        ActivePending::CardEndTurnEffect(pending)
+            if matches!(pending.effect, mk_types::effect::CardEndTurnEffect::OfferDiscardReclaim { .. }) =>
+        {
             player.discard.clone()
         }
         ActivePending::TacticDecision(td) => {
@@ -243,8 +244,10 @@ fn pending_kind(active: &ActivePending) -> &'static str {
         ActivePending::PlunderDecision => "plunder_decision",
         ActivePending::UnitMaintenance(_) => "unit_maintenance",
         ActivePending::TerrainCostReduction(_) => "terrain_cost_reduction",
-        ActivePending::CrystalJoyReclaim(_) => "crystal_joy_reclaim",
-        ActivePending::CardEndTurnEffect(_) => "card_end_turn_effect",
+        ActivePending::CardEndTurnEffect(pending) => match pending.effect {
+            mk_types::effect::CardEndTurnEffect::OfferDiscardReclaim { .. } => "crystal_joy_reclaim",
+            mk_types::effect::CardEndTurnEffect::OfferDeckPlacement { .. } => "card_end_turn_effect",
+        },
         ActivePending::UnitAbilityChoice { .. } => "unit_ability_choice",
         ActivePending::SubsetSelection(ss) => match &ss.kind {
             mk_types::pending::SubsetSelectionKind::Rethink => "rethink",
@@ -288,8 +291,10 @@ fn pending_label(active: &ActivePending) -> &'static str {
         ActivePending::PlunderDecision => "Plunder decision",
         ActivePending::UnitMaintenance(_) => "Unit maintenance",
         ActivePending::TerrainCostReduction(_) => "Terrain cost reduction",
-        ActivePending::CrystalJoyReclaim(_) => "Crystal joy reclaim",
-        ActivePending::CardEndTurnEffect(_) => "Card end-turn effect",
+        ActivePending::CardEndTurnEffect(pending) => match pending.effect {
+            mk_types::effect::CardEndTurnEffect::OfferDiscardReclaim { .. } => "Crystal joy reclaim",
+            mk_types::effect::CardEndTurnEffect::OfferDeckPlacement { .. } => "Card end-turn effect",
+        },
         ActivePending::UnitAbilityChoice { .. } => "Unit ability choice",
         ActivePending::SubsetSelection(ss) => match &ss.kind {
             mk_types::pending::SubsetSelectionKind::ManaSearch { .. } => "Select dice to reroll",

@@ -361,7 +361,6 @@ pub struct PlayerState {
 
     // End-turn artifact tracking
     pub end_turn_step: u8,
-    pub crystal_joy_reclaim_version: Option<crate::pending::EffectMode>,
     pub scheduled_card_effects: Vec<crate::effect::ScheduledCardEffect>,
 
     // Packed boolean flags
