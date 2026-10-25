@@ -894,9 +894,18 @@ fn goldyx_crystal_joy() -> CardDefinition {
         color: CardColor::Blue,
         card_type: DeedCardType::BasicAction,
         powered_by: PoweredBy::AnyBasic,
-        basic_effect: CardEffect::ConvertManaToCrystal,
-        powered_effect: CardEffect::Choice {
-            options: vec![
+        basic_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::ConvertManaToCrystal,
+                CardEffect::ScheduleEndTurn {
+                    effect: CardEndTurnEffect::OfferDiscardReclaim { allow_wounds: false },
+                },
+            ],
+        },
+        powered_effect: CardEffect::Compound {
+            effects: vec![
+                CardEffect::Choice {
+                    options: vec![
                 CardEffect::GainCrystal {
                     color: Some(BasicManaColor::Red),
                 },
@@ -908,6 +917,11 @@ fn goldyx_crystal_joy() -> CardDefinition {
                 },
                 CardEffect::GainCrystal {
                     color: Some(BasicManaColor::White),
+                },
+            ],
+                },
+                CardEffect::ScheduleEndTurn {
+                    effect: CardEndTurnEffect::OfferDiscardReclaim { allow_wounds: true },
                 },
             ],
         },
@@ -5766,10 +5780,28 @@ mod tests {
         assert_eq!(card.card_type, DeedCardType::BasicAction);
         assert_eq!(card.powered_by, PoweredBy::AnyBasic);
         assert_eq!(card.sideways_value, 1);
-        assert!(matches!(card.basic_effect, CardEffect::ConvertManaToCrystal));
+        assert!(matches!(
+            card.basic_effect,
+            CardEffect::Compound { ref effects }
+                if matches!(effects.as_slice(), [
+                    CardEffect::ConvertManaToCrystal,
+                    CardEffect::ScheduleEndTurn {
+                        effect: CardEndTurnEffect::OfferDiscardReclaim { allow_wounds: false }
+                    }
+                ])
+        ));
         match &card.powered_effect {
-            CardEffect::Choice { options } => assert_eq!(options.len(), 4),
-            _ => panic!("Expected Choice with 4 crystal options"),
+            CardEffect::Compound { effects } => {
+                assert_eq!(effects.len(), 2);
+                assert!(matches!(effects[0], CardEffect::Choice { ref options } if options.len() == 4));
+                assert!(matches!(
+                    effects[1],
+                    CardEffect::ScheduleEndTurn {
+                        effect: CardEndTurnEffect::OfferDiscardReclaim { allow_wounds: true }
+                    }
+                ));
+            }
+            _ => panic!("Expected compound powered effect with reclaim scheduling"),
         }
     }
 

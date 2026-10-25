@@ -645,6 +645,8 @@ pub enum CardEffect {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum CardEndTurnEffect {
+    /// Optionally move an eligible card from the discard pile to the hand.
+    OfferDiscardReclaim { allow_wounds: bool },
     /// Optionally move the source card from play to the deck.
     OfferDeckPlacement {
         destination: CardDeckPosition,

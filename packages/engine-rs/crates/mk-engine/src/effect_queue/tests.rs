@@ -113,7 +113,6 @@ use mk_types::state::*;
             time_bending_set_aside_cards: vec![],
             mysterious_box_state: None,
             end_turn_step: 0,
-            crystal_joy_reclaim_version: None,
             scheduled_card_effects: vec![],
             flags: PlayerFlags::empty(),
             pending: PendingQueue::new(),

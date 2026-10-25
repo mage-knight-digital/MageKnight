@@ -1310,8 +1310,10 @@ fn pending_label(active: &ActivePending) -> &'static str {
         ActivePending::PlunderDecision => "Plunder decision",
         ActivePending::UnitMaintenance(_) => "Unit maintenance",
         ActivePending::TerrainCostReduction(_) => "Terrain cost reduction",
-        ActivePending::CrystalJoyReclaim(_) => "Crystal joy reclaim",
-        ActivePending::CardEndTurnEffect(_) => "Card end-turn effect",
+        ActivePending::CardEndTurnEffect(pending) => match pending.effect {
+            mk_types::effect::CardEndTurnEffect::OfferDiscardReclaim { .. } => "Crystal joy reclaim",
+            mk_types::effect::CardEndTurnEffect::OfferDeckPlacement { .. } => "Card end-turn effect",
+        },
         ActivePending::UnitAbilityChoice { .. } => "Unit ability choice",
         ActivePending::SubsetSelection(ss) => match &ss.kind {
             mk_types::pending::SubsetSelectionKind::ManaSearch { .. } => "Select dice to reroll",

@@ -15,10 +15,7 @@ use mk_data::tactics::get_tactics_for_time;
 use mk_types::enums::*;
 use mk_types::ids::*;
 use mk_types::modifier::{ModifierEffect, RuleOverride};
-use mk_types::pending::{
-    ActivePending, DeferredPending, PendingCrystalJoyReclaim, PendingLevelUpReward,
-    MAX_DEEP_MINE_COLORS, MAX_DRAWN_SKILLS,
-};
+use mk_types::pending::{ActivePending, DeferredPending, PendingLevelUpReward, MAX_DEEP_MINE_COLORS, MAX_DRAWN_SKILLS};
 use mk_types::state::*;
 
 use crate::card_play::is_rule_active;
@@ -68,11 +65,10 @@ pub enum EndTurnError {
 /// Steps:
 ///   0 — Minimum turn requirement (only on first entry)
 ///   1 — Magical Glade wound + Mine/Deep Mine
-///   2 — Crystal Joy reclaim (may create pending)
-///   3 — Steady Tempo deck placement (may create pending)
-///   4 — Banner of Protection wound removal (may create pending)
-///   5 — Source Opening crystal grant + reroll (may create pending)
-///   6+ — Automated: Mysterious Box, Crystal Mastery, Ring fame, level-ups,
+///   2 — Scheduled card lifecycle effects (may create pending)
+///   3 — Banner of Protection wound removal (may create pending)
+///   4 — Source Opening crystal grant + reroll (may create pending)
+///   5+ — Automated: Mysterious Box, Crystal Mastery, Ring fame, level-ups,
 ///         Mountain Lore, card flow, reset, advance
 pub fn end_turn(state: &mut GameState, player_idx: usize) -> Result<EndTurnResult, EndTurnError> {
     if player_idx >= state.players.len() {
@@ -110,17 +106,8 @@ pub fn end_turn(state: &mut GameState, player_idx: usize) -> Result<EndTurnResul
         state.players[player_idx].end_turn_step = 1;
     }
 
-    // Step 2: Crystal Joy reclaim
+    // Step 2: Scheduled card lifecycle effects
     if step < 2 {
-        if check_crystal_joy_reclaim(state, player_idx) {
-            state.players[player_idx].end_turn_step = 2;
-            return Ok(EndTurnResult::AwaitingEndTurnChoice);
-        }
-        state.players[player_idx].end_turn_step = 2;
-    }
-
-    // Step 3: Scheduled card lifecycle effects
-    if step < 3 {
         if !state.players[player_idx].scheduled_card_effects.is_empty() {
             let scheduled = state.players[player_idx].scheduled_card_effects.remove(0);
             state.players[player_idx].pending.active = Some(ActivePending::CardEndTurnEffect(
@@ -129,28 +116,28 @@ pub fn end_turn(state: &mut GameState, player_idx: usize) -> Result<EndTurnResul
                     effect: scheduled.effect,
                 },
             ));
-            // Leave the step at 2 so re-entry processes the next scheduled effect.
+            // Leave the step at 1 so re-entry processes the next scheduled effect.
+            return Ok(EndTurnResult::AwaitingEndTurnChoice);
+        }
+        state.players[player_idx].end_turn_step = 2;
+    }
+
+    // Step 3: Banner of Protection wound removal
+    if step < 3 {
+        if apply_banner_protection_choice(state, player_idx) {
+            state.players[player_idx].end_turn_step = 3;
             return Ok(EndTurnResult::AwaitingEndTurnChoice);
         }
         state.players[player_idx].end_turn_step = 3;
     }
 
-    // Step 4: Banner of Protection wound removal
+    // Step 4: Source Opening crystal grant + reroll
     if step < 4 {
-        if apply_banner_protection_choice(state, player_idx) {
+        if check_source_opening_crystal(state, player_idx) {
             state.players[player_idx].end_turn_step = 4;
             return Ok(EndTurnResult::AwaitingEndTurnChoice);
         }
         state.players[player_idx].end_turn_step = 4;
-    }
-
-    // Step 5: Source Opening crystal grant + reroll
-    if step < 5 {
-        if check_source_opening_crystal(state, player_idx) {
-            state.players[player_idx].end_turn_step = 5;
-            return Ok(EndTurnResult::AwaitingEndTurnChoice);
-        }
-        state.players[player_idx].end_turn_step = 5;
     }
 
     // Step 6+: All automated (no pending)
@@ -195,18 +182,6 @@ pub fn end_turn(state: &mut GameState, player_idx: usize) -> Result<EndTurnResul
 // =============================================================================
 // Artifact end-turn steps
 // =============================================================================
-
-/// Crystal Joy reclaim: offer to reclaim a card from discard to hand.
-/// Returns true if a pending choice was created.
-fn check_crystal_joy_reclaim(state: &mut GameState, player_idx: usize) -> bool {
-    let version = match state.players[player_idx].crystal_joy_reclaim_version.take() {
-        Some(v) => v,
-        None => return false,
-    };
-    state.players[player_idx].pending.active =
-        Some(ActivePending::CrystalJoyReclaim(PendingCrystalJoyReclaim { version }));
-    true
-}
 
 /// Banner of Protection: offer to remove wounds received this turn.
 /// Returns true if a pending choice was created.
@@ -811,7 +786,6 @@ fn reset_player_turn_inner(player: &mut PlayerState) {
 
     player.mysterious_box_state = None;
     player.end_turn_step = 0;
-    player.crystal_joy_reclaim_version = None;
     player.scheduled_card_effects.clear();
 }
 
@@ -1602,6 +1576,15 @@ mod tests {
         state.round_phase = RoundPhase::PlayerTurns;
         state.players[0].hand = hand.into_iter().map(CardId::from).collect();
         state
+    }
+
+    fn schedule_crystal_joy_reclaim(state: &mut GameState, allow_wounds: bool) {
+        state.players[0]
+            .scheduled_card_effects
+            .push(mk_types::effect::ScheduledCardEffect {
+                source_card_id: CardId::from("goldyx_crystal_joy"),
+                effect: mk_types::effect::CardEndTurnEffect::OfferDiscardReclaim { allow_wounds },
+            });
     }
 
     fn schedule_test_deck_placement(
@@ -3247,8 +3230,7 @@ mod tests {
     fn crystal_joy_creates_pending_on_end_turn() {
         let mut state = setup_playing_game(vec!["march"]);
         state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
-        state.players[0].crystal_joy_reclaim_version =
-            Some(mk_types::pending::EffectMode::Basic);
+        schedule_crystal_joy_reclaim(&mut state, false);
 
         play_card(&mut state, 0, 0, false, None).unwrap();
         let result = end_turn(&mut state, 0).unwrap();
@@ -3260,7 +3242,7 @@ mod tests {
         );
         assert!(matches!(
             state.players[0].pending.active,
-            Some(ActivePending::CrystalJoyReclaim(_))
+            Some(ActivePending::CardEndTurnEffect(_))
         ));
     }
 
@@ -3269,8 +3251,7 @@ mod tests {
         use crate::legal_actions::enumerate_legal_actions;
 
         let mut state = setup_playing_game(vec!["march"]);
-        state.players[0].crystal_joy_reclaim_version =
-            Some(mk_types::pending::EffectMode::Basic);
+        schedule_crystal_joy_reclaim(&mut state, false);
         state.players[0].discard = vec![
             CardId::from("rage"),
             CardId::from("wound"),
@@ -3297,8 +3278,7 @@ mod tests {
         use crate::legal_actions::enumerate_legal_actions;
 
         let mut state = setup_playing_game(vec!["march"]);
-        state.players[0].crystal_joy_reclaim_version =
-            Some(mk_types::pending::EffectMode::Powered);
+        schedule_crystal_joy_reclaim(&mut state, true);
         state.players[0].discard = vec![
             CardId::from("rage"),
             CardId::from("wound"),
@@ -3326,8 +3306,7 @@ mod tests {
 
         let mut state = setup_playing_game(vec!["march"]);
         state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
-        state.players[0].crystal_joy_reclaim_version =
-            Some(mk_types::pending::EffectMode::Basic);
+        schedule_crystal_joy_reclaim(&mut state, false);
         state.players[0].discard = vec![CardId::from("rage"), CardId::from("stamina")];
 
         play_card(&mut state, 0, 0, false, None).unwrap();
@@ -3364,8 +3343,7 @@ mod tests {
 
         let mut state = setup_playing_game(vec!["march"]);
         state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
-        state.players[0].crystal_joy_reclaim_version =
-            Some(mk_types::pending::EffectMode::Basic);
+        schedule_crystal_joy_reclaim(&mut state, false);
         state.players[0].discard = vec![CardId::from("rage")];
 
         play_card(&mut state, 0, 0, false, None).unwrap();
@@ -3766,8 +3744,7 @@ mod tests {
         state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
 
         // Set both crystal joy and steady tempo
-        state.players[0].crystal_joy_reclaim_version =
-            Some(mk_types::pending::EffectMode::Basic);
+        schedule_crystal_joy_reclaim(&mut state, false);
         schedule_test_deck_placement(
             &mut state,
             "steady_tempo",
@@ -3778,13 +3755,13 @@ mod tests {
 
         play_card(&mut state, 0, 0, false, None).unwrap();
 
-        // First end_turn: should stop at Crystal Joy (step 2)
+        // First end_turn: should stop at Crystal Joy's scheduled reclaim.
         let result = end_turn(&mut state, 0).unwrap();
         assert!(matches!(result, EndTurnResult::AwaitingEndTurnChoice));
-        assert_eq!(state.players[0].end_turn_step, 2);
+        assert_eq!(state.players[0].end_turn_step, 1);
         assert!(matches!(
             state.players[0].pending.active,
-            Some(ActivePending::CrystalJoyReclaim(_))
+            Some(ActivePending::CardEndTurnEffect(_))
         ));
 
         // Resolve Crystal Joy (skip)
@@ -3796,7 +3773,7 @@ mod tests {
         apply_legal_action(&mut state, &mut undo, 0, &action, legal.epoch).unwrap();
 
         // After resolve, end_turn resumes at the scheduled lifecycle effect.
-        assert_eq!(state.players[0].end_turn_step, 2);
+        assert_eq!(state.players[0].end_turn_step, 1);
         assert!(matches!(
             state.players[0].pending.active,
             Some(ActivePending::CardEndTurnEffect(_))
@@ -3964,8 +3941,7 @@ mod tests {
         state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
 
         // Set Crystal Joy version to basic
-        state.players[0].crystal_joy_reclaim_version =
-            Some(mk_types::pending::EffectMode::Basic);
+        schedule_crystal_joy_reclaim(&mut state, false);
         state.players[0].play_area.push(CardId::from("goldyx_crystal_joy"));
         // Empty discard
         state.players[0].discard.clear();
@@ -3978,10 +3954,13 @@ mod tests {
             Ok(EndTurnResult::AwaitingEndTurnChoice) => {
                 // Pending was created — verify it has basic mode
                 let pending = &state.players[0].pending.active;
-                if let Some(ActivePending::CrystalJoyReclaim(reclaim)) = pending {
-                    assert_eq!(reclaim.version, mk_types::pending::EffectMode::Basic);
+                if let Some(ActivePending::CardEndTurnEffect(reclaim)) = pending {
+                    assert!(matches!(
+                        reclaim.effect,
+                        mk_types::effect::CardEndTurnEffect::OfferDiscardReclaim { allow_wounds: false }
+                    ));
                 } else {
-                    panic!("Expected CrystalJoyReclaim pending");
+                    panic!("Expected a scheduled discard reclaim pending");
                 }
             }
             Ok(EndTurnResult::NextPlayer { .. } | EndTurnResult::RoundEnded { .. }) => {
@@ -4148,8 +4127,7 @@ mod tests {
         state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
 
         // Both active
-        state.players[0].crystal_joy_reclaim_version =
-            Some(mk_types::pending::EffectMode::Basic);
+        schedule_crystal_joy_reclaim(&mut state, false);
         schedule_test_deck_placement(
             &mut state,
             "steady_tempo",
@@ -4160,13 +4138,13 @@ mod tests {
 
         play_card(&mut state, 0, 0, false, None).unwrap();
 
-        // Step 1: end_turn stops at Crystal Joy (step 2)
+        // Step 1: end_turn stops at Crystal Joy's scheduled reclaim.
         let result1 = end_turn(&mut state, 0).unwrap();
         assert!(matches!(result1, EndTurnResult::AwaitingEndTurnChoice));
-        assert_eq!(state.players[0].end_turn_step, 2);
+        assert_eq!(state.players[0].end_turn_step, 1);
         assert!(matches!(
             state.players[0].pending.active,
-            Some(ActivePending::CrystalJoyReclaim(_))
+            Some(ActivePending::CardEndTurnEffect(_))
         ));
 
         // Resolve Crystal Joy (skip)
@@ -4178,8 +4156,8 @@ mod tests {
             legal.epoch,
         ).unwrap();
 
-        // Step 2: scheduled card effect pending.
-        assert_eq!(state.players[0].end_turn_step, 2);
+        // The following scheduled card effect is pending at the same lifecycle step.
+        assert_eq!(state.players[0].end_turn_step, 1);
         assert!(matches!(
             state.players[0].pending.active,
             Some(ActivePending::CardEndTurnEffect(_))
@@ -4209,8 +4187,7 @@ mod tests {
         let mut state = setup_playing_game(vec!["march"]);
         state.players[0].deck = (0..5).map(|i| CardId::from(format!("c{}", i))).collect();
 
-        state.players[0].crystal_joy_reclaim_version =
-            Some(mk_types::pending::EffectMode::Basic);
+        schedule_crystal_joy_reclaim(&mut state, false);
         state.players[0].discard = vec![CardId::from("rage")];
 
         play_card(&mut state, 0, 0, false, None).unwrap();
@@ -4218,7 +4195,7 @@ mod tests {
         // First call: stops at Crystal Joy
         let result = end_turn(&mut state, 0).unwrap();
         assert!(matches!(result, EndTurnResult::AwaitingEndTurnChoice));
-        assert_eq!(state.players[0].end_turn_step, 2);
+        assert_eq!(state.players[0].end_turn_step, 1);
 
         // Resolve Crystal Joy
         let legal = enumerate_legal_actions(&state, 0);
@@ -4231,8 +4208,6 @@ mod tests {
 
         // Turn completes — Crystal Joy NOT re-triggered (step >= 2 skips it)
         assert_eq!(state.players[0].end_turn_step, 0, "Step should reset after turn ends");
-        // Verify crystal_joy_reclaim_version was consumed (taken)
-        assert!(state.players[0].crystal_joy_reclaim_version.is_none());
     }
 
     /// Banner protection step skipped when flag set but zero wounds.

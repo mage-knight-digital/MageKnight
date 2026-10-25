@@ -123,15 +123,6 @@ pub(crate) fn play_card_with_undo(
         .insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
     player.cards_played_this_turn = player.cards_played_this_turn.saturating_add(1);
 
-    // Track artifact end-turn flags (consumed by end_turn artifact steps)
-    if card_id.as_str() == "goldyx_crystal_joy" {
-        player.crystal_joy_reclaim_version = Some(if powered {
-            mk_types::pending::EffectMode::Powered
-        } else {
-            mk_types::pending::EffectMode::Basic
-        });
-    }
-
     // If multiple mana sources: set pending choice and return early
     if let Some(sources) = mana_choice {
         let options: Vec<mk_types::effect::CardEffect> = sources
@@ -849,6 +840,53 @@ mod tests {
             source: ManaTokenSource::Effect,
             cannot_power_spells: false,
         });
+    }
+
+    #[test]
+    fn crystal_joy_basic_play_schedules_reclaim_from_card_definition() {
+        let mut state = setup_game(vec!["goldyx_crystal_joy"]);
+        let result = play_card(&mut state, 0, 0, false, None).unwrap();
+
+        assert!(matches!(result, CardPlayResult::Complete));
+        assert!(matches!(
+            state.players[0].scheduled_card_effects.as_slice(),
+            [mk_types::effect::ScheduledCardEffect {
+                source_card_id,
+                effect: mk_types::effect::CardEndTurnEffect::OfferDiscardReclaim {
+                    allow_wounds: false
+                }
+            }] if source_card_id.as_str() == "goldyx_crystal_joy"
+        ));
+    }
+
+    #[test]
+    fn crystal_joy_powered_play_schedules_wound_eligible_reclaim_after_choice() {
+        use crate::effect_queue::resolve_pending_choice;
+
+        let mut state = setup_game(vec!["goldyx_crystal_joy"]);
+        give_mana(&mut state, ManaColor::Red);
+        let result = play_card(
+            &mut state,
+            0,
+            0,
+            true,
+            Some(mk_types::enums::BasicManaColor::Red),
+        )
+        .unwrap();
+        assert!(matches!(result, CardPlayResult::PendingChoice));
+        assert!(state.players[0].scheduled_card_effects.is_empty());
+
+        resolve_pending_choice(&mut state, 0, 0).unwrap();
+
+        assert!(matches!(
+            state.players[0].scheduled_card_effects.as_slice(),
+            [mk_types::effect::ScheduledCardEffect {
+                source_card_id,
+                effect: mk_types::effect::CardEndTurnEffect::OfferDiscardReclaim {
+                    allow_wounds: true
+                }
+            }] if source_card_id.as_str() == "goldyx_crystal_joy"
+        ));
     }
 
     #[test]

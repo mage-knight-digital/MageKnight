@@ -217,36 +217,31 @@ pub(super) fn enumerate_pending(
         ActivePending::LevelUpReward(reward) => {
             enumerate_level_up_reward(reward, state, actions);
         }
-        ActivePending::CrystalJoyReclaim(ref pending) => {
-            let player = &state.players[player_idx];
-            for (i, card) in player.discard.iter().enumerate() {
-                let eligible = match pending.version {
-                    mk_types::pending::EffectMode::Basic => card.as_str() != WOUND_CARD_ID,
-                    mk_types::pending::EffectMode::Powered => true,
-                };
-                if eligible {
+        ActivePending::CardEndTurnEffect(ref pending) => {
+            match pending.effect {
+                mk_types::effect::CardEndTurnEffect::OfferDiscardReclaim { allow_wounds } => {
+                    let player = &state.players[player_idx];
+                    for (i, card) in player.discard.iter().enumerate() {
+                        if allow_wounds || card.as_str() != WOUND_CARD_ID {
+                            actions.push(LegalAction::ResolveCrystalJoyReclaim {
+                                discard_index: Some(i),
+                            });
+                        }
+                    }
                     actions.push(LegalAction::ResolveCrystalJoyReclaim {
-                        discard_index: Some(i),
+                        discard_index: None,
                     });
                 }
-            }
-            // Always allow skipping
-            actions.push(LegalAction::ResolveCrystalJoyReclaim {
-                discard_index: None,
-            });
-        }
-        ActivePending::CardEndTurnEffect(ref pending) => {
-            let can_accept = match pending.effect {
                 mk_types::effect::CardEndTurnEffect::OfferDeckPlacement {
                     requires_non_empty_deck,
                     ..
-                } => !requires_non_empty_deck || !state.players[player_idx].deck.is_empty(),
-            };
-            if can_accept {
-                actions.push(LegalAction::ResolveCardEndTurnEffect { accept: true });
+                } => {
+                    if !requires_non_empty_deck || !state.players[player_idx].deck.is_empty() {
+                        actions.push(LegalAction::ResolveCardEndTurnEffect { accept: true });
+                    }
+                    actions.push(LegalAction::ResolveCardEndTurnEffect { accept: false });
+                }
             }
-            // Always allow skipping
-            actions.push(LegalAction::ResolveCardEndTurnEffect { accept: false });
         }
         ActivePending::BannerProtectionChoice => {
             actions.push(LegalAction::ResolveBannerProtection { remove_all: true });
