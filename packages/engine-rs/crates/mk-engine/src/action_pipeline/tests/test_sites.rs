@@ -3697,6 +3697,47 @@ fn thugs_cost_has_reversed_reputation_delta() {
     }
 }
 
+fn thugs_recruit_actions_at_rep_and_influence(reputation: i8, influence: u32) -> Vec<LegalAction> {
+    let mut state = setup_playing_game(vec!["march"]);
+    place_player_on_site(&mut state, SiteType::Village);
+    state.players[0].reputation = reputation;
+    state.players[0].influence_points = influence;
+    state.offers.units = vec![mk_types::ids::UnitId::from("thugs")]; // cost 5
+    state.players[0].flags.insert(PlayerFlags::IS_INTERACTING);
+    enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new())
+        .actions
+        .into_iter()
+        .filter(|a| matches!(a, LegalAction::RecruitUnit { .. }))
+        .collect()
+}
+
+#[test]
+fn thugs_not_recruitable_when_low_influence_clamps_reputation_penalty() {
+    // Rep -5 => bonus -3. Reversed for Thugs => +3, so effective influence is
+    // influence + 3 against a cost of 5. Influence 0 or 1 cannot afford them.
+    // (Regression: clamping the blanket penalty at 0 made Thugs free.)
+    for influence in [0, 1] {
+        let actions = thugs_recruit_actions_at_rep_and_influence(-5, influence);
+        assert!(
+            actions.is_empty(),
+            "Thugs must not be recruitable at rep -5 with influence {influence}"
+        );
+    }
+}
+
+#[test]
+fn thugs_recruitable_at_reversed_threshold_and_pay_correct_amount() {
+    // Rep -5 => bonus -3, reversed +3. Influence 2 => effective 5 == Thugs cost 5.
+    let actions = thugs_recruit_actions_at_rep_and_influence(-5, 2);
+    assert_eq!(actions.len(), 1, "Thugs should be exactly affordable at influence 2");
+
+    // Blanket penalty clamps 2 -> 0 first, so the charge is 0 and the player
+    // ends with 0 influence (reversed 5 - cost 5).
+    if let LegalAction::RecruitUnit { influence_cost, .. } = &actions[0] {
+        assert_eq!(*influence_cost, 0);
+    }
+}
+
 #[test]
 fn heroes_cost_has_doubled_reputation_delta() {
     // Heroes have doubled reputation. Blanket applies 1x, hero delta adds 1x more.
