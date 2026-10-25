@@ -461,23 +461,19 @@ export interface ResolveDeepMineAction {
   readonly color: BasicManaColor; // The chosen crystal color
 }
 
-// Crystal Joy card reclaim action (end-of-turn choice to reclaim card to hand)
-export const RESOLVE_CRYSTAL_JOY_RECLAIM_ACTION = "RESOLVE_CRYSTAL_JOY_RECLAIM" as const;
-export interface ResolveCrystalJoyReclaimAction {
-  readonly type: typeof RESOLVE_CRYSTAL_JOY_RECLAIM_ACTION;
-  readonly cardId?: CardId; // Card to reclaim to hand, undefined = skip reclaim
+// Generic card lifecycle resolution used by end-turn card effects.
+export const RESOLVE_CARD_END_TURN_EFFECT_ACTION = "RESOLVE_CARD_END_TURN_EFFECT" as const;
+export type CardEndTurnDecision =
+  | { readonly type: "accept" }
+  | { readonly type: "skip" }
+  | { readonly type: "select_discard"; readonly discardIndex: number | null };
+export interface ResolveCardEndTurnEffectAction {
+  readonly type: typeof RESOLVE_CARD_END_TURN_EFFECT_ACTION;
+  readonly decision: CardEndTurnDecision;
 }
-
-// Steady Tempo deck placement action (end-of-turn choice to place card in deck)
-export const RESOLVE_STEADY_TEMPO_ACTION = "RESOLVE_STEADY_TEMPO" as const;
 
 // Banner of Protection wound removal action (end-of-turn choice to throw away wounds)
 export const RESOLVE_BANNER_PROTECTION_ACTION = "RESOLVE_BANNER_PROTECTION" as const;
-export interface ResolveSteadyTempoAction {
-  readonly type: typeof RESOLVE_STEADY_TEMPO_ACTION;
-  readonly place: boolean; // true = place in deck, false = discard normally
-}
-
 export interface ResolveBannerProtectionAction {
   readonly type: typeof RESOLVE_BANNER_PROTECTION_ACTION;
   readonly removeAll: boolean; // true = throw away all received wounds, false = skip
@@ -861,10 +857,8 @@ export type PlayerAction =
   | ResolveUnitMaintenanceAction
   // Deep Mine
   | ResolveDeepMineAction
-  // Crystal Joy reclaim
-  | ResolveCrystalJoyReclaimAction
-  // Steady Tempo deck placement
-  | ResolveSteadyTempoAction
+  // Card lifecycle end-turn effects
+  | ResolveCardEndTurnEffectAction
   // Banner of Protection wound removal
   | ResolveBannerProtectionAction
   // Source Opening reroll choice
@@ -972,8 +966,7 @@ export const KNOWN_ACTION_TYPES: ReadonlySet<string> = new Set<PlayerActionType>
   RESOLVE_GLADE_WOUND_ACTION,
   RESOLVE_UNIT_MAINTENANCE_ACTION,
   RESOLVE_DEEP_MINE_ACTION,
-  RESOLVE_CRYSTAL_JOY_RECLAIM_ACTION,
-  RESOLVE_STEADY_TEMPO_ACTION,
+  RESOLVE_CARD_END_TURN_EFFECT_ACTION,
   RESOLVE_BANNER_PROTECTION_ACTION,
   RESOLVE_SOURCE_OPENING_REROLL_ACTION,
   RESOLVE_DISCARD_ACTION,

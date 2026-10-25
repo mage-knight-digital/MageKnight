@@ -871,56 +871,10 @@ fn finish_level_up(
 
 // end_turn, announce_end_of_round delegated to turn_flow module
 
-pub(super) fn apply_resolve_crystal_joy_reclaim(
-    state: &mut GameState,
-    player_idx: usize,
-    discard_index: Option<usize>,
-) -> Result<ApplyResult, ApplyError> {
-    let pending = match state.players[player_idx].pending.active.take() {
-        Some(ActivePending::CardEndTurnEffect(p)) => p,
-        other => {
-            state.players[player_idx].pending.active = other;
-            return Err(ApplyError::InternalError(
-                "ResolveCrystalJoyReclaim: no reclaim effect pending".into(),
-            ));
-        }
-    };
-    let allow_wounds = match pending.effect {
-        mk_types::effect::CardEndTurnEffect::OfferDiscardReclaim { allow_wounds } => allow_wounds,
-        _ => {
-            state.players[player_idx].pending.active = Some(ActivePending::CardEndTurnEffect(pending));
-            return Err(ApplyError::InternalError(
-                "ResolveCrystalJoyReclaim: pending effect is not a discard reclaim".into(),
-            ));
-        }
-    };
-
-    if let Some(idx) = discard_index {
-        let player = &mut state.players[player_idx];
-        let eligible = player
-            .discard
-            .get(idx)
-            .is_some_and(|card| allow_wounds || card.as_str() != crate::effect_queue::WOUND_CARD_ID);
-        if !eligible {
-            player.pending.active = Some(ActivePending::CardEndTurnEffect(pending));
-            return Err(ApplyError::InternalError(
-                "ResolveCrystalJoyReclaim: selected discard card is not eligible".into(),
-            ));
-        }
-        let card = player.discard.remove(idx);
-        player.hand.push(card);
-    }
-    // Skip: no card moved
-
-    // Resume end_turn flow
-    turn_flow::end_turn_result_to_apply(end_turn::end_turn(state, player_idx), state)
-}
-
-
 pub(super) fn apply_resolve_card_end_turn_effect(
     state: &mut GameState,
     player_idx: usize,
-    accept: bool,
+    decision: mk_types::legal_action::CardEndTurnDecision,
 ) -> Result<ApplyResult, ApplyError> {
     // Extract the pending card effect.
     let version = match state.players[player_idx].pending.active.take() {
@@ -933,41 +887,71 @@ pub(super) fn apply_resolve_card_end_turn_effect(
         }
     };
 
-    if accept {
-        let mk_types::effect::CardEndTurnEffect::OfferDeckPlacement {
-            destination,
-            requires_non_empty_deck,
-        } = version.effect
-        else {
+    use mk_types::effect::CardEndTurnEffect;
+    use mk_types::legal_action::CardEndTurnDecision;
+
+    let resolution = match (version.effect, decision) {
+        (
+            CardEndTurnEffect::OfferDiscardReclaim { allow_wounds },
+            CardEndTurnDecision::SelectDiscard { discard_index },
+        ) => {
+            if let Some(idx) = discard_index {
+                let player = &mut state.players[player_idx];
+                let eligible = player.discard.get(idx).is_some_and(|card| {
+                    allow_wounds || card.as_str() != crate::effect_queue::WOUND_CARD_ID
+                });
+                if !eligible {
+                    player.pending.active = Some(ActivePending::CardEndTurnEffect(version));
+                    return Err(ApplyError::InternalError(
+                        "ResolveCardEndTurnEffect: selected discard card is not eligible".into(),
+                    ));
+                }
+                let card = player.discard.remove(idx);
+                player.hand.push(card);
+            }
+            Ok(())
+        }
+        (CardEndTurnEffect::OfferDiscardReclaim { .. }, CardEndTurnDecision::Skip) => Ok(()),
+        (
+            CardEndTurnEffect::OfferDeckPlacement {
+                destination,
+                requires_non_empty_deck,
+            },
+            CardEndTurnDecision::Accept,
+        ) => {
+            let player = &mut state.players[player_idx];
+            if requires_non_empty_deck && player.deck.is_empty() {
+                player.pending.active = Some(ActivePending::CardEndTurnEffect(version));
+                return Err(ApplyError::InternalError(
+                    "ResolveCardEndTurnEffect: deck placement requires a non-empty deck".into(),
+                ));
+            }
+            let Some(idx) = player
+                .play_area
+                .iter()
+                .position(|card| card == &version.source_card_id)
+            else {
+                player.pending.active = Some(ActivePending::CardEndTurnEffect(version));
+                return Err(ApplyError::InternalError(
+                    "ResolveCardEndTurnEffect: source card is not in the play area".into(),
+                ));
+            };
+            let card = player.play_area.remove(idx);
+            match destination {
+                mk_types::effect::CardDeckPosition::Top => player.deck.insert(0, card),
+                mk_types::effect::CardDeckPosition::Bottom => player.deck.push(card),
+            }
+            Ok(())
+        }
+        (CardEndTurnEffect::OfferDeckPlacement { .. }, CardEndTurnDecision::Skip) => Ok(()),
+        _ => {
             state.players[player_idx].pending.active = Some(ActivePending::CardEndTurnEffect(version));
             return Err(ApplyError::InternalError(
-                "ResolveCardEndTurnEffect: pending effect does not use accept/skip".into(),
-            ));
-        };
-        let player = &mut state.players[player_idx];
-        if requires_non_empty_deck && player.deck.is_empty() {
-            player.pending.active = Some(ActivePending::CardEndTurnEffect(version));
-            return Err(ApplyError::InternalError(
-                "ResolveCardEndTurnEffect: deck placement requires a non-empty deck".into(),
+                "ResolveCardEndTurnEffect: decision does not match the pending effect".into(),
             ));
         }
-        let Some(idx) = player
-            .play_area
-            .iter()
-            .position(|card| card == &version.source_card_id)
-        else {
-            player.pending.active = Some(ActivePending::CardEndTurnEffect(version));
-            return Err(ApplyError::InternalError(
-                "ResolveCardEndTurnEffect: source card is not in the play area".into(),
-            ));
-        };
-        let card = player.play_area.remove(idx);
-        match destination {
-            mk_types::effect::CardDeckPosition::Top => player.deck.insert(0, card),
-            mk_types::effect::CardDeckPosition::Bottom => player.deck.push(card),
-        }
-    }
-    // Skip: source card stays in play area for normal end-of-turn card flow.
+    };
+    resolution?;
 
     // Resume end_turn flow
     turn_flow::end_turn_result_to_apply(end_turn::end_turn(state, player_idx), state)

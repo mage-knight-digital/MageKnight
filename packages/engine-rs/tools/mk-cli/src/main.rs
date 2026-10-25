@@ -954,12 +954,13 @@ fn format_action(action: &LegalAction, state: &GameState, player_idx: usize) -> 
                 .unwrap_or("???");
             format!("Assign {} (attack {}) damage to {}", enemy_name, attack_index, unit_name)
         }
-        LegalAction::ResolveCrystalJoyReclaim { discard_index } => match discard_index {
-            Some(i) => format!("Reclaim card from discard (index {})", i),
-            None => "Skip Crystal Joy reclaim".into(),
-        },
-        LegalAction::ResolveCardEndTurnEffect { accept } => {
-            if *accept { "Place card on deck".into() } else { "Skip card end-turn effect".into() }
+        LegalAction::ResolveCardEndTurnEffect { decision } => match decision {
+            mk_types::legal_action::CardEndTurnDecision::Accept => "Place card on deck".into(),
+            mk_types::legal_action::CardEndTurnDecision::Skip => "Skip card end-turn effect".into(),
+            mk_types::legal_action::CardEndTurnDecision::SelectDiscard { discard_index } => match discard_index {
+                Some(i) => format!("Reclaim card from discard (index {})", i),
+                None => "Skip card reclaim".into(),
+            },
         }
         LegalAction::ResolveBannerProtection { remove_all } => {
             if *remove_all { "Remove all wounds (Banner of Protection)".into() } else { "Keep wounds".into() }

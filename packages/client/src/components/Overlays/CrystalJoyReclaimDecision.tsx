@@ -3,7 +3,7 @@
  *
  * Shown when player.pending.kind === "crystal_joy_reclaim".
  * Allows player to select which card from discard to reclaim (or skip).
- * Sends the ResolveCrystalJoyReclaim legal action directly.
+ * Sends the generic card end-turn decision legal action directly.
  */
 
 import { useCallback, useMemo } from "react";
@@ -22,7 +22,7 @@ export function CrystalJoyReclaimDecision() {
   const reclaimActions = useMemo(() => {
     if (!isActive) return [];
     return legalActions.filter(
-      (a) => typeof a !== "string" && "ResolveCrystalJoyReclaim" in a
+      (a) => typeof a !== "string" && "ResolveCardEndTurnEffect" in a
     );
   }, [isActive, legalActions]);
 
@@ -34,16 +34,17 @@ export function CrystalJoyReclaimDecision() {
   const eligibleCardIds = useMemo(() => {
     return reclaimActions
       .map((a) => {
-        const idx = actionData(a)?.["discard_index"] as number | null;
-        if (idx === null) return null;
+        const decision = actionData(a)?.["decision"] as { discard_index: number | null } | undefined;
+        const idx = decision?.discard_index;
+        if (idx === null || idx === undefined) return null;
         return discardCardIds[idx] ?? null;
       })
       .filter((id): id is CardId => id !== null);
   }, [reclaimActions, discardCardIds]);
 
-  // Check if skip is available (discard_index: null)
+  // Check if the generic skip decision is available.
   const canSkip = reclaimActions.some(
-    (a) => actionData(a)?.["discard_index"] === null
+    (a) => (actionData(a)?.["decision"] as { type?: string } | undefined)?.type === "skip"
   );
 
   const handleSelect = useCallback(
@@ -53,7 +54,10 @@ export function CrystalJoyReclaimDecision() {
       const discardIndex = discardCardIds.indexOf(cardId);
       if (discardIndex >= 0) {
         const action = reclaimActions.find(
-          (a) => actionData(a)?.["discard_index"] === discardIndex
+          (a) => {
+            const decision = actionData(a)?.["decision"] as { type?: string; discard_index?: number | null };
+            return decision.type === "select_discard" && decision.discard_index === discardIndex;
+          }
         );
         if (action) sendAction(action);
       }
@@ -63,7 +67,7 @@ export function CrystalJoyReclaimDecision() {
 
   const handleSkip = useCallback(() => {
     const action = reclaimActions.find(
-      (a) => actionData(a)?.["discard_index"] === null
+      (a) => (actionData(a)?.["decision"] as { type?: string } | undefined)?.type === "skip"
     );
     if (action) sendAction(action);
   }, [sendAction, reclaimActions]);

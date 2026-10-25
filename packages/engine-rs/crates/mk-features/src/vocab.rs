@@ -333,7 +333,7 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
         "RESOLVE_DISCARD_FOR_CRYSTAL", "RESOLVE_GLADE_WOUND",
         "RESOLVE_HEX_COST_REDUCTION", "RESOLVE_MAXIMAL_EFFECT",
         "RESOLVE_MEDITATION", "RESOLVE_SOURCE_OPENING_REROLL",
-        "RESOLVE_STEADY_TEMPO", "RESOLVE_TACTIC_DECISION",
+        "RESOLVE_CARD_END_TURN_EFFECT", "RESOLVE_TACTIC_DECISION",
         "RESOLVE_TERRAIN_COST_REDUCTION", "RESOLVE_TRAINING",
         "RESOLVE_UNIT_MAINTENANCE",
         "RESPOND_TO_COOPERATIVE_PROPOSAL",
@@ -377,7 +377,8 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
         "REROLL_SOURCE_DICE",
         "RESOLVE_ATTACK",
         "RESOLVE_BANNER_PROTECTION",
-        "RESOLVE_BOOK_OF_WISDOM", "RESOLVE_CHOICE",
+        "RESOLVE_BOOK_OF_WISDOM", "RESOLVE_CARD_END_TURN_EFFECT",
+        "RESOLVE_CHOICE",
         "RESOLVE_CIRCLET_OF_PROFICIENCY",
         "RESOLVE_CRYSTAL_JOY_RECLAIM", "RESOLVE_CRYSTAL_ROLL_COLOR",
         "RESOLVE_DECOMPOSE",
@@ -386,7 +387,7 @@ define_vocab!(ACTION_TYPE_VOCAB, "action_type",
         "RESOLVE_DISCARD_FOR_CRYSTAL", "RESOLVE_GLADE_WOUND",
         "RESOLVE_HEX_COST_REDUCTION", "RESOLVE_MAXIMAL_EFFECT",
         "RESOLVE_MEDITATION", "RESOLVE_SOURCE_OPENING_REROLL",
-        "RESOLVE_STEADY_TEMPO", "RESOLVE_TACTIC_DECISION",
+        "RESOLVE_TACTIC_DECISION",
         "RESOLVE_TERRAIN_COST_REDUCTION",
         "RESOLVE_TOME_OF_ALL_SPELLS",
         "RESOLVE_TRAINING",
@@ -446,7 +447,7 @@ define_vocab!(MODE_VOCAB, "mode",
 );
 
 // =============================================================================
-// Source Vocabulary (152 entries)
+// Source Vocabulary (156 entries)
 // =============================================================================
 
 define_vocab!(SOURCE_VOCAB, "source",
@@ -454,6 +455,7 @@ define_vocab!(SOURCE_VOCAB, "source",
         "artifact_crystal_color", "artifact_selection.card",
         "banner_protection.remove", "banner_protection.skip",
         "book_of_wisdom.card",
+        "card_end_turn.accept", "card_end_turn.select_discard", "card_end_turn.skip",
         "circlet_of_proficiency.card",
         "combat.apply_block_boost",
         "combat.assign_attack", "combat.assign_block",
@@ -545,6 +547,7 @@ define_vocab!(SOURCE_VOCAB, "source",
         "artifact_crystal_color", "artifact_selection.card",
         "banner_protection.remove", "banner_protection.skip",
         "book_of_wisdom.card",
+        "card_end_turn.accept", "card_end_turn.select_discard", "card_end_turn.skip",
         "circlet_of_proficiency.card",
         "combat.apply_block_boost",
         "combat.assign_attack", "combat.assign_block",
@@ -798,7 +801,7 @@ mod tests {
     #[test]
     fn source_vocab_size() {
         // Count the ordered entries
-        assert_eq!(SOURCE_VOCAB.size(), 154); // 153 entries + UNK
+        assert_eq!(SOURCE_VOCAB.size(), 157); // 156 entries + UNK
     }
 
     #[test]
@@ -979,7 +982,7 @@ mod tests {
             "RESOLVE_DISCARD_FOR_CRYSTAL", "RESOLVE_GLADE_WOUND",
             "RESOLVE_HEX_COST_REDUCTION", "RESOLVE_MAXIMAL_EFFECT",
             "RESOLVE_MEDITATION", "RESOLVE_SOURCE_OPENING_REROLL",
-            "RESOLVE_STEADY_TEMPO", "RESOLVE_TACTIC_DECISION",
+            "RESOLVE_CARD_END_TURN_EFFECT", "RESOLVE_TACTIC_DECISION",
             "RESOLVE_TERRAIN_COST_REDUCTION",
             "RESOLVE_TOME_OF_ALL_SPELLS",
             "RESOLVE_TRAINING", "RESOLVE_UNIT_MAINTENANCE",

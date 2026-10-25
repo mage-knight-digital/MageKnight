@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::enums::*;
 use crate::hex::{HexCoord, HexDirection};
 use crate::ids::*;
+use crate::legal_action::CardEndTurnDecision;
 
 /// Info about a mana source used to power a card.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -395,19 +396,9 @@ pub enum PlayerAction {
     ResolveDeepMine { color: BasicManaColor },
 
     // =========================================================================
-    // Crystal Joy reclaim
-    // =========================================================================
-    #[serde(rename = "RESOLVE_CRYSTAL_JOY_RECLAIM")]
-    ResolveCrystalJoyReclaim {
-        #[serde(rename = "cardId", skip_serializing_if = "Option::is_none")]
-        card_id: Option<CardId>,
-    },
-
-    // =========================================================================
-    // Steady Tempo deck placement
-    // =========================================================================
-    #[serde(rename = "RESOLVE_STEADY_TEMPO")]
-    ResolveSteadyTempo { place: bool },
+    // Resolve a scheduled card end-turn effect.
+    #[serde(rename = "RESOLVE_CARD_END_TURN_EFFECT")]
+    ResolveCardEndTurnEffect { decision: CardEndTurnDecision },
 
     // =========================================================================
     // Banner of Protection
@@ -697,8 +688,7 @@ impl PlayerAction {
             Self::ResolveGladeWound { .. } => "RESOLVE_GLADE_WOUND",
             Self::ResolveUnitMaintenance { .. } => "RESOLVE_UNIT_MAINTENANCE",
             Self::ResolveDeepMine { .. } => "RESOLVE_DEEP_MINE",
-            Self::ResolveCrystalJoyReclaim { .. } => "RESOLVE_CRYSTAL_JOY_RECLAIM",
-            Self::ResolveSteadyTempo { .. } => "RESOLVE_STEADY_TEMPO",
+            Self::ResolveCardEndTurnEffect { .. } => "RESOLVE_CARD_END_TURN_EFFECT",
             Self::ResolveBannerProtection { .. } => "RESOLVE_BANNER_PROTECTION",
             Self::ResolveSourceOpeningReroll { .. } => "RESOLVE_SOURCE_OPENING_REROLL",
             Self::ResolveDiscard { .. } => "RESOLVE_DISCARD",

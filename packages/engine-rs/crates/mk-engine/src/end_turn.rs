@@ -3263,11 +3263,14 @@ mod tests {
 
         // Enumerate legal actions
         let legal = enumerate_legal_actions(&state, 0);
-        // Should have: rage(0), stamina(2) as eligible, plus skip(None), plus Undo
+        // Should have: rage(0), stamina(2) as eligible, plus skip, plus Undo
         let reclaim_actions: Vec<_> = legal
             .actions
             .iter()
-            .filter(|a| matches!(a, mk_types::legal_action::LegalAction::ResolveCrystalJoyReclaim { .. }))
+            .filter(|action| matches!(
+                action,
+                mk_types::legal_action::LegalAction::ResolveCardEndTurnEffect { .. }
+            ))
             .collect();
         // 2 non-wound cards + 1 skip = 3
         assert_eq!(reclaim_actions.len(), 3, "2 non-wound + 1 skip");
@@ -3291,7 +3294,10 @@ mod tests {
         let reclaim_actions: Vec<_> = legal
             .actions
             .iter()
-            .filter(|a| matches!(a, mk_types::legal_action::LegalAction::ResolveCrystalJoyReclaim { .. }))
+            .filter(|action| matches!(
+                action,
+                mk_types::legal_action::LegalAction::ResolveCardEndTurnEffect { .. }
+            ))
             .collect();
         // Powered: all cards eligible (rage + wound) + skip = 3
         assert_eq!(reclaim_actions.len(), 3, "Powered: 2 cards + 1 skip");
@@ -3317,8 +3323,8 @@ mod tests {
         let mut undo = UndoStack::new();
 
         // Resolve: pick rage (index 0)
-        let action = LegalAction::ResolveCrystalJoyReclaim {
-            discard_index: Some(0),
+        let action = LegalAction::ResolveCardEndTurnEffect {
+            decision: mk_types::legal_action::CardEndTurnDecision::SelectDiscard { discard_index: Some(0) },
         };
         apply_legal_action(&mut state, &mut undo, 0, &action, legal.epoch).unwrap();
 
@@ -3353,8 +3359,8 @@ mod tests {
         let mut undo = UndoStack::new();
 
         // Resolve: skip (None)
-        let action = LegalAction::ResolveCrystalJoyReclaim {
-            discard_index: None,
+        let action = LegalAction::ResolveCardEndTurnEffect {
+            decision: mk_types::legal_action::CardEndTurnDecision::Skip,
         };
         apply_legal_action(&mut state, &mut undo, 0, &action, legal.epoch).unwrap();
 
@@ -3407,11 +3413,11 @@ mod tests {
         assert!(matches!(end_turn(&mut state, 0), Ok(EndTurnResult::AwaitingEndTurnChoice)));
 
         let legal = enumerate_legal_actions(&state, 0);
-        assert!(legal.actions.contains(&LegalAction::ResolveCardEndTurnEffect { accept: true }));
-        assert!(legal.actions.contains(&LegalAction::ResolveCardEndTurnEffect { accept: false }));
+        assert!(legal.actions.contains(&LegalAction::ResolveCardEndTurnEffect { decision: mk_types::legal_action::CardEndTurnDecision::Accept }));
+        assert!(legal.actions.contains(&LegalAction::ResolveCardEndTurnEffect { decision: mk_types::legal_action::CardEndTurnDecision::Skip }));
         let mut undo = UndoStack::new();
 
-        let action = LegalAction::ResolveCardEndTurnEffect { accept: true };
+        let action = LegalAction::ResolveCardEndTurnEffect { decision: mk_types::legal_action::CardEndTurnDecision::Accept };
         apply_legal_action(&mut state, &mut undo, 0, &action, legal.epoch).unwrap();
 
         // steady_tempo should be at the bottom of deck
@@ -3441,11 +3447,11 @@ mod tests {
         assert!(matches!(end_turn(&mut state, 0), Ok(EndTurnResult::AwaitingEndTurnChoice)));
 
         let legal = enumerate_legal_actions(&state, 0);
-        assert!(legal.actions.contains(&LegalAction::ResolveCardEndTurnEffect { accept: true }));
-        assert!(legal.actions.contains(&LegalAction::ResolveCardEndTurnEffect { accept: false }));
+        assert!(legal.actions.contains(&LegalAction::ResolveCardEndTurnEffect { decision: mk_types::legal_action::CardEndTurnDecision::Accept }));
+        assert!(legal.actions.contains(&LegalAction::ResolveCardEndTurnEffect { decision: mk_types::legal_action::CardEndTurnDecision::Skip }));
         let mut undo = UndoStack::new();
 
-        let action = LegalAction::ResolveCardEndTurnEffect { accept: true };
+        let action = LegalAction::ResolveCardEndTurnEffect { decision: mk_types::legal_action::CardEndTurnDecision::Accept };
         apply_legal_action(&mut state, &mut undo, 0, &action, legal.epoch).unwrap();
 
         // After resolve, end_turn resumes → card flow → draw up
@@ -3476,7 +3482,7 @@ mod tests {
         let legal = enumerate_legal_actions(&state, 0);
         let mut undo = UndoStack::new();
 
-        let action = LegalAction::ResolveCardEndTurnEffect { accept: false };
+        let action = LegalAction::ResolveCardEndTurnEffect { decision: mk_types::legal_action::CardEndTurnDecision::Skip };
         apply_legal_action(&mut state, &mut undo, 0, &action, legal.epoch).unwrap();
 
         // Skip: steady_tempo stays in play_area → card flow moves to discard
@@ -3500,8 +3506,8 @@ mod tests {
         assert!(matches!(end_turn(&mut state, 0), Ok(EndTurnResult::AwaitingEndTurnChoice)));
 
         let legal = enumerate_legal_actions(&state, 0);
-        assert!(!legal.actions.contains(&LegalAction::ResolveCardEndTurnEffect { accept: true }));
-        assert!(legal.actions.contains(&LegalAction::ResolveCardEndTurnEffect { accept: false }));
+        assert!(!legal.actions.contains(&LegalAction::ResolveCardEndTurnEffect { decision: mk_types::legal_action::CardEndTurnDecision::Accept }));
+        assert!(legal.actions.contains(&LegalAction::ResolveCardEndTurnEffect { decision: mk_types::legal_action::CardEndTurnDecision::Skip }));
     }
 
     #[test]
@@ -3522,7 +3528,7 @@ mod tests {
         assert!(matches!(end_turn(&mut state, 0), Ok(EndTurnResult::AwaitingEndTurnChoice)));
 
         let legal = enumerate_legal_actions(&state, 0);
-        let place = LegalAction::ResolveCardEndTurnEffect { accept: true };
+        let place = LegalAction::ResolveCardEndTurnEffect { decision: mk_types::legal_action::CardEndTurnDecision::Accept };
         assert!(legal.actions.contains(&place));
         let mut undo = UndoStack::new();
         apply_legal_action(&mut state, &mut undo, 0, &place, legal.epoch).unwrap();
@@ -3565,7 +3571,7 @@ mod tests {
             &mut state,
             &mut undo,
             0,
-            &LegalAction::ResolveCardEndTurnEffect { accept: true },
+            &LegalAction::ResolveCardEndTurnEffect { decision: mk_types::legal_action::CardEndTurnDecision::Accept },
             legal.epoch,
         )
         .unwrap();
@@ -3580,7 +3586,7 @@ mod tests {
             &mut state,
             &mut undo,
             0,
-            &LegalAction::ResolveCardEndTurnEffect { accept: true },
+            &LegalAction::ResolveCardEndTurnEffect { decision: mk_types::legal_action::CardEndTurnDecision::Accept },
             legal.epoch,
         )
         .unwrap();
@@ -3767,8 +3773,8 @@ mod tests {
         // Resolve Crystal Joy (skip)
         let legal = enumerate_legal_actions(&state, 0);
         let mut undo = UndoStack::new();
-        let action = LegalAction::ResolveCrystalJoyReclaim {
-            discard_index: None,
+        let action = LegalAction::ResolveCardEndTurnEffect {
+            decision: mk_types::legal_action::CardEndTurnDecision::Skip,
         };
         apply_legal_action(&mut state, &mut undo, 0, &action, legal.epoch).unwrap();
 
@@ -3781,7 +3787,7 @@ mod tests {
 
         // Resolve Steady Tempo (skip)
         let legal2 = enumerate_legal_actions(&state, 0);
-        let action2 = LegalAction::ResolveCardEndTurnEffect { accept: false };
+        let action2 = LegalAction::ResolveCardEndTurnEffect { decision: mk_types::legal_action::CardEndTurnDecision::Skip };
         apply_legal_action(&mut state, &mut undo, 0, &action2, legal2.epoch).unwrap();
 
         // Turn should complete normally now
@@ -4152,7 +4158,7 @@ mod tests {
         let mut undo = UndoStack::new();
         apply_legal_action(
             &mut state, &mut undo, 0,
-            &LegalAction::ResolveCrystalJoyReclaim { discard_index: None },
+            &LegalAction::ResolveCardEndTurnEffect { decision: mk_types::legal_action::CardEndTurnDecision::Skip },
             legal.epoch,
         ).unwrap();
 
@@ -4167,7 +4173,7 @@ mod tests {
         let legal2 = enumerate_legal_actions(&state, 0);
         apply_legal_action(
             &mut state, &mut undo, 0,
-            &LegalAction::ResolveCardEndTurnEffect { accept: false },
+            &LegalAction::ResolveCardEndTurnEffect { decision: mk_types::legal_action::CardEndTurnDecision::Skip },
             legal2.epoch,
         ).unwrap();
 
@@ -4202,7 +4208,7 @@ mod tests {
         let mut undo = UndoStack::new();
         apply_legal_action(
             &mut state, &mut undo, 0,
-            &LegalAction::ResolveCrystalJoyReclaim { discard_index: None },
+            &LegalAction::ResolveCardEndTurnEffect { decision: mk_types::legal_action::CardEndTurnDecision::Skip },
             legal.epoch,
         ).unwrap();
 
@@ -4255,7 +4261,7 @@ mod tests {
         let mut undo = UndoStack::new();
         apply_legal_action(
             &mut state, &mut undo, 0,
-            &LegalAction::ResolveCardEndTurnEffect { accept: false },
+            &LegalAction::ResolveCardEndTurnEffect { decision: mk_types::legal_action::CardEndTurnDecision::Skip },
             legal.epoch,
         ).unwrap();
 

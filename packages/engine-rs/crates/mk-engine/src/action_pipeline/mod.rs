@@ -7,7 +7,7 @@
 use mk_types::enums::*;
 use mk_types::events::{CardPlayMode, GameEvent};
 use mk_types::ids::{CombatInstanceId, SkillId, UnitId};
-use mk_types::legal_action::{LegalAction, TacticDecisionData};
+use mk_types::legal_action::{CardEndTurnDecision, LegalAction, TacticDecisionData};
 use mk_types::state::*;
 
 use crate::undo::UndoStack;
@@ -504,14 +504,9 @@ pub fn apply_legal_action(
             )?
         }
 
-        LegalAction::ResolveCrystalJoyReclaim { discard_index } => {
+        LegalAction::ResolveCardEndTurnEffect { decision } => {
             undo_stack.set_checkpoint();
-            choices::apply_resolve_crystal_joy_reclaim(state, player_idx, *discard_index)?
-        }
-
-        LegalAction::ResolveCardEndTurnEffect { accept } => {
-            undo_stack.set_checkpoint();
-            choices::apply_resolve_card_end_turn_effect(state, player_idx, *accept)?
+            choices::apply_resolve_card_end_turn_effect(state, player_idx, *decision)?
         }
 
         LegalAction::ResolveBannerProtection { remove_all } => {
@@ -1236,7 +1231,6 @@ fn action_type_label(action: &LegalAction) -> String {
         LegalAction::ResolveMeditation { .. } => "ResolveMeditation".to_string(),
         LegalAction::MeditationDoneSelecting => "MeditationDoneSelecting".to_string(),
         LegalAction::ResolveBannerProtection { .. } => "ResolveBannerProtection".to_string(),
-        LegalAction::ResolveCrystalJoyReclaim { .. } => "ResolveCrystalJoyReclaim".to_string(),
         LegalAction::ResolveCardEndTurnEffect { .. } => "ResolveCardEndTurnEffect".to_string(),
         LegalAction::ProposeCooperativeAssault { .. } => "ProposeCooperativeAssault".to_string(),
         LegalAction::RespondToCooperativeProposal { .. } => "RespondToCooperativeProposal".to_string(),
@@ -1283,8 +1277,14 @@ fn action_detail(action: &LegalAction) -> Option<String> {
         LegalAction::ResolveSourceOpeningReroll { reroll } => {
             Some(if *reroll { "reroll".to_string() } else { "keep".to_string() })
         }
-        LegalAction::ResolveCardEndTurnEffect { accept } => {
-            Some(if *accept { "place on deck".to_string() } else { "skip".to_string() })
+        LegalAction::ResolveCardEndTurnEffect { decision } => {
+            Some(match decision {
+                CardEndTurnDecision::Accept => "place on deck".to_string(),
+                CardEndTurnDecision::Skip => "skip".to_string(),
+                CardEndTurnDecision::SelectDiscard { discard_index } => {
+                    format!("reclaim discard card {discard_index:?}")
+                }
+            })
         }
         LegalAction::ResolveCrystalRollColor { color } => {
             Some(format!("{color:?}"))

@@ -157,8 +157,6 @@ function formatActionType(actionType: string): string {
       return "Source Opening";
     case "ResolveCardEndTurnEffect":
       return "card end-turn effect";
-    case "ResolveCrystalJoyReclaim":
-      return "Crystal Joy reclaim";
     case "ForfeitUnitReward":
       return "forfeited unit reward";
     case "ResolveCrystalRollColor":
