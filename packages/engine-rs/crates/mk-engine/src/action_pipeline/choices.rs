@@ -222,39 +222,37 @@ pub(super) fn apply_resolve_book_of_wisdom(
 
     match pending.phase {
         BookOfWisdomPhase::SelectCard => {
-            let player = &mut state.players[player_idx];
-            if selection_index >= player.hand.len() {
-                player.pending.active = Some(ActivePending::BookOfWisdom(pending));
+            let Some((_, card_color)) = effect_queue::select_colored_hand_card(
+                &mut state.players[player_idx],
+                selection_index,
+                effect_queue::BOOK_OF_WISDOM_CARD_ID,
+                effect_queue::ColoredHandCardScope::ActionCardsAndSpells,
+                effect_queue::HandCardDestination::Removed,
+            ) else {
+                state.players[player_idx].pending.active = Some(ActivePending::BookOfWisdom(pending));
                 return Err(ApplyError::InternalError(
-                    "ResolveBookOfWisdom: hand index out of range".to_string(),
+                    "ResolveBookOfWisdom: hand index is not an eligible card".to_string(),
                 ));
-            }
-
-            let card_id = player.hand.remove(selection_index);
-            let card_color = mk_data::cards::get_card_color(card_id.as_str())
-                .or_else(|| mk_data::cards::get_spell_color(card_id.as_str()));
-            player.removed_cards.push(card_id);
+            };
 
             // Basic mode: find matching-color AAs from offer
             // Powered mode: find matching-color spells from offer
             let mut available: arrayvec::ArrayVec<CardId, { mk_types::pending::MAX_OFFER_CARDS }> =
                 arrayvec::ArrayVec::new();
-            if let Some(color) = card_color {
-                match pending.mode {
-                    mk_types::pending::EffectMode::Basic => {
-                        for aa_id in &state.offers.advanced_actions {
-                            if mk_data::cards::get_card_color(aa_id.as_str()) == Some(color)
-                                && available.try_push(aa_id.clone()).is_err() {
-                                break;
-                            }
+            match pending.mode {
+                mk_types::pending::EffectMode::Basic => {
+                    for aa_id in &state.offers.advanced_actions {
+                        if mk_data::cards::get_card_color(aa_id.as_str()) == Some(card_color)
+                            && available.try_push(aa_id.clone()).is_err() {
+                            break;
                         }
                     }
-                    mk_types::pending::EffectMode::Powered => {
-                        for spell_id in &state.offers.spells {
-                            if mk_data::cards::get_spell_color(spell_id.as_str()) == Some(color)
-                                && available.try_push(spell_id.clone()).is_err() {
-                                break;
-                            }
+                }
+                mk_types::pending::EffectMode::Powered => {
+                    for spell_id in &state.offers.spells {
+                        if mk_data::cards::get_spell_color(spell_id.as_str()) == Some(card_color)
+                            && available.try_push(spell_id.clone()).is_err() {
+                            break;
                         }
                     }
                 }
@@ -271,7 +269,7 @@ pub(super) fn apply_resolve_book_of_wisdom(
             } else {
                 state.players[player_idx].pending.active = Some(ActivePending::BookOfWisdom(PendingBookOfWisdom {
                     phase: BookOfWisdomPhase::SelectFromOffer,
-                    thrown_card_color: card_color,
+                    thrown_card_color: Some(card_color),
                     available_offer_cards: available,
                     ..pending
                 }));
@@ -346,21 +344,23 @@ pub(super) fn apply_resolve_tome_of_all_spells(
     match pending.phase {
         TomeOfAllSpellsPhase::SelectCard => {
             // Discard the selected card from hand, determine its color
-            if selection_index >= state.players[player_idx].hand.len() {
+            let Some((_, card_color)) = effect_queue::select_colored_hand_card(
+                &mut state.players[player_idx],
+                selection_index,
+                effect_queue::TOME_OF_ALL_SPELLS_CARD_ID,
+                effect_queue::ColoredHandCardScope::ActionCards,
+                effect_queue::HandCardDestination::Discard,
+            ) else {
+                state.players[player_idx].pending.active = Some(ActivePending::TomeOfAllSpells(pending));
                 return Err(ApplyError::InternalError(
-                    "ResolveTomeOfAllSpells: selection_index out of range".to_string(),
+                    "ResolveTomeOfAllSpells: hand index is not an eligible card".to_string(),
                 ));
-            }
-            let card_id = state.players[player_idx].hand.remove(selection_index);
-            let card_color = mk_data::cards::get_card_color(card_id.as_str());
-
-            // Move discarded card to discard
-            state.players[player_idx].discard.push(card_id);
+            };
 
             // Find matching-color spells in offer
             let available_spells: Vec<mk_types::ids::CardId> = state.offers.spells.iter()
                 .filter(|spell_id| {
-                    mk_data::cards::get_card_color(spell_id.as_str()) == card_color
+                    mk_data::cards::get_spell_color(spell_id.as_str()) == Some(card_color)
                 })
                 .cloned()
                 .collect();
@@ -376,7 +376,7 @@ pub(super) fn apply_resolve_tome_of_all_spells(
                     source_card_id: pending.source_card_id,
                     mode: pending.mode,
                     phase: TomeOfAllSpellsPhase::SelectSpell,
-                    discarded_color: card_color,
+                    discarded_color: Some(card_color),
                     available_spells,
                 }));
             Ok(ApplyResult { needs_reenumeration: true, game_ended: false, events: vec![] })

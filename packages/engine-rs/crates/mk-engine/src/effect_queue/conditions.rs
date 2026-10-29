@@ -5,7 +5,10 @@ use mk_types::enums::*;
 use mk_types::state::*;
 
 use crate::card_play::is_die_available_with_overrides;
-use super::{MAX_CRYSTALS_PER_COLOR, WOUND_CARD_ID};
+use super::{
+    eligible_colored_hand_cards, ColoredHandCardScope, MAX_CRYSTALS_PER_COLOR, WOUND_CARD_ID,
+    BOOK_OF_WISDOM_CARD_ID, TOME_OF_ALL_SPELLS_CARD_ID,
+};
 
 // =============================================================================
 // Resolvability check
@@ -286,19 +289,20 @@ pub(crate) fn is_resolvable(state: &GameState, player_idx: usize, effect: &CardE
         CardEffect::RollDieForWound { .. } => true,
         CardEffect::ChooseBonusWithRisk { .. } => state.combat.is_some(),
         CardEffect::RollForCrystals { .. } => true,
-        CardEffect::BookOfWisdom { .. } => {
-            // Need non-wound, non-self action card in hand
-            player.hand.iter().any(|c| {
-                c.as_str() != WOUND_CARD_ID && c.as_str() != "book_of_wisdom"
-                    && mk_data::cards::get_card_color(c.as_str()).is_some()
-            })
-        }
+        CardEffect::BookOfWisdom { .. } => !eligible_colored_hand_cards(
+            &player.hand,
+            BOOK_OF_WISDOM_CARD_ID,
+            ColoredHandCardScope::ActionCardsAndSpells,
+        )
+        .is_empty(),
         CardEffect::TomeOfAllSpells { .. } => {
-            // Need colored card in hand + spell in offer
             !state.offers.spells.is_empty()
-                && player.hand.iter().any(|c| {
-                    c.as_str() != WOUND_CARD_ID && c.as_str() != "tome_of_all_spells"
-                })
+                && !eligible_colored_hand_cards(
+                    &player.hand,
+                    TOME_OF_ALL_SPELLS_CARD_ID,
+                    ColoredHandCardScope::ActionCards,
+                )
+                .is_empty()
         }
         CardEffect::CircletOfProficiencyBasic | CardEffect::CircletOfProficiencyPowered => true,
         CardEffect::MysteriousBox => !state.offers.artifacts.is_empty(),

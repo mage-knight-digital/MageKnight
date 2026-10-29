@@ -12,6 +12,55 @@ use crate::undo::UndoStack;
 
 use super::{DrainResult, EffectQueue, QueuedEffect, MAX_CRYSTALS_PER_COLOR, WOUND_CARD_ID};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ColoredHandCardScope {
+    ActionCards,
+    ActionCardsAndSpells,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum HandCardDestination {
+    Discard,
+    Removed,
+}
+
+pub(crate) fn eligible_colored_hand_cards(
+    hand: &[CardId],
+    excluded_card_id: &str,
+    scope: ColoredHandCardScope,
+) -> Vec<(usize, BasicManaColor)> {
+    hand.iter()
+        .enumerate()
+        .filter(|(_, card_id)| card_id.as_str() != excluded_card_id)
+        .filter_map(|(index, card_id)| {
+            let color = match scope {
+                ColoredHandCardScope::ActionCards => mk_data::cards::get_card_color(card_id.as_str()),
+                ColoredHandCardScope::ActionCardsAndSpells => mk_data::cards::get_card_color(card_id.as_str())
+                    .or_else(|| mk_data::cards::get_spell_color(card_id.as_str())),
+            }?;
+            Some((index, color))
+        })
+        .collect()
+}
+
+pub(crate) fn select_colored_hand_card(
+    player: &mut PlayerState,
+    hand_index: usize,
+    excluded_card_id: &str,
+    scope: ColoredHandCardScope,
+    destination: HandCardDestination,
+) -> Option<(CardId, BasicManaColor)> {
+    let (_, color) = eligible_colored_hand_cards(&player.hand, excluded_card_id, scope)
+        .into_iter()
+        .find(|(index, _)| *index == hand_index)?;
+    let card_id = player.hand.remove(hand_index);
+    match destination {
+        HandCardDestination::Discard => player.discard.push(card_id.clone()),
+        HandCardDestination::Removed => player.removed_cards.push(card_id.clone()),
+    }
+    Some((card_id, color))
+}
+
 pub(super) fn discard_eligible_cards(
     state: &mut GameState,
     player_idx: usize,

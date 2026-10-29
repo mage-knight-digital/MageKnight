@@ -9,7 +9,10 @@ use mk_types::pending::{
 };
 use mk_types::state::*;
 
-use super::ResolveResult;
+use super::{
+    eligible_colored_hand_cards, ColoredHandCardScope, ResolveResult,
+    BOOK_OF_WISDOM_CARD_ID, TOME_OF_ALL_SPELLS_CARD_ID,
+};
 use super::WOUND_CARD_ID;
 use super::atomic::apply_gain_block;
 
@@ -200,17 +203,11 @@ pub(super) fn apply_book_of_wisdom(
     use mk_types::pending::{BookOfWisdomPhase, PendingBookOfWisdom};
 
     // Find eligible hand cards: non-wound, non-self action cards with a color
-    let eligible: Vec<(usize, CardId)> = state.players[player_idx]
-        .hand
-        .iter()
-        .enumerate()
-        .filter(|(_, c)| {
-            c.as_str() != WOUND_CARD_ID
-                && c.as_str() != "book_of_wisdom"
-                && mk_data::cards::get_card_color(c.as_str()).is_some()
-        })
-        .map(|(i, c)| (i, c.clone()))
-        .collect();
+    let eligible = eligible_colored_hand_cards(
+        &state.players[player_idx].hand,
+        BOOK_OF_WISDOM_CARD_ID,
+        ColoredHandCardScope::ActionCardsAndSpells,
+    );
 
     if eligible.is_empty() {
         return ResolveResult::Skipped;
@@ -221,7 +218,7 @@ pub(super) fn apply_book_of_wisdom(
         .play_area
         .last()
         .cloned()
-        .unwrap_or_else(|| CardId::from("book_of_wisdom"));
+        .unwrap_or_else(|| CardId::from(BOOK_OF_WISDOM_CARD_ID));
     state.players[player_idx].pending.active =
         Some(ActivePending::BookOfWisdom(PendingBookOfWisdom {
             source_card_id: source_card,
@@ -241,14 +238,12 @@ pub(super) fn apply_tome_of_all_spells(
     use mk_types::pending::{PendingTomeOfAllSpells, TomeOfAllSpellsPhase};
 
     // Eligible: any colored (non-wound, non-self) card in hand
-    let has_eligible = state.players[player_idx]
-        .hand
-        .iter()
-        .any(|c| {
-            c.as_str() != WOUND_CARD_ID
-                && c.as_str() != "tome_of_all_spells"
-                && mk_data::cards::get_card_color(c.as_str()).is_some()
-        });
+    let has_eligible = !eligible_colored_hand_cards(
+        &state.players[player_idx].hand,
+        TOME_OF_ALL_SPELLS_CARD_ID,
+        ColoredHandCardScope::ActionCards,
+    )
+    .is_empty();
 
     if !has_eligible {
         return ResolveResult::Skipped;
@@ -258,7 +253,7 @@ pub(super) fn apply_tome_of_all_spells(
         .play_area
         .last()
         .cloned()
-        .unwrap_or_else(|| CardId::from("tome_of_all_spells"));
+        .unwrap_or_else(|| CardId::from(TOME_OF_ALL_SPELLS_CARD_ID));
 
     state.players[player_idx].pending.active =
         Some(ActivePending::TomeOfAllSpells(PendingTomeOfAllSpells {

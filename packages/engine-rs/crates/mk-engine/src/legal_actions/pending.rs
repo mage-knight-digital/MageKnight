@@ -3,7 +3,10 @@ use mk_types::legal_action::{CardEndTurnDecision, LegalAction, TacticDecisionDat
 use mk_types::pending::{ActivePending, PendingLevelUpReward, PendingTacticDecision, SiteReward};
 use mk_types::state::PlayerFlags;
 
-use crate::effect_queue::{is_resolvable, WOUND_CARD_ID};
+use crate::effect_queue::{
+    eligible_colored_hand_cards, is_resolvable, ColoredHandCardScope, BOOK_OF_WISDOM_CARD_ID,
+    TOME_OF_ALL_SPELLS_CARD_ID, WOUND_CARD_ID,
+};
 use crate::undo::UndoStack;
 
 use super::cards::{is_dominated_in_attack, is_dominated_in_block, is_dominated_in_ranged_siege, is_influence_only, is_move_only};
@@ -262,25 +265,14 @@ pub(super) fn enumerate_pending(
             let player = &state.players[player_idx];
             match bow.phase {
                 BookOfWisdomPhase::SelectCard => {
-                    // Enumerate eligible hand cards: non-wound, non-self, with color
-                    for (idx, card_id) in player.hand.iter().enumerate() {
-                        if card_id.as_str() == WOUND_CARD_ID || card_id.as_str() == "book_of_wisdom" {
-                            continue;
-                        }
-                        if mk_data::cards::get_card_color(card_id.as_str()).is_none() {
-                            continue;
-                        }
-                        // Basic mode: accept BasicAction/AdvancedAction cards
-                        // Powered mode: accept spells too (any colored card)
-                        let is_action = mk_data::cards::get_card(card_id.as_str())
-                            .map(|d| matches!(d.card_type, DeedCardType::BasicAction | DeedCardType::AdvancedAction))
-                            .unwrap_or(false);
-                        let is_spell = mk_data::cards::get_spell_card(card_id.as_str()).is_some();
-                        if is_action || is_spell {
-                            actions.push(LegalAction::ResolveBookOfWisdom {
-                                selection_index: idx,
-                            });
-                        }
+                    for (idx, _) in eligible_colored_hand_cards(
+                        &player.hand,
+                        BOOK_OF_WISDOM_CARD_ID,
+                        ColoredHandCardScope::ActionCardsAndSpells,
+                    ) {
+                        actions.push(LegalAction::ResolveBookOfWisdom {
+                            selection_index: idx,
+                        });
                     }
                 }
                 BookOfWisdomPhase::SelectFromOffer => {
@@ -386,14 +378,11 @@ pub(super) fn enumerate_pending(
             let player = &state.players[player_idx];
             match tome.phase {
                 TomeOfAllSpellsPhase::SelectCard => {
-                    // Eligible: colored non-wound, non-self cards (actions + spells)
-                    for (idx, card_id) in player.hand.iter().enumerate() {
-                        if card_id.as_str() == WOUND_CARD_ID || card_id.as_str() == "tome_of_all_spells" {
-                            continue;
-                        }
-                        if mk_data::cards::get_card_color(card_id.as_str()).is_none() {
-                            continue;
-                        }
+                    for (idx, _) in eligible_colored_hand_cards(
+                        &player.hand,
+                        TOME_OF_ALL_SPELLS_CARD_ID,
+                        ColoredHandCardScope::ActionCards,
+                    ) {
                         actions.push(LegalAction::ResolveTomeOfAllSpells {
                             selection_index: idx,
                         });
