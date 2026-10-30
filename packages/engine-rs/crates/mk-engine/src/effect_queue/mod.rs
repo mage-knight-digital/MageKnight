@@ -57,6 +57,10 @@ pub(crate) use self::choice_resolution::{
     resolve_discard_for_bonus_with_undo,
 };
 pub(crate) use self::conditions::is_resolvable;
+pub(crate) use self::utils::{
+    eligible_colored_hand_cards, select_colored_hand_card, ColoredHandCardScope,
+    HandCardDestination,
+};
 pub(crate) use self::utils::{gain_crystal_color, replenish_aa_offer, replenish_spell_offer};
 
 // =============================================================================
@@ -65,6 +69,8 @@ pub(crate) use self::utils::{gain_crystal_color, replenish_aa_offer, replenish_s
 
 /// Well-known card ID for wound cards.
 pub const WOUND_CARD_ID: &str = "wound";
+pub(crate) const BOOK_OF_WISDOM_CARD_ID: &str = "book_of_wisdom";
+pub(crate) const TOME_OF_ALL_SPELLS_CARD_ID: &str = "tome_of_all_spells";
 
 /// Maximum reputation value.
 const MAX_REPUTATION: i8 = 7;

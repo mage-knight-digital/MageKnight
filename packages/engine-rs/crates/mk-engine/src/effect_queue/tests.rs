@@ -12,6 +12,9 @@ use mk_types::pending::{
 use mk_types::rng::RngState;
 use mk_types::state::*;
 
+const TEST_MARCH_CARD_ID: &str = "march";
+const TEST_FIREBALL_CARD_ID: &str = "fireball";
+
     /// Create a minimal GameState for testing with one player.
     fn test_state() -> GameState {
         GameState {
@@ -5940,6 +5943,70 @@ use mk_types::state::*;
         );
         let result = queue.drain(&mut state, 0);
         assert!(matches!(result, DrainResult::Complete));
+    }
+
+    #[test]
+    fn colored_hand_card_scopes_match_artifact_rules() {
+        let hand = vec![
+            CardId::from(TEST_MARCH_CARD_ID),
+            CardId::from(TEST_FIREBALL_CARD_ID),
+            CardId::from(WOUND_CARD_ID),
+            CardId::from(BOOK_OF_WISDOM_CARD_ID),
+        ];
+
+        let action_cards = eligible_colored_hand_cards(
+            &hand,
+            BOOK_OF_WISDOM_CARD_ID,
+            ColoredHandCardScope::ActionCards,
+        );
+        let action_cards_and_spells = eligible_colored_hand_cards(
+            &hand,
+            BOOK_OF_WISDOM_CARD_ID,
+            ColoredHandCardScope::ActionCardsAndSpells,
+        );
+
+        assert_eq!(action_cards.len(), 1);
+        assert_eq!(hand[action_cards[0].0].as_str(), TEST_MARCH_CARD_ID);
+        assert_eq!(action_cards_and_spells.len(), 2);
+        assert!(action_cards_and_spells
+            .iter()
+            .any(|(index, _)| hand[*index].as_str() == TEST_FIREBALL_CARD_ID));
+        assert!(!action_cards_and_spells
+            .iter()
+            .any(|(index, _)| hand[*index].as_str() == BOOK_OF_WISDOM_CARD_ID));
+        assert!(!action_cards_and_spells
+            .iter()
+            .any(|(index, _)| hand[*index].as_str() == WOUND_CARD_ID));
+    }
+
+    #[test]
+    fn colored_hand_card_selection_uses_requested_destination() {
+        let mut player = test_player();
+        player.hand = vec![CardId::from(TEST_MARCH_CARD_ID), CardId::from(TEST_FIREBALL_CARD_ID)];
+
+        let (_, march_color) = select_colored_hand_card(
+            &mut player,
+            0,
+            BOOK_OF_WISDOM_CARD_ID,
+            ColoredHandCardScope::ActionCards,
+            HandCardDestination::Removed,
+        )
+        .expect("march is an eligible action card");
+        assert_eq!(Some(march_color), mk_data::cards::get_card_color(TEST_MARCH_CARD_ID));
+        assert_eq!(player.removed_cards, vec![CardId::from(TEST_MARCH_CARD_ID)]);
+        assert!(player.discard.is_empty());
+
+        let (_, fireball_color) = select_colored_hand_card(
+            &mut player,
+            0,
+            TOME_OF_ALL_SPELLS_CARD_ID,
+            ColoredHandCardScope::ActionCardsAndSpells,
+            HandCardDestination::Discard,
+        )
+        .expect("fireball is an eligible colored spell");
+        assert_eq!(Some(fireball_color), mk_data::cards::get_spell_color(TEST_FIREBALL_CARD_ID));
+        assert_eq!(player.discard, vec![CardId::from(TEST_FIREBALL_CARD_ID)]);
+        assert_eq!(player.hand.len(), 0);
     }
 
     #[test]
