@@ -624,22 +624,16 @@ pub(super) fn apply_discard_cost(
     let player = &state.players[player_idx];
 
     // Build eligible hand indices
-    let eligible_indices: Vec<usize> = player
-        .hand
-        .iter()
-        .enumerate()
-        .filter(|(_, c)| {
-            let is_wound = c.as_str() == WOUND_CARD_ID;
-            if wounds_only {
-                is_wound
-            } else if filter_wounds {
-                !is_wound
-            } else {
-                true
-            }
-        })
-        .map(|(i, _)| i)
-        .collect();
+    let eligible_indices = eligible_hand_card_indices(&player.hand, |c| {
+        let is_wound = c.as_str() == WOUND_CARD_ID;
+        if wounds_only {
+            is_wound
+        } else if filter_wounds {
+            !is_wound
+        } else {
+            true
+        }
+    });
 
     if count == 1 {
         match eligible_indices.len() {
