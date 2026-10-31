@@ -4714,6 +4714,25 @@ const TEST_FIREBALL_CARD_ID: &str = "fireball";
     }
 
     #[test]
+    fn magic_talent_basic_skips_when_hand_has_only_self_and_spell() {
+        let mut state = test_state();
+        state.offers.spells = vec![CardId::from("fireball")];
+        state.players[0].hand = vec![
+            CardId::from(MAGIC_TALENT_CARD_ID),
+            CardId::from("fireball"),
+            CardId::from(WOUND_CARD_ID),
+        ];
+
+        assert!(!is_resolvable(&state, 0, &CardEffect::MagicTalentBasic));
+
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::MagicTalentBasic, None);
+        let result = queue.drain(&mut state, 0);
+
+        assert!(matches!(result, DrainResult::Complete));
+    }
+
+    #[test]
     fn magic_talent_basic_single_match_auto() {
         let mut state = test_state();
         state.offers.spells = vec![CardId::from("fireball")]; // Red spell

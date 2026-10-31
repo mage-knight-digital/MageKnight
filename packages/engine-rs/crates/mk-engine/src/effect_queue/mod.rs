@@ -71,6 +71,7 @@ pub(crate) use self::utils::{gain_crystal_color, replenish_aa_offer, replenish_s
 pub const WOUND_CARD_ID: &str = "wound";
 pub(crate) const BOOK_OF_WISDOM_CARD_ID: &str = "book_of_wisdom";
 pub(crate) const TOME_OF_ALL_SPELLS_CARD_ID: &str = "tome_of_all_spells";
+pub(crate) const MAGIC_TALENT_CARD_ID: &str = "magic_talent";
 
 /// Maximum reputation value.
 const MAX_REPUTATION: i8 = 7;
