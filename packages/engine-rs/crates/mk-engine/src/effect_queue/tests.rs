@@ -14,6 +14,10 @@ use mk_types::state::*;
 
 const TEST_MARCH_CARD_ID: &str = "march";
 const TEST_FIREBALL_CARD_ID: &str = "fireball";
+const TEST_STAMINA_CARD_ID: &str = "stamina";
+const TEST_SWIFTNESS_CARD_ID: &str = "swiftness";
+const TEST_RAGE_CARD_ID: &str = "rage";
+const TEST_RUBY_RING_CARD_ID: &str = "ruby_ring";
 
     /// Create a minimal GameState for testing with one player.
     fn test_state() -> GameState {
@@ -5784,9 +5788,11 @@ const TEST_FIREBALL_CARD_ID: &str = "fireball";
     #[test]
     fn druidic_staff_basic_needs_cards_in_hand() {
         let mut state = test_state();
-        // Clear hand to only wounds
-        state.players[0].hand.clear();
-        state.players[0].hand.push(CardId::from("wound"));
+        state.players[0].hand = vec![
+            CardId::from(WOUND_CARD_ID),
+            CardId::from(DRUIDIC_STAFF_CARD_ID),
+        ];
+        assert!(!is_resolvable(&state, 0, &CardEffect::DruidicStaffBasic));
         let mut queue = EffectQueue::new();
         queue.push(CardEffect::DruidicStaffBasic, None);
         let result = queue.drain(&mut state, 0);
@@ -5797,16 +5803,56 @@ const TEST_FIREBALL_CARD_ID: &str = "fireball";
     #[test]
     fn druidic_staff_basic_with_cards_offers_discard_choice() {
         let mut state = test_state();
-        state.players[0].hand.push(CardId::from("march"));
-        state.players[0].hand.push(CardId::from("rage"));
+        state.players[0].hand = vec![
+            CardId::from(WOUND_CARD_ID),
+            CardId::from(DRUIDIC_STAFF_CARD_ID),
+            CardId::from(TEST_MARCH_CARD_ID),
+            CardId::from(TEST_STAMINA_CARD_ID),
+            CardId::from(TEST_SWIFTNESS_CARD_ID),
+            CardId::from(TEST_RAGE_CARD_ID),
+            CardId::from(TEST_RUBY_RING_CARD_ID),
+        ];
         let mut queue = EffectQueue::new();
         queue.push(CardEffect::DruidicStaffBasic, None);
-        let result = queue.drain(&mut state, 0);
-        match result {
-            DrainResult::NeedsChoice { resolution, .. } => {
-                assert!(matches!(resolution, ChoiceResolution::DiscardThenContinue { .. }));
+        drain_and_set_pending(&mut queue, &mut state, 0);
+        match &state.players[0].pending.active {
+            Some(ActivePending::Choice(pending)) => {
+                let options = &pending.options;
+                assert!(matches!(
+                    options[0],
+                    CardEffect::GainHealing { amount: 3 }
+                ));
+                assert!(matches!(
+                    options[1],
+                    CardEffect::Compound { ref effects }
+                        if effects.len() == 2
+                            && effects.iter().all(|effect| matches!(
+                                effect,
+                                CardEffect::GainCrystal { color: None }
+                            ))
+                ));
+                assert!(matches!(
+                    options[2],
+                    CardEffect::Compound { ref effects }
+                        if matches!(effects[0], CardEffect::GainMove { amount: 2 })
+                            && matches!(effects[1], CardEffect::ApplyModifier { .. })
+                ));
+                assert!(matches!(
+                    options[3],
+                    CardEffect::ReadyUnit { max_level: 255 }
+                ));
+                assert!(matches!(options[4], CardEffect::Noop));
+                assert!(matches!(
+                    &pending.resolution,
+                    ChoiceResolution::DiscardThenContinue { eligible_indices }
+                        if eligible_indices.as_slice() == [2, 3, 4, 5, 6]
+                ));
+
+                resolve_pending_choice(&mut state, 0, 4).unwrap();
+                assert_eq!(state.players[0].discard, vec![CardId::from(TEST_RUBY_RING_CARD_ID)]);
+                assert_eq!(state.players[0].hand.len(), 6);
             }
-            _ => panic!("Expected NeedsChoice with DiscardThenContinue"),
+            other => panic!("Expected pending choice with DiscardThenContinue, got {other:?}"),
         }
     }
 

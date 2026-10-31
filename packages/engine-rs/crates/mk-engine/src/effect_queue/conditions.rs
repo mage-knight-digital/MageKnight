@@ -6,8 +6,9 @@ use mk_types::state::*;
 
 use crate::card_play::is_die_available_with_overrides;
 use super::{
-    eligible_colored_hand_cards, ColoredHandCardScope, MAX_CRYSTALS_PER_COLOR, WOUND_CARD_ID,
-    BOOK_OF_WISDOM_CARD_ID, MAGIC_TALENT_CARD_ID, TOME_OF_ALL_SPELLS_CARD_ID,
+    eligible_colored_hand_cards, eligible_hand_card_indices, ColoredHandCardScope,
+    MAX_CRYSTALS_PER_COLOR, WOUND_CARD_ID, BOOK_OF_WISDOM_CARD_ID, DRUIDIC_STAFF_CARD_ID,
+    MAGIC_TALENT_CARD_ID, TOME_OF_ALL_SPELLS_CARD_ID,
 };
 
 // =============================================================================
@@ -310,7 +311,10 @@ pub(crate) fn is_resolvable(state: &GameState, player_idx: usize, effect: &CardE
         CardEffect::MysteriousBox => !state.offers.artifacts.is_empty(),
         CardEffect::DruidicStaffBasic => {
             // Need non-wound card in hand to discard
-            player.hand.iter().any(|c| c.as_str() != WOUND_CARD_ID && c.as_str() != "druidic_staff")
+            !eligible_hand_card_indices(&player.hand, |card_id| {
+                card_id.as_str() != WOUND_CARD_ID && card_id.as_str() != DRUIDIC_STAFF_CARD_ID
+            })
+            .is_empty()
         }
         CardEffect::DruidicStaffPowered => true, // Always has 6 choices
         CardEffect::GainAttackBowResolved { .. } => state.combat.is_some(),
