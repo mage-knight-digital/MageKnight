@@ -9,7 +9,10 @@ use mk_types::pending::{
 };
 use mk_types::state::*;
 
-use super::{MAX_CRYSTALS_PER_COLOR, ResolveResult, WOUND_CARD_ID};
+use super::{
+    ColoredHandCardScope, MAX_CRYSTALS_PER_COLOR, ResolveResult, WOUND_CARD_ID,
+    MAGIC_TALENT_CARD_ID,
+};
 use super::utils::*;
 
 // =============================================================================
@@ -430,11 +433,12 @@ pub(super) fn apply_magic_talent_basic(state: &mut GameState, player_idx: usize)
     }
 
     // Check if player has any colored cards to discard (to match spell colors)
-    let player = &state.players[player_idx];
-    let has_discardable = player.hand.iter().any(|card_id| {
-        card_id.as_str() != WOUND_CARD_ID && card_id.as_str() != "magic_talent"
-            && mk_data::cards::get_card_color(card_id.as_str()).is_some()
-    });
+    let has_discardable = !eligible_colored_hand_cards(
+        &state.players[player_idx].hand,
+        MAGIC_TALENT_CARD_ID,
+        ColoredHandCardScope::ActionCards,
+    )
+    .is_empty();
 
     if !has_discardable {
         return ResolveResult::Skipped;
