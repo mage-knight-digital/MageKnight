@@ -2,7 +2,7 @@
 
 use mk_types::effect::*;
 use mk_types::enums::*;
-use mk_types::ids::CardId;
+use mk_types::ids::{CardId, UnitId};
 use mk_types::pending::{
     ActivePending, ContinuationEntry, PendingChoice,
 };
@@ -22,6 +22,62 @@ pub(crate) enum ColoredHandCardScope {
 pub(crate) enum HandCardDestination {
     Discard,
     Removed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CrystalGainEligibility {
+    AnyBelowMaximum,
+    ExistingBelowMaximum,
+}
+
+/// Return crystal colors eligible for a card that gains one crystal.
+pub(crate) fn eligible_crystal_gain_colors(
+    crystals: &Crystals,
+    eligibility: CrystalGainEligibility,
+) -> Vec<BasicManaColor> {
+    [BasicManaColor::Red, BasicManaColor::Blue, BasicManaColor::Green, BasicManaColor::White]
+        .into_iter()
+        .filter(|&color| {
+            let count = crystal_count(crystals, color);
+            count < MAX_CRYSTALS_PER_COLOR
+                && (eligibility == CrystalGainEligibility::AnyBelowMaximum || count > 0)
+        })
+        .collect()
+}
+
+fn eligible_unit_offer_indices(
+    unit_offer: &[UnitId],
+    is_eligible: impl Fn(&mk_data::units::UnitDefinition) -> bool,
+) -> Vec<usize> {
+    unit_offer
+        .iter()
+        .enumerate()
+        .filter_map(|(index, unit_id)| {
+            mk_data::units::get_unit(unit_id.as_str())
+                .filter(|unit| is_eligible(unit))
+                .map(|_| index)
+        })
+        .collect()
+}
+
+/// Return offered units that Call to Arms can borrow an ability from.
+pub(crate) fn call_to_arms_unit_indices(unit_offer: &[UnitId]) -> Vec<usize> {
+    eligible_unit_offer_indices(unit_offer, |unit| {
+        !unit.restricted_from_free_recruit
+            && unit.abilities.iter().any(|ability| ability.mana_cost.is_none())
+    })
+}
+
+/// Return offered units eligible for Free Recruit when the player has a command slot.
+pub(crate) fn free_recruit_unit_indices(
+    unit_offer: &[UnitId],
+    has_command_slot: bool,
+) -> Vec<usize> {
+    if !has_command_slot {
+        return Vec::new();
+    }
+
+    eligible_unit_offer_indices(unit_offer, |unit| !unit.restricted_from_free_recruit)
 }
 
 /// Return hand indices that satisfy a card-specific eligibility rule.

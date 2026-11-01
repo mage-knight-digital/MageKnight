@@ -10,7 +10,7 @@ use mk_types::pending::{
 use mk_types::state::*;
 
 use super::{
-    ColoredHandCardScope, MAX_CRYSTALS_PER_COLOR, ResolveResult, WOUND_CARD_ID,
+    ColoredHandCardScope, ResolveResult, WOUND_CARD_ID,
     MAGIC_TALENT_CARD_ID,
 };
 use super::utils::*;
@@ -215,13 +215,10 @@ pub(super) fn apply_rush_of_adrenaline(
 }
 
 pub(super) fn apply_power_of_crystals_basic(state: &mut GameState, player_idx: usize) -> ResolveResult {
-    let crystals = &state.players[player_idx].crystals;
-    let mut eligible: Vec<BasicManaColor> = Vec::new();
-    for &color in &[BasicManaColor::Red, BasicManaColor::Blue, BasicManaColor::Green, BasicManaColor::White] {
-        if crystal_count(crystals, color) < MAX_CRYSTALS_PER_COLOR {
-            eligible.push(color);
-        }
-    }
+    let eligible = eligible_crystal_gain_colors(
+        &state.players[player_idx].crystals,
+        CrystalGainEligibility::AnyBelowMaximum,
+    );
     match eligible.len() {
         0 => ResolveResult::Skipped,
         1 => {
@@ -260,14 +257,10 @@ pub(super) fn apply_power_of_crystals_powered(state: &mut GameState, player_idx:
 }
 
 pub(super) fn apply_crystal_mastery_basic(state: &mut GameState, player_idx: usize) -> ResolveResult {
-    let crystals = &state.players[player_idx].crystals;
-    let mut eligible: Vec<BasicManaColor> = Vec::new();
-    for &color in &[BasicManaColor::Red, BasicManaColor::Blue, BasicManaColor::Green, BasicManaColor::White] {
-        let count = crystal_count(crystals, color);
-        if count > 0 && count < MAX_CRYSTALS_PER_COLOR {
-            eligible.push(color);
-        }
-    }
+    let eligible = eligible_crystal_gain_colors(
+        &state.players[player_idx].crystals,
+        CrystalGainEligibility::ExistingBelowMaximum,
+    );
     match eligible.len() {
         0 => ResolveResult::Skipped,
         1 => {

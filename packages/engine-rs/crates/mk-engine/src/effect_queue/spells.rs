@@ -826,22 +826,7 @@ pub(super) fn apply_mind_read(
 
 /// Call to Arms basic: borrow unit ability from offer (or opponent units in multiplayer).
 pub(super) fn apply_call_to_arms(state: &mut GameState, player_idx: usize) -> ResolveResult {
-    // Find eligible units in offer (exclude Magic Familiars, need activatable abilities)
-    let mut eligible_indices = Vec::new();
-    for (i, unit_id) in state.offers.units.iter().enumerate() {
-        if let Some(unit_def) = mk_data::units::get_unit(unit_id.as_str()) {
-            if unit_def.restricted_from_free_recruit {
-                continue; // Skip Magic Familiars
-            }
-            // Check if unit has at least one activatable ability (free slot)
-            let has_ability = unit_def.abilities.iter().any(|slot| {
-                slot.mana_cost.is_none()
-            });
-            if has_ability {
-                eligible_indices.push(i);
-            }
-        }
-    }
+    let eligible_indices = call_to_arms_unit_indices(&state.offers.units);
 
     // In multiplayer: also scan opponent units for borrowable abilities
     // Opponent unit indices are encoded as offer_size + flat_index to distinguish them
@@ -888,19 +873,7 @@ pub(super) fn apply_free_recruit(state: &mut GameState, player_idx: usize) -> Re
     let command_slots = player.command_tokens;
     let used_slots = player.units.len() as u32;
     let has_room = used_slots < command_slots;
-
-    let mut eligible_indices = Vec::new();
-    for (i, unit_id) in state.offers.units.iter().enumerate() {
-        if let Some(unit_def) = mk_data::units::get_unit(unit_id.as_str()) {
-            if unit_def.restricted_from_free_recruit {
-                continue;
-            }
-            // For now, require room (skip disband logic for solo RL simplicity)
-            if has_room {
-                eligible_indices.push(i);
-            }
-        }
-    }
+    let eligible_indices = free_recruit_unit_indices(&state.offers.units, has_room);
     match eligible_indices.len() {
         0 => ResolveResult::Skipped,
         1 => {
