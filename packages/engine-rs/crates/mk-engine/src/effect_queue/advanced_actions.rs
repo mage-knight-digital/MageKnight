@@ -271,40 +271,19 @@ pub(super) fn apply_crystal_mastery_powered(state: &mut GameState, player_idx: u
 }
 
 pub(super) fn apply_mana_storm_basic(state: &mut GameState, player_idx: usize) -> ResolveResult {
-    // Find basic-color dice in source that are available
-    let mut die_ids: Vec<mk_types::ids::SourceDieId> = Vec::new();
-    let mut die_colors: Vec<BasicManaColor> = Vec::new();
-
-    for die in &state.source.dice {
-        if die.taken_by_player_id.is_none()
-            && !die.is_depleted
-            && matches!(die.color, ManaColor::Red | ManaColor::Blue | ManaColor::Green | ManaColor::White)
-        {
-            if let Some(basic) = to_basic_mana_color(die.color) {
-                die_ids.push(die.id.clone());
-                die_colors.push(basic);
-            }
-        }
-    }
-
-    match die_ids.len() {
-        0 => ResolveResult::Skipped,
-        1 => {
+    resolve_eligible_noop_choice(
+        available_basic_source_dice(&state.source.dice),
+        |(die_id, color)| {
             // Auto-select: gain crystal + reroll
-            let die_id = die_ids[0].clone();
-            let color = die_colors[0];
             gain_crystal_color(state, player_idx, color);
             crate::mana::reroll_die(&mut state.source, &die_id, state.time_of_day, &mut state.rng);
             ResolveResult::Applied
-        }
-        _ => {
-            let options: Vec<CardEffect> = die_ids.iter().map(|_| CardEffect::Noop).collect();
-            ResolveResult::NeedsChoiceWith(
-                options,
-                ChoiceResolution::ManaStormDieSelect { die_ids, die_colors },
-            )
-        }
-    }
+        },
+        |eligible_dice| {
+            let (die_ids, die_colors) = eligible_dice.into_iter().unzip();
+            ChoiceResolution::ManaStormDieSelect { die_ids, die_colors }
+        },
+    )
 }
 
 pub(super) fn apply_mana_storm_powered(state: &mut GameState, player_idx: usize) -> ResolveResult {

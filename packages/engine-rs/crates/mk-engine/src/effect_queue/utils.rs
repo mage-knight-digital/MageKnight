@@ -2,7 +2,7 @@
 
 use mk_types::effect::*;
 use mk_types::enums::*;
-use mk_types::ids::{CardId, UnitId};
+use mk_types::ids::{CardId, SourceDieId, UnitId};
 use mk_types::pending::{
     ActivePending, ChoiceResolution, ContinuationEntry, PendingChoice,
 };
@@ -80,6 +80,19 @@ pub(crate) fn free_recruit_unit_indices(
     }
 
     eligible_unit_offer_indices(unit_offer, |unit| !unit.restricted_from_free_recruit)
+}
+
+/// Return untaken, undepleted basic-color source dice with their mana colors.
+pub(crate) fn available_basic_source_dice(
+    dice: &[SourceDie],
+) -> Vec<(SourceDieId, BasicManaColor)> {
+    dice.iter()
+        .filter(|die| die.taken_by_player_id.is_none() && !die.is_depleted)
+        .filter_map(|die| {
+            let color = to_basic_mana_color(die.color)?;
+            Some((die.id.clone(), color))
+        })
+        .collect()
 }
 
 /// Skip when there are no eligible targets, auto-resolve one, or present a no-op choice for many.

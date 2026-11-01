@@ -351,46 +351,22 @@ pub(super) fn execute_sacrifice_pair(
 
 /// Mana Claim: select an unclaimed basic-color die from the source.
 pub(super) fn apply_mana_claim(state: &mut GameState, player_idx: usize, with_curse: bool) -> ResolveResult {
-    // Find unclaimed basic-color dice
-    let mut die_ids: Vec<mk_types::ids::SourceDieId> = Vec::new();
-    let mut die_colors: Vec<BasicManaColor> = Vec::new();
-
-    for die in &state.source.dice {
-        if die.taken_by_player_id.is_none()
-            && !die.is_depleted
-            && matches!(
-                die.color,
-                ManaColor::Red | ManaColor::Blue | ManaColor::Green | ManaColor::White
-            )
-        {
-            if let Some(basic) = to_basic_mana_color(die.color) {
-                die_ids.push(die.id.clone());
-                die_colors.push(basic);
-            }
-        }
-    }
-
-    match die_ids.len() {
-        0 => ResolveResult::Skipped,
-        1 => {
+    resolve_eligible_noop_choice(
+        available_basic_source_dice(&state.source.dice),
+        |(die_id, color)| {
             // Auto-select die → go to mode choice
-            let die_id = die_ids[0].clone();
-            let color = die_colors[0];
             setup_mana_claim_mode_choice(state, player_idx, die_id, color, with_curse);
             ResolveResult::PendingSet
-        }
-        _ => {
-            let options: Vec<CardEffect> = die_ids.iter().map(|_| CardEffect::Noop).collect();
-            ResolveResult::NeedsChoiceWith(
-                options,
-                ChoiceResolution::ManaClaimDieSelect {
-                    with_curse,
-                    die_ids,
-                    die_colors,
-                },
-            )
-        }
-    }
+        },
+        |eligible_dice| {
+            let (die_ids, die_colors) = eligible_dice.into_iter().unzip();
+            ChoiceResolution::ManaClaimDieSelect {
+                with_curse,
+                die_ids,
+                die_colors,
+            }
+        },
+    )
 }
 
 /// Set up the Mana Claim mode choice (burst vs sustained) as a pending choice.
