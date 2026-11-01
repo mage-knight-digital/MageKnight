@@ -711,20 +711,14 @@ pub(super) fn apply_mana_meltdown(
     if player.crystals.white > 0 {
         available_colors.push(BasicManaColor::White);
     }
-    match available_colors.len() {
-        0 => ResolveResult::Skipped,
-        1 => {
-            resolve_mana_radiance(state, player_idx, available_colors[0]);
+    resolve_eligible_noop_choice(
+        available_colors,
+        |color| {
+            resolve_mana_radiance(state, player_idx, color);
             ResolveResult::Applied
-        }
-        _ => {
-            let options: Vec<CardEffect> = available_colors.iter().map(|_| CardEffect::Noop).collect();
-            ResolveResult::NeedsChoiceWith(
-                options,
-                ChoiceResolution::ManaMeltdownColorSelect { available_colors },
-            )
-        }
-    }
+        },
+        |available_colors| ChoiceResolution::ManaMeltdownColorSelect { available_colors },
+    )
 }
 
 /// Execute Mana Radiance: take wounds = crystals of chosen color, gain 2 crystals of that color.

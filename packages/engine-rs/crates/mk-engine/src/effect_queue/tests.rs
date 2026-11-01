@@ -761,6 +761,68 @@ const TEST_ENEMY_INSTANCE_1: &str = "enemy_1";
     }
 
     #[test]
+    fn mana_radiance_skips_without_crystals() {
+        let mut state = test_state();
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::ManaMeltdown { powered: true }, None);
+
+        let result = queue.drain(&mut state, 0);
+
+        assert!(matches!(result, DrainResult::Complete));
+        assert!(state.players[0].hand.is_empty());
+        assert_eq!(state.players[0].crystals, Crystals::default());
+    }
+
+    #[test]
+    fn mana_radiance_auto_resolves_the_only_color_with_crystals() {
+        let mut state = test_state();
+        state.players[0].crystals.red = 3;
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::ManaMeltdown { powered: true }, None);
+
+        let result = queue.drain(&mut state, 0);
+
+        assert!(matches!(result, DrainResult::Complete));
+        assert_eq!(state.players[0].hand.len(), 3);
+        assert_eq!(state.players[0].crystals.red, 3);
+        assert_eq!(state.players[0].crystals.blue, 0);
+        assert_eq!(state.players[0].crystals.green, 0);
+        assert_eq!(state.players[0].crystals.white, 0);
+    }
+
+    #[test]
+    fn mana_radiance_choice_applies_to_the_selected_color() {
+        let mut state = test_state();
+        state.players[0].crystals.blue = 1;
+        state.players[0].crystals.green = 3;
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::ManaMeltdown { powered: true }, None);
+
+        let result = queue.drain(&mut state, 0);
+        let DrainResult::NeedsChoice { options, resolution, .. } = result else {
+            panic!("Expected a choice between blue and green crystals");
+        };
+        assert_eq!(options.len(), 2);
+        state.players[0].pending.active = Some(ActivePending::Choice(PendingChoice {
+            card_id: None,
+            skill_id: None,
+            unit_instance_id: None,
+            options,
+            continuation: vec![],
+            movement_bonus_applied: false,
+            resolution,
+        }));
+
+        resolve_pending_choice(&mut state, 0, 1).unwrap();
+
+        assert_eq!(state.players[0].hand.len(), 3);
+        assert_eq!(state.players[0].crystals.blue, 1);
+        assert_eq!(state.players[0].crystals.green, 3);
+        assert_eq!(state.players[0].crystals.red, 0);
+        assert_eq!(state.players[0].crystals.white, 0);
+    }
+
+    #[test]
     fn empty_queue_completes() {
         let mut state = test_state();
         let mut queue = EffectQueue::new();
