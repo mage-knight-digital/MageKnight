@@ -58,8 +58,8 @@ pub(crate) use self::choice_resolution::{
 };
 pub(crate) use self::conditions::is_resolvable;
 pub(crate) use self::utils::{
-    eligible_colored_hand_cards, select_colored_hand_card, ColoredHandCardScope,
-    HandCardDestination,
+    eligible_colored_hand_cards, eligible_hand_card_indices, hand_card_effect_choices,
+    select_colored_hand_card, ColoredHandCardScope, HandCardDestination,
 };
 pub(crate) use self::utils::{gain_crystal_color, replenish_aa_offer, replenish_spell_offer};
 
@@ -72,6 +72,7 @@ pub const WOUND_CARD_ID: &str = "wound";
 pub(crate) const BOOK_OF_WISDOM_CARD_ID: &str = "book_of_wisdom";
 pub(crate) const TOME_OF_ALL_SPELLS_CARD_ID: &str = "tome_of_all_spells";
 pub(crate) const MAGIC_TALENT_CARD_ID: &str = "magic_talent";
+pub(crate) const DRUIDIC_STAFF_CARD_ID: &str = "druidic_staff";
 
 /// Maximum reputation value.
 const MAX_REPUTATION: i8 = 7;

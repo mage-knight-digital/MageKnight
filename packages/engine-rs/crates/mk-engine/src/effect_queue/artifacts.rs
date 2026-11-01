@@ -10,10 +10,10 @@ use mk_types::pending::{
 use mk_types::state::*;
 
 use super::{
-    eligible_colored_hand_cards, ColoredHandCardScope, ResolveResult,
+    eligible_colored_hand_cards, hand_card_effect_choices, ColoredHandCardScope, ResolveResult,
     BOOK_OF_WISDOM_CARD_ID, TOME_OF_ALL_SPELLS_CARD_ID,
 };
-use super::WOUND_CARD_ID;
+use super::{DRUIDIC_STAFF_CARD_ID, WOUND_CARD_ID};
 use super::atomic::apply_gain_block;
 
 // =============================================================================
@@ -368,51 +368,45 @@ pub(super) fn apply_druidic_staff_basic(
     // Discard a non-wound card from hand → effect based on card color.
     // White → Move 2 + all terrain replace_cost=1, Blue → 2 crystals (any color),
     // Red → ReadyUnit, Green → Heal 3.
-    let eligible: Vec<(usize, CardId)> = state.players[player_idx]
-        .hand
-        .iter()
-        .enumerate()
-        .filter(|(_, c)| {
-            c.as_str() != WOUND_CARD_ID && c.as_str() != "druidic_staff"
-        })
-        .map(|(i, c)| (i, c.clone()))
-        .collect();
+    let (eligible_indices, options) = hand_card_effect_choices(
+        &state.players[player_idx].hand,
+        |card_id| {
+            card_id.as_str() != WOUND_CARD_ID && card_id.as_str() != DRUIDIC_STAFF_CARD_ID
+        },
+        |card_id| {
+            let color = mk_data::cards::get_card_color(card_id.as_str());
+            match color {
+                Some(BasicManaColor::White) => CardEffect::Compound {
+                    effects: vec![
+                        CardEffect::GainMove { amount: 2 },
+                        CardEffect::ApplyModifier {
+                            effect: ModifierEffect::TerrainCost {
+                                terrain: TerrainOrAll::All,
+                                amount: 0,
+                                minimum: 0,
+                                replace_cost: Some(1),
+                            },
+                            duration: ModifierDuration::Turn,
+                            scope: ModifierScope::SelfScope,
+                        },
+                    ],
+                },
+                Some(BasicManaColor::Blue) => CardEffect::Compound {
+                    effects: vec![
+                        CardEffect::GainCrystal { color: None },
+                        CardEffect::GainCrystal { color: None },
+                    ],
+                },
+                Some(BasicManaColor::Red) => CardEffect::ReadyUnit { max_level: 255 },
+                Some(BasicManaColor::Green) => CardEffect::GainHealing { amount: 3 },
+                None => CardEffect::Noop,
+            }
+        },
+    );
 
-    if eligible.is_empty() {
+    if eligible_indices.is_empty() {
         return ResolveResult::Skipped;
     }
-
-    // Build color-based options for each eligible card
-    let options: Vec<CardEffect> = eligible.iter().map(|(_, card_id)| {
-        let color = mk_data::cards::get_card_color(card_id.as_str());
-        match color {
-            Some(BasicManaColor::White) => CardEffect::Compound {
-                effects: vec![
-                    CardEffect::GainMove { amount: 2 },
-                    CardEffect::ApplyModifier {
-                        effect: ModifierEffect::TerrainCost {
-                            terrain: TerrainOrAll::All,
-                            amount: 0,
-                            minimum: 0,
-                            replace_cost: Some(1),
-                        },
-                        duration: ModifierDuration::Turn,
-                        scope: ModifierScope::SelfScope,
-                    },
-                ],
-            },
-            Some(BasicManaColor::Blue) => CardEffect::Compound {
-                effects: vec![
-                    CardEffect::GainCrystal { color: None },
-                    CardEffect::GainCrystal { color: None },
-                ],
-            },
-            Some(BasicManaColor::Red) => CardEffect::ReadyUnit { max_level: 255 },
-            Some(BasicManaColor::Green) => CardEffect::GainHealing { amount: 3 },
-            None => CardEffect::Noop, // Colorless/wound → no effect
-        }
-    }).collect();
-    let eligible_indices: Vec<usize> = eligible.iter().map(|(i, _)| *i).collect();
 
     ResolveResult::NeedsChoiceWith(
         options,

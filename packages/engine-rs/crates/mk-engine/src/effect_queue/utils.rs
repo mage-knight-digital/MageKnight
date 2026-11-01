@@ -24,15 +24,41 @@ pub(crate) enum HandCardDestination {
     Removed,
 }
 
+/// Return hand indices that satisfy a card-specific eligibility rule.
+pub(crate) fn eligible_hand_card_indices(
+    hand: &[CardId],
+    is_eligible: impl Fn(&CardId) -> bool,
+) -> Vec<usize> {
+    hand.iter()
+        .enumerate()
+        .filter(|(_, card_id)| is_eligible(card_id))
+        .map(|(index, _)| index)
+        .collect()
+}
+
+/// Pair eligible hand indices with effects derived from their corresponding cards.
+pub(crate) fn hand_card_effect_choices(
+    hand: &[CardId],
+    is_eligible: impl Fn(&CardId) -> bool,
+    effect_for_card: impl Fn(&CardId) -> CardEffect,
+) -> (Vec<usize>, Vec<CardEffect>) {
+    let eligible_indices = eligible_hand_card_indices(hand, is_eligible);
+    let options = eligible_indices
+        .iter()
+        .map(|index| effect_for_card(&hand[*index]))
+        .collect();
+    (eligible_indices, options)
+}
+
 pub(crate) fn eligible_colored_hand_cards(
     hand: &[CardId],
     excluded_card_id: &str,
     scope: ColoredHandCardScope,
 ) -> Vec<(usize, BasicManaColor)> {
-    hand.iter()
-        .enumerate()
-        .filter(|(_, card_id)| card_id.as_str() != excluded_card_id)
-        .filter_map(|(index, card_id)| {
+    eligible_hand_card_indices(hand, |card_id| card_id.as_str() != excluded_card_id)
+        .into_iter()
+        .filter_map(|index| {
+            let card_id = &hand[index];
             let color = match scope {
                 ColoredHandCardScope::ActionCards => mk_data::cards::get_card_color(card_id.as_str()),
                 ColoredHandCardScope::ActionCardsAndSpells => mk_data::cards::get_card_color(card_id.as_str())
