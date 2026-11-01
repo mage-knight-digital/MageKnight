@@ -36,6 +36,21 @@ pub(crate) fn eligible_hand_card_indices(
         .collect()
 }
 
+/// Return hand indices for basic and advanced action cards.
+pub(crate) fn eligible_action_hand_indices(hand: &[CardId]) -> Vec<usize> {
+    eligible_hand_card_indices(hand, is_action_card)
+}
+
+/// Check whether a card ID refers to a basic or advanced action card.
+pub(crate) fn is_action_card(card_id: &CardId) -> bool {
+    mk_data::cards::get_card(card_id.as_str()).is_some_and(|definition| {
+        matches!(
+            definition.card_type,
+            DeedCardType::BasicAction | DeedCardType::AdvancedAction
+        )
+    })
+}
+
 /// Pair eligible hand indices with effects derived from their corresponding cards.
 pub(crate) fn hand_card_effect_choices(
     hand: &[CardId],
