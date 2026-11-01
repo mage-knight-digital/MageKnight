@@ -853,12 +853,14 @@ pub(crate) fn resolve_pending_choice_with_undo(
                 // Consume the mana source
                 consume_mana_source(state, player_idx, mana_source);
                 // Find matching AAs in offer
-                let matching_aas: Vec<(usize, mk_types::ids::CardId)> = state.offers.advanced_actions.iter().enumerate()
-                    .filter(|(_, card_id)| {
-                        mk_data::cards::get_card_color(card_id.as_str()) == Some(aa_color)
-                    })
-                    .map(|(idx, card_id)| (idx, card_id.clone()))
-                    .collect();
+                let matching_aas: Vec<(usize, mk_types::ids::CardId)> = colored_card_offer_entries(
+                    &state.offers.advanced_actions,
+                    mk_data::cards::get_card_color,
+                )
+                .into_iter()
+                .filter(|(_, _, color)| *color == aa_color)
+                .map(|(index, card_id, _)| (index, card_id))
+                .collect();
                 if matching_aas.len() == 1 {
                     // Auto-gain the single matching AA
                     let (offer_idx, aa_id) = &matching_aas[0];
@@ -904,12 +906,14 @@ pub(crate) fn resolve_pending_choice_with_undo(
         }
         ChoiceResolution::BloodBasicAaSelect { color } => {
             // Select AA from offer by color
-            let matching_aas: Vec<(usize, mk_types::ids::CardId)> = state.offers.advanced_actions.iter().enumerate()
-                .filter(|(_, card_id)| {
-                    mk_data::cards::get_card_color(card_id.as_str()) == Some(*color)
-                })
-                .map(|(idx, card_id)| (idx, card_id.clone()))
-                .collect();
+            let matching_aas: Vec<(usize, mk_types::ids::CardId)> = colored_card_offer_entries(
+                &state.offers.advanced_actions,
+                mk_data::cards::get_card_color,
+            )
+            .into_iter()
+            .filter(|(_, _, offer_color)| *offer_color == *color)
+            .map(|(index, card_id, _)| (index, card_id))
+            .collect();
             if choice_index < matching_aas.len() {
                 let (offer_idx, aa_id) = &matching_aas[choice_index];
                 let aa_id = aa_id.clone();

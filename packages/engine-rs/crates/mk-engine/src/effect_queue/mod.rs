@@ -58,8 +58,9 @@ pub(crate) use self::choice_resolution::{
 };
 pub(crate) use self::conditions::is_resolvable;
 pub(crate) use self::utils::{
-    eligible_action_hand_indices, eligible_colored_hand_cards, eligible_hand_card_indices,
-    hand_card_effect_choices, select_colored_hand_card, ColoredHandCardScope, HandCardDestination,
+    colored_card_offer_entries, eligible_action_hand_indices, eligible_colored_hand_cards,
+    eligible_hand_card_indices, hand_card_effect_choices, select_colored_hand_card,
+    ColoredHandCardScope, HandCardDestination,
 };
 pub(crate) use self::utils::{gain_crystal_color, replenish_aa_offer, replenish_spell_offer};
 
