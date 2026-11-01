@@ -111,6 +111,27 @@ pub(crate) fn resolve_eligible_noop_choice<T>(
     }
 }
 
+/// Resolve a hand-card effect choice: skip none, resolve one automatically, or prompt for many.
+pub(crate) fn resolve_hand_card_effect_choice(
+    eligible_hand_indices: Vec<usize>,
+    options: Vec<CardEffect>,
+    resolve_single: impl FnOnce(usize, CardEffect) -> ResolveResult,
+    resolution_for_many: impl FnOnce(Vec<usize>) -> ChoiceResolution,
+) -> ResolveResult {
+    match eligible_hand_indices.len() {
+        0 => ResolveResult::Skipped,
+        1 => {
+            let hand_index = eligible_hand_indices[0];
+            let effect = options
+                .into_iter()
+                .next()
+                .expect("one eligible hand card has one effect option");
+            resolve_single(hand_index, effect)
+        }
+        _ => ResolveResult::NeedsChoiceWith(options, resolution_for_many(eligible_hand_indices)),
+    }
+}
+
 /// Return hand indices that satisfy a card-specific eligibility rule.
 pub(crate) fn eligible_hand_card_indices(
     hand: &[CardId],

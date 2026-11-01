@@ -1089,6 +1089,15 @@ const TEST_ENEMY_INSTANCE_1: &str = "enemy_1";
                 ..
             } => {
                 assert_eq!(options.len(), 2);
+                assert!(matches!(options[0], CardEffect::GainMove { amount: 5 }));
+                assert!(matches!(
+                    options[1],
+                    CardEffect::GainAttack {
+                        amount: 5,
+                        combat_type: CombatType::Melee,
+                        element: Element::Physical,
+                    }
+                ));
                 assert!(matches!(resolution, ChoiceResolution::BoostTarget { .. }));
             }
             _ => panic!("Expected NeedsChoice for multi-eligible card boost"),
@@ -2444,6 +2453,22 @@ const TEST_ENEMY_INSTANCE_1: &str = "enemy_1";
             DrainResult::NeedsChoice { options, resolution, .. } => {
                 assert_eq!(options.len(), 2);
                 // First option is green (march, idx 0), second is red (rage, idx 1)
+                assert!(matches!(
+                    options[0],
+                    CardEffect::GainAttack {
+                        amount: 2,
+                        combat_type: CombatType::Siege,
+                        element: Element::Physical,
+                    }
+                ));
+                assert!(matches!(
+                    options[1],
+                    CardEffect::GainAttack {
+                        amount: 5,
+                        combat_type: CombatType::Melee,
+                        element: Element::Physical,
+                    }
+                ));
                 assert!(matches!(
                     resolution,
                     ChoiceResolution::DiscardThenContinue { .. }

@@ -203,25 +203,18 @@ pub(super) fn apply_discard_for_attack(
         },
     );
 
-    match eligible_indices.len() {
-        0 => ResolveResult::Skipped,
-        1 => {
+    resolve_hand_card_effect_choice(
+        eligible_indices,
+        options,
+        |hand_idx, attack_effect| {
             // Auto-discard the only eligible card
-            let hand_idx = eligible_indices[0];
-            let attack_effect = options[0].clone();
             let player = &mut state.players[player_idx];
             let discarded = player.hand.remove(hand_idx);
             player.discard.push(discarded);
             ResolveResult::Decomposed(vec![attack_effect])
-        }
-        _ => {
-            // Present each eligible card's attack as a choice
-            ResolveResult::NeedsChoiceWith(
-                options,
-                ChoiceResolution::DiscardThenContinue { eligible_indices },
-            )
-        }
-    }
+        },
+        |eligible_indices| ChoiceResolution::DiscardThenContinue { eligible_indices },
+    )
 }
 
 /// Apply Pure Magic effect — pay a mana token, gain effect based on its color.
@@ -482,29 +475,21 @@ pub(super) fn apply_card_boost(state: &mut GameState, player_idx: usize, bonus: 
         },
     );
 
-    match eligible_indices.len() {
-        0 => ResolveResult::Skipped,
-        1 => {
+    resolve_hand_card_effect_choice(
+        eligible_indices,
+        options,
+        |hand_idx, boosted_effect| {
             // Auto-select: move card to play_area, resolve boosted powered_effect
-            let hand_idx = eligible_indices[0];
-            let boosted_effect = options[0].clone();
-
             let player = &mut state.players[player_idx];
             let card = player.hand.remove(hand_idx);
             player.play_area.push(card);
 
             ResolveResult::Decomposed(vec![boosted_effect])
-        }
-        _ => {
-            // Present each eligible card's boosted powered_effect as a choice
-            ResolveResult::NeedsChoiceWith(
-                options,
-                ChoiceResolution::BoostTarget {
-                    eligible_hand_indices: eligible_indices,
-                },
-            )
-        }
-    }
+        },
+        |eligible_hand_indices| ChoiceResolution::BoostTarget {
+            eligible_hand_indices,
+        },
+    )
 }
 
 /// Mana Draw Powered — pick an available source die, then choose a color.
