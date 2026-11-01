@@ -1085,16 +1085,9 @@ pub(crate) fn resolve_pending_choice_with_undo(
                 return Ok(());
             }
         }
-        ChoiceResolution::MindReadColorSelect => {
-            // Map choice_index to color: 0=Red, 1=Blue, 2=Green, 3=White
-            let colors = [
-                BasicManaColor::Red,
-                BasicManaColor::Blue,
-                BasicManaColor::Green,
-                BasicManaColor::White,
-            ];
-            if choice_index < colors.len() {
-                apply_gain_crystal_color(state, player_idx, colors[choice_index]);
+        ChoiceResolution::MindReadColorSelect { eligible_colors } => {
+            if let Some(&color) = eligible_colors.get(choice_index) {
+                apply_gain_crystal_color(state, player_idx, color);
                 resume_continuation(state, player_idx, source_card_id, choice.continuation, undo);
                 return Ok(());
             }

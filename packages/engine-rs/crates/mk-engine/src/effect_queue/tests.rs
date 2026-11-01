@@ -689,6 +689,78 @@ const TEST_ENEMY_INSTANCE_1: &str = "enemy_1";
     }
 
     #[test]
+    fn mind_read_choice_maps_to_eligible_crystal_color() {
+        let mut state = test_state();
+        state.players[0].crystals.red = 3;
+        state.players[0].crystals.white = 3;
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::MindRead { powered: false }, None);
+
+        let result = queue.drain(&mut state, 0);
+        let DrainResult::NeedsChoice { options, resolution, .. } = result else {
+            panic!("Expected a choice between the available blue and green crystals");
+        };
+        assert_eq!(options.len(), 2);
+        state.players[0].pending.active = Some(ActivePending::Choice(PendingChoice {
+            card_id: None,
+            skill_id: None,
+            unit_instance_id: None,
+            options,
+            continuation: vec![],
+            movement_bonus_applied: false,
+            resolution,
+        }));
+
+        resolve_pending_choice(&mut state, 0, 1).unwrap();
+
+        assert_eq!(state.players[0].crystals.blue, 0);
+        assert_eq!(state.players[0].crystals.green, 1);
+    }
+
+    #[test]
+    fn mind_read_skips_when_all_crystal_colors_are_full() {
+        let mut state = test_state();
+        state.players[0].crystals.red = 3;
+        state.players[0].crystals.blue = 3;
+        state.players[0].crystals.green = 3;
+        state.players[0].crystals.white = 3;
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::MindRead { powered: false }, None);
+
+        let result = queue.drain(&mut state, 0);
+
+        assert!(matches!(result, DrainResult::Complete));
+        assert_eq!(
+            state.players[0].crystals,
+            Crystals {
+                red: 3,
+                blue: 3,
+                green: 3,
+                white: 3,
+            }
+        );
+    }
+
+    #[test]
+    fn mind_read_auto_gains_the_only_available_crystal_color() {
+        let mut state = test_state();
+        state.players[0].crystals.red = 3;
+        state.players[0].crystals.blue = 3;
+        state.players[0].crystals.green = 0;
+        state.players[0].crystals.white = 3;
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::MindRead { powered: true }, None);
+
+        let result = queue.drain(&mut state, 0);
+
+        assert!(matches!(result, DrainResult::Complete));
+        assert_eq!(state.players[0].crystals.green, 1);
+        assert_eq!(state.players[0].crystals.red, 3);
+        assert_eq!(state.players[0].crystals.blue, 3);
+        assert_eq!(state.players[0].crystals.white, 3);
+    }
+
+    #[test]
     fn empty_queue_completes() {
         let mut state = test_state();
         let mut queue = EffectQueue::new();
