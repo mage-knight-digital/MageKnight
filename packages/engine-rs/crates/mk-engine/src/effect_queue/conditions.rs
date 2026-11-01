@@ -6,9 +6,9 @@ use mk_types::state::*;
 
 use crate::card_play::is_die_available_with_overrides;
 use super::{
-    eligible_colored_hand_cards, eligible_hand_card_indices, ColoredHandCardScope,
-    MAX_CRYSTALS_PER_COLOR, WOUND_CARD_ID, BOOK_OF_WISDOM_CARD_ID, DRUIDIC_STAFF_CARD_ID,
-    MAGIC_TALENT_CARD_ID, TOME_OF_ALL_SPELLS_CARD_ID,
+    eligible_action_hand_indices, eligible_colored_hand_cards, eligible_hand_card_indices,
+    ColoredHandCardScope, MAX_CRYSTALS_PER_COLOR, WOUND_CARD_ID, BOOK_OF_WISDOM_CARD_ID,
+    DRUIDIC_STAFF_CARD_ID, MAGIC_TALENT_CARD_ID, TOME_OF_ALL_SPELLS_CARD_ID,
 };
 
 // =============================================================================
@@ -126,14 +126,7 @@ pub(crate) fn is_resolvable(state: &GameState, player_idx: usize, effect: &CardE
         // besides the source card itself (which will move to play area on resolution).
         // Require >= 2 eligible cards since the source card is one of them.
         CardEffect::Training { .. } | CardEffect::MaximalEffect { .. } => {
-            let eligible_count = state.players[player_idx].hand.iter().filter(|card_id| {
-                mk_data::cards::get_card(card_id.as_str()).is_some_and(|def| {
-                    matches!(
-                        def.card_type,
-                        DeedCardType::BasicAction | DeedCardType::AdvancedAction
-                    )
-                })
-            }).count();
+            let eligible_count = eligible_action_hand_indices(&player.hand).len();
             eligible_count >= 2
         }
 

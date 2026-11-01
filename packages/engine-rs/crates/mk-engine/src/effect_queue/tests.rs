@@ -13,11 +13,13 @@ use mk_types::rng::RngState;
 use mk_types::state::*;
 
 const TEST_MARCH_CARD_ID: &str = "march";
+const TEST_AMBUSH_CARD_ID: &str = "ambush";
 const TEST_FIREBALL_CARD_ID: &str = "fireball";
 const TEST_STAMINA_CARD_ID: &str = "stamina";
 const TEST_SWIFTNESS_CARD_ID: &str = "swiftness";
 const TEST_RAGE_CARD_ID: &str = "rage";
 const TEST_RUBY_RING_CARD_ID: &str = "ruby_ring";
+const TEST_UNKNOWN_CARD_ID: &str = "unknown_test_card";
 
     /// Create a minimal GameState for testing with one player.
     fn test_state() -> GameState {
@@ -6042,6 +6044,22 @@ const TEST_RUBY_RING_CARD_ID: &str = "ruby_ring";
         assert!(!action_cards_and_spells
             .iter()
             .any(|(index, _)| hand[*index].as_str() == WOUND_CARD_ID));
+    }
+
+    #[test]
+    fn eligible_action_hand_cards_excludes_spells_wounds_artifacts_and_unknown_cards() {
+        let hand = vec![
+            CardId::from(TEST_MARCH_CARD_ID),
+            CardId::from(TEST_AMBUSH_CARD_ID),
+            CardId::from(TEST_FIREBALL_CARD_ID),
+            CardId::from(WOUND_CARD_ID),
+            CardId::from(TEST_RUBY_RING_CARD_ID),
+            CardId::from(TEST_UNKNOWN_CARD_ID),
+        ];
+
+        let eligible_indices = eligible_action_hand_indices(&hand);
+
+        assert_eq!(eligible_indices, vec![0, 1]);
     }
 
     #[test]

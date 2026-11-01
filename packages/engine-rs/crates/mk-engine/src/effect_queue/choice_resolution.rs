@@ -1531,14 +1531,7 @@ pub(crate) fn resolve_decompose_with_undo(
     let card_def = mk_data::cards::get_card(card_id.as_str());
     let card_color = card_def.as_ref().and_then(|d| d.color.to_basic_mana_color());
 
-    let is_action = card_def.as_ref().is_some_and(|d| {
-        matches!(
-            d.card_type,
-            DeedCardType::BasicAction | DeedCardType::AdvancedAction
-        )
-    });
-
-    if !is_action {
+    if !is_action_card(card_id) {
         state.players[player_idx].pending.active =
             Some(ActivePending::Decompose(decompose));
         return Err(ResolveChoiceError::InvalidChoiceIndex);

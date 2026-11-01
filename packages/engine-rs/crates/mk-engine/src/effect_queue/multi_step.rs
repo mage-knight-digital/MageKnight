@@ -71,14 +71,7 @@ pub(super) fn apply_decompose(
     let player = &state.players[player_idx];
 
     // Find eligible hand cards: BasicAction or AdvancedAction (not wounds, spells, artifacts)
-    let has_eligible = player.hand.iter().any(|card_id| {
-        mk_data::cards::get_card(card_id.as_str()).is_some_and(|def| {
-            matches!(
-                def.card_type,
-                DeedCardType::BasicAction | DeedCardType::AdvancedAction
-            )
-        })
-    });
+    let has_eligible = !eligible_action_hand_indices(&player.hand).is_empty();
 
     if !has_eligible {
         return ResolveResult::Skipped;
@@ -112,14 +105,7 @@ pub(super) fn apply_training(
     let player = &state.players[player_idx];
 
     // Check if there are any eligible hand cards (non-wound action cards)
-    let has_eligible = player.hand.iter().any(|card_id| {
-        mk_data::cards::get_card(card_id.as_str()).is_some_and(|def| {
-            matches!(
-                def.card_type,
-                DeedCardType::BasicAction | DeedCardType::AdvancedAction
-            )
-        })
-    });
+    let has_eligible = !eligible_action_hand_indices(&player.hand).is_empty();
 
     if !has_eligible {
         return ResolveResult::Skipped;
@@ -153,14 +139,7 @@ pub(super) fn apply_maximal_effect(
 ) -> ResolveResult {
     let player = &state.players[player_idx];
 
-    let has_eligible = player.hand.iter().any(|card_id| {
-        mk_data::cards::get_card(card_id.as_str()).is_some_and(|def| {
-            matches!(
-                def.card_type,
-                DeedCardType::BasicAction | DeedCardType::AdvancedAction
-            )
-        })
-    });
+    let has_eligible = !eligible_action_hand_indices(&player.hand).is_empty();
 
     if !has_eligible {
         return ResolveResult::Skipped;
@@ -204,32 +183,32 @@ pub(super) fn apply_discard_for_attack(
     let player = &state.players[player_idx];
 
     // Find eligible hand cards and their color-based attack effects
-    let eligible: Vec<(usize, CardEffect)> = player
-        .hand
-        .iter()
-        .enumerate()
-        .filter_map(|(idx, card_id)| {
-            let def = mk_data::cards::get_card(card_id.as_str())?;
-            if !matches!(
-                def.card_type,
-                DeedCardType::BasicAction | DeedCardType::AdvancedAction
-            ) {
-                return None;
-            }
-            let basic_color = def.color.to_basic_mana_color()?;
-            let attack = attacks_by_color
-                .iter()
-                .find(|(c, _)| *c == basic_color)
-                .map(|(_, eff)| eff.clone())?;
-            Some((idx, attack))
-        })
-        .collect();
+    let (eligible_indices, options) = hand_card_effect_choices(
+        &player.hand,
+        |card_id| {
+            is_action_card(card_id)
+                && mk_data::cards::get_card_color(card_id.as_str()).is_some_and(|color| {
+                    attacks_by_color.iter().any(|(attack_color, _)| *attack_color == color)
+                })
+        },
+        |card_id| {
+            mk_data::cards::get_card_color(card_id.as_str())
+                .and_then(|color| {
+                    attacks_by_color
+                        .iter()
+                        .find(|(attack_color, _)| *attack_color == color)
+                })
+                .map(|(_, effect)| effect.clone())
+                .unwrap_or(CardEffect::Noop)
+        },
+    );
 
-    match eligible.len() {
+    match eligible_indices.len() {
         0 => ResolveResult::Skipped,
         1 => {
             // Auto-discard the only eligible card
-            let (hand_idx, attack_effect) = eligible.into_iter().next().unwrap();
+            let hand_idx = eligible_indices[0];
+            let attack_effect = options[0].clone();
             let player = &mut state.players[player_idx];
             let discarded = player.hand.remove(hand_idx);
             player.discard.push(discarded);
@@ -237,8 +216,6 @@ pub(super) fn apply_discard_for_attack(
         }
         _ => {
             // Present each eligible card's attack as a choice
-            let eligible_indices: Vec<usize> = eligible.iter().map(|(i, _)| *i).collect();
-            let options: Vec<CardEffect> = eligible.into_iter().map(|(_, eff)| eff).collect();
             ResolveResult::NeedsChoiceWith(
                 options,
                 ChoiceResolution::DiscardThenContinue { eligible_indices },
@@ -495,28 +472,22 @@ pub(super) fn apply_card_boost(state: &mut GameState, player_idx: usize, bonus: 
     let player = &state.players[player_idx];
 
     // Find eligible hand cards: BasicAction or AdvancedAction
-    let eligible: Vec<(usize, &CardId)> = player
-        .hand
-        .iter()
-        .enumerate()
-        .filter(|(_, card_id)| {
-            mk_data::cards::get_card(card_id.as_str()).is_some_and(|def| {
-                matches!(
-                    def.card_type,
-                    DeedCardType::BasicAction | DeedCardType::AdvancedAction
-                )
-            })
-        })
-        .collect();
+    let (eligible_indices, options) = hand_card_effect_choices(
+        &player.hand,
+        is_action_card,
+        |card_id| {
+            mk_data::cards::get_card(card_id.as_str())
+                .map(|def| scale_effect(&def.powered_effect, bonus))
+                .unwrap_or(CardEffect::Noop)
+        },
+    );
 
-    match eligible.len() {
+    match eligible_indices.len() {
         0 => ResolveResult::Skipped,
         1 => {
             // Auto-select: move card to play_area, resolve boosted powered_effect
-            let (hand_idx, card_id) = eligible[0];
-            let boosted_effect = mk_data::cards::get_card(card_id.as_str())
-                .map(|def| scale_effect(&def.powered_effect, bonus))
-                .unwrap_or(CardEffect::Noop);
+            let hand_idx = eligible_indices[0];
+            let boosted_effect = options[0].clone();
 
             let player = &mut state.players[player_idx];
             let card = player.hand.remove(hand_idx);
@@ -526,20 +497,10 @@ pub(super) fn apply_card_boost(state: &mut GameState, player_idx: usize, bonus: 
         }
         _ => {
             // Present each eligible card's boosted powered_effect as a choice
-            let eligible_hand_indices: Vec<usize> = eligible.iter().map(|(i, _)| *i).collect();
-            let options: Vec<CardEffect> = eligible
-                .iter()
-                .map(|(_, card_id)| {
-                    mk_data::cards::get_card(card_id.as_str())
-                        .map(|def| scale_effect(&def.powered_effect, bonus))
-                        .unwrap_or(CardEffect::Noop)
-                })
-                .collect();
-
             ResolveResult::NeedsChoiceWith(
                 options,
                 ChoiceResolution::BoostTarget {
-                    eligible_hand_indices,
+                    eligible_hand_indices: eligible_indices,
                 },
             )
         }
