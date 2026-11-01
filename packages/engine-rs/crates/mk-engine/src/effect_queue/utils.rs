@@ -24,6 +24,27 @@ pub(crate) enum HandCardDestination {
     Removed,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CrystalGainEligibility {
+    AnyBelowMaximum,
+    ExistingBelowMaximum,
+}
+
+/// Return crystal colors eligible for a card that gains one crystal.
+pub(crate) fn eligible_crystal_gain_colors(
+    crystals: &Crystals,
+    eligibility: CrystalGainEligibility,
+) -> Vec<BasicManaColor> {
+    [BasicManaColor::Red, BasicManaColor::Blue, BasicManaColor::Green, BasicManaColor::White]
+        .into_iter()
+        .filter(|&color| {
+            let count = crystal_count(crystals, color);
+            count < MAX_CRYSTALS_PER_COLOR
+                && (eligibility == CrystalGainEligibility::AnyBelowMaximum || count > 0)
+        })
+        .collect()
+}
+
 /// Return hand indices that satisfy a card-specific eligibility rule.
 pub(crate) fn eligible_hand_card_indices(
     hand: &[CardId],

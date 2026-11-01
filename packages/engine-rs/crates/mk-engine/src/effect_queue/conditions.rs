@@ -6,8 +6,9 @@ use mk_types::state::*;
 
 use crate::card_play::is_die_available_with_overrides;
 use super::{
-    eligible_action_hand_indices, eligible_colored_hand_cards, eligible_hand_card_indices,
-    ColoredHandCardScope, MAX_CRYSTALS_PER_COLOR, WOUND_CARD_ID, BOOK_OF_WISDOM_CARD_ID,
+    eligible_action_hand_indices, eligible_colored_hand_cards, eligible_crystal_gain_colors,
+    eligible_hand_card_indices, ColoredHandCardScope, CrystalGainEligibility,
+    WOUND_CARD_ID, BOOK_OF_WISDOM_CARD_ID,
     DRUIDIC_STAFF_CARD_ID, MAGIC_TALENT_CARD_ID, TOME_OF_ALL_SPELLS_CARD_ID,
 };
 
@@ -185,19 +186,19 @@ pub(crate) fn is_resolvable(state: &GameState, player_idx: usize, effect: &CardE
         CardEffect::SongOfWindPowered => true,
         CardEffect::RushOfAdrenaline { .. } => true,
         CardEffect::PowerOfCrystalsBasic => {
-            // Resolvable if any color is below max
-            let c = &player.crystals;
-            c.red < MAX_CRYSTALS_PER_COLOR || c.blue < MAX_CRYSTALS_PER_COLOR
-                || c.green < MAX_CRYSTALS_PER_COLOR || c.white < MAX_CRYSTALS_PER_COLOR
+            !eligible_crystal_gain_colors(
+                &player.crystals,
+                CrystalGainEligibility::AnyBelowMaximum,
+            )
+            .is_empty()
         }
         CardEffect::PowerOfCrystalsPowered => state.combat.is_none(),
         CardEffect::CrystalMasteryBasic => {
-            // Resolvable if player owns at least 1 crystal of some color AND that color < 3
-            let c = &player.crystals;
-            (c.red > 0 && c.red < MAX_CRYSTALS_PER_COLOR)
-                || (c.blue > 0 && c.blue < MAX_CRYSTALS_PER_COLOR)
-                || (c.green > 0 && c.green < MAX_CRYSTALS_PER_COLOR)
-                || (c.white > 0 && c.white < MAX_CRYSTALS_PER_COLOR)
+            !eligible_crystal_gain_colors(
+                &player.crystals,
+                CrystalGainEligibility::ExistingBelowMaximum,
+            )
+            .is_empty()
         }
         CardEffect::CrystalMasteryPowered => true,
         CardEffect::ManaStormBasic => {
@@ -250,9 +251,11 @@ pub(crate) fn is_resolvable(state: &GameState, player_idx: usize, effect: &CardE
         }
         CardEffect::MindRead { .. } => {
             // Solo: choose color → gain crystal (always resolvable if any color < max)
-            let c = &player.crystals;
-            c.red < MAX_CRYSTALS_PER_COLOR || c.blue < MAX_CRYSTALS_PER_COLOR
-                || c.green < MAX_CRYSTALS_PER_COLOR || c.white < MAX_CRYSTALS_PER_COLOR
+            !eligible_crystal_gain_colors(
+                &player.crystals,
+                CrystalGainEligibility::AnyBelowMaximum,
+            )
+            .is_empty()
         }
         CardEffect::CallToArms => {
             // Need units in offer with activatable abilities
