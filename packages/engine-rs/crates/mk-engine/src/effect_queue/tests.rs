@@ -20,6 +20,9 @@ const TEST_SWIFTNESS_CARD_ID: &str = "swiftness";
 const TEST_RAGE_CARD_ID: &str = "rage";
 const TEST_RUBY_RING_CARD_ID: &str = "ruby_ring";
 const TEST_UNKNOWN_CARD_ID: &str = "unknown_test_card";
+const TEST_CALL_TO_ARMS_UNIT_ID: &str = "red_cape_monks";
+const TEST_RESTRICTED_UNIT_ID: &str = "magic_familiars";
+const TEST_FREE_RECRUIT_UNIT_ID: &str = "peasants";
 
     /// Create a minimal GameState for testing with one player.
     fn test_state() -> GameState {
@@ -7009,4 +7012,46 @@ const TEST_UNKNOWN_CARD_ID: &str = "unknown_test_card";
         queue.drain(&mut state, 0);
 
         assert_eq!(state.players[0].wounds_healed_from_hand_this_turn, 2);
+    }
+
+    #[test]
+    fn call_to_arms_eligibility_matches_resolvability_and_choice() {
+        let mut state = test_state();
+        state.offers.units = vec![
+            UnitId::from(TEST_RESTRICTED_UNIT_ID),
+            UnitId::from(TEST_CALL_TO_ARMS_UNIT_ID),
+        ];
+
+        assert!(is_resolvable(&state, 0, &CardEffect::CallToArms));
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::CallToArms, None);
+        match queue.drain(&mut state, 0) {
+            DrainResult::NeedsChoice { options, resolution, .. } => {
+                assert_eq!(options.len(), 1);
+                assert!(matches!(
+                    resolution,
+                    ChoiceResolution::CallToArmsUnitSelect { eligible_unit_indices }
+                        if eligible_unit_indices == vec![1]
+                ));
+            }
+            other => panic!("Expected Call to Arms choice, got {:?}", other),
+        }
+
+        let mut restricted_only = test_state();
+        restricted_only.offers.units = vec![UnitId::from(TEST_RESTRICTED_UNIT_ID)];
+        assert!(!is_resolvable(&restricted_only, 0, &CardEffect::CallToArms));
+    }
+
+    #[test]
+    fn free_recruit_eligibility_matches_resolvability() {
+        let mut state = test_state();
+        state.offers.units = vec![UnitId::from(TEST_FREE_RECRUIT_UNIT_ID)];
+        assert!(is_resolvable(&state, 0, &CardEffect::FreeRecruit));
+
+        state.players[0].command_tokens = 0;
+        assert!(!is_resolvable(&state, 0, &CardEffect::FreeRecruit));
+
+        state.players[0].command_tokens = 1;
+        state.offers.units = vec![UnitId::from(TEST_RESTRICTED_UNIT_ID)];
+        assert!(!is_resolvable(&state, 0, &CardEffect::FreeRecruit));
     }
