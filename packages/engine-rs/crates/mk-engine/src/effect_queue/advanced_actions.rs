@@ -30,11 +30,10 @@ pub(super) fn apply_select_unit_for_modifier(
         .map(|(i, _)| i)
         .collect();
 
-    match eligible.len() {
-        0 => ResolveResult::Skipped,
-        1 => {
+    resolve_eligible_noop_choice(
+        eligible,
+        |unit_idx| {
             // Auto-apply to the single unit
-            let unit_idx = eligible[0];
             let unit_iid = state.players[player_idx].units[unit_idx].instance_id.clone();
             let mod_id = ModifierId::from(format!("select_unit_mod_{}", unit_iid.as_str()).as_str());
             let player_id = state.players[player_idx].id.clone();
@@ -53,15 +52,9 @@ pub(super) fn apply_select_unit_for_modifier(
                 created_by_player_id: player_id,
             });
             ResolveResult::Applied
-        }
-        _ => {
-            let options: Vec<CardEffect> = eligible.iter().map(|_| CardEffect::Noop).collect();
-            ResolveResult::NeedsChoiceWith(
-                options,
-                ChoiceResolution::SelectUnitModifier { eligible_unit_indices: eligible },
-            )
-        }
-    }
+        },
+        |eligible_unit_indices| ChoiceResolution::SelectUnitModifier { eligible_unit_indices },
+    )
 }
 
 pub(super) fn apply_song_of_wind_powered(state: &mut GameState, player_idx: usize) -> ResolveResult {

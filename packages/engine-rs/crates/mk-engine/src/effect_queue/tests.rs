@@ -3,7 +3,7 @@ use super::utils::scale_effect;
 use mk_types::effect::*;
 use mk_types::enums::*;
 use mk_types::hex::HexCoord;
-use mk_types::ids::{CardId, PlayerId, SourceDieId, UnitId, UnitInstanceId};
+use mk_types::ids::{CardId, CombatInstanceId, EnemyId, PlayerId, SourceDieId, UnitId, UnitInstanceId};
 use mk_types::modifier::*;
 use mk_types::pending::{
     ChoiceResolution, DeferredPending, EffectMode, PeacefulMomentOption,
@@ -24,6 +24,10 @@ const TEST_UNKNOWN_CARD_ID: &str = "unknown_test_card";
 const TEST_CALL_TO_ARMS_UNIT_ID: &str = "red_cape_monks";
 const TEST_RESTRICTED_UNIT_ID: &str = "magic_familiars";
 const TEST_FREE_RECRUIT_UNIT_ID: &str = "peasants";
+const TEST_PROWLERS_ENEMY_ID: &str = "prowlers";
+const TEST_DIGGERS_ENEMY_ID: &str = "diggers";
+const TEST_ENEMY_INSTANCE_0: &str = "enemy_0";
+const TEST_ENEMY_INSTANCE_1: &str = "enemy_1";
 
     /// Create a minimal GameState for testing with one player.
     fn test_state() -> GameState {
@@ -1481,6 +1485,22 @@ const TEST_FREE_RECRUIT_UNIT_ID: &str = "peasants";
         }
     }
 
+    fn make_combat_enemy(instance_id: &str, enemy_id: &str, is_defeated: bool) -> CombatEnemy {
+        CombatEnemy {
+            instance_id: CombatInstanceId::from(instance_id),
+            enemy_id: EnemyId::from(enemy_id),
+            is_blocked: false,
+            is_defeated,
+            damage_assigned: false,
+            is_required_for_conquest: false,
+            summoned_by_instance_id: None,
+            is_summoner_hidden: false,
+            attacks_blocked: Vec::new(),
+            attacks_damage_assigned: Vec::new(),
+            attacks_cancelled: Vec::new(),
+        }
+    }
+
     #[test]
     fn ready_unit_no_eligible_skips() {
         let mut state = test_state();
@@ -2769,6 +2789,90 @@ const TEST_FREE_RECRUIT_UNIT_ID: &str = "peasants";
         // Unit 0 still spent, unit 1 readied and healed
         assert_eq!(state.players[0].units[0].state, UnitState::Spent);
         assert_eq!(state.players[0].units[1].state, UnitState::Ready);
+    }
+
+    // =========================================================================
+    // Possess Enemy tests
+    // =========================================================================
+
+    #[test]
+    fn possess_enemy_without_eligible_enemies_skips() {
+        let mut state = test_state();
+        state.combat = Some(Box::new(CombatState {
+            enemies: vec![make_combat_enemy(
+                TEST_ENEMY_INSTANCE_0,
+                TEST_PROWLERS_ENEMY_ID,
+                true,
+            )],
+            ..Default::default()
+        }));
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::PossessEnemy, None);
+
+        assert!(matches!(queue.drain(&mut state, 0), DrainResult::Complete));
+        assert!(state.active_modifiers.is_empty());
+        assert_eq!(state.players[0].combat_accumulator.attack.normal, 0);
+    }
+
+    #[test]
+    fn possess_enemy_auto_resolves_single_eligible_enemy() {
+        let mut state = test_state();
+        state.combat = Some(Box::new(CombatState {
+            enemies: vec![make_combat_enemy(
+                TEST_ENEMY_INSTANCE_0,
+                TEST_PROWLERS_ENEMY_ID,
+                false,
+            )],
+            ..Default::default()
+        }));
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::PossessEnemy, None);
+
+        assert!(matches!(queue.drain(&mut state, 0), DrainResult::Complete));
+        assert_eq!(state.players[0].combat_accumulator.attack.normal, 4);
+        assert!(state.active_modifiers.iter().any(|modifier| matches!(
+            &modifier.effect,
+            ModifierEffect::EnemySkipAttack
+        )));
+    }
+
+    #[test]
+    fn possess_enemy_presents_choice_for_multiple_eligible_enemies() {
+        let mut state = test_state();
+        state.combat = Some(Box::new(CombatState {
+            enemies: vec![
+                make_combat_enemy(
+                    TEST_ENEMY_INSTANCE_0,
+                    TEST_PROWLERS_ENEMY_ID,
+                    false,
+                ),
+                make_combat_enemy(
+                    TEST_ENEMY_INSTANCE_1,
+                    TEST_DIGGERS_ENEMY_ID,
+                    false,
+                ),
+            ],
+            ..Default::default()
+        }));
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::PossessEnemy, None);
+
+        match queue.drain(&mut state, 0) {
+            DrainResult::NeedsChoice { options, resolution, .. } => {
+                assert_eq!(options.len(), 2);
+                assert!(matches!(
+                    resolution,
+                    ChoiceResolution::PossessEnemyTarget { eligible_enemy_ids }
+                        if eligible_enemy_ids == vec![
+                            TEST_ENEMY_INSTANCE_0.to_string(),
+                            TEST_ENEMY_INSTANCE_1.to_string(),
+                        ]
+                ));
+            }
+            other => panic!("Expected NeedsChoice, got {:?}", other),
+        }
+        assert!(state.active_modifiers.is_empty());
+        assert_eq!(state.players[0].combat_accumulator.attack.normal, 0);
     }
 
     // =========================================================================
