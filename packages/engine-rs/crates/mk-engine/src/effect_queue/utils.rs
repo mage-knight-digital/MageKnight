@@ -4,13 +4,15 @@ use mk_types::effect::*;
 use mk_types::enums::*;
 use mk_types::ids::{CardId, UnitId};
 use mk_types::pending::{
-    ActivePending, ContinuationEntry, PendingChoice,
+    ActivePending, ChoiceResolution, ContinuationEntry, PendingChoice,
 };
 use mk_types::state::*;
 
 use crate::undo::UndoStack;
 
-use super::{DrainResult, EffectQueue, QueuedEffect, MAX_CRYSTALS_PER_COLOR, WOUND_CARD_ID};
+use super::{
+    DrainResult, EffectQueue, QueuedEffect, ResolveResult, MAX_CRYSTALS_PER_COLOR, WOUND_CARD_ID,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ColoredHandCardScope {
@@ -78,6 +80,22 @@ pub(crate) fn free_recruit_unit_indices(
     }
 
     eligible_unit_offer_indices(unit_offer, |unit| !unit.restricted_from_free_recruit)
+}
+
+/// Skip when there are no eligible targets, auto-resolve one, or present a no-op choice for many.
+pub(crate) fn resolve_eligible_noop_choice<T>(
+    eligible: Vec<T>,
+    resolve_single: impl FnOnce(T) -> ResolveResult,
+    resolution_for_many: impl FnOnce(Vec<T>) -> ChoiceResolution,
+) -> ResolveResult {
+    match eligible.len() {
+        0 => ResolveResult::Skipped,
+        1 => resolve_single(eligible.into_iter().next().expect("one eligible target exists")),
+        _ => {
+            let options = vec![CardEffect::Noop; eligible.len()];
+            ResolveResult::NeedsChoiceWith(options, resolution_for_many(eligible))
+        }
+    }
 }
 
 /// Return hand indices that satisfy a card-specific eligibility rule.

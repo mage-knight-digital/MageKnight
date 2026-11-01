@@ -7075,3 +7075,38 @@ const TEST_FREE_RECRUIT_UNIT_ID: &str = "peasants";
         state.offers.units = vec![UnitId::from(TEST_RESTRICTED_UNIT_ID)];
         assert!(!is_resolvable(&state, 0, &CardEffect::FreeRecruit));
     }
+
+    #[test]
+    fn free_recruit_auto_resolves_one_eligible_unit() {
+        let mut state = test_state();
+        state.offers.units = vec![UnitId::from(TEST_FREE_RECRUIT_UNIT_ID)];
+
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::FreeRecruit, None);
+        assert!(matches!(queue.drain(&mut state, 0), DrainResult::Complete));
+        assert_eq!(state.players[0].units.len(), 1);
+        assert!(state.offers.units.is_empty());
+    }
+
+    #[test]
+    fn free_recruit_presents_choice_for_multiple_eligible_units() {
+        let mut state = test_state();
+        state.offers.units = vec![
+            UnitId::from(TEST_FREE_RECRUIT_UNIT_ID),
+            UnitId::from(TEST_FREE_RECRUIT_UNIT_ID),
+        ];
+
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::FreeRecruit, None);
+        match queue.drain(&mut state, 0) {
+            DrainResult::NeedsChoice { options, resolution, .. } => {
+                assert_eq!(options.len(), 2);
+                assert!(matches!(
+                    resolution,
+                    ChoiceResolution::FreeRecruitTarget { eligible_unit_indices }
+                        if eligible_unit_indices == vec![0, 1]
+                ));
+            }
+            other => panic!("Expected Free Recruit choice, got {:?}", other),
+        }
+    }

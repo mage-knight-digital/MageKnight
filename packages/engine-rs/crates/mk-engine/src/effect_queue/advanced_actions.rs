@@ -219,20 +219,14 @@ pub(super) fn apply_power_of_crystals_basic(state: &mut GameState, player_idx: u
         &state.players[player_idx].crystals,
         CrystalGainEligibility::AnyBelowMaximum,
     );
-    match eligible.len() {
-        0 => ResolveResult::Skipped,
-        1 => {
-            gain_crystal_color(state, player_idx, eligible[0]);
+    resolve_eligible_noop_choice(
+        eligible,
+        |color| {
+            gain_crystal_color(state, player_idx, color);
             ResolveResult::Applied
-        }
-        _ => {
-            let options: Vec<CardEffect> = eligible.iter().map(|_| CardEffect::Noop).collect();
-            ResolveResult::NeedsChoiceWith(
-                options,
-                ChoiceResolution::PowerOfCrystalsGainColor { eligible_colors: eligible },
-            )
-        }
-    }
+        },
+        |eligible_colors| ChoiceResolution::PowerOfCrystalsGainColor { eligible_colors },
+    )
 }
 
 pub(super) fn apply_power_of_crystals_powered(state: &mut GameState, player_idx: usize) -> ResolveResult {
@@ -261,20 +255,14 @@ pub(super) fn apply_crystal_mastery_basic(state: &mut GameState, player_idx: usi
         &state.players[player_idx].crystals,
         CrystalGainEligibility::ExistingBelowMaximum,
     );
-    match eligible.len() {
-        0 => ResolveResult::Skipped,
-        1 => {
-            gain_crystal_color(state, player_idx, eligible[0]);
+    resolve_eligible_noop_choice(
+        eligible,
+        |color| {
+            gain_crystal_color(state, player_idx, color);
             ResolveResult::Applied
-        }
-        _ => {
-            let options: Vec<CardEffect> = eligible.iter().map(|_| CardEffect::Noop).collect();
-            ResolveResult::NeedsChoiceWith(
-                options,
-                ChoiceResolution::CrystalMasteryGainColor { eligible_colors: eligible },
-            )
-        }
-    }
+        },
+        |eligible_colors| ChoiceResolution::CrystalMasteryGainColor { eligible_colors },
+    )
 }
 
 pub(super) fn apply_crystal_mastery_powered(state: &mut GameState, player_idx: usize) -> ResolveResult {
@@ -362,24 +350,18 @@ pub(super) fn apply_spell_forge_basic(state: &mut GameState, player_idx: usize) 
     .map(|(index, _, color)| (index, color))
     .collect();
 
-    match spell_entries.len() {
-        0 => ResolveResult::Skipped,
-        1 => {
-            gain_crystal_color(state, player_idx, spell_entries[0].1);
+    resolve_eligible_noop_choice(
+        spell_entries,
+        |(_, color)| {
+            gain_crystal_color(state, player_idx, color);
             ResolveResult::Applied
-        }
-        _ => {
-            let options: Vec<CardEffect> = spell_entries.iter().map(|_| CardEffect::Noop).collect();
-            ResolveResult::NeedsChoiceWith(
-                options,
-                ChoiceResolution::SpellForgeCrystal {
-                    spell_entries,
-                    is_second: false,
-                    first_spell_index: None,
-                },
-            )
-        }
-    }
+        },
+        |spell_entries| ChoiceResolution::SpellForgeCrystal {
+            spell_entries,
+            is_second: false,
+            first_spell_index: None,
+        },
+    )
 }
 
 pub(super) fn apply_spell_forge_powered(state: &mut GameState, player_idx: usize) -> ResolveResult {
@@ -392,25 +374,19 @@ pub(super) fn apply_spell_forge_powered(state: &mut GameState, player_idx: usize
     .map(|(index, _, color)| (index, color))
     .collect();
 
-    match spell_entries.len() {
-        0 => ResolveResult::Skipped,
-        1 => {
+    resolve_eligible_noop_choice(
+        spell_entries,
+        |(_, color)| {
             // Only 1 spell — gain its crystal (no second choice possible)
-            gain_crystal_color(state, player_idx, spell_entries[0].1);
+            gain_crystal_color(state, player_idx, color);
             ResolveResult::Applied
-        }
-        _ => {
-            let options: Vec<CardEffect> = spell_entries.iter().map(|_| CardEffect::Noop).collect();
-            ResolveResult::NeedsChoiceWith(
-                options,
-                ChoiceResolution::SpellForgeCrystal {
-                    spell_entries,
-                    is_second: false,
-                    first_spell_index: None,
-                },
-            )
-        }
-    }
+        },
+        |spell_entries| ChoiceResolution::SpellForgeCrystal {
+            spell_entries,
+            is_second: false,
+            first_spell_index: None,
+        },
+    )
 }
 
 pub(super) fn apply_magic_talent_basic(state: &mut GameState, player_idx: usize) -> ResolveResult {
