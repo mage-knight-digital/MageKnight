@@ -30,28 +30,21 @@ pub(super) fn apply_energy_flow(state: &mut GameState, player_idx: usize, heal: 
         .map(|(i, _)| i)
         .collect();
 
-    match eligible.len() {
-        0 => ResolveResult::Skipped,
-        1 => {
-            let unit_idx = eligible[0];
+    resolve_eligible_noop_choice(
+        eligible,
+        |unit_idx| {
             let unit = &mut state.players[player_idx].units[unit_idx];
             unit.state = UnitState::Ready;
             if heal {
                 unit.wounded = false;
             }
             ResolveResult::Applied
-        }
-        _ => {
-            let options: Vec<CardEffect> = eligible.iter().map(|_| CardEffect::Noop).collect();
-            ResolveResult::NeedsChoiceWith(
-                options,
-                ChoiceResolution::EnergyFlowTarget {
-                    eligible_unit_indices: eligible,
-                    heal,
-                },
-            )
-        }
-    }
+        },
+        |eligible_unit_indices| ChoiceResolution::EnergyFlowTarget {
+            eligible_unit_indices,
+            heal,
+        },
+    )
 }
 
 /// Mana Bolt: pay 1 mana token → attack based on token color.
@@ -977,21 +970,14 @@ pub(super) fn apply_possess_enemy(state: &mut GameState, player_idx: usize) -> R
         .map(|e| e.instance_id.to_string())
         .collect();
 
-    match eligible_enemy_ids.len() {
-        0 => ResolveResult::Skipped,
-        1 => {
-            execute_possess_enemy(state, player_idx, &eligible_enemy_ids[0]);
+    resolve_eligible_noop_choice(
+        eligible_enemy_ids,
+        |enemy_id| {
+            execute_possess_enemy(state, player_idx, &enemy_id);
             ResolveResult::Applied
-        }
-        _ => {
-            let options: Vec<CardEffect> =
-                eligible_enemy_ids.iter().map(|_| CardEffect::Noop).collect();
-            ResolveResult::NeedsChoiceWith(
-                options,
-                ChoiceResolution::PossessEnemyTarget { eligible_enemy_ids },
-            )
-        }
-    }
+        },
+        |eligible_enemy_ids| ChoiceResolution::PossessEnemyTarget { eligible_enemy_ids },
+    )
 }
 
 /// Execute possess: skip attack + gain melee attack = enemy attack + restrict.
