@@ -874,22 +874,14 @@ pub(super) fn apply_free_recruit(state: &mut GameState, player_idx: usize) -> Re
     let used_slots = player.units.len() as u32;
     let has_room = used_slots < command_slots;
     let eligible_indices = free_recruit_unit_indices(&state.offers.units, has_room);
-    match eligible_indices.len() {
-        0 => ResolveResult::Skipped,
-        1 => {
-            execute_free_recruit(state, player_idx, eligible_indices[0]);
+    resolve_eligible_noop_choice(
+        eligible_indices,
+        |offer_index| {
+            execute_free_recruit(state, player_idx, offer_index);
             ResolveResult::Applied
-        }
-        _ => {
-            let options: Vec<CardEffect> = eligible_indices.iter().map(|_| CardEffect::Noop).collect();
-            ResolveResult::NeedsChoiceWith(
-                options,
-                ChoiceResolution::FreeRecruitTarget {
-                    eligible_unit_indices: eligible_indices,
-                },
-            )
-        }
-    }
+        },
+        |eligible_unit_indices| ChoiceResolution::FreeRecruitTarget { eligible_unit_indices },
+    )
 }
 
 /// Execute free recruit: add unit to player, remove from offer, replenish.
