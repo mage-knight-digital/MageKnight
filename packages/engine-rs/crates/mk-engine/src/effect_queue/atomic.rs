@@ -400,27 +400,21 @@ pub(super) fn apply_ready_unit(state: &mut GameState, player_idx: usize, max_lev
         .map(|(i, _)| i)
         .collect();
 
-    match eligible.len() {
-        0 => ResolveResult::Skipped,
-        1 => {
+    resolve_eligible_noop_choice(
+        eligible,
+        |unit_idx| {
             // Auto-ready the single eligible unit
-            let unit_idx = eligible[0];
             state.players[player_idx].units[unit_idx].state = UnitState::Ready;
             ResolveResult::Applied
-        }
-        _ => {
+        },
+        |eligible_unit_indices| {
             // Present choice: one Noop per eligible unit
             // Resolution side-effect readies the selected unit
-            let options: Vec<CardEffect> = eligible.iter().map(|_| CardEffect::Noop).collect();
-            let eligible_indices = eligible;
-            ResolveResult::NeedsChoiceWith(
-                options,
-                ChoiceResolution::ReadyUnitTarget {
-                    eligible_unit_indices: eligible_indices,
-                },
-            )
-        }
-    }
+            ChoiceResolution::ReadyUnitTarget {
+                eligible_unit_indices,
+            }
+        },
+    )
 }
 
 pub(super) fn apply_heal_unit(state: &mut GameState, player_idx: usize, max_level: u8) -> ResolveResult {
@@ -435,21 +429,14 @@ pub(super) fn apply_heal_unit(state: &mut GameState, player_idx: usize, max_leve
         .map(|(i, _)| i)
         .collect();
 
-    match eligible.len() {
-        0 => ResolveResult::Skipped,
-        1 => {
-            let unit_idx = eligible[0];
+    resolve_eligible_noop_choice(
+        eligible,
+        |unit_idx| {
             state.players[player_idx].units[unit_idx].wounded = false;
             ResolveResult::Applied
-        }
-        _ => {
-            let options: Vec<CardEffect> = eligible.iter().map(|_| CardEffect::Noop).collect();
-            ResolveResult::NeedsChoiceWith(
-                options,
-                ChoiceResolution::HealUnitTarget {
-                    eligible_unit_indices: eligible,
-                },
-            )
-        }
-    }
+        },
+        |eligible_unit_indices| ChoiceResolution::HealUnitTarget {
+            eligible_unit_indices,
+        },
+    )
 }
