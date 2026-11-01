@@ -6,9 +6,9 @@ use mk_types::state::*;
 
 use crate::card_play::is_die_available_with_overrides;
 use super::{
-    eligible_action_hand_indices, eligible_colored_hand_cards, eligible_crystal_gain_colors,
-    eligible_hand_card_indices, ColoredHandCardScope, CrystalGainEligibility,
-    WOUND_CARD_ID, BOOK_OF_WISDOM_CARD_ID,
+    call_to_arms_unit_indices, eligible_action_hand_indices, eligible_colored_hand_cards,
+    eligible_crystal_gain_colors, eligible_hand_card_indices, free_recruit_unit_indices,
+    ColoredHandCardScope, CrystalGainEligibility, WOUND_CARD_ID, BOOK_OF_WISDOM_CARD_ID,
     DRUIDIC_STAFF_CARD_ID, MAGIC_TALENT_CARD_ID, TOME_OF_ALL_SPELLS_CARD_ID,
 };
 
@@ -258,12 +258,11 @@ pub(crate) fn is_resolvable(state: &GameState, player_idx: usize, effect: &CardE
             .is_empty()
         }
         CardEffect::CallToArms => {
-            // Need units in offer with activatable abilities
-            !state.offers.units.is_empty()
+            !call_to_arms_unit_indices(&state.offers.units).is_empty()
         }
         CardEffect::FreeRecruit => {
-            // Need units in offer
-            !state.offers.units.is_empty()
+            let has_command_slot = player.units.len() < player.command_tokens as usize;
+            !free_recruit_unit_indices(&state.offers.units, has_command_slot).is_empty()
         }
         CardEffect::WingsOfNight => {
             // Need to be in combat with non-arcane-immune enemies
