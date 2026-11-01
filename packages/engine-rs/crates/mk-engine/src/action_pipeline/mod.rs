@@ -1557,8 +1557,8 @@ fn describe_choice_resolution(
                 format!("{:?} {:?} → {:?}", opt.source_type, opt.source_color, opt.target_color)
             })
         }
-        ChoiceResolution::MindReadColorSelect => {
-            ["Red", "Blue", "Green", "White"].get(choice_index).map(|c| format!("Gain {} crystal", c))
+        ChoiceResolution::MindReadColorSelect { eligible_colors } => {
+            eligible_colors.get(choice_index).map(|color| format!("Gain {:?} crystal", color))
         }
         ChoiceResolution::ManaClaimModeSelect { color, .. } => {
             Some(if choice_index == 0 {

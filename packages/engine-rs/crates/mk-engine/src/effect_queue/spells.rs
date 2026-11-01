@@ -767,30 +767,19 @@ pub(super) fn apply_mind_read(
 ) -> ResolveResult {
     // Both basic and powered: gain a crystal of chosen color
     let player = &state.players[player_idx];
-    let mut eligible = Vec::new();
-    if player.crystals.red < MAX_CRYSTALS_PER_COLOR {
-        eligible.push(BasicManaColor::Red);
-    }
-    if player.crystals.blue < MAX_CRYSTALS_PER_COLOR {
-        eligible.push(BasicManaColor::Blue);
-    }
-    if player.crystals.green < MAX_CRYSTALS_PER_COLOR {
-        eligible.push(BasicManaColor::Green);
-    }
-    if player.crystals.white < MAX_CRYSTALS_PER_COLOR {
-        eligible.push(BasicManaColor::White);
-    }
-    match eligible.len() {
-        0 => ResolveResult::Skipped,
-        1 => {
-            apply_gain_crystal_color(state, player_idx, eligible[0]);
+    let eligible = eligible_crystal_gain_colors(
+        &player.crystals,
+        CrystalGainEligibility::AnyBelowMaximum,
+    );
+
+    resolve_eligible_noop_choice(
+        eligible,
+        |color| {
+            apply_gain_crystal_color(state, player_idx, color);
             ResolveResult::Applied
-        }
-        _ => {
-            let options: Vec<CardEffect> = eligible.iter().map(|_| CardEffect::Noop).collect();
-            ResolveResult::NeedsChoiceWith(options, ChoiceResolution::MindReadColorSelect)
-        }
-    }
+        },
+        |eligible_colors| ChoiceResolution::MindReadColorSelect { eligible_colors },
+    )
 }
 
 /// Call to Arms basic: borrow unit ability from offer (or opponent units in multiplayer).

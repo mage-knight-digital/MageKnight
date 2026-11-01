@@ -448,7 +448,9 @@ pub enum ChoiceResolution {
         available_colors: Vec<BasicManaColor>,
     },
     /// Mind Read (solo): choose color for crystal gain.
-    MindReadColorSelect,
+    MindReadColorSelect {
+        eligible_colors: Vec<BasicManaColor>,
+    },
     /// Call to Arms basic: choose unit from offer to borrow ability.
     CallToArmsUnitSelect {
         /// Indices into the unit offer.

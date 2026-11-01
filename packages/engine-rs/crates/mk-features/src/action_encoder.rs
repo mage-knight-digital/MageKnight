@@ -6,7 +6,7 @@
 use mk_data::cards::{get_card, get_card_color};
 use mk_data::enemies::get_enemy;
 use mk_types::effect::CardEffect;
-use mk_types::enums::{BasicManaColor, CombatType, Element, ManaColor, ResistanceElement, SidewaysAs};
+use mk_types::enums::{CombatType, Element, ManaColor, ResistanceElement, SidewaysAs};
 use mk_types::legal_action::LegalAction;
 use mk_types::pending::{
     ActivePending, ChoiceResolution, KnowYourPreyApplyOption, PeacefulMomentOption,
@@ -996,9 +996,8 @@ fn enrich_choice_scalars(scalars: &mut [f32], effect: &CardEffect, resolution: &
                     set_mana_color_one_hot(scalars, 12, ManaColor::from(*color));
                 }
             // --- Group 1: Color one-hot from resolution metadata ---
-            } else if matches!(resolution, ChoiceResolution::MindReadColorSelect) {
-                let colors = [BasicManaColor::Red, BasicManaColor::Blue, BasicManaColor::Green, BasicManaColor::White];
-                if let Some(&color) = colors.get(choice_index) {
+            } else if let ChoiceResolution::MindReadColorSelect { eligible_colors } = resolution {
+                if let Some(&color) = eligible_colors.get(choice_index) {
                     set_mana_color_one_hot(scalars, 12, ManaColor::from(color));
                 }
             } else if let ChoiceResolution::ManaClaimModeSelect { color, .. } = resolution {

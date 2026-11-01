@@ -480,9 +480,9 @@ fn pending_options(active: &ActivePending, player: &PlayerState, state: &GameSta
                     .map(|opt| format!("Discard {} for {:?} mana", opt.card_id, opt.mana_color))
                     .collect();
             }
-            if matches!(choice.resolution, ChoiceResolution::MindReadColorSelect) {
-                return ["Red", "Blue", "Green", "White"].iter()
-                    .map(|c| format!("Gain {} crystal", c))
+            if let ChoiceResolution::MindReadColorSelect { eligible_colors } = &choice.resolution {
+                return eligible_colors.iter()
+                    .map(|color| format!("Gain {:?} crystal", color))
                     .collect();
             }
             if let ChoiceResolution::ManaClaimModeSelect { color, .. } = &choice.resolution {
