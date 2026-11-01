@@ -6,10 +6,11 @@ use mk_types::state::*;
 
 use crate::card_play::is_die_available_with_overrides;
 use super::{
-    call_to_arms_unit_indices, eligible_action_hand_indices, eligible_colored_hand_cards,
-    eligible_crystal_gain_colors, eligible_hand_card_indices, free_recruit_unit_indices,
-    ColoredHandCardScope, CrystalGainEligibility, WOUND_CARD_ID, BOOK_OF_WISDOM_CARD_ID,
-    DRUIDIC_STAFF_CARD_ID, MAGIC_TALENT_CARD_ID, TOME_OF_ALL_SPELLS_CARD_ID,
+    call_to_arms_unit_indices, colored_card_offer_entries, eligible_action_hand_indices,
+    eligible_colored_hand_cards, eligible_crystal_gain_colors, eligible_hand_card_indices,
+    free_recruit_unit_indices, ColoredHandCardScope, CrystalGainEligibility, WOUND_CARD_ID,
+    BOOK_OF_WISDOM_CARD_ID, DRUIDIC_STAFF_CARD_ID, MAGIC_TALENT_CARD_ID,
+    TOME_OF_ALL_SPELLS_CARD_ID,
 };
 
 // =============================================================================
@@ -210,11 +211,13 @@ pub(crate) fn is_resolvable(state: &GameState, player_idx: usize, effect: &CardE
         }
         CardEffect::ManaStormPowered => true,
         CardEffect::SpellForgeBasic | CardEffect::SpellForgePowered => {
-            !state.offers.spells.is_empty()
+            !colored_card_offer_entries(&state.offers.spells, mk_data::cards::get_spell_color)
+                .is_empty()
         }
         CardEffect::MagicTalentBasic => {
             // Need spells in offer + discardable colored card
-            !state.offers.spells.is_empty()
+            !colored_card_offer_entries(&state.offers.spells, mk_data::cards::get_spell_color)
+                .is_empty()
                 && !eligible_colored_hand_cards(
                     &player.hand,
                     MAGIC_TALENT_CARD_ID,
@@ -224,14 +227,12 @@ pub(crate) fn is_resolvable(state: &GameState, player_idx: usize, effect: &CardE
         }
         CardEffect::MagicTalentPowered => {
             // Need spell in offer + matching mana token
-            state.offers.spells.iter().any(|spell_id| {
-                if let Some(color) = mk_data::cards::get_spell_color(spell_id.as_str()) {
-                    let target = ManaColor::from(color);
-                    player.pure_mana.iter().any(|t| t.color == target)
-                } else {
-                    false
-                }
-            })
+            colored_card_offer_entries(&state.offers.spells, mk_data::cards::get_spell_color)
+                .iter()
+                .any(|(_, _, color)| {
+                    let target = ManaColor::from(*color);
+                    player.pure_mana.iter().any(|token| token.color == target)
+                })
         }
         CardEffect::BloodOfAncientsBasic => true, // Always resolvable (wound is taken regardless)
         CardEffect::BloodOfAncientsPowered => !state.offers.advanced_actions.is_empty(),

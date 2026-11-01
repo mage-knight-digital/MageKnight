@@ -121,6 +121,21 @@ pub(crate) fn hand_card_effect_choices(
     (eligible_indices, options)
 }
 
+/// Collect offer cards with their original indices and resolved basic mana colors.
+pub(crate) fn colored_card_offer_entries(
+    offer: &[CardId],
+    color_for_card: impl Fn(&str) -> Option<BasicManaColor>,
+) -> Vec<(usize, CardId, BasicManaColor)> {
+    offer
+        .iter()
+        .enumerate()
+        .filter_map(|(index, card_id)| {
+            let color = color_for_card(card_id.as_str())?;
+            Some((index, card_id.clone(), color))
+        })
+        .collect()
+}
+
 pub(crate) fn eligible_colored_hand_cards(
     hand: &[CardId],
     excluded_card_id: &str,

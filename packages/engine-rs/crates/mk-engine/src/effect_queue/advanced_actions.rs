@@ -354,13 +354,13 @@ pub(super) fn apply_mana_storm_powered(state: &mut GameState, player_idx: usize)
 }
 
 pub(super) fn apply_spell_forge_basic(state: &mut GameState, player_idx: usize) -> ResolveResult {
-    // Build entries from spells in offer
-    let mut spell_entries: Vec<(usize, BasicManaColor)> = Vec::new();
-    for (idx, spell_id) in state.offers.spells.iter().enumerate() {
-        if let Some(color) = mk_data::cards::get_spell_color(spell_id.as_str()) {
-            spell_entries.push((idx, color));
-        }
-    }
+    let spell_entries: Vec<(usize, BasicManaColor)> = colored_card_offer_entries(
+        &state.offers.spells,
+        mk_data::cards::get_spell_color,
+    )
+    .into_iter()
+    .map(|(index, _, color)| (index, color))
+    .collect();
 
     match spell_entries.len() {
         0 => ResolveResult::Skipped,
@@ -383,13 +383,14 @@ pub(super) fn apply_spell_forge_basic(state: &mut GameState, player_idx: usize) 
 }
 
 pub(super) fn apply_spell_forge_powered(state: &mut GameState, player_idx: usize) -> ResolveResult {
-    // Same as basic but chains to a second choice
-    let mut spell_entries: Vec<(usize, BasicManaColor)> = Vec::new();
-    for (idx, spell_id) in state.offers.spells.iter().enumerate() {
-        if let Some(color) = mk_data::cards::get_spell_color(spell_id.as_str()) {
-            spell_entries.push((idx, color));
-        }
-    }
+    // Same as basic but chains to a second choice.
+    let spell_entries: Vec<(usize, BasicManaColor)> = colored_card_offer_entries(
+        &state.offers.spells,
+        mk_data::cards::get_spell_color,
+    )
+    .into_iter()
+    .map(|(index, _, color)| (index, color))
+    .collect();
 
     match spell_entries.len() {
         0 => ResolveResult::Skipped,
@@ -413,13 +414,10 @@ pub(super) fn apply_spell_forge_powered(state: &mut GameState, player_idx: usize
 }
 
 pub(super) fn apply_magic_talent_basic(state: &mut GameState, player_idx: usize) -> ResolveResult {
-    // Build options: for each spell color in offer, find matching spells
-    let mut spell_entries: Vec<(usize, CardId, BasicManaColor)> = Vec::new();
-    for (idx, spell_id) in state.offers.spells.iter().enumerate() {
-        if let Some(color) = mk_data::cards::get_spell_color(spell_id.as_str()) {
-            spell_entries.push((idx, spell_id.clone(), color));
-        }
-    }
+    let spell_entries = colored_card_offer_entries(
+        &state.offers.spells,
+        mk_data::cards::get_spell_color,
+    );
 
     if spell_entries.is_empty() {
         return ResolveResult::Skipped;
@@ -460,16 +458,16 @@ pub(super) fn apply_magic_talent_basic(state: &mut GameState, player_idx: usize)
 pub(super) fn apply_magic_talent_powered(state: &mut GameState, player_idx: usize) -> ResolveResult {
     // Find available mana token colors with matching spells in offer
     let player = &state.players[player_idx];
-    let mut gain_entries: Vec<(usize, CardId, BasicManaColor)> = Vec::new();
-
-    for (spell_idx, spell_id) in state.offers.spells.iter().enumerate() {
-        if let Some(spell_color) = mk_data::cards::get_spell_color(spell_id.as_str()) {
-            let target_mana = ManaColor::from(spell_color);
-            if player.pure_mana.iter().any(|t| t.color == target_mana) {
-                gain_entries.push((spell_idx, spell_id.clone(), spell_color));
-            }
-        }
-    }
+    let gain_entries: Vec<(usize, CardId, BasicManaColor)> = colored_card_offer_entries(
+        &state.offers.spells,
+        mk_data::cards::get_spell_color,
+    )
+    .into_iter()
+    .filter(|(_, _, spell_color)| {
+        let target_mana = ManaColor::from(*spell_color);
+        player.pure_mana.iter().any(|token| token.color == target_mana)
+    })
+    .collect();
 
     match gain_entries.len() {
         0 => ResolveResult::Skipped,
@@ -505,12 +503,17 @@ pub(super) fn apply_blood_of_ancients_basic(state: &mut GameState, player_idx: u
     state.players[player_idx].wounds_received_this_turn.hand += 1;
 
     // Build mana options: for each basic color with available mana AND matching AAs
+    let advanced_action_entries = colored_card_offer_entries(
+        &state.offers.advanced_actions,
+        mk_data::cards::get_card_color,
+    );
     let player = &state.players[player_idx];
     let mut mana_options: Vec<(mk_types::action::ManaSourceInfo, BasicManaColor)> = Vec::new();
 
     for &color in &[BasicManaColor::Red, BasicManaColor::Blue, BasicManaColor::Green, BasicManaColor::White] {
-        let has_matching_aa = state.offers.advanced_actions.iter()
-            .any(|aa_id| mk_data::cards::get_card_color(aa_id.as_str()) == Some(color));
+        let has_matching_aa = advanced_action_entries
+            .iter()
+            .any(|(_, _, aa_color)| *aa_color == color);
         if !has_matching_aa { continue; }
 
         let target_mana = ManaColor::from(color);
@@ -541,9 +544,10 @@ pub(super) fn apply_blood_of_ancients_basic(state: &mut GameState, player_idx: u
         let (ref mana_source, aa_color) = mana_options[0];
         consume_mana_source(state, player_idx, mana_source);
         // Find matching AAs
-        let matching: Vec<(usize, CardId)> = state.offers.advanced_actions.iter().enumerate()
-            .filter(|(_, id)| mk_data::cards::get_card_color(id.as_str()) == Some(aa_color))
-            .map(|(i, id)| (i, id.clone()))
+        let matching: Vec<(usize, CardId)> = advanced_action_entries
+            .iter()
+            .filter(|(_, _, offer_color)| *offer_color == aa_color)
+            .map(|(offer_index, card_id, _)| (*offer_index, card_id.clone()))
             .collect();
         if matching.len() == 1 {
             let (offer_idx, aa_id) = &matching[0];

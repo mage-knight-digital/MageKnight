@@ -58,10 +58,10 @@ pub(crate) use self::choice_resolution::{
 };
 pub(crate) use self::conditions::is_resolvable;
 pub(crate) use self::utils::{
-    call_to_arms_unit_indices, eligible_action_hand_indices, eligible_colored_hand_cards,
-    eligible_crystal_gain_colors, eligible_hand_card_indices, free_recruit_unit_indices,
-    hand_card_effect_choices, select_colored_hand_card, ColoredHandCardScope,
-    CrystalGainEligibility, HandCardDestination,
+    call_to_arms_unit_indices, colored_card_offer_entries, eligible_action_hand_indices,
+    eligible_colored_hand_cards, eligible_crystal_gain_colors, eligible_hand_card_indices,
+    free_recruit_unit_indices, hand_card_effect_choices, select_colored_hand_card,
+    ColoredHandCardScope, CrystalGainEligibility, HandCardDestination,
 };
 pub(crate) use self::utils::{gain_crystal_color, replenish_aa_offer, replenish_spell_offer};
 
