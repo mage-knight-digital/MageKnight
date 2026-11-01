@@ -367,10 +367,6 @@ pub(super) fn apply_magic_talent_basic(state: &mut GameState, player_idx: usize)
         mk_data::cards::get_spell_color,
     );
 
-    if spell_entries.is_empty() {
-        return ResolveResult::Skipped;
-    }
-
     // Check if player has any colored cards to discard (to match spell colors)
     let has_discardable = !eligible_colored_hand_cards(
         &state.players[player_idx].hand,
@@ -384,23 +380,17 @@ pub(super) fn apply_magic_talent_basic(state: &mut GameState, player_idx: usize)
     }
 
     // Present spells as choice options (player will cast the selected spell's basic effect)
-    match spell_entries.len() {
-        1 => {
-            // Auto-select the single spell
-            let (_, ref spell_id, _) = spell_entries[0];
+    resolve_eligible_noop_choice(
+        spell_entries,
+        |(_, spell_id, _)| {
             if let Some(card_def) = mk_data::cards::get_card(spell_id.as_str()) {
-                return ResolveResult::Decomposed(vec![card_def.basic_effect]);
+                ResolveResult::Decomposed(vec![card_def.basic_effect])
+            } else {
+                ResolveResult::Skipped
             }
-            ResolveResult::Skipped
-        }
-        _ => {
-            let options: Vec<CardEffect> = spell_entries.iter().map(|_| CardEffect::Noop).collect();
-            ResolveResult::NeedsChoiceWith(
-                options,
-                ChoiceResolution::MagicTalentSpellSelect { spell_entries },
-            )
-        }
-    }
+        },
+        |spell_entries| ChoiceResolution::MagicTalentSpellSelect { spell_entries },
+    )
 }
 
 pub(super) fn apply_magic_talent_powered(state: &mut GameState, player_idx: usize) -> ResolveResult {
@@ -417,32 +407,24 @@ pub(super) fn apply_magic_talent_powered(state: &mut GameState, player_idx: usiz
     })
     .collect();
 
-    match gain_entries.len() {
-        0 => ResolveResult::Skipped,
-        1 => {
+    resolve_eligible_noop_choice(
+        gain_entries,
+        |(offer_idx, spell_id, mana_color)| {
             // Auto-select
-            let (offer_idx, ref spell_id, mana_color) = gain_entries[0];
             let target = ManaColor::from(mana_color);
             let player = &mut state.players[player_idx];
             if let Some(idx) = player.pure_mana.iter().position(|t| t.color == target) {
                 player.pure_mana.remove(idx);
             }
-            let spell_id = spell_id.clone();
             if offer_idx < state.offers.spells.len() {
                 state.offers.spells.remove(offer_idx);
                 replenish_spell_offer(state);
             }
             state.players[player_idx].discard.push(spell_id);
             ResolveResult::Applied
-        }
-        _ => {
-            let options: Vec<CardEffect> = gain_entries.iter().map(|_| CardEffect::Noop).collect();
-            ResolveResult::NeedsChoiceWith(
-                options,
-                ChoiceResolution::MagicTalentGainSelect { gain_entries },
-            )
-        }
-    }
+        },
+        |gain_entries| ChoiceResolution::MagicTalentGainSelect { gain_entries },
+    )
 }
 
 pub(super) fn apply_blood_of_ancients_basic(state: &mut GameState, player_idx: usize) -> ResolveResult {
