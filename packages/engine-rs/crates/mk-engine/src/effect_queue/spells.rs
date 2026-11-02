@@ -105,24 +105,19 @@ pub(super) fn apply_mana_bolt(state: &mut GameState, player_idx: usize, base_val
         }
     }
 
-    match options.len() {
-        0 => ResolveResult::Skipped,
-        1 => {
+    resolve_choice_options(
+        token_opts,
+        options,
+        |(color, _, _, _), effect| {
             // Auto-select: consume the token
-            let color = token_opts[0].0;
             let player = &mut state.players[player_idx];
             if let Some(idx) = player.pure_mana.iter().position(|t| t.color == color) {
                 player.pure_mana.remove(idx);
             }
-            ResolveResult::Decomposed(options)
-        }
-        _ => ResolveResult::NeedsChoiceWith(
-            options,
-            ChoiceResolution::ManaBoltTokenSelect {
-                token_options: token_opts,
-            },
-        ),
-    }
+            ResolveResult::Decomposed(vec![effect])
+        },
+        |token_options| ChoiceResolution::ManaBoltTokenSelect { token_options },
+    )
 }
 
 /// Get Mana Bolt parameters for a given color.

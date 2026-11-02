@@ -101,34 +101,37 @@ pub(crate) fn resolve_eligible_noop_choice<T>(
     resolve_single: impl FnOnce(T) -> ResolveResult,
     resolution_for_many: impl FnOnce(Vec<T>) -> ChoiceResolution,
 ) -> ResolveResult {
-    match eligible.len() {
-        0 => ResolveResult::Skipped,
-        1 => resolve_single(eligible.into_iter().next().expect("one eligible target exists")),
-        _ => {
-            let options = vec![CardEffect::Noop; eligible.len()];
-            ResolveResult::NeedsChoiceWith(options, resolution_for_many(eligible))
-        }
-    }
+    let options = vec![CardEffect::Noop; eligible.len()];
+    resolve_choice_options(
+        eligible,
+        options,
+        |target, _| resolve_single(target),
+        resolution_for_many,
+    )
 }
 
-/// Resolve a hand-card effect choice: skip none, resolve one automatically, or prompt for many.
-pub(crate) fn resolve_hand_card_effect_choice(
-    eligible_hand_indices: Vec<usize>,
+/// Resolve aligned choice data and effects: skip none, auto-resolve one, or prompt for many.
+pub(crate) fn resolve_choice_options<T>(
+    choice_data: Vec<T>,
     options: Vec<CardEffect>,
-    resolve_single: impl FnOnce(usize, CardEffect) -> ResolveResult,
-    resolution_for_many: impl FnOnce(Vec<usize>) -> ChoiceResolution,
+    resolve_single: impl FnOnce(T, CardEffect) -> ResolveResult,
+    resolution_for_many: impl FnOnce(Vec<T>) -> ChoiceResolution,
 ) -> ResolveResult {
-    match eligible_hand_indices.len() {
+    debug_assert_eq!(choice_data.len(), options.len());
+    match choice_data.len() {
         0 => ResolveResult::Skipped,
         1 => {
-            let hand_index = eligible_hand_indices[0];
+            let choice = choice_data
+                .into_iter()
+                .next()
+                .expect("one choice option has one corresponding item");
             let effect = options
                 .into_iter()
                 .next()
-                .expect("one eligible hand card has one effect option");
-            resolve_single(hand_index, effect)
+                .expect("one choice item has one corresponding effect");
+            resolve_single(choice, effect)
         }
-        _ => ResolveResult::NeedsChoiceWith(options, resolution_for_many(eligible_hand_indices)),
+        _ => ResolveResult::NeedsChoiceWith(options, resolution_for_many(choice_data)),
     }
 }
 

@@ -2573,7 +2573,8 @@ const TEST_ENEMY_INSTANCE_1: &str = "enemy_1";
                 assert!(matches!(options[1], CardEffect::GainInfluence { amount: 4 }));
                 assert!(matches!(
                     resolution,
-                    ChoiceResolution::PureMagicConsume { .. }
+                    ChoiceResolution::PureMagicConsume { token_colors }
+                        if token_colors == vec![ManaColor::Green, ManaColor::White]
                 ));
             }
             _ => panic!("Expected NeedsChoice"),
@@ -3115,7 +3116,9 @@ const TEST_ENEMY_INSTANCE_1: &str = "enemy_1";
                 assert_eq!(options.len(), 4);
                 assert!(matches!(
                     resolution,
-                    ChoiceResolution::ManaBoltTokenSelect { .. }
+                    ChoiceResolution::ManaBoltTokenSelect { token_options }
+                        if token_options.len() == 4
+                            && token_options.iter().all(|option| option.0 == ManaColor::Gold)
                 ));
             }
             _ => panic!("Expected NeedsChoice for gold token with all 4 options"),
@@ -3139,7 +3142,9 @@ const TEST_ENEMY_INSTANCE_1: &str = "enemy_1";
                 assert_eq!(options.len(), 2);
                 assert!(matches!(
                     resolution,
-                    ChoiceResolution::ManaBoltTokenSelect { .. }
+                    ChoiceResolution::ManaBoltTokenSelect { token_options }
+                        if token_options.iter().map(|option| option.0).collect::<Vec<_>>()
+                            == vec![ManaColor::Blue, ManaColor::Red]
                 ));
             }
             _ => panic!("Expected NeedsChoice"),

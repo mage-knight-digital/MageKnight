@@ -203,7 +203,7 @@ pub(super) fn apply_discard_for_attack(
         },
     );
 
-    resolve_hand_card_effect_choice(
+    resolve_choice_options(
         eligible_indices,
         options,
         |hand_idx, attack_effect| {
@@ -276,22 +276,19 @@ pub(super) fn apply_pure_magic(
         }
     }
 
-    match options.len() {
-        0 => ResolveResult::Skipped,
-        1 => {
+    resolve_choice_options(
+        token_colors,
+        options,
+        |color, effect| {
             // Auto-select: consume the token and decompose
-            let color = token_colors[0];
             let player = &mut state.players[player_idx];
             if let Some(idx) = player.pure_mana.iter().position(|t| t.color == color) {
                 player.pure_mana.remove(idx);
             }
-            ResolveResult::Decomposed(options)
-        }
-        _ => ResolveResult::NeedsChoiceWith(
-            options,
-            ChoiceResolution::PureMagicConsume { token_colors },
-        ),
-    }
+            ResolveResult::Decomposed(vec![effect])
+        },
+        |token_colors| ChoiceResolution::PureMagicConsume { token_colors },
+    )
 }
 
 /// Get the effect for Pure Magic given a color.
@@ -475,7 +472,7 @@ pub(super) fn apply_card_boost(state: &mut GameState, player_idx: usize, bonus: 
         },
     );
 
-    resolve_hand_card_effect_choice(
+    resolve_choice_options(
         eligible_indices,
         options,
         |hand_idx, boosted_effect| {
@@ -583,7 +580,7 @@ pub(super) fn apply_discard_cost(
 
     if count == 1 {
         let options = vec![then_effect.clone(); eligible_indices.len()];
-        resolve_hand_card_effect_choice(
+        resolve_choice_options(
             eligible_indices,
             options,
             |idx, effect| {
