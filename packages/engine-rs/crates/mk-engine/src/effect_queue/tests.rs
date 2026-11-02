@@ -1301,6 +1301,9 @@ const TEST_ENEMY_INSTANCE_1: &str = "enemy_1";
         assert!(matches!(result, DrainResult::Complete));
         assert_eq!(state.players[0].hand.len(), 0); // discarded the only card
         assert_eq!(state.players[0].discard.len(), 1);
+        assert!(state.players[0]
+            .flags
+            .contains(PlayerFlags::DISCARDED_CARD_THIS_TURN));
         assert_eq!(state.players[0].move_points, 3); // then_effect resolved
     }
 

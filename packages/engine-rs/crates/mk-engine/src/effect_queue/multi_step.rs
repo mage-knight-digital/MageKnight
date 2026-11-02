@@ -582,33 +582,22 @@ pub(super) fn apply_discard_cost(
     });
 
     if count == 1 {
-        match eligible_indices.len() {
-            0 => ResolveResult::Skipped,
-            1 => {
+        let options = vec![then_effect.clone(); eligible_indices.len()];
+        resolve_hand_card_effect_choice(
+            eligible_indices,
+            options,
+            |idx, effect| {
                 // Auto-discard the only eligible card
-                let idx = eligible_indices[0];
                 let player = &mut state.players[player_idx];
                 let discarded = player.hand.remove(idx);
                 player.discard.push(discarded);
                 player
                     .flags
                     .insert(PlayerFlags::DISCARDED_CARD_THIS_TURN);
-                ResolveResult::Decomposed(vec![then_effect.clone()])
-            }
-            _ => {
-                // Present each eligible card as a choice option.
-                // Each option leads to the same then_effect; the card is discarded
-                // via DiscardThenContinue resolution.
-                let options: Vec<CardEffect> = eligible_indices
-                    .iter()
-                    .map(|_| then_effect.clone())
-                    .collect();
-                ResolveResult::NeedsChoiceWith(
-                    options,
-                    ChoiceResolution::DiscardThenContinue { eligible_indices },
-                )
-            }
-        }
+                ResolveResult::Decomposed(vec![effect])
+            },
+            |eligible_indices| ChoiceResolution::DiscardThenContinue { eligible_indices },
+        )
     } else {
         // Multi-card discard: not yet implemented, skip for Phase 2
         ResolveResult::Skipped
