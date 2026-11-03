@@ -14,6 +14,7 @@ use super::{
     MAGIC_TALENT_CARD_ID,
 };
 use super::utils::*;
+use crate::unit_eligibility::peaceful_moment_refresh_target_indices;
 
 // =============================================================================
 // Advanced Action effect handlers
@@ -522,9 +523,7 @@ pub(super) fn apply_peaceful_moment_action(
         u.wounded && (u.level as u32 * 2) <= influence
     });
     let has_refreshable_unit = allow_refresh
-        && player.units.iter().any(|u| {
-            u.state == UnitState::Spent && (u.level as u32 * 2) <= influence
-        });
+        && !peaceful_moment_refresh_target_indices(&player.units, influence).is_empty();
 
     if !has_wound && !has_wounded_unit && !has_refreshable_unit {
         // Nothing to heal or refresh — skip silently
@@ -580,12 +579,13 @@ pub(super) fn apply_peaceful_moment_convert(
 
     // Refresh spent unit (powered only, not yet refreshed)
     if allow_refresh && !refreshed {
-        if let Some(unit) = player.units.iter().find(|u| u.state == UnitState::Spent) {
-            let cost = unit.level as u32 * 2;
-            if influence_remaining >= cost {
-                options.push(CardEffect::Noop);
-                option_map.push(PeacefulMomentOption::RefreshUnit);
-            }
+        if let Some(unit_index) =
+            peaceful_moment_refresh_target_indices(&player.units, influence_remaining).first()
+        {
+            options.push(CardEffect::Noop);
+            option_map.push(PeacefulMomentOption::RefreshUnit {
+                unit_index: *unit_index,
+            });
         }
     }
 

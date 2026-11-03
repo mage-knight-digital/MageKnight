@@ -23,6 +23,21 @@ pub(crate) fn has_heal_unit_target(units: &[PlayerUnit], max_level: u8) -> bool 
     has_eligible_unit(units, max_level, is_heal_unit_target)
 }
 
+/// Return spent units that Peaceful Moment can refresh with the available influence.
+pub(crate) fn peaceful_moment_refresh_target_indices(
+    units: &[PlayerUnit],
+    influence: u32,
+) -> Vec<usize> {
+    units
+        .iter()
+        .enumerate()
+        .filter(|(_, unit)| {
+            unit.state == UnitState::Spent && (unit.level as u32 * 2) <= influence
+        })
+        .map(|(index, _)| index)
+        .collect()
+}
+
 fn eligible_unit_indices(
     units: &[PlayerUnit],
     max_level: u8,

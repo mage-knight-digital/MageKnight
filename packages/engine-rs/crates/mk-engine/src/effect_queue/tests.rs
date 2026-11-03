@@ -7,7 +7,7 @@ use mk_types::ids::{CardId, CombatInstanceId, EnemyId, PlayerId, SourceDieId, Un
 use mk_types::modifier::*;
 use mk_types::pending::{
     ChoiceResolution, DeferredPending, EffectMode, PeacefulMomentOption,
-    PendingDecompose, PendingQueue,
+    PendingChoice, PendingDecompose, PendingQueue,
 };
 use mk_types::rng::RngState;
 use mk_types::state::*;
@@ -5486,6 +5486,67 @@ const TEST_ENEMY_INSTANCE_1: &str = "enemy_1";
     }
 
     #[test]
+    fn peaceful_action_opens_for_any_affordable_spent_unit() {
+        let mut state = test_state();
+        state.players[0].units.push(make_unit("u_expensive", 2, true));
+        state.players[0].units.push(make_unit("u_affordable", 1, true));
+        let mut queue = EffectQueue::new();
+        queue.push(
+            CardEffect::PeacefulMomentAction { influence: 2, allow_refresh: true },
+            None,
+        );
+
+        let result = queue.drain(&mut state, 0);
+
+        assert!(matches!(result, DrainResult::Complete));
+        assert!(state.players[0].flags.contains(PlayerFlags::IS_PEACEFUL_MOMENT_HEALING));
+    }
+
+    #[test]
+    fn peaceful_convert_offers_and_refreshes_later_affordable_spent_unit() {
+        let mut state = test_state();
+        state.players[0].units.push(make_unit("u_expensive", 2, true));
+        state.players[0].units.push(make_unit("u_affordable", 1, true));
+        let mut queue = EffectQueue::new();
+        queue.push(
+            CardEffect::PeacefulMomentConvert {
+                influence_remaining: 2,
+                allow_refresh: true,
+                refreshed: false,
+            },
+            None,
+        );
+
+        let result = queue.drain(&mut state, 0);
+        let DrainResult::NeedsChoice { options, continuation, resolution } = result else {
+            panic!("Expected Peaceful Moment choice, got {:?}", result);
+        };
+        assert!(matches!(
+            &resolution,
+            ChoiceResolution::PeacefulMomentConversion { option_map, .. }
+                if matches!(
+                    option_map.get(1),
+                    Some(PeacefulMomentOption::RefreshUnit { unit_index: 1 })
+                )
+        ));
+        assert!(continuation.is_empty());
+        state.players[0].pending.active = Some(ActivePending::Choice(PendingChoice {
+            card_id: None,
+            skill_id: None,
+            unit_instance_id: None,
+            options,
+            continuation: vec![],
+            movement_bonus_applied: false,
+            resolution,
+        }));
+
+        resolve_pending_choice(&mut state, 0, 1).unwrap();
+
+        assert_eq!(state.players[0].units[0].state, UnitState::Spent);
+        assert_eq!(state.players[0].units[1].state, UnitState::Ready);
+    }
+
+    #[test]
     fn peaceful_convert_no_wounds_exits() {
         let mut state = test_state();
         // No wounds, no spent units
@@ -5643,7 +5704,10 @@ const TEST_ENEMY_INSTANCE_1: &str = "enemy_1";
                 influence_remaining: 6,
                 allow_refresh: true,
                 refreshed: false,
-                option_map: vec![PeacefulMomentOption::Done, PeacefulMomentOption::RefreshUnit],
+                option_map: vec![
+                    PeacefulMomentOption::Done,
+                    PeacefulMomentOption::RefreshUnit { unit_index: 0 },
+                ],
             },
             movement_bonus_applied: false,
         }));
@@ -5670,7 +5734,7 @@ const TEST_ENEMY_INSTANCE_1: &str = "enemy_1";
                 option_map: vec![
                     PeacefulMomentOption::Done,
                     PeacefulMomentOption::HealWound,
-                    PeacefulMomentOption::RefreshUnit,
+                    PeacefulMomentOption::RefreshUnit { unit_index: 0 },
                 ],
             },
             movement_bonus_applied: false,
@@ -5930,7 +5994,7 @@ const TEST_ENEMY_INSTANCE_1: &str = "enemy_1";
             Some(ActivePending::Choice(pc)) => {
                 if let ChoiceResolution::PeacefulMomentConversion { allow_refresh, option_map, .. } = &pc.resolution {
                     assert!(*allow_refresh);
-                    assert!(option_map.iter().any(|o| matches!(o, PeacefulMomentOption::RefreshUnit)));
+                    assert!(option_map.iter().any(|o| matches!(o, PeacefulMomentOption::RefreshUnit { .. })));
                 } else {
                     panic!("Expected PeacefulMomentConversion resolution");
                 }
