@@ -9,6 +9,7 @@ use mk_types::state::*;
 use mk_types::modifier::ModifierEffect;
 
 use crate::{combat_resolution, mana};
+use crate::unit_eligibility::ready_unit_target_indices;
 use crate::undo::UndoStack;
 
 use super::{ApplyError, ApplyResult};
@@ -397,14 +398,7 @@ pub(super) fn apply_activate_unit(
             });
         }
         UnitAbility::ReadyUnit { max_level } => {
-            // Find spent units at or below max_level
-            let eligible: Vec<usize> = state.players[player_idx]
-                .units
-                .iter()
-                .enumerate()
-                .filter(|(_, u)| u.state == UnitState::Spent && u.level <= max_level)
-                .map(|(i, _)| i)
-                .collect();
+            let eligible = ready_unit_target_indices(&state.players[player_idx].units, max_level);
 
             match eligible.len() {
                 0 => {

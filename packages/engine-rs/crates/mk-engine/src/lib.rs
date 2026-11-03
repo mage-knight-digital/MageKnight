@@ -19,6 +19,7 @@ pub mod movement;
 pub mod scoring;
 pub mod setup;
 pub mod undo;
+mod unit_eligibility;
 pub mod valid_actions;
 
 #[cfg(test)]

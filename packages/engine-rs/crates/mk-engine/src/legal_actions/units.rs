@@ -10,6 +10,8 @@ use mk_types::ids::UnitId;
 use mk_types::legal_action::LegalAction;
 use mk_types::state::{GameState, PlayerFlags, PlayerState};
 
+use crate::unit_eligibility::has_ready_unit_target;
+
 /// Reputation cost modifier table (asymmetric, per rulebook).
 /// Negation of `reputation_influence_bonus()` in sites.rs.
 fn reputation_cost_modifier(reputation: i8) -> i32 {
@@ -428,10 +430,7 @@ pub(super) fn enumerate_unit_activations(
 
                 // ReadyUnit: skip if no spent units at or below max_level
                 if let UnitAbility::ReadyUnit { max_level } = slot.ability {
-                    let has_eligible = player.units.iter().any(|u| {
-                        u.state == UnitState::Spent && u.level <= max_level
-                    });
-                    if !has_eligible {
+                    if !has_ready_unit_target(&player.units, max_level) {
                         continue;
                     }
                 }

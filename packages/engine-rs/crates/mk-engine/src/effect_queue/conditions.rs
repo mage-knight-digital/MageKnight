@@ -5,6 +5,7 @@ use mk_types::enums::*;
 use mk_types::state::*;
 
 use crate::card_play::is_die_available_with_overrides;
+use crate::unit_eligibility::{has_heal_unit_target, has_ready_unit_target};
 use super::{
     call_to_arms_unit_indices, colored_card_offer_entries, eligible_action_hand_indices,
     eligible_colored_hand_cards, eligible_crystal_gain_colors, eligible_hand_card_indices,
@@ -99,18 +100,12 @@ pub(crate) fn is_resolvable(state: &GameState, player_idx: usize, effect: &CardE
 
         // ReadyUnit: only resolvable if there are spent units at or below max_level
         CardEffect::ReadyUnit { max_level } => {
-            state.players[player_idx]
-                .units
-                .iter()
-                .any(|u| u.state == UnitState::Spent && u.level <= *max_level)
+            has_ready_unit_target(&player.units, *max_level)
         }
 
         // HealUnit: only resolvable if there are wounded units at or below max_level
         CardEffect::HealUnit { max_level } => {
-            state.players[player_idx]
-                .units
-                .iter()
-                .any(|u| u.wounded && u.level <= *max_level)
+            has_heal_unit_target(&player.units, *max_level)
         }
 
         // Multi-step effects: resolvable by default (will be filtered at resolve time)
