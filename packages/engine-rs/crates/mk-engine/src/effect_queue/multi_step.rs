@@ -430,26 +430,22 @@ pub(super) fn apply_convert_mana_to_crystal(state: &mut GameState, player_idx: u
         }
     }
 
-    if available_colors.is_empty() {
-        return ResolveResult::Skipped;
-    }
+    let options: Vec<CardEffect> = available_colors
+        .iter()
+        .map(|&color| CardEffect::GainCrystal { color: Some(color) })
+        .collect();
 
-    if available_colors.len() == 1 {
-        // Auto-crystallize the only available color (prefer token over die)
-        let color = available_colors[0];
-        consume_crystallize_source(state, player_idx, color);
-        gain_crystal_color(state, player_idx, color);
-        ResolveResult::Applied
-    } else {
-        // Offer choice: one option per available color
-        // Source consumption is deferred to ChoiceResolution::CrystallizeConsume
-        // which runs when the player picks a color.
-        let options: Vec<CardEffect> = available_colors
-            .iter()
-            .map(|&c| CardEffect::GainCrystal { color: Some(c) })
-            .collect();
-        ResolveResult::NeedsChoiceWith(options, ChoiceResolution::CrystallizeConsume)
-    }
+    resolve_choice_options(
+        available_colors,
+        options,
+        |color, _effect| {
+            // Auto-crystallize the only color (prefer token over die).
+            consume_crystallize_source(state, player_idx, color);
+            gain_crystal_color(state, player_idx, color);
+            ResolveResult::Applied
+        },
+        |_| ChoiceResolution::CrystallizeConsume,
+    )
 }
 
 /// Apply CardBoost — find eligible hand cards, present boosted powered effects.
