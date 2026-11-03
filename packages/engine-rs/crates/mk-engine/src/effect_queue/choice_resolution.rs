@@ -801,14 +801,15 @@ pub(crate) fn resolve_pending_choice_with_undo(
                         player.hand.remove(wound_idx);
                     }
                 }
-                PeacefulMomentOption::RefreshUnit => {
-                    // Refresh first spent unit, cost = level × 2
+                PeacefulMomentOption::RefreshUnit { unit_index } => {
                     let player = &mut state.players[player_idx];
-                    if let Some(unit_idx) = player.units.iter().position(|u| u.state == UnitState::Spent) {
-                        let cost = player.units[unit_idx].level as u32 * 2;
-                        new_influence = influence_remaining.saturating_sub(cost);
-                        player.units[unit_idx].state = UnitState::Ready;
-                        new_refreshed = true;
+                    if let Some(unit) = player.units.get_mut(unit_index) {
+                        let cost = unit.level as u32 * 2;
+                        if unit.state == UnitState::Spent && *influence_remaining >= cost {
+                            new_influence = *influence_remaining - cost;
+                            unit.state = UnitState::Ready;
+                            new_refreshed = true;
+                        }
                     }
                 }
                 PeacefulMomentOption::HealUnit { unit_index } => {

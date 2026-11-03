@@ -217,7 +217,7 @@ pub enum PeacefulMomentOption {
     /// Remove 1 wound from hand (costs 2 influence = 1 healing point).
     HealWound,
     /// Refresh a spent unit (costs level × 2 influence). Powered only.
-    RefreshUnit,
+    RefreshUnit { unit_index: usize },
     /// Heal a wounded unit (costs level × 2 influence = level healing points).
     HealUnit { unit_index: usize },
 }

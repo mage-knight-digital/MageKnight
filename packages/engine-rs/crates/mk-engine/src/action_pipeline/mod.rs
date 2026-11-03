@@ -1619,7 +1619,7 @@ fn describe_choice_resolution(
             option_map.get(choice_index).map(|opt| match opt {
                 mk_types::pending::PeacefulMomentOption::Done => "Done".to_string(),
                 mk_types::pending::PeacefulMomentOption::HealWound => "Heal wound".to_string(),
-                mk_types::pending::PeacefulMomentOption::RefreshUnit => "Refresh unit".to_string(),
+                mk_types::pending::PeacefulMomentOption::RefreshUnit { .. } => "Refresh unit".to_string(),
                 mk_types::pending::PeacefulMomentOption::HealUnit { unit_index } => {
                     state.players[player_idx].units.get(*unit_index)
                         .map(|u| format!("Heal {}", u.unit_id))

@@ -1070,7 +1070,7 @@ fn enrich_choice_scalars(scalars: &mut [f32], effect: &CardEffect, resolution: &
                     match opt {
                         PeacefulMomentOption::Done => scalars[11] = 1.0,
                         PeacefulMomentOption::HealWound => scalars[0] = scale(1.0, 10.0),
-                        PeacefulMomentOption::RefreshUnit => scalars[9] = 1.0,
+                        PeacefulMomentOption::RefreshUnit { .. } => scalars[9] = 1.0,
                         PeacefulMomentOption::HealUnit { .. } => { scalars[9] = 1.0; scalars[0] = scale(1.0, 10.0); }
                     }
                 }
