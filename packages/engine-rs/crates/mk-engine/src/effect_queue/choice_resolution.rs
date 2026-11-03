@@ -717,13 +717,18 @@ pub(crate) fn resolve_pending_choice_with_undo(
                 return Ok(());
             }
         }
-        ChoiceResolution::SpellForgeCrystal { spell_entries, is_second, first_spell_index: _ } => {
+        ChoiceResolution::SpellForgeCrystal {
+            spell_entries,
+            is_second,
+            allow_second_choice,
+            first_spell_index: _,
+        } => {
             if choice_index < spell_entries.len() {
                 let (offer_index, spell_color) = spell_entries[choice_index];
                 // Gain crystal of the spell's color
                 gain_crystal_color(state, player_idx, spell_color);
                 // If this is the first selection of powered, chain to second choice
-                if !is_second {
+                if *allow_second_choice && !is_second {
                     // Build second choice: same spells minus the one just picked
                     let second_entries: Vec<(usize, BasicManaColor)> = spell_entries.iter()
                         .filter(|(idx, _)| *idx != offer_index)
@@ -748,6 +753,7 @@ pub(crate) fn resolve_pending_choice_with_undo(
                             resolution: ChoiceResolution::SpellForgeCrystal {
                                 spell_entries: second_entries,
                                 is_second: true,
+                                allow_second_choice: *allow_second_choice,
                                 first_spell_index: Some(offer_index),
                             },
                         }));
