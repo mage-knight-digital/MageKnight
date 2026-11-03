@@ -392,13 +392,11 @@ pub(super) fn apply_ready_unit(state: &mut GameState, player_idx: usize, max_lev
     let player = &state.players[player_idx];
 
     // Find spent units at or below max_level
-    let eligible: Vec<usize> = player
-        .units
-        .iter()
-        .enumerate()
-        .filter(|(_, u)| u.state == UnitState::Spent && u.level <= max_level)
-        .map(|(i, _)| i)
-        .collect();
+    let eligible = eligible_player_unit_indices_at_or_below_level(
+        &player.units,
+        max_level,
+        |unit| unit.state == UnitState::Spent,
+    );
 
     resolve_eligible_noop_choice(
         eligible,
@@ -421,13 +419,11 @@ pub(super) fn apply_heal_unit(state: &mut GameState, player_idx: usize, max_leve
     let player = &state.players[player_idx];
 
     // Find wounded units at or below max_level
-    let eligible: Vec<usize> = player
-        .units
-        .iter()
-        .enumerate()
-        .filter(|(_, u)| u.wounded && u.level <= max_level)
-        .map(|(i, _)| i)
-        .collect();
+    let eligible = eligible_player_unit_indices_at_or_below_level(
+        &player.units,
+        max_level,
+        |unit| unit.wounded,
+    );
 
     resolve_eligible_noop_choice(
         eligible,

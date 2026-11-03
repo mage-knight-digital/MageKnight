@@ -62,6 +62,20 @@ fn eligible_unit_offer_indices(
         .collect()
 }
 
+/// Return player unit indices that satisfy a card-specific rule and level cap.
+pub(crate) fn eligible_player_unit_indices_at_or_below_level(
+    units: &[PlayerUnit],
+    max_level: u8,
+    is_eligible: impl Fn(&PlayerUnit) -> bool,
+) -> Vec<usize> {
+    units
+        .iter()
+        .enumerate()
+        .filter(|(_, unit)| unit.level <= max_level && is_eligible(unit))
+        .map(|(index, _)| index)
+        .collect()
+}
+
 /// Return offered units that Call to Arms can borrow an ability from.
 pub(crate) fn call_to_arms_unit_indices(unit_offer: &[UnitId]) -> Vec<usize> {
     eligible_unit_offer_indices(unit_offer, |unit| {
