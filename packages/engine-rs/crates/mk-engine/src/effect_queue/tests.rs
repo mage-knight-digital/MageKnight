@@ -4793,10 +4793,44 @@ const TEST_ENEMY_INSTANCE_1: &str = "enemy_1";
         match result {
             DrainResult::NeedsChoice { options, resolution, .. } => {
                 assert_eq!(options.len(), 2);
-                assert!(matches!(resolution, ChoiceResolution::SpellForgeCrystal { is_second: false, .. }));
+                assert!(matches!(resolution, ChoiceResolution::SpellForgeCrystal {
+                    is_second: false,
+                    allow_second_choice: false,
+                    ..
+                }));
             }
             other => panic!("Expected NeedsChoice, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn spell_forge_basic_choice_does_not_chain_to_second_spell() {
+        let mut state = test_state();
+        state.offers.spells = vec![
+            CardId::from("fireball"),
+            CardId::from("snowstorm"),
+        ];
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::SpellForgeBasic, None);
+        let result = queue.drain(&mut state, 0);
+        let (options, resolution) = match result {
+            DrainResult::NeedsChoice { options, resolution, .. } => (options, resolution),
+            other => panic!("Expected NeedsChoice, got {:?}", other),
+        };
+        state.players[0].pending.active = Some(ActivePending::Choice(PendingChoice {
+            card_id: None,
+            skill_id: None,
+            unit_instance_id: None,
+            options,
+            continuation: vec![],
+            resolution,
+            movement_bonus_applied: false,
+        }));
+
+        resolve_pending_choice(&mut state, 0, 0).unwrap();
+
+        assert_eq!(state.players[0].crystals.red, 1);
+        assert!(state.players[0].pending.active.is_none());
     }
 
     #[test]
@@ -4823,6 +4857,7 @@ const TEST_ENEMY_INSTANCE_1: &str = "enemy_1";
     #[test]
     fn spell_forge_basic_gains_crystal_of_spell_color() {
         let mut state = test_state();
+        state.offers.spells = vec![CardId::from("fireball"), CardId::from("snowstorm")];
         state.players[0].pending.active = Some(ActivePending::Choice(PendingChoice {
             card_id: None,
             skill_id: None,
@@ -4832,12 +4867,14 @@ const TEST_ENEMY_INSTANCE_1: &str = "enemy_1";
             resolution: ChoiceResolution::SpellForgeCrystal {
                 spell_entries: vec![(0, BasicManaColor::Red), (1, BasicManaColor::Blue)],
                 is_second: false,
+                allow_second_choice: false,
                 first_spell_index: None,
             },
             movement_bonus_applied: false,
         }));
         resolve_pending_choice(&mut state, 0, 1).unwrap();
         assert_eq!(state.players[0].crystals.blue, 1);
+        assert!(state.players[0].pending.active.is_none());
     }
 
     #[test]
@@ -4847,17 +4884,19 @@ const TEST_ENEMY_INSTANCE_1: &str = "enemy_1";
             CardId::from("fireball"),
             CardId::from("snowstorm"),
         ];
+        let mut queue = EffectQueue::new();
+        queue.push(CardEffect::SpellForgePowered, None);
+        let (options, resolution) = match queue.drain(&mut state, 0) {
+            DrainResult::NeedsChoice { options, resolution, .. } => (options, resolution),
+            other => panic!("Expected powered Spell Forge choice, got {:?}", other),
+        };
         state.players[0].pending.active = Some(ActivePending::Choice(PendingChoice {
             card_id: None,
             skill_id: None,
             unit_instance_id: None,
-            options: vec![CardEffect::Noop; 2],
+            options,
             continuation: vec![],
-            resolution: ChoiceResolution::SpellForgeCrystal {
-                spell_entries: vec![(0, BasicManaColor::Red), (1, BasicManaColor::Blue)],
-                is_second: false,
-                first_spell_index: None,
-            },
+            resolution,
             movement_bonus_applied: false,
         }));
         resolve_pending_choice(&mut state, 0, 0).unwrap();
@@ -4865,7 +4904,13 @@ const TEST_ENEMY_INSTANCE_1: &str = "enemy_1";
         // Should have a new pending for second pick
         match &state.players[0].pending.active {
             Some(ActivePending::Choice(pc)) => {
-                assert!(matches!(&pc.resolution, ChoiceResolution::SpellForgeCrystal { is_second: true, first_spell_index: Some(0), .. }));
+                assert!(matches!(&pc.resolution, ChoiceResolution::SpellForgeCrystal {
+                    is_second: true,
+                    allow_second_choice: true,
+                    first_spell_index: Some(0),
+                    spell_entries,
+                    ..
+                } if spell_entries == &vec![(1, BasicManaColor::Blue)]));
             }
             other => panic!("Expected Choice with SpellForgeCrystal second, got {:?}", other),
         }
@@ -4883,6 +4928,7 @@ const TEST_ENEMY_INSTANCE_1: &str = "enemy_1";
             resolution: ChoiceResolution::SpellForgeCrystal {
                 spell_entries: vec![(1, BasicManaColor::Blue)],
                 is_second: true,
+                allow_second_choice: true,
                 first_spell_index: Some(0),
             },
             movement_bonus_applied: false,
@@ -4923,6 +4969,7 @@ const TEST_ENEMY_INSTANCE_1: &str = "enemy_1";
                     (2, BasicManaColor::Green),
                 ],
                 is_second: false,
+                allow_second_choice: true,
                 first_spell_index: None,
             },
             movement_bonus_applied: false,

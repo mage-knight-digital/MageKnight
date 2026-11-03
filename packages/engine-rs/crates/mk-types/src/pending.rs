@@ -407,6 +407,9 @@ pub enum ChoiceResolution {
         /// (offer_index, spell_color) for each option.
         spell_entries: Vec<(usize, BasicManaColor)>,
         is_second: bool,
+        /// Whether selecting the first spell should offer a second spell choice.
+        #[serde(default)]
+        allow_second_choice: bool,
         first_spell_index: Option<usize>,
     },
     /// Peaceful Moment: conversion loop choice (heal wound, heal unit, refresh, done).
