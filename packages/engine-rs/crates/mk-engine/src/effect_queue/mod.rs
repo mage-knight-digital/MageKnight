@@ -30,6 +30,7 @@ mod atomic;
 mod choice_resolution;
 mod conditions;
 mod multi_step;
+mod peaceful_moment;
 mod resolve;
 mod spells;
 mod utils;
@@ -42,7 +43,7 @@ use std::collections::VecDeque;
 use mk_types::effect::*;
 use mk_types::ids::CardId;
 use mk_types::pending::{
-    ActivePending, ChoiceResolution, ContinuationEntry, PendingChoice,
+    ActivePending, ChoiceResolution, ContinuationEntry,
 };
 use mk_types::state::*;
 
@@ -57,6 +58,8 @@ pub(crate) use self::choice_resolution::{
     resolve_discard_for_bonus_with_undo,
 };
 pub(crate) use self::conditions::is_resolvable;
+pub use self::peaceful_moment::enter_peaceful_moment_conversion;
+pub(crate) use self::peaceful_moment::{enter_peaceful_moment_conversion_with_undo, describe_peaceful_moment_choice};
 pub(crate) use self::utils::{
     call_to_arms_unit_indices, colored_card_offer_entries, eligible_action_hand_indices,
     eligible_colored_hand_cards, eligible_crystal_gain_colors, eligible_hand_card_indices,
@@ -269,79 +272,5 @@ impl EffectQueue {
     /// Returns true if the queue has no pending effects.
     pub fn is_empty(&self) -> bool {
         self.queue.is_empty()
-    }
-}
-
-// =============================================================================
-// Enter Peaceful Moment conversion (public API for BeginPeacefulMomentHealing)
-// =============================================================================
-
-/// Enter the Peaceful Moment conversion loop from the action pipeline.
-///
-/// Clears the healing-window flags, reads accumulated influence, and pushes a
-/// `PeacefulMomentConvert` effect through the queue. If options exist, a pending
-/// choice is set; otherwise, nothing happens (e.g. influence was 0).
-pub fn enter_peaceful_moment_conversion(state: &mut GameState, player_idx: usize) {
-    enter_peaceful_moment_conversion_with_undo(state, player_idx, None)
-}
-
-pub(crate) fn enter_peaceful_moment_conversion_with_undo(
-    state: &mut GameState,
-    player_idx: usize,
-    undo: Option<&mut UndoStack>,
-) {
-    let allow_refresh = state.players[player_idx]
-        .flags
-        .contains(PlayerFlags::PEACEFUL_MOMENT_ALLOW_REFRESH);
-    let influence_remaining = state.players[player_idx].influence_points;
-
-    // Clear the healing-window flags.
-    state.players[player_idx]
-        .flags
-        .remove(PlayerFlags::IS_PEACEFUL_MOMENT_HEALING);
-    state.players[player_idx]
-        .flags
-        .remove(PlayerFlags::PEACEFUL_MOMENT_ALLOW_REFRESH);
-
-    // Push the convert effect through the queue to set up the pending choice.
-    let mut queue = EffectQueue::new();
-    queue.push(
-        CardEffect::PeacefulMomentConvert {
-            influence_remaining,
-            allow_refresh,
-            refreshed: false,
-        },
-        None,
-    );
-    let peaceful_moment_card_id: Option<CardId> = None;
-    match queue.drain_with_undo(state, player_idx, undo) {
-        DrainResult::Complete => {
-            // Nothing to convert (shouldn't happen if enumeration was correct).
-        }
-        DrainResult::NeedsChoice {
-            options,
-            continuation,
-            resolution,
-        } => {
-            state.players[player_idx].pending.active =
-                Some(ActivePending::Choice(PendingChoice {
-                    card_id: peaceful_moment_card_id,
-                    skill_id: None,
-                    unit_instance_id: None,
-                    options,
-                    continuation: continuation
-                        .into_iter()
-                        .map(|q| ContinuationEntry {
-                            effect: q.effect,
-                            source_card_id: q.source_card_id,
-                        })
-                        .collect(),
-                    movement_bonus_applied: false,
-                    resolution,
-                }));
-        }
-        DrainResult::PendingSet => {
-            // Custom pending was set — nothing more to do.
-        }
     }
 }

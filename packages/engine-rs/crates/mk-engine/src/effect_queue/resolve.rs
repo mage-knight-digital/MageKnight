@@ -13,6 +13,7 @@ use super::artifacts::*;
 use super::atomic::*;
 use super::conditions::{evaluate_condition, evaluate_scaling, is_resolvable};
 use super::multi_step::*;
+use super::peaceful_moment::{apply_peaceful_moment_action, apply_peaceful_moment_convert};
 use super::spells::*;
 use super::utils::scale_effect;
 

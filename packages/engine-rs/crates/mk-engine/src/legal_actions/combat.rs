@@ -548,17 +548,13 @@ pub fn eligible_attack_targets(
                 Some(d) => d,
                 None => return false,
             };
-            if exclude_fortified
+            !(exclude_fortified
                 && crate::combat_resolution::is_effectively_fortified(
                     def,
                     enemy.instance_id.as_str(),
                     combat.is_at_fortified_site,
                     modifiers,
-                )
-            {
-                return false;
-            }
-            true
+                ))
         })
         .map(|e| e.instance_id.clone())
         .collect()
