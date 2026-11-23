@@ -5,7 +5,7 @@ use mk_types::enums::*;
 use mk_types::ids::{CardId, ModifierId};
 use mk_types::modifier::*;
 use mk_types::pending::{
-    ChoiceResolution, EffectMode, PeacefulMomentOption,
+    ChoiceResolution, EffectMode,
 };
 use mk_types::state::*;
 
@@ -14,7 +14,6 @@ use super::{
     MAGIC_TALENT_CARD_ID,
 };
 use super::utils::*;
-use crate::unit_eligibility::peaceful_moment_refresh_target_indices;
 
 // =============================================================================
 // Advanced Action effect handlers
@@ -500,108 +499,6 @@ pub(super) fn apply_blood_of_ancients_powered(state: &mut GameState, _player_idx
     ResolveResult::NeedsChoiceWith(
         options,
         ChoiceResolution::BloodPoweredWoundSelect,
-    )
-}
-
-pub(super) fn apply_peaceful_moment_action(
-    state: &mut GameState,
-    player_idx: usize,
-    influence: u32,
-    allow_refresh: bool,
-) -> ResolveResult {
-    // Influence is already granted by the preceding GainInfluence in the Compound.
-    // In combat, healing is not allowed — skip so only the influence portion applies.
-    if state.combat.is_some() {
-        return ResolveResult::Skipped;
-    }
-
-    // "You MAY play this as the action for your turn" — check if there's anything
-    // worth converting (wounds to heal or units to refresh). If not, skip silently.
-    let player = &state.players[player_idx];
-    let has_wound = player.hand.iter().any(|c| c.as_str() == WOUND_CARD_ID);
-    let has_wounded_unit = player.units.iter().any(|u| {
-        u.wounded && (u.level as u32 * 2) <= influence
-    });
-    let has_refreshable_unit = allow_refresh
-        && !peaceful_moment_refresh_target_indices(&player.units, influence).is_empty();
-
-    if !has_wound && !has_wounded_unit && !has_refreshable_unit {
-        // Nothing to heal or refresh — skip silently
-        return ResolveResult::Skipped;
-    }
-
-    // Set flags to open the healing accumulation window.
-    // The player can now play more cards for influence before entering the
-    // conversion loop via BeginPeacefulMomentHealing.
-    let flags = &mut state.players[player_idx].flags;
-    flags.insert(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN);
-    flags.insert(PlayerFlags::IS_PEACEFUL_MOMENT_HEALING);
-    if allow_refresh {
-        flags.insert(PlayerFlags::PEACEFUL_MOMENT_ALLOW_REFRESH);
-    }
-    ResolveResult::Applied
-}
-
-pub(super) fn apply_peaceful_moment_convert(
-    state: &mut GameState,
-    player_idx: usize,
-    influence_remaining: u32,
-    allow_refresh: bool,
-    refreshed: bool,
-) -> ResolveResult {
-    let player = &state.players[player_idx];
-
-    // Build available conversion options with explicit option_map
-    let mut options: Vec<CardEffect> = Vec::new();
-    let mut option_map: Vec<PeacefulMomentOption> = Vec::new();
-
-    // Always: Done
-    options.push(CardEffect::Noop);
-    option_map.push(PeacefulMomentOption::Done);
-
-    // Heal wound from hand (2 influence = 1 healing point)
-    let has_wound = player.hand.iter().any(|c| c.as_str() == WOUND_CARD_ID);
-    if influence_remaining >= 2 && has_wound {
-        options.push(CardEffect::Noop);
-        option_map.push(PeacefulMomentOption::HealWound);
-    }
-
-    // Heal wounded units (level × 2 influence = level healing points)
-    for (i, unit) in player.units.iter().enumerate() {
-        if unit.wounded {
-            let cost = unit.level as u32 * 2;
-            if influence_remaining >= cost {
-                options.push(CardEffect::Noop);
-                option_map.push(PeacefulMomentOption::HealUnit { unit_index: i });
-            }
-        }
-    }
-
-    // Refresh spent unit (powered only, not yet refreshed)
-    if allow_refresh && !refreshed {
-        if let Some(unit_index) =
-            peaceful_moment_refresh_target_indices(&player.units, influence_remaining).first()
-        {
-            options.push(CardEffect::Noop);
-            option_map.push(PeacefulMomentOption::RefreshUnit {
-                unit_index: *unit_index,
-            });
-        }
-    }
-
-    if options.len() <= 1 {
-        // Only "Done" available — exit loop
-        return ResolveResult::Skipped;
-    }
-
-    ResolveResult::NeedsChoiceWith(
-        options,
-        ChoiceResolution::PeacefulMomentConversion {
-            influence_remaining,
-            allow_refresh,
-            refreshed,
-            option_map,
-        },
     )
 }
 

@@ -5,7 +5,7 @@ use mk_types::enums::*;
 use mk_types::ids::{CardId, ModifierId};
 use mk_types::modifier::*;
 use mk_types::pending::{
-    ActivePending, ChoiceResolution, ContinuationEntry, PeacefulMomentOption,
+    ActivePending, ChoiceResolution, ContinuationEntry,
     PendingChoice, EffectMode,
 };
 use mk_types::state::*;
@@ -785,51 +785,15 @@ pub(crate) fn resolve_pending_choice_with_undo(
             }
         }
         ChoiceResolution::PeacefulMomentConversion { influence_remaining, allow_refresh, refreshed, option_map } => {
-            let action = option_map.get(choice_index).cloned().unwrap_or(PeacefulMomentOption::Done);
-            let mut new_influence = *influence_remaining;
-            let mut new_refreshed = *refreshed;
-
-            match action {
-                PeacefulMomentOption::Done => {
-                    // Done — no more conversions. Fall through to continuation.
-                }
-                PeacefulMomentOption::HealWound => {
-                    // Cost 2 influence, remove 1 wound from hand
-                    new_influence = influence_remaining.saturating_sub(2);
-                    let player = &mut state.players[player_idx];
-                    if let Some(wound_idx) = player.hand.iter().position(|c| c.as_str() == WOUND_CARD_ID) {
-                        player.hand.remove(wound_idx);
-                    }
-                }
-                PeacefulMomentOption::RefreshUnit { unit_index } => {
-                    let player = &mut state.players[player_idx];
-                    if let Some(unit) = player.units.get_mut(unit_index) {
-                        let cost = unit.level as u32 * 2;
-                        if unit.state == UnitState::Spent && *influence_remaining >= cost {
-                            new_influence = *influence_remaining - cost;
-                            unit.state = UnitState::Ready;
-                            new_refreshed = true;
-                        }
-                    }
-                }
-                PeacefulMomentOption::HealUnit { unit_index } => {
-                    // Heal wounded unit, cost = level × 2 influence
-                    let player = &mut state.players[player_idx];
-                    if unit_index < player.units.len() && player.units[unit_index].wounded {
-                        let cost = player.units[unit_index].level as u32 * 2;
-                        new_influence = influence_remaining.saturating_sub(cost);
-                        player.units[unit_index].wounded = false;
-                    }
-                }
-            }
-
-            // For non-Done actions, chain back to conversion loop
-            if !matches!(action, PeacefulMomentOption::Done) {
-                let convert_effect = CardEffect::PeacefulMomentConvert {
-                    influence_remaining: new_influence,
+            if let Some(convert_effect) = super::peaceful_moment::choose_conversion(
+                state, player_idx, choice_index,
+                super::peaceful_moment::ConversionState {
+                    influence_remaining: *influence_remaining,
                     allow_refresh: *allow_refresh,
-                    refreshed: new_refreshed,
-                };
+                    refreshed: *refreshed,
+                },
+                option_map,
+            ) {
                 let mut queue = EffectQueue::new();
                 queue.push(convert_effect, source_card_id.clone());
                 queue.push_continuation(
