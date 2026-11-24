@@ -1523,14 +1523,10 @@ fn describe_choice_resolution(
             })
         }
         ChoiceResolution::MagicTalentSpellSelect { spell_entries } => {
-            spell_entries.get(choice_index).map(|(_, spell_id, _)| {
-                format!("Cast {}", spell_id)
-            })
+            crate::effect_queue::describe_magic_talent_spell(spell_entries, choice_index)
         }
         ChoiceResolution::MagicTalentGainSelect { gain_entries } => {
-            gain_entries.get(choice_index).map(|(_, spell_id, color)| {
-                format!("Gain {} (spend {:?})", spell_id, color)
-            })
+            crate::effect_queue::describe_magic_talent_gain(gain_entries, choice_index)
         }
         // Mana/token-targeting resolutions
         ChoiceResolution::PureMagicConsume { token_colors } => {

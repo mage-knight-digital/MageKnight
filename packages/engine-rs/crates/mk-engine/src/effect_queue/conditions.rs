@@ -10,7 +10,7 @@ use super::{
     call_to_arms_unit_indices, colored_card_offer_entries, eligible_action_hand_indices,
     eligible_colored_hand_cards, eligible_crystal_gain_colors, eligible_hand_card_indices,
     free_recruit_unit_indices, ColoredHandCardScope, CrystalGainEligibility, WOUND_CARD_ID,
-    BOOK_OF_WISDOM_CARD_ID, DRUIDIC_STAFF_CARD_ID, MAGIC_TALENT_CARD_ID,
+    BOOK_OF_WISDOM_CARD_ID, DRUIDIC_STAFF_CARD_ID,
     TOME_OF_ALL_SPELLS_CARD_ID,
 };
 
@@ -209,26 +209,8 @@ pub(crate) fn is_resolvable(state: &GameState, player_idx: usize, effect: &CardE
             !colored_card_offer_entries(&state.offers.spells, mk_data::cards::get_spell_color)
                 .is_empty()
         }
-        CardEffect::MagicTalentBasic => {
-            // Need spells in offer + discardable colored card
-            !colored_card_offer_entries(&state.offers.spells, mk_data::cards::get_spell_color)
-                .is_empty()
-                && !eligible_colored_hand_cards(
-                    &player.hand,
-                    MAGIC_TALENT_CARD_ID,
-                    ColoredHandCardScope::ActionCards,
-                )
-                .is_empty()
-        }
-        CardEffect::MagicTalentPowered => {
-            // Need spell in offer + matching mana token
-            colored_card_offer_entries(&state.offers.spells, mk_data::cards::get_spell_color)
-                .iter()
-                .any(|(_, _, color)| {
-                    let target = ManaColor::from(*color);
-                    player.pure_mana.iter().any(|token| token.color == target)
-                })
-        }
+        CardEffect::MagicTalentBasic => super::magic_talent::is_basic_resolvable(state, player_idx),
+        CardEffect::MagicTalentPowered => super::magic_talent::is_powered_resolvable(state, player_idx),
         CardEffect::BloodOfAncientsBasic => true, // Always resolvable (wound is taken regardless)
         CardEffect::BloodOfAncientsPowered => !state.offers.advanced_actions.is_empty(),
         CardEffect::PeacefulMomentAction { .. } => state.combat.is_none(),
