@@ -30,6 +30,7 @@ mod atomic;
 mod choice_resolution;
 mod conditions;
 mod multi_step;
+mod magic_talent;
 mod peaceful_moment;
 mod resolve;
 mod spells;
@@ -76,7 +77,9 @@ pub(crate) use self::utils::{gain_crystal_color, replenish_aa_offer, replenish_s
 pub const WOUND_CARD_ID: &str = "wound";
 pub(crate) const BOOK_OF_WISDOM_CARD_ID: &str = "book_of_wisdom";
 pub(crate) const TOME_OF_ALL_SPELLS_CARD_ID: &str = "tome_of_all_spells";
-pub(crate) const MAGIC_TALENT_CARD_ID: &str = "magic_talent";
+pub(crate) use self::magic_talent::{describe_magic_talent_gain, describe_magic_talent_spell};
+#[cfg(test)]
+pub(crate) use self::magic_talent::MAGIC_TALENT_CARD_ID;
 pub(crate) const DRUIDIC_STAFF_CARD_ID: &str = "druidic_staff";
 
 /// Maximum reputation value.

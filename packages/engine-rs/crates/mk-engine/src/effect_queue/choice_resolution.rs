@@ -975,52 +975,33 @@ pub(crate) fn resolve_pending_choice_with_undo(
             }
         }
         ChoiceResolution::MagicTalentSpellSelect { spell_entries } => {
-            if choice_index < spell_entries.len() {
-                let (offer_index, ref spell_id, _spell_color) = spell_entries[choice_index];
-                // Get the spell's basic effect and resolve it (spell stays in offer)
-                if let Some(card_def) = mk_data::cards::get_card(spell_id.as_str()) {
-                    let basic_effect = card_def.basic_effect;
-                    let mut queue = EffectQueue::new();
-                    queue.push(basic_effect, Some(spell_id.clone()));
-                    queue.push_continuation(
-                        choice.continuation.into_iter().map(|c| QueuedEffect {
-                            effect: c.effect, source_card_id: c.source_card_id,
-                        }).collect(),
-                    );
-                    match queue.drain_with_undo(state, player_idx, undo) {
-                        DrainResult::Complete => {}
-                        DrainResult::NeedsChoice { options, continuation, resolution: new_res } => {
-                            state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
-                                card_id: source_card_id,
-                                skill_id: None, unit_instance_id: None, options,
-                                continuation: continuation.into_iter().map(|q| ContinuationEntry {
-                                    effect: q.effect, source_card_id: q.source_card_id,
-                                }).collect(),
-                                movement_bonus_applied: false, resolution: new_res,
-                            }));
-                        }
-                        DrainResult::PendingSet => {}
+            if let Some((spell_id, basic_effect)) = super::magic_talent::selected_basic_spell(spell_entries, choice_index) {
+                let mut queue = EffectQueue::new();
+                queue.push(basic_effect, Some(spell_id));
+                queue.push_continuation(
+                    choice.continuation.into_iter().map(|c| QueuedEffect {
+                        effect: c.effect, source_card_id: c.source_card_id,
+                    }).collect(),
+                );
+                match queue.drain_with_undo(state, player_idx, undo) {
+                    DrainResult::Complete => {}
+                    DrainResult::NeedsChoice { options, continuation, resolution: new_res } => {
+                        state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
+                            card_id: source_card_id,
+                            skill_id: None, unit_instance_id: None, options,
+                            continuation: continuation.into_iter().map(|q| ContinuationEntry {
+                                effect: q.effect, source_card_id: q.source_card_id,
+                            }).collect(),
+                            movement_bonus_applied: false, resolution: new_res,
+                        }));
                     }
-                    let _ = offer_index; // spell stays in offer
-                    return Ok(());
+                    DrainResult::PendingSet => {}
                 }
+                return Ok(());
             }
         }
         ChoiceResolution::MagicTalentGainSelect { gain_entries } => {
-            if choice_index < gain_entries.len() {
-                let (offer_index, ref spell_id, mana_color) = gain_entries[choice_index];
-                // Consume mana token of matching color
-                let target = ManaColor::from(mana_color);
-                let player = &mut state.players[player_idx];
-                if let Some(idx) = player.pure_mana.iter().position(|t| t.color == target) {
-                    player.pure_mana.remove(idx);
-                }
-                // Remove spell from offer and add to discard
-                if offer_index < state.offers.spells.len() {
-                    state.offers.spells.remove(offer_index);
-                    replenish_spell_offer(state);
-                }
-                state.players[player_idx].discard.push(spell_id.clone());
+            if super::magic_talent::select_powered_spell(state, player_idx, gain_entries, choice_index) {
                 // Continue
                 let mut queue = EffectQueue::new();
                 queue.push_continuation(
