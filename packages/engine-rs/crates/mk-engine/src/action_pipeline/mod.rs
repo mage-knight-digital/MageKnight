@@ -1362,34 +1362,11 @@ fn describe_choice_resolution(
 ) -> Option<String> {
     use mk_types::pending::ChoiceResolution;
     match resolution {
-        ChoiceResolution::BloodBasicManaSelect { mana_options } => {
-            mana_options.get(choice_index).map(|(_, color)| {
-                format!("Spend {:?} mana", color)
-            })
-        }
-        ChoiceResolution::BloodBasicAaSelect { color } => {
-            let matching_aas: Vec<_> = state.offers.advanced_actions.iter()
-                .filter(|card_id| {
-                    mk_data::cards::get_card_color(card_id.as_str()) == Some(*color)
-                })
-                .collect();
-            matching_aas.get(choice_index).and_then(|card_id| {
-                mk_data::cards::get_card(card_id.as_str())
-                    .map(|def| format!("Gain {}", def.name))
-            })
-        }
-        ChoiceResolution::BloodPoweredWoundSelect => {
-            Some(if choice_index == 0 {
-                "Wound to hand".to_string()
-            } else {
-                "Wound to discard".to_string()
-            })
-        }
-        ChoiceResolution::BloodPoweredAaSelect => {
-            state.offers.advanced_actions.get(choice_index).and_then(|card_id| {
-                mk_data::cards::get_card(card_id.as_str())
-                    .map(|def| format!("Use {}'s powered effect", def.name))
-            })
+        ChoiceResolution::BloodBasicManaSelect { .. }
+        | ChoiceResolution::BloodBasicAaSelect { .. }
+        | ChoiceResolution::BloodPoweredWoundSelect
+        | ChoiceResolution::BloodPoweredAaSelect => {
+            crate::effect_queue::describe_blood_of_ancients_choice(resolution, choice_index, state)
         }
         ChoiceResolution::PowerOfCrystalsGainColor { eligible_colors }
         | ChoiceResolution::CrystalMasteryGainColor { eligible_colors } => {
