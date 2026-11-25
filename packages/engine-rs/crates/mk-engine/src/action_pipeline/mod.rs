@@ -669,7 +669,7 @@ pub fn apply_legal_action(
 
         LegalAction::ResolveTomeOfAllSpells { selection_index } => {
             undo_stack.save(state);
-            choices::apply_resolve_tome_of_all_spells(state, player_idx, *selection_index, undo_stack)?
+            crate::effect_queue::apply_resolve_tome_of_all_spells(state, player_idx, *selection_index, undo_stack)?
         }
 
         LegalAction::ResolveCircletOfProficiency { selection_index } => {

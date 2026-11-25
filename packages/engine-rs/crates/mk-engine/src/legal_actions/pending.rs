@@ -4,8 +4,7 @@ use mk_types::pending::{ActivePending, PendingLevelUpReward, PendingTacticDecisi
 use mk_types::state::PlayerFlags;
 
 use crate::effect_queue::{
-    eligible_colored_hand_cards, is_resolvable, ColoredHandCardScope,
-    TOME_OF_ALL_SPELLS_CARD_ID, WOUND_CARD_ID,
+    is_resolvable, WOUND_CARD_ID,
 };
 use crate::undo::UndoStack;
 
@@ -327,28 +326,7 @@ pub(super) fn enumerate_pending(
             enumerate_site_reward_choice(reward, *reward_index, state, player_idx, actions);
         }
         ActivePending::TomeOfAllSpells(ref tome) => {
-            use mk_types::pending::TomeOfAllSpellsPhase;
-            let player = &state.players[player_idx];
-            match tome.phase {
-                TomeOfAllSpellsPhase::SelectCard => {
-                    for (idx, _) in eligible_colored_hand_cards(
-                        &player.hand,
-                        TOME_OF_ALL_SPELLS_CARD_ID,
-                        ColoredHandCardScope::ActionCards,
-                    ) {
-                        actions.push(LegalAction::ResolveTomeOfAllSpells {
-                            selection_index: idx,
-                        });
-                    }
-                }
-                TomeOfAllSpellsPhase::SelectSpell => {
-                    for i in 0..tome.available_spells.len() {
-                        actions.push(LegalAction::ResolveTomeOfAllSpells {
-                            selection_index: i,
-                        });
-                    }
-                }
-            }
+            crate::effect_queue::enumerate_tome_choices(tome, state, player_idx, actions);
         }
         ActivePending::CircletOfProficiency(ref circlet) => {
             for i in 0..circlet.available_skills.len() {
