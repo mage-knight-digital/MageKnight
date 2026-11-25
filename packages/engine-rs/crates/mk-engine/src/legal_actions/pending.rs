@@ -285,33 +285,7 @@ pub(super) fn enumerate_pending(
             }
         }
         ActivePending::Training(ref t) => {
-            use mk_types::pending::BookOfWisdomPhase;
-            let player = &state.players[player_idx];
-            match t.phase {
-                BookOfWisdomPhase::SelectCard => {
-                    // Enumerate eligible hand cards to throw away (BasicAction or AdvancedAction)
-                    for (idx, card_id) in player.hand.iter().enumerate() {
-                        if let Some(def) = mk_data::cards::get_card(card_id.as_str()) {
-                            if matches!(
-                                def.card_type,
-                                DeedCardType::BasicAction | DeedCardType::AdvancedAction
-                            ) {
-                                actions.push(LegalAction::ResolveTraining {
-                                    selection_index: idx,
-                                });
-                            }
-                        }
-                    }
-                }
-                BookOfWisdomPhase::SelectFromOffer => {
-                    // Enumerate available offer cards
-                    for i in 0..t.available_offer_cards.len() {
-                        actions.push(LegalAction::ResolveTraining {
-                            selection_index: i,
-                        });
-                    }
-                }
-            }
+            crate::effect_queue::enumerate_training_choices(t, state, player_idx, actions);
         }
         ActivePending::MaximalEffect(_) => {
             // Enumerate eligible hand cards (BasicAction or AdvancedAction)
