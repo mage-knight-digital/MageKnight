@@ -12,7 +12,7 @@ use mk_types::state::*;
 
 use crate::undo::UndoStack;
 
-use super::{DrainResult, EffectQueue, QueuedEffect, ResolveResult, WOUND_CARD_ID};
+use super::{DrainResult, EffectQueue, QueuedEffect, ResolveResult};
 use super::spells::{
     execute_free_recruit, execute_mana_claim_mode, execute_possess_enemy,
     execute_sacrifice_pair, resolve_mana_radiance,
@@ -818,161 +818,11 @@ pub(crate) fn resolve_pending_choice_with_undo(
                 return Ok(());
             }
         }
-        ChoiceResolution::BloodBasicManaSelect { mana_options } => {
-            if choice_index < mana_options.len() {
-                let (ref mana_source, aa_color) = mana_options[choice_index];
-                // Consume the mana source
-                consume_mana_source(state, player_idx, mana_source);
-                // Find matching AAs in offer
-                let matching_aas: Vec<(usize, mk_types::ids::CardId)> = colored_card_offer_entries(
-                    &state.offers.advanced_actions,
-                    mk_data::cards::get_card_color,
-                )
-                .into_iter()
-                .filter(|(_, _, color)| *color == aa_color)
-                .map(|(index, card_id, _)| (index, card_id))
-                .collect();
-                if matching_aas.len() == 1 {
-                    // Auto-gain the single matching AA
-                    let (offer_idx, aa_id) = &matching_aas[0];
-                    let aa_id = aa_id.clone();
-                    state.offers.advanced_actions.remove(*offer_idx);
-                    replenish_aa_offer(state);
-                    state.players[player_idx].hand.push(aa_id);
-                } else if matching_aas.len() > 1 {
-                    let options: Vec<CardEffect> = matching_aas.iter().map(|_| CardEffect::Noop).collect();
-                    let continuation: Vec<ContinuationEntry> = choice.continuation.into_iter().collect();
-                    state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
-                        card_id: source_card_id,
-                        skill_id: None, unit_instance_id: None, options,
-                        continuation,
-                        movement_bonus_applied: false,
-                        resolution: ChoiceResolution::BloodBasicAaSelect { color: aa_color },
-                    }));
-                    return Ok(());
-                }
-                // Continue with any continuation
-                let mut queue = EffectQueue::new();
-                queue.push_continuation(
-                    choice.continuation.into_iter().map(|c| QueuedEffect {
-                        effect: c.effect, source_card_id: c.source_card_id,
-                    }).collect(),
-                );
-                match queue.drain_with_undo(state, player_idx, undo) {
-                    DrainResult::Complete => {}
-                    DrainResult::NeedsChoice { options, continuation, resolution: new_res } => {
-                        state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
-                            card_id: source_card_id,
-                            skill_id: None, unit_instance_id: None, options,
-                            continuation: continuation.into_iter().map(|q| ContinuationEntry {
-                                effect: q.effect, source_card_id: q.source_card_id,
-                            }).collect(),
-                            movement_bonus_applied: false, resolution: new_res,
-                        }));
-                    }
-                    DrainResult::PendingSet => {}
-                }
-                return Ok(());
-            }
-        }
-        ChoiceResolution::BloodBasicAaSelect { color } => {
-            // Select AA from offer by color
-            let matching_aas: Vec<(usize, mk_types::ids::CardId)> = colored_card_offer_entries(
-                &state.offers.advanced_actions,
-                mk_data::cards::get_card_color,
-            )
-            .into_iter()
-            .filter(|(_, _, offer_color)| *offer_color == *color)
-            .map(|(index, card_id, _)| (index, card_id))
-            .collect();
-            if choice_index < matching_aas.len() {
-                let (offer_idx, aa_id) = &matching_aas[choice_index];
-                let aa_id = aa_id.clone();
-                state.offers.advanced_actions.remove(*offer_idx);
-                replenish_aa_offer(state);
-                state.players[player_idx].hand.push(aa_id);
-            }
-            // Continue with any continuation
-            let mut queue = EffectQueue::new();
-            queue.push_continuation(
-                choice.continuation.into_iter().map(|c| QueuedEffect {
-                    effect: c.effect, source_card_id: c.source_card_id,
-                }).collect(),
-            );
-            match queue.drain_with_undo(state, player_idx, undo) {
-                DrainResult::Complete => {}
-                DrainResult::NeedsChoice { options, continuation, resolution: new_res } => {
-                    state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
-                        card_id: source_card_id,
-                        skill_id: None, unit_instance_id: None, options,
-                        continuation: continuation.into_iter().map(|q| ContinuationEntry {
-                            effect: q.effect, source_card_id: q.source_card_id,
-                        }).collect(),
-                        movement_bonus_applied: false, resolution: new_res,
-                    }));
-                }
-                DrainResult::PendingSet => {}
-            }
-            return Ok(());
-        }
-        ChoiceResolution::BloodPoweredWoundSelect => {
-            // Choice 0 = wound to hand, choice 1 = wound to discard
-            let player = &mut state.players[player_idx];
-            if choice_index == 0 {
-                player.hand.push(CardId::from(WOUND_CARD_ID));
-                player.wounds_received_this_turn.hand += 1;
-            } else {
-                player.discard.push(CardId::from(WOUND_CARD_ID));
-                player.wounds_received_this_turn.discard += 1;
-            }
-            // Now present all AAs in offer
-            let aa_count = state.offers.advanced_actions.len();
-            if aa_count > 0 {
-                let options: Vec<CardEffect> = (0..aa_count).map(|_| CardEffect::Noop).collect();
-                let continuation: Vec<ContinuationEntry> = choice.continuation.into_iter().collect();
-                state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
-                    card_id: source_card_id,
-                    skill_id: None, unit_instance_id: None, options,
-                    continuation,
-                    movement_bonus_applied: false,
-                    resolution: ChoiceResolution::BloodPoweredAaSelect,
-                }));
-                return Ok(());
-            }
-        }
-        ChoiceResolution::BloodPoweredAaSelect => {
-            // Select AA from offer — resolve its powered effect for free
-            let aa_list: Vec<mk_types::ids::CardId> = state.offers.advanced_actions.clone();
-            if choice_index < aa_list.len() {
-                let aa_id = &aa_list[choice_index];
-                // Get the AA's powered effect
-                if let Some(card_def) = mk_data::cards::get_card(aa_id.as_str()) {
-                    let powered_effect = card_def.powered_effect;
-                    // Resolve the powered effect through the queue (AA stays in offer)
-                    let mut queue = EffectQueue::new();
-                    queue.push(powered_effect, Some(aa_id.clone()));
-                    queue.push_continuation(
-                        choice.continuation.into_iter().map(|c| QueuedEffect {
-                            effect: c.effect, source_card_id: c.source_card_id,
-                        }).collect(),
-                    );
-                    match queue.drain_with_undo(state, player_idx, undo) {
-                        DrainResult::Complete => {}
-                        DrainResult::NeedsChoice { options, continuation, resolution: new_res } => {
-                            state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
-                                card_id: source_card_id,
-                                skill_id: None, unit_instance_id: None, options,
-                                continuation: continuation.into_iter().map(|q| ContinuationEntry {
-                                    effect: q.effect, source_card_id: q.source_card_id,
-                                }).collect(),
-                                movement_bonus_applied: false, resolution: new_res,
-                            }));
-                        }
-                        DrainResult::PendingSet => {}
-                    }
-                    return Ok(());
-                }
-            }
+        ChoiceResolution::BloodBasicManaSelect { .. }
+        | ChoiceResolution::BloodBasicAaSelect { .. }
+        | ChoiceResolution::BloodPoweredWoundSelect
+        | ChoiceResolution::BloodPoweredAaSelect => {
+            return super::blood_of_ancients::resolve_choice(state, player_idx, choice_index, choice, undo);
         }
         ChoiceResolution::MagicTalentSpellSelect { spell_entries } => {
             if let Some((spell_id, basic_effect)) = super::magic_talent::selected_basic_spell(spell_entries, choice_index) {

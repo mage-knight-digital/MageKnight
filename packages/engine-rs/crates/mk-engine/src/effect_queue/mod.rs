@@ -27,6 +27,7 @@
 mod advanced_actions;
 mod artifacts;
 mod atomic;
+mod blood_of_ancients;
 mod choice_resolution;
 mod conditions;
 mod multi_step;
@@ -59,6 +60,7 @@ pub(crate) use self::choice_resolution::{
     resolve_discard_for_bonus_with_undo,
 };
 pub(crate) use self::conditions::is_resolvable;
+pub(crate) use self::blood_of_ancients::describe_blood_of_ancients_choice;
 pub use self::peaceful_moment::enter_peaceful_moment_conversion;
 pub(crate) use self::peaceful_moment::{enter_peaceful_moment_conversion_with_undo, describe_peaceful_moment_choice};
 pub(crate) use self::utils::{

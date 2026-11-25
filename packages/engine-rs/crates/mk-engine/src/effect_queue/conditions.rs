@@ -212,7 +212,7 @@ pub(crate) fn is_resolvable(state: &GameState, player_idx: usize, effect: &CardE
         CardEffect::MagicTalentBasic => super::magic_talent::is_basic_resolvable(state, player_idx),
         CardEffect::MagicTalentPowered => super::magic_talent::is_powered_resolvable(state, player_idx),
         CardEffect::BloodOfAncientsBasic => true, // Always resolvable (wound is taken regardless)
-        CardEffect::BloodOfAncientsPowered => !state.offers.advanced_actions.is_empty(),
+        CardEffect::BloodOfAncientsPowered => super::blood_of_ancients::is_powered_resolvable(state),
         CardEffect::PeacefulMomentAction { .. } => state.combat.is_none(),
         CardEffect::PeacefulMomentConvert { .. } => true,
 
