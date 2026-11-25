@@ -10,8 +10,7 @@ use mk_types::pending::{
 use mk_types::state::*;
 
 use super::{
-    eligible_colored_hand_cards, hand_card_effect_choices, ColoredHandCardScope, ResolveResult,
-    TOME_OF_ALL_SPELLS_CARD_ID,
+    hand_card_effect_choices, ResolveResult,
 };
 use super::{DRUIDIC_STAFF_CARD_ID, WOUND_CARD_ID};
 use super::atomic::apply_gain_block;
@@ -193,42 +192,6 @@ pub(super) fn roll_mana_die_color(rng: &mut mk_types::rng::RngState) -> ManaColo
         4 => ManaColor::Gold,
         _ => ManaColor::Black,
     }
-}
-
-pub(super) fn apply_tome_of_all_spells(
-    state: &mut GameState,
-    player_idx: usize,
-    mode: EffectMode,
-) -> ResolveResult {
-    use mk_types::pending::{PendingTomeOfAllSpells, TomeOfAllSpellsPhase};
-
-    // Eligible: any colored (non-wound, non-self) card in hand
-    let has_eligible = !eligible_colored_hand_cards(
-        &state.players[player_idx].hand,
-        TOME_OF_ALL_SPELLS_CARD_ID,
-        ColoredHandCardScope::ActionCards,
-    )
-    .is_empty();
-
-    if !has_eligible {
-        return ResolveResult::Skipped;
-    }
-
-    let source_card = state.players[player_idx]
-        .play_area
-        .last()
-        .cloned()
-        .unwrap_or_else(|| CardId::from(TOME_OF_ALL_SPELLS_CARD_ID));
-
-    state.players[player_idx].pending.active =
-        Some(ActivePending::TomeOfAllSpells(PendingTomeOfAllSpells {
-            source_card_id: source_card,
-            mode,
-            phase: TomeOfAllSpellsPhase::SelectCard,
-            discarded_color: None,
-            available_spells: Vec::new(),
-        }));
-    ResolveResult::PendingSet
 }
 
 pub(super) fn apply_circlet_of_proficiency(

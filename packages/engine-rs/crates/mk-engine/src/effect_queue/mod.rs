@@ -37,6 +37,7 @@ mod peaceful_moment;
 mod resolve;
 mod spells;
 mod training;
+mod tome_of_all_spells;
 mod utils;
 
 #[cfg(test)]
@@ -81,7 +82,7 @@ pub(crate) use self::utils::{gain_crystal_color, replenish_aa_offer, replenish_s
 /// Well-known card ID for wound cards.
 pub const WOUND_CARD_ID: &str = "wound";
 pub(crate) use self::book_of_wisdom::{BOOK_OF_WISDOM_CARD_ID, apply_resolve_book_of_wisdom, enumerate_book_of_wisdom_choices};
-pub(crate) const TOME_OF_ALL_SPELLS_CARD_ID: &str = "tome_of_all_spells";
+pub(crate) use self::tome_of_all_spells::{TOME_OF_ALL_SPELLS_CARD_ID, apply_resolve_tome_of_all_spells, enumerate_tome_choices};
 pub(crate) use self::magic_talent::{describe_magic_talent_gain, describe_magic_talent_spell};
 #[cfg(test)]
 pub(crate) use self::magic_talent::MAGIC_TALENT_CARD_ID;
