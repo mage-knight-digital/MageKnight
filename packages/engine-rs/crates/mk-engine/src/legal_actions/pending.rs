@@ -4,7 +4,7 @@ use mk_types::pending::{ActivePending, PendingLevelUpReward, PendingTacticDecisi
 use mk_types::state::PlayerFlags;
 
 use crate::effect_queue::{
-    eligible_colored_hand_cards, is_resolvable, ColoredHandCardScope, BOOK_OF_WISDOM_CARD_ID,
+    eligible_colored_hand_cards, is_resolvable, ColoredHandCardScope,
     TOME_OF_ALL_SPELLS_CARD_ID, WOUND_CARD_ID,
 };
 use crate::undo::UndoStack;
@@ -261,28 +261,7 @@ pub(super) fn enumerate_pending(
             actions.push(LegalAction::ResolveSourceOpeningReroll { reroll: false });
         }
         ActivePending::BookOfWisdom(ref bow) => {
-            use mk_types::pending::BookOfWisdomPhase;
-            let player = &state.players[player_idx];
-            match bow.phase {
-                BookOfWisdomPhase::SelectCard => {
-                    for (idx, _) in eligible_colored_hand_cards(
-                        &player.hand,
-                        BOOK_OF_WISDOM_CARD_ID,
-                        ColoredHandCardScope::ActionCardsAndSpells,
-                    ) {
-                        actions.push(LegalAction::ResolveBookOfWisdom {
-                            selection_index: idx,
-                        });
-                    }
-                }
-                BookOfWisdomPhase::SelectFromOffer => {
-                    for i in 0..bow.available_offer_cards.len() {
-                        actions.push(LegalAction::ResolveBookOfWisdom {
-                            selection_index: i,
-                        });
-                    }
-                }
-            }
+            crate::effect_queue::enumerate_book_of_wisdom_choices(bow, state, player_idx, actions);
         }
         ActivePending::Training(ref t) => {
             crate::effect_queue::enumerate_training_choices(t, state, player_idx, actions);
