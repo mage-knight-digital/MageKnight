@@ -10,6 +10,7 @@ use mk_types::state::*;
 use super::{MAX_REPUTATION, MIN_REPUTATION, ResolveResult};
 use super::advanced_actions::*;
 use super::artifacts::*;
+use super::book_of_wisdom::apply_book_of_wisdom;
 use super::atomic::*;
 use super::blood_of_ancients::{apply_blood_of_ancients_basic, apply_blood_of_ancients_powered};
 use super::conditions::{evaluate_condition, evaluate_scaling, is_resolvable};

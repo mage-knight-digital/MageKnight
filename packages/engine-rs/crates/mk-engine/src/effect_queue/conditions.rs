@@ -10,7 +10,7 @@ use super::{
     call_to_arms_unit_indices, colored_card_offer_entries, eligible_action_hand_indices,
     eligible_colored_hand_cards, eligible_crystal_gain_colors, eligible_hand_card_indices,
     free_recruit_unit_indices, ColoredHandCardScope, CrystalGainEligibility, WOUND_CARD_ID,
-    BOOK_OF_WISDOM_CARD_ID, DRUIDIC_STAFF_CARD_ID,
+    DRUIDIC_STAFF_CARD_ID,
     TOME_OF_ALL_SPELLS_CARD_ID,
 };
 
@@ -265,12 +265,7 @@ pub(crate) fn is_resolvable(state: &GameState, player_idx: usize, effect: &CardE
         CardEffect::RollDieForWound { .. } => true,
         CardEffect::ChooseBonusWithRisk { .. } => state.combat.is_some(),
         CardEffect::RollForCrystals { .. } => true,
-        CardEffect::BookOfWisdom { .. } => !eligible_colored_hand_cards(
-            &player.hand,
-            BOOK_OF_WISDOM_CARD_ID,
-            ColoredHandCardScope::ActionCardsAndSpells,
-        )
-        .is_empty(),
+        CardEffect::BookOfWisdom { .. } => super::book_of_wisdom::is_resolvable(state, player_idx),
         CardEffect::TomeOfAllSpells { .. } => {
             !state.offers.spells.is_empty()
                 && !eligible_colored_hand_cards(

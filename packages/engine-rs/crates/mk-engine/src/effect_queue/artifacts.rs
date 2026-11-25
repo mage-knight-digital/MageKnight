@@ -11,7 +11,7 @@ use mk_types::state::*;
 
 use super::{
     eligible_colored_hand_cards, hand_card_effect_choices, ColoredHandCardScope, ResolveResult,
-    BOOK_OF_WISDOM_CARD_ID, TOME_OF_ALL_SPELLS_CARD_ID,
+    TOME_OF_ALL_SPELLS_CARD_ID,
 };
 use super::{DRUIDIC_STAFF_CARD_ID, WOUND_CARD_ID};
 use super::atomic::apply_gain_block;
@@ -193,41 +193,6 @@ pub(super) fn roll_mana_die_color(rng: &mut mk_types::rng::RngState) -> ManaColo
         4 => ManaColor::Gold,
         _ => ManaColor::Black,
     }
-}
-
-pub(super) fn apply_book_of_wisdom(
-    state: &mut GameState,
-    player_idx: usize,
-    mode: EffectMode,
-) -> ResolveResult {
-    use mk_types::pending::{BookOfWisdomPhase, PendingBookOfWisdom};
-
-    // Find eligible hand cards: non-wound, non-self action cards with a color
-    let eligible = eligible_colored_hand_cards(
-        &state.players[player_idx].hand,
-        BOOK_OF_WISDOM_CARD_ID,
-        ColoredHandCardScope::ActionCardsAndSpells,
-    );
-
-    if eligible.is_empty() {
-        return ResolveResult::Skipped;
-    }
-
-    // Set pending for card selection
-    let source_card = state.players[player_idx]
-        .play_area
-        .last()
-        .cloned()
-        .unwrap_or_else(|| CardId::from(BOOK_OF_WISDOM_CARD_ID));
-    state.players[player_idx].pending.active =
-        Some(ActivePending::BookOfWisdom(PendingBookOfWisdom {
-            source_card_id: source_card,
-            mode,
-            phase: BookOfWisdomPhase::SelectCard,
-            thrown_card_color: None,
-            available_offer_cards: arrayvec::ArrayVec::new(),
-        }));
-    ResolveResult::PendingSet
 }
 
 pub(super) fn apply_tome_of_all_spells(

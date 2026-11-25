@@ -664,7 +664,7 @@ pub fn apply_legal_action(
 
         LegalAction::ResolveBookOfWisdom { selection_index } => {
             undo_stack.save(state);
-            choices::apply_resolve_book_of_wisdom(state, player_idx, *selection_index)?
+            crate::effect_queue::apply_resolve_book_of_wisdom(state, player_idx, *selection_index)?
         }
 
         LegalAction::ResolveTomeOfAllSpells { selection_index } => {
