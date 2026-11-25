@@ -659,7 +659,7 @@ pub fn apply_legal_action(
         LegalAction::ResolveTraining { selection_index } => {
             // Reversible: save snapshot
             undo_stack.save(state);
-            choices::apply_resolve_training(state, player_idx, *selection_index)?
+            crate::effect_queue::apply_resolve_training(state, player_idx, *selection_index)?
         }
 
         LegalAction::ResolveBookOfWisdom { selection_index } => {

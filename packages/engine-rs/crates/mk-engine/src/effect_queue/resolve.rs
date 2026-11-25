@@ -17,6 +17,7 @@ use super::multi_step::*;
 use super::magic_talent::{apply_magic_talent_basic, apply_magic_talent_powered};
 use super::peaceful_moment::{apply_peaceful_moment_action, apply_peaceful_moment_convert};
 use super::spells::*;
+use super::training::apply_training;
 use super::utils::scale_effect;
 
 use crate::undo::UndoStack;

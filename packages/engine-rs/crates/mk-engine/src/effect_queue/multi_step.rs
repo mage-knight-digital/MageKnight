@@ -5,10 +5,9 @@ use mk_types::enums::*;
 use mk_types::ids::CardId;
 use mk_types::pending::{
     ActivePending, AttackDefeatFameTracker, ChoiceResolution, DeferredPending,
-    PendingDecompose, PendingMaximalEffect, PendingTraining, BookOfWisdomPhase, EffectMode,
+    PendingDecompose, PendingMaximalEffect, EffectMode,
 };
 use mk_types::state::*;
-use arrayvec::ArrayVec;
 
 use super::{ResolveResult, WOUND_CARD_ID};
 use super::atomic::apply_gain_attack;
@@ -89,41 +88,6 @@ pub(super) fn apply_decompose(
         Some(ActivePending::Decompose(PendingDecompose {
             source_card_id,
             mode,
-        }));
-
-    ResolveResult::PendingSet
-}
-
-/// Apply Training effect — select a non-wound action card to discard, then gain an AA
-/// of matching color from the offer.
-/// Basic: gained AA goes to discard. Powered: gained AA goes to hand.
-pub(super) fn apply_training(
-    state: &mut GameState,
-    player_idx: usize,
-    mode: EffectMode,
-) -> ResolveResult {
-    let player = &state.players[player_idx];
-
-    // Check if there are any eligible hand cards (non-wound action cards)
-    let has_eligible = !eligible_action_hand_indices(&player.hand).is_empty();
-
-    if !has_eligible {
-        return ResolveResult::Skipped;
-    }
-
-    let source_card_id = state.players[player_idx]
-        .play_area
-        .last()
-        .cloned()
-        .unwrap_or_else(|| CardId::from("training"));
-
-    state.players[player_idx].pending.active =
-        Some(ActivePending::Training(PendingTraining {
-            source_card_id,
-            mode,
-            phase: BookOfWisdomPhase::SelectCard,
-            thrown_card_color: None,
-            available_offer_cards: ArrayVec::new(),
         }));
 
     ResolveResult::PendingSet
