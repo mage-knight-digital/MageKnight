@@ -36,6 +36,7 @@ mod magic_talent;
 mod peaceful_moment;
 mod resolve;
 mod spells;
+mod spell_forge;
 mod training;
 mod tome_of_all_spells;
 mod utils;
@@ -63,12 +64,13 @@ pub(crate) use self::choice_resolution::{
     resolve_discard_for_bonus_with_undo,
 };
 pub(crate) use self::conditions::is_resolvable;
+pub(crate) use self::spell_forge::describe_spell_forge_crystal;
 pub(crate) use self::training::{apply_resolve_training, enumerate_training_choices};
 pub(crate) use self::blood_of_ancients::describe_blood_of_ancients_choice;
 pub use self::peaceful_moment::enter_peaceful_moment_conversion;
 pub(crate) use self::peaceful_moment::{enter_peaceful_moment_conversion_with_undo, describe_peaceful_moment_choice};
 pub(crate) use self::utils::{
-    call_to_arms_unit_indices, colored_card_offer_entries, eligible_action_hand_indices,
+    call_to_arms_unit_indices, eligible_action_hand_indices,
     eligible_colored_hand_cards, eligible_crystal_gain_colors, eligible_hand_card_indices,
     free_recruit_unit_indices, hand_card_effect_choices, select_colored_hand_card,
     ColoredHandCardScope, CrystalGainEligibility, HandCardDestination,
