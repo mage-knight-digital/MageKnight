@@ -351,7 +351,7 @@ fn pending_options(active: &ActivePending, player: &PlayerState, state: &GameSta
             if let ChoiceResolution::ManaStormDieSelect { die_colors, .. } = &choice.resolution {
                 return die_colors
                     .iter()
-                    .map(|c| format!("Take {:?} die", c))
+                    .map(|c| crate::effect_queue::describe_mana_storm_die(*c))
                     .collect();
             }
             if let ChoiceResolution::ManaClaimDieSelect { die_colors, .. } = &choice.resolution {

@@ -33,6 +33,7 @@ mod choice_resolution;
 mod conditions;
 mod multi_step;
 mod magic_talent;
+mod mana_storm;
 mod peaceful_moment;
 mod resolve;
 mod spells;
@@ -64,6 +65,7 @@ pub(crate) use self::choice_resolution::{
     resolve_discard_for_bonus_with_undo,
 };
 pub(crate) use self::conditions::is_resolvable;
+pub(crate) use self::mana_storm::describe_mana_storm_die;
 pub(crate) use self::spell_forge::describe_spell_forge_crystal;
 pub(crate) use self::training::{apply_resolve_training, enumerate_training_choices};
 pub(crate) use self::blood_of_ancients::describe_blood_of_ancients_choice;

@@ -681,18 +681,7 @@ pub(crate) fn resolve_pending_choice_with_undo(
             }
         }
         ChoiceResolution::ManaStormDieSelect { die_ids, die_colors } => {
-            if choice_index < die_ids.len() {
-                let die_id = die_ids[choice_index].clone();
-                let color = die_colors[choice_index];
-                // Gain crystal of the die's color
-                gain_crystal_color(state, player_idx, color);
-                // Reroll the die
-                crate::mana::reroll_die(
-                    &mut state.source,
-                    &die_id,
-                    state.time_of_day,
-                    &mut state.rng,
-                );
+            if super::mana_storm::select_die(state, player_idx, choice_index, die_ids, die_colors) {
                 // Don't enqueue Noop — we handled the effect.
                 let mut queue = EffectQueue::new();
                 queue.push_continuation(

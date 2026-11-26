@@ -196,13 +196,7 @@ pub(crate) fn is_resolvable(state: &GameState, player_idx: usize, effect: &CardE
             .is_empty()
         }
         CardEffect::CrystalMasteryPowered => true,
-        CardEffect::ManaStormBasic => {
-            state.source.dice.iter().any(|d| {
-                d.taken_by_player_id.is_none()
-                    && !d.is_depleted
-                    && matches!(d.color, ManaColor::Red | ManaColor::Blue | ManaColor::Green | ManaColor::White)
-            })
-        }
+        CardEffect::ManaStormBasic => super::mana_storm::is_basic_resolvable(state),
         CardEffect::ManaStormPowered => true,
         CardEffect::SpellForgeBasic | CardEffect::SpellForgePowered => {
             super::spell_forge::is_resolvable(state)
