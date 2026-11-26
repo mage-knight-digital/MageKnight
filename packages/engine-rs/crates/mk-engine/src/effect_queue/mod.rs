@@ -32,6 +32,7 @@ mod book_of_wisdom;
 mod choice_resolution;
 mod call_to_arms;
 mod conditions;
+mod continuation;
 mod multi_step;
 mod magic_talent;
 mod mana_storm;

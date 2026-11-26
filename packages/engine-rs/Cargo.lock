@@ -919,6 +919,7 @@ dependencies = [
  "mk-engine",
  "mk-types",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
