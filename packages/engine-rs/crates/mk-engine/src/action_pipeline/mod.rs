@@ -1379,7 +1379,7 @@ fn describe_choice_resolution(
             available_colors.get(choice_index).map(|c| format!("Spend {:?} mana", c))
         }
         ChoiceResolution::ManaStormDieSelect { die_colors, .. } => {
-            die_colors.get(choice_index).map(|c| format!("Take {:?} die", c))
+            die_colors.get(choice_index).map(|c| crate::effect_queue::describe_mana_storm_die(*c))
         }
         ChoiceResolution::ManaClaimDieSelect { die_colors, .. } => {
             die_colors.get(choice_index).map(|c| format!("Claim {:?} die", c))
