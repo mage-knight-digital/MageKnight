@@ -1423,7 +1423,7 @@ fn describe_choice_resolution(
             })
         }
         ChoiceResolution::CallToArmsAbilitySelect { ability_entries } => {
-            ability_entries.get(choice_index).map(|(_, effect)| format!("{:?}", effect))
+            ability_entries.get(choice_index).map(|(_, effect)| crate::effect_queue::describe_call_to_arms_ability(effect))
         }
         ChoiceResolution::DuelingTarget { eligible_enemy_ids }
         | ChoiceResolution::KnowYourPreyTarget { eligible_enemy_ids }
