@@ -305,44 +305,17 @@ pub(super) fn resolve_choice(
                 if let Some(card_def) = mk_data::cards::get_card(aa_id.as_str()) {
                     let powered_effect = card_def.powered_effect;
                     // Resolve the powered effect through the queue (AA stays in offer)
-                    let mut queue = EffectQueue::new();
-                    queue.push(powered_effect, Some(aa_id.clone()));
-                    queue.push_continuation(
-                        choice
-                            .continuation
-                            .into_iter()
-                            .map(|c| QueuedEffect {
-                                effect: c.effect,
-                                source_card_id: c.source_card_id,
-                            })
-                            .collect(),
+                    super::continuation::run_effect(
+                        state,
+                        player_idx,
+                        QueuedEffect {
+                            effect: powered_effect,
+                            source_card_id: Some(aa_id.clone()),
+                        },
+                        choice.continuation,
+                        source_card_id,
+                        undo,
                     );
-                    match queue.drain_with_undo(state, player_idx, undo) {
-                        DrainResult::Complete => {}
-                        DrainResult::NeedsChoice {
-                            options,
-                            continuation,
-                            resolution: new_res,
-                        } => {
-                            state.players[player_idx].pending.active =
-                                Some(ActivePending::Choice(PendingChoice {
-                                    card_id: source_card_id,
-                                    skill_id: None,
-                                    unit_instance_id: None,
-                                    options,
-                                    continuation: continuation
-                                        .into_iter()
-                                        .map(|q| ContinuationEntry {
-                                            effect: q.effect,
-                                            source_card_id: q.source_card_id,
-                                        })
-                                        .collect(),
-                                    movement_bonus_applied: false,
-                                    resolution: new_res,
-                                }));
-                        }
-                        DrainResult::PendingSet => {}
-                    }
                     return Ok(());
                 }
             }

@@ -133,44 +133,17 @@ pub(super) fn resolve_choice(
                         if ability_entries.len() == 1 {
                             // Auto-select single ability
                             let (_, ref effect) = ability_entries[0];
-                            let mut queue = EffectQueue::new();
-                            queue.push(effect.clone(), source_card_id.clone());
-                            queue.push_continuation(
-                                choice
-                                    .continuation
-                                    .into_iter()
-                                    .map(|c| QueuedEffect {
-                                        effect: c.effect,
-                                        source_card_id: c.source_card_id,
-                                    })
-                                    .collect(),
+                            super::continuation::run_effect(
+                                state,
+                                player_idx,
+                                QueuedEffect {
+                                    effect: effect.clone(),
+                                    source_card_id: source_card_id.clone(),
+                                },
+                                choice.continuation,
+                                source_card_id,
+                                undo,
                             );
-                            match queue.drain_with_undo(state, player_idx, undo) {
-                                DrainResult::Complete => {}
-                                DrainResult::NeedsChoice {
-                                    options,
-                                    continuation,
-                                    resolution: new_res,
-                                } => {
-                                    state.players[player_idx].pending.active =
-                                        Some(ActivePending::Choice(PendingChoice {
-                                            card_id: source_card_id,
-                                            skill_id: None,
-                                            unit_instance_id: None,
-                                            options,
-                                            continuation: continuation
-                                                .into_iter()
-                                                .map(|q| ContinuationEntry {
-                                                    effect: q.effect,
-                                                    source_card_id: q.source_card_id,
-                                                })
-                                                .collect(),
-                                            movement_bonus_applied: false,
-                                            resolution: new_res,
-                                        }));
-                                }
-                                DrainResult::PendingSet => {}
-                            }
                             return Ok(());
                         } else if ability_entries.len() > 1 {
                             // Present ability choice
@@ -199,44 +172,17 @@ pub(super) fn resolve_choice(
         ChoiceResolution::CallToArmsAbilitySelect { ability_entries } => {
             if choice_index < ability_entries.len() {
                 let (_, ref effect) = ability_entries[choice_index];
-                let mut queue = EffectQueue::new();
-                queue.push(effect.clone(), source_card_id.clone());
-                queue.push_continuation(
-                    choice
-                        .continuation
-                        .into_iter()
-                        .map(|c| QueuedEffect {
-                            effect: c.effect,
-                            source_card_id: c.source_card_id,
-                        })
-                        .collect(),
+                super::continuation::run_effect(
+                    state,
+                    player_idx,
+                    QueuedEffect {
+                        effect: effect.clone(),
+                        source_card_id: source_card_id.clone(),
+                    },
+                    choice.continuation,
+                    source_card_id,
+                    undo,
                 );
-                match queue.drain_with_undo(state, player_idx, undo) {
-                    DrainResult::Complete => {}
-                    DrainResult::NeedsChoice {
-                        options,
-                        continuation,
-                        resolution: new_res,
-                    } => {
-                        state.players[player_idx].pending.active =
-                            Some(ActivePending::Choice(PendingChoice {
-                                card_id: source_card_id,
-                                skill_id: None,
-                                unit_instance_id: None,
-                                options,
-                                continuation: continuation
-                                    .into_iter()
-                                    .map(|q| ContinuationEntry {
-                                        effect: q.effect,
-                                        source_card_id: q.source_card_id,
-                                    })
-                                    .collect(),
-                                movement_bonus_applied: false,
-                                resolution: new_res,
-                            }));
-                    }
-                    DrainResult::PendingSet => {}
-                }
                 return Ok(());
             }
         }

@@ -9,3 +9,6 @@ mk-types = { workspace = true }
 mk-data = { workspace = true }
 mk-engine = { workspace = true }
 serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
