@@ -1,5 +1,5 @@
 use super::*;
-use super::utils::scale_effect;
+use super::utils::{colored_card_offer_entries, scale_effect};
 use mk_types::effect::*;
 use mk_types::enums::*;
 use mk_types::hex::HexCoord;

@@ -311,39 +311,3 @@ pub(super) fn apply_mana_storm_powered(state: &mut GameState, player_idx: usize)
     }
     ResolveResult::Applied
 }
-
-fn apply_spell_forge(
-    state: &mut GameState,
-    player_idx: usize,
-    allow_second_choice: bool,
-) -> ResolveResult {
-    let spell_entries: Vec<(usize, BasicManaColor)> = colored_card_offer_entries(
-        &state.offers.spells,
-        mk_data::cards::get_spell_color,
-    )
-    .into_iter()
-    .map(|(index, _, color)| (index, color))
-    .collect();
-
-    resolve_eligible_noop_choice(
-        spell_entries,
-        |(_, color)| {
-            gain_crystal_color(state, player_idx, color);
-            ResolveResult::Applied
-        },
-        |spell_entries| ChoiceResolution::SpellForgeCrystal {
-            spell_entries,
-            is_second: false,
-            allow_second_choice,
-            first_spell_index: None,
-        },
-    )
-}
-
-pub(super) fn apply_spell_forge_basic(state: &mut GameState, player_idx: usize) -> ResolveResult {
-    apply_spell_forge(state, player_idx, false)
-}
-
-pub(super) fn apply_spell_forge_powered(state: &mut GameState, player_idx: usize) -> ResolveResult {
-    apply_spell_forge(state, player_idx, true)
-}

@@ -18,6 +18,7 @@ use super::multi_step::*;
 use super::magic_talent::{apply_magic_talent_basic, apply_magic_talent_powered};
 use super::peaceful_moment::{apply_peaceful_moment_action, apply_peaceful_moment_convert};
 use super::spells::*;
+use super::spell_forge::{apply_spell_forge_basic, apply_spell_forge_powered};
 use super::training::apply_training;
 use super::tome_of_all_spells::apply_tome_of_all_spells;
 use super::utils::scale_effect;

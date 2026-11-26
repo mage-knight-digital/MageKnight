@@ -1385,7 +1385,7 @@ fn describe_choice_resolution(
             die_colors.get(choice_index).map(|c| format!("Claim {:?} die", c))
         }
         ChoiceResolution::SpellForgeCrystal { spell_entries, .. } => {
-            spell_entries.get(choice_index).map(|(_, c)| format!("Gain {:?} crystal", c))
+            spell_entries.get(choice_index).map(|(_, c)| crate::effect_queue::describe_spell_forge_crystal(*c))
         }
         ChoiceResolution::ReadyUnitTarget { eligible_unit_indices } => {
             eligible_unit_indices.get(choice_index).and_then(|&idx| {

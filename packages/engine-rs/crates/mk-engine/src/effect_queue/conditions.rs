@@ -7,7 +7,7 @@ use mk_types::state::*;
 use crate::card_play::is_die_available_with_overrides;
 use crate::unit_eligibility::{has_heal_unit_target, has_ready_unit_target};
 use super::{
-    call_to_arms_unit_indices, colored_card_offer_entries, eligible_action_hand_indices,
+    call_to_arms_unit_indices, eligible_action_hand_indices,
     eligible_crystal_gain_colors, eligible_hand_card_indices,
     free_recruit_unit_indices, CrystalGainEligibility, WOUND_CARD_ID,
     DRUIDIC_STAFF_CARD_ID,
@@ -205,8 +205,7 @@ pub(crate) fn is_resolvable(state: &GameState, player_idx: usize, effect: &CardE
         }
         CardEffect::ManaStormPowered => true,
         CardEffect::SpellForgeBasic | CardEffect::SpellForgePowered => {
-            !colored_card_offer_entries(&state.offers.spells, mk_data::cards::get_spell_color)
-                .is_empty()
+            super::spell_forge::is_resolvable(state)
         }
         CardEffect::MagicTalentBasic => super::magic_talent::is_basic_resolvable(state, player_idx),
         CardEffect::MagicTalentPowered => super::magic_talent::is_powered_resolvable(state, player_idx),

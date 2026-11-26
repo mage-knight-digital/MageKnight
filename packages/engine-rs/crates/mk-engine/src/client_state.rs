@@ -363,7 +363,7 @@ fn pending_options(active: &ActivePending, player: &PlayerState, state: &GameSta
             if let ChoiceResolution::SpellForgeCrystal { spell_entries, .. } = &choice.resolution {
                 return spell_entries
                     .iter()
-                    .map(|(_, c)| format!("Gain {:?} crystal", c))
+                    .map(|(_, c)| crate::effect_queue::describe_spell_forge_crystal(*c))
                     .collect();
             }
             // Unit-targeting resolutions (roster-indexed)
