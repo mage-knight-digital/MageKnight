@@ -47,7 +47,7 @@ pub(crate) fn eligible_crystal_gain_colors(
         .collect()
 }
 
-fn eligible_unit_offer_indices(
+pub(super) fn eligible_unit_offer_indices(
     unit_offer: &[UnitId],
     is_eligible: impl Fn(&mk_data::units::UnitDefinition) -> bool,
 ) -> Vec<usize> {
@@ -60,14 +60,6 @@ fn eligible_unit_offer_indices(
                 .map(|_| index)
         })
         .collect()
-}
-
-/// Return offered units that Call to Arms can borrow an ability from.
-pub(crate) fn call_to_arms_unit_indices(unit_offer: &[UnitId]) -> Vec<usize> {
-    eligible_unit_offer_indices(unit_offer, |unit| {
-        !unit.restricted_from_free_recruit
-            && unit.abilities.iter().any(|ability| ability.mana_cost.is_none())
-    })
 }
 
 /// Return offered units eligible for Free Recruit when the player has a command slot.
@@ -385,36 +377,6 @@ pub(super) fn is_enemy_arcane_immune_by_id(enemy_id: &str) -> bool {
     mk_data::enemies::get_enemy(enemy_id)
         .map(|d| d.abilities.contains(&EnemyAbilityType::ArcaneImmunity))
         .unwrap_or(false)
-}
-
-/// Convert a unit ability to a CardEffect for Call to Arms.
-pub(super) fn unit_ability_to_card_effect(ability: &mk_data::units::UnitAbility) -> Option<CardEffect> {
-    use mk_data::units::UnitAbility;
-    match ability {
-        UnitAbility::Attack { value, element } => Some(CardEffect::GainAttack {
-            amount: *value,
-            combat_type: CombatType::Melee,
-            element: *element,
-        }),
-        UnitAbility::Block { value, element } => Some(CardEffect::GainBlock {
-            amount: *value,
-            element: *element,
-        }),
-        UnitAbility::RangedAttack { value, element } => Some(CardEffect::GainAttack {
-            amount: *value,
-            combat_type: CombatType::Ranged,
-            element: *element,
-        }),
-        UnitAbility::SiegeAttack { value, element } => Some(CardEffect::GainAttack {
-            amount: *value,
-            combat_type: CombatType::Siege,
-            element: *element,
-        }),
-        UnitAbility::Move { value } => Some(CardEffect::GainMove { amount: *value }),
-        UnitAbility::Influence { value } => Some(CardEffect::GainInfluence { amount: *value }),
-        UnitAbility::Heal { value } => Some(CardEffect::GainHealing { amount: *value }),
-        _ => None, // Passive abilities (Swift, Brutal, etc.) not borrowable
-    }
 }
 
 /// Wrapper for gain_crystal_color (no return value, for use in ChoiceResolution handlers).

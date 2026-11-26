@@ -30,6 +30,7 @@ mod atomic;
 mod blood_of_ancients;
 mod book_of_wisdom;
 mod choice_resolution;
+mod call_to_arms;
 mod conditions;
 mod multi_step;
 mod magic_talent;
@@ -65,6 +66,7 @@ pub(crate) use self::choice_resolution::{
     resolve_discard_for_bonus_with_undo,
 };
 pub(crate) use self::conditions::is_resolvable;
+pub(crate) use self::call_to_arms::describe_call_to_arms_ability;
 pub(crate) use self::mana_storm::describe_mana_storm_die;
 pub(crate) use self::spell_forge::describe_spell_forge_crystal;
 pub(crate) use self::training::{apply_resolve_training, enumerate_training_choices};
@@ -72,7 +74,7 @@ pub(crate) use self::blood_of_ancients::describe_blood_of_ancients_choice;
 pub use self::peaceful_moment::enter_peaceful_moment_conversion;
 pub(crate) use self::peaceful_moment::{enter_peaceful_moment_conversion_with_undo, describe_peaceful_moment_choice};
 pub(crate) use self::utils::{
-    call_to_arms_unit_indices, eligible_action_hand_indices,
+    eligible_action_hand_indices,
     eligible_colored_hand_cards, eligible_crystal_gain_colors, eligible_hand_card_indices,
     free_recruit_unit_indices, hand_card_effect_choices, select_colored_hand_card,
     ColoredHandCardScope, CrystalGainEligibility, HandCardDestination,

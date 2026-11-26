@@ -771,48 +771,6 @@ pub(super) fn apply_mind_read(
     )
 }
 
-/// Call to Arms basic: borrow unit ability from offer (or opponent units in multiplayer).
-pub(super) fn apply_call_to_arms(state: &mut GameState, player_idx: usize) -> ResolveResult {
-    let eligible_indices = call_to_arms_unit_indices(&state.offers.units);
-
-    // In multiplayer: also scan opponent units for borrowable abilities
-    // Opponent unit indices are encoded as offer_size + flat_index to distinguish them
-    let offer_size = state.offers.units.len();
-    let mut opponent_unit_indices = Vec::new();
-    for (p_idx, player) in state.players.iter().enumerate() {
-        if p_idx == player_idx {
-            continue;
-        }
-        for (u_idx, unit) in player.units.iter().enumerate() {
-            if let Some(unit_def) = mk_data::units::get_unit(unit.unit_id.as_str()) {
-                let has_ability = unit_def.abilities.iter().any(|slot| slot.mana_cost.is_none());
-                if has_ability {
-                    // Encode as offset index: offer_size + sequential index
-                    opponent_unit_indices.push((p_idx, u_idx, offer_size + opponent_unit_indices.len()));
-                }
-            }
-        }
-    }
-
-    // For now, only use offer indices in the choice resolution (opponent units would
-    // need a new ChoiceResolution variant). Extend eligible_indices to include offer units.
-    // Opponent unit borrowing is informational for RL — skip complex resolution for now.
-    let _ = opponent_unit_indices;
-
-    match eligible_indices.len() {
-        0 => ResolveResult::Skipped,
-        _ => {
-            let options: Vec<CardEffect> = eligible_indices.iter().map(|_| CardEffect::Noop).collect();
-            ResolveResult::NeedsChoiceWith(
-                options,
-                ChoiceResolution::CallToArmsUnitSelect {
-                    eligible_unit_indices: eligible_indices,
-                },
-            )
-        }
-    }
-}
-
 /// Free Recruit (Call to Arms powered): recruit any unit from offer for free.
 pub(super) fn apply_free_recruit(state: &mut GameState, player_idx: usize) -> ResolveResult {
     // Find eligible units (exclude restricted_from_free_recruit, check command limit)
