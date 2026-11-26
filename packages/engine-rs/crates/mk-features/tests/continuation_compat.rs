@@ -24,6 +24,18 @@ fn migrated_card_continuations_preserve_rl_features() {
             2,
             0,
         ),
+        (
+            include_str!("../../mk-engine/tests/fixtures/magic_talent_main.json"),
+            "basic_multiple_nested",
+            1,
+            0,
+        ),
+        (
+            include_str!("../../mk-engine/tests/fixtures/peaceful_moment_main.json"),
+            "powered_refresh",
+            3,
+            3,
+        ),
     ] {
         let baseline: Value = serde_json::from_str(fixture).unwrap();
         let trace = baseline[scenario].as_array().unwrap();
