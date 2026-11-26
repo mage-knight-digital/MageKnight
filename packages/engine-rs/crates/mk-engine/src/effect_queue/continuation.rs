@@ -93,6 +93,7 @@ mod tests {
         undo: &mut UndoStack,
         effect: QueuedEffect,
         continuation: Vec<ContinuationEntry>,
+        pending_source: Option<CardId>,
     ) -> ContinuationOutcome {
         let mut queue = EffectQueue::new();
         queue.push(effect.effect, effect.source_card_id);
@@ -113,7 +114,7 @@ mod tests {
                 resolution,
             } => {
                 state.players[0].pending.active = Some(ActivePending::Choice(PendingChoice {
-                    card_id: Some(CardId::from(PENDING_SOURCE)),
+                    card_id: pending_source,
                     skill_id: None,
                     unit_instance_id: None,
                     options,
@@ -198,6 +199,7 @@ mod tests {
                 &mut old_undo,
                 queued.clone(),
                 continuation.clone(),
+                Some(CardId::from(PENDING_SOURCE)),
             );
             let new = run_effect(
                 &mut new_state,
@@ -246,5 +248,65 @@ mod tests {
                 assert_eq!(new_state.players[0].move_points, 0);
             }
         }
+    }
+
+    #[test]
+    fn source_less_pending_matches_legacy_queue() {
+        let mut old_state = create_solo_game(42, Hero::Arythea);
+        old_state.round_phase = RoundPhase::PlayerTurns;
+        let mut new_state = old_state.clone();
+        let mut old_undo = UndoStack::new();
+        let mut new_undo = UndoStack::new();
+        let effect = QueuedEffect {
+            effect: CardEffect::Choice {
+                options: vec![
+                    CardEffect::GainMana {
+                        color: ManaColor::Red,
+                        amount: 1,
+                    },
+                    CardEffect::GainMana {
+                        color: ManaColor::Blue,
+                        amount: 1,
+                    },
+                ],
+            },
+            source_card_id: None,
+        };
+        let continuation = vec![ContinuationEntry {
+            effect: CardEffect::GainMove { amount: 2 },
+            source_card_id: Some(CardId::from(CONTINUATION_SOURCE)),
+        }];
+        let old = legacy_run(
+            &mut old_state,
+            &mut old_undo,
+            effect.clone(),
+            continuation.clone(),
+            None,
+        );
+        let new = run_effect(
+            &mut new_state,
+            0,
+            effect,
+            continuation,
+            None,
+            Some(&mut new_undo),
+        );
+        assert_eq!(new, ContinuationOutcome::ChoiceInstalled);
+        assert_eq!(new, old);
+        assert_eq!(
+            snapshot(&new_state, &new_undo),
+            snapshot(&old_state, &old_undo)
+        );
+        let Some(ActivePending::Choice(pending)) = &new_state.players[0].pending.active else {
+            panic!("expected choice")
+        };
+        assert!(pending.card_id.is_none());
+        assert_eq!(
+            pending.continuation[0]
+                .source_card_id
+                .as_ref()
+                .map(CardId::as_str),
+            Some(CONTINUATION_SOURCE)
+        );
     }
 }

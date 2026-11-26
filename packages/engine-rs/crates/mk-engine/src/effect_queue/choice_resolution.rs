@@ -719,27 +719,14 @@ pub(crate) fn resolve_pending_choice_with_undo(
                 },
                 option_map,
             ) {
-                let mut queue = EffectQueue::new();
-                queue.push(convert_effect, source_card_id.clone());
-                queue.push_continuation(
-                    choice.continuation.into_iter().map(|c| QueuedEffect {
-                        effect: c.effect, source_card_id: c.source_card_id,
-                    }).collect(),
+                super::continuation::run_effect(
+                    state,
+                    player_idx,
+                    QueuedEffect { effect: convert_effect, source_card_id: source_card_id.clone() },
+                    choice.continuation,
+                    source_card_id,
+                    undo,
                 );
-                match queue.drain_with_undo(state, player_idx, undo) {
-                    DrainResult::Complete => {}
-                    DrainResult::NeedsChoice { options, continuation, resolution: new_res } => {
-                        state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
-                            card_id: source_card_id,
-                            skill_id: None, unit_instance_id: None, options,
-                            continuation: continuation.into_iter().map(|q| ContinuationEntry {
-                                effect: q.effect, source_card_id: q.source_card_id,
-                            }).collect(),
-                            movement_bonus_applied: false, resolution: new_res,
-                        }));
-                    }
-                    DrainResult::PendingSet => {}
-                }
                 return Ok(());
             }
         }
@@ -751,27 +738,14 @@ pub(crate) fn resolve_pending_choice_with_undo(
         }
         ChoiceResolution::MagicTalentSpellSelect { spell_entries } => {
             if let Some((spell_id, basic_effect)) = super::magic_talent::selected_basic_spell(spell_entries, choice_index) {
-                let mut queue = EffectQueue::new();
-                queue.push(basic_effect, Some(spell_id));
-                queue.push_continuation(
-                    choice.continuation.into_iter().map(|c| QueuedEffect {
-                        effect: c.effect, source_card_id: c.source_card_id,
-                    }).collect(),
+                super::continuation::run_effect(
+                    state,
+                    player_idx,
+                    QueuedEffect { effect: basic_effect, source_card_id: Some(spell_id) },
+                    choice.continuation,
+                    source_card_id,
+                    undo,
                 );
-                match queue.drain_with_undo(state, player_idx, undo) {
-                    DrainResult::Complete => {}
-                    DrainResult::NeedsChoice { options, continuation, resolution: new_res } => {
-                        state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
-                            card_id: source_card_id,
-                            skill_id: None, unit_instance_id: None, options,
-                            continuation: continuation.into_iter().map(|q| ContinuationEntry {
-                                effect: q.effect, source_card_id: q.source_card_id,
-                            }).collect(),
-                            movement_bonus_applied: false, resolution: new_res,
-                        }));
-                    }
-                    DrainResult::PendingSet => {}
-                }
                 return Ok(());
             }
         }
