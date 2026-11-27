@@ -31,6 +31,7 @@ mod blood_of_ancients;
 mod book_of_wisdom;
 mod choice_resolution;
 mod call_to_arms;
+mod card_queries;
 mod conditions;
 mod continuation;
 mod multi_step;

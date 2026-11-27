@@ -4,7 +4,6 @@
 use super::{eligible_action_hand_indices, ResolveResult};
 use crate::action_pipeline::{ApplyError, ApplyResult};
 use arrayvec::ArrayVec;
-use mk_types::enums::DeedCardType;
 use mk_types::ids::CardId;
 use mk_types::legal_action::LegalAction;
 use mk_types::pending::{ActivePending, BookOfWisdomPhase, EffectMode, PendingTraining};
@@ -88,10 +87,14 @@ pub(crate) fn apply_resolve_training(
             let mut available: arrayvec::ArrayVec<CardId, { mk_types::pending::MAX_OFFER_CARDS }> =
                 arrayvec::ArrayVec::new();
             if let Some(color) = card_color {
-                for aa_id in &state.offers.advanced_actions {
-                    if mk_data::cards::get_card_color(aa_id.as_str()) == Some(color)
-                        && available.try_push(aa_id.clone()).is_err()
-                    {
+                for (_, aa_id, _) in super::utils::colored_card_offer_entries(
+                    &state.offers.advanced_actions,
+                    mk_data::cards::get_card_color,
+                )
+                .into_iter()
+                .filter(|(_, _, offer_color)| *offer_color == color)
+                {
+                    if available.try_push(aa_id).is_err() {
                         break;
                     }
                 }
@@ -186,17 +189,8 @@ pub(crate) fn enumerate_training_choices(
     match t.phase {
         BookOfWisdomPhase::SelectCard => {
             // Enumerate eligible hand cards to throw away (BasicAction or AdvancedAction)
-            for (idx, card_id) in player.hand.iter().enumerate() {
-                if let Some(def) = mk_data::cards::get_card(card_id.as_str()) {
-                    if matches!(
-                        def.card_type,
-                        DeedCardType::BasicAction | DeedCardType::AdvancedAction
-                    ) {
-                        actions.push(LegalAction::ResolveTraining {
-                            selection_index: idx,
-                        });
-                    }
-                }
+            for idx in eligible_action_hand_indices(&player.hand) {
+                actions.push(LegalAction::ResolveTraining { selection_index: idx });
             }
         }
         BookOfWisdomPhase::SelectFromOffer => {

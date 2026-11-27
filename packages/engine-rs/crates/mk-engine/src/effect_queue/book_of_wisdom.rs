@@ -83,24 +83,19 @@ pub(crate) fn apply_resolve_book_of_wisdom(
             // Powered mode: find matching-color spells from offer
             let mut available: arrayvec::ArrayVec<CardId, { mk_types::pending::MAX_OFFER_CARDS }> =
                 arrayvec::ArrayVec::new();
-            match pending.mode {
-                mk_types::pending::EffectMode::Basic => {
-                    for aa_id in &state.offers.advanced_actions {
-                        if mk_data::cards::get_card_color(aa_id.as_str()) == Some(card_color)
-                            && available.try_push(aa_id.clone()).is_err()
-                        {
-                            break;
-                        }
-                    }
-                }
-                mk_types::pending::EffectMode::Powered => {
-                    for spell_id in &state.offers.spells {
-                        if mk_data::cards::get_spell_color(spell_id.as_str()) == Some(card_color)
-                            && available.try_push(spell_id.clone()).is_err()
-                        {
-                            break;
-                        }
-                    }
+            let entries = match pending.mode {
+                EffectMode::Basic => super::utils::colored_card_offer_entries(
+                    &state.offers.advanced_actions,
+                    mk_data::cards::get_card_color,
+                ),
+                EffectMode::Powered => super::utils::colored_card_offer_entries(
+                    &state.offers.spells,
+                    mk_data::cards::get_spell_color,
+                ),
+            };
+            for (_, card_id, _) in entries.into_iter().filter(|(_, _, color)| *color == card_color) {
+                if available.try_push(card_id).is_err() {
+                    break;
                 }
             }
 
