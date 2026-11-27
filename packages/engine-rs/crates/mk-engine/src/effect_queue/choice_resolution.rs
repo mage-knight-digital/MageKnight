@@ -5,14 +5,14 @@ use mk_types::enums::*;
 use mk_types::ids::{CardId, ModifierId};
 use mk_types::modifier::*;
 use mk_types::pending::{
-    ActivePending, ChoiceResolution, ContinuationEntry,
+    ActivePending, ChoiceResolution,
     PendingChoice, EffectMode,
 };
 use mk_types::state::*;
 
 use crate::undo::UndoStack;
 
-use super::{DrainResult, EffectQueue, QueuedEffect, ResolveResult};
+use super::{QueuedEffect, ResolveResult};
 use super::spells::{
     execute_free_recruit, execute_mana_claim_mode, execute_possess_enemy,
     execute_sacrifice_pair, resolve_mana_radiance,
@@ -499,36 +499,10 @@ pub(crate) fn resolve_pending_choice_with_undo(
                     crate::card_play::consume_specific_mana_source(state, player_idx, &source);
 
                 // Resolve the powered effect via effect queue
-                let mut queue = EffectQueue::new();
-                queue.push(effect.clone(), card_id.clone());
-                match queue.drain_with_undo(state, player_idx, undo) {
-                    DrainResult::Complete => {
-                        // Pending is already cleared (we took it above)
-                    }
-                    DrainResult::NeedsChoice {
-                        options: new_options,
-                        continuation: new_continuation,
-                        resolution: new_resolution,
-                    } => {
-                        state.players[player_idx].pending.active =
-                            Some(ActivePending::Choice(PendingChoice {
-                                card_id,
-                                skill_id: None,
-                                unit_instance_id: None,
-                                options: new_options,
-                                continuation: new_continuation
-                                    .into_iter()
-                                    .map(|q| ContinuationEntry {
-                                        effect: q.effect,
-                                        source_card_id: q.source_card_id,
-                                    })
-                                    .collect(),
-                                movement_bonus_applied: false,
-                                resolution: new_resolution,
-                            }));
-                    }
-                    DrainResult::PendingSet => {}
-                }
+                super::continuation::run_effect(
+                    state, player_idx, QueuedEffect { effect: effect.clone(), source_card_id: card_id.clone() },
+                    Vec::new(), card_id, undo,
+                );
 
                 // Mana trigger hooks
                 crate::card_play::check_mana_overload_trigger(
@@ -598,31 +572,9 @@ pub(crate) fn resolve_pending_choice_with_undo(
                 }
                 // Don't enqueue the chosen Noop — we handled the effect directly.
                 // Replay continuation.
-                let mut queue = EffectQueue::new();
-                queue.push_continuation(
-                    choice.continuation.into_iter().map(|c| QueuedEffect {
-                        effect: c.effect,
-                        source_card_id: c.source_card_id,
-                    }).collect(),
+                super::continuation::run_continuation(
+                    state, player_idx, choice.continuation, source_card_id, undo,
                 );
-                match queue.drain_with_undo(state, player_idx, undo) {
-                    DrainResult::Complete => {}
-                    DrainResult::NeedsChoice { options, continuation, resolution: new_res } => {
-                        state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
-                            card_id: source_card_id,
-                            skill_id: None,
-                            unit_instance_id: None,
-                            options,
-                            continuation: continuation.into_iter().map(|q| ContinuationEntry {
-                                effect: q.effect,
-                                source_card_id: q.source_card_id,
-                            }).collect(),
-                            movement_bonus_applied: false,
-                            resolution: new_res,
-                        }));
-                    }
-                    DrainResult::PendingSet => {}
-                }
                 return Ok(());
             }
         }
@@ -630,79 +582,27 @@ pub(crate) fn resolve_pending_choice_with_undo(
             if choice_index < eligible_colors.len() {
                 gain_crystal_color(state, player_idx, eligible_colors[choice_index]);
                 // Don't enqueue the Noop — we handled the effect.
-                let mut queue = EffectQueue::new();
-                queue.push_continuation(
-                    choice.continuation.into_iter().map(|c| QueuedEffect {
-                        effect: c.effect,
-                        source_card_id: c.source_card_id,
-                    }).collect(),
+                super::continuation::run_continuation(
+                    state, player_idx, choice.continuation, source_card_id, undo,
                 );
-                match queue.drain_with_undo(state, player_idx, undo) {
-                    DrainResult::Complete => {}
-                    DrainResult::NeedsChoice { options, continuation, resolution: new_res } => {
-                        state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
-                            card_id: source_card_id,
-                            skill_id: None, unit_instance_id: None, options,
-                            continuation: continuation.into_iter().map(|q| ContinuationEntry {
-                                effect: q.effect, source_card_id: q.source_card_id,
-                            }).collect(),
-                            movement_bonus_applied: false, resolution: new_res,
-                        }));
-                    }
-                    DrainResult::PendingSet => {}
-                }
                 return Ok(());
             }
         }
         ChoiceResolution::CrystalMasteryGainColor { eligible_colors } => {
             if choice_index < eligible_colors.len() {
                 gain_crystal_color(state, player_idx, eligible_colors[choice_index]);
-                let mut queue = EffectQueue::new();
-                queue.push_continuation(
-                    choice.continuation.into_iter().map(|c| QueuedEffect {
-                        effect: c.effect, source_card_id: c.source_card_id,
-                    }).collect(),
+                super::continuation::run_continuation(
+                    state, player_idx, choice.continuation, source_card_id, undo,
                 );
-                match queue.drain_with_undo(state, player_idx, undo) {
-                    DrainResult::Complete => {}
-                    DrainResult::NeedsChoice { options, continuation, resolution: new_res } => {
-                        state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
-                            card_id: source_card_id,
-                            skill_id: None, unit_instance_id: None, options,
-                            continuation: continuation.into_iter().map(|q| ContinuationEntry {
-                                effect: q.effect, source_card_id: q.source_card_id,
-                            }).collect(),
-                            movement_bonus_applied: false, resolution: new_res,
-                        }));
-                    }
-                    DrainResult::PendingSet => {}
-                }
                 return Ok(());
             }
         }
         ChoiceResolution::ManaStormDieSelect { die_ids, die_colors } => {
             if super::mana_storm::select_die(state, player_idx, choice_index, die_ids, die_colors) {
                 // Don't enqueue Noop — we handled the effect.
-                let mut queue = EffectQueue::new();
-                queue.push_continuation(
-                    choice.continuation.into_iter().map(|c| QueuedEffect {
-                        effect: c.effect, source_card_id: c.source_card_id,
-                    }).collect(),
+                super::continuation::run_continuation(
+                    state, player_idx, choice.continuation, source_card_id, undo,
                 );
-                match queue.drain_with_undo(state, player_idx, undo) {
-                    DrainResult::Complete => {}
-                    DrainResult::NeedsChoice { options, continuation, resolution: new_res } => {
-                        state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
-                            card_id: source_card_id,
-                            skill_id: None, unit_instance_id: None, options,
-                            continuation: continuation.into_iter().map(|q| ContinuationEntry {
-                                effect: q.effect, source_card_id: q.source_card_id,
-                            }).collect(),
-                            movement_bonus_applied: false, resolution: new_res,
-                        }));
-                    }
-                    DrainResult::PendingSet => {}
-                }
                 return Ok(());
             }
         }
@@ -752,26 +652,9 @@ pub(crate) fn resolve_pending_choice_with_undo(
         ChoiceResolution::MagicTalentGainSelect { gain_entries } => {
             if super::magic_talent::select_powered_spell(state, player_idx, gain_entries, choice_index) {
                 // Continue
-                let mut queue = EffectQueue::new();
-                queue.push_continuation(
-                    choice.continuation.into_iter().map(|c| QueuedEffect {
-                        effect: c.effect, source_card_id: c.source_card_id,
-                    }).collect(),
+                super::continuation::run_continuation(
+                    state, player_idx, choice.continuation, source_card_id, undo,
                 );
-                match queue.drain_with_undo(state, player_idx, undo) {
-                    DrainResult::Complete => {}
-                    DrainResult::NeedsChoice { options, continuation, resolution: new_res } => {
-                        state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
-                            card_id: source_card_id,
-                            skill_id: None, unit_instance_id: None, options,
-                            continuation: continuation.into_iter().map(|q| ContinuationEntry {
-                                effect: q.effect, source_card_id: q.source_card_id,
-                            }).collect(),
-                            movement_bonus_applied: false, resolution: new_res,
-                        }));
-                    }
-                    DrainResult::PendingSet => {}
-                }
                 return Ok(());
             }
         }
@@ -949,53 +832,11 @@ pub(crate) fn resolve_pending_choice_with_undo(
     }
 
     // Build a new queue with the chosen option + continuation
-    let mut queue = EffectQueue::new();
-    queue.push(chosen_effect, source_card_id.clone());
-    queue.push_continuation(
-        choice
-            .continuation
-            .into_iter()
-            .map(|c| QueuedEffect {
-                effect: c.effect,
-                source_card_id: c.source_card_id,
-            })
-            .collect(),
+    super::continuation::run_effect(
+        state, player_idx, QueuedEffect { effect: chosen_effect, source_card_id: source_card_id.clone() },
+        choice.continuation, source_card_id, undo,
     );
-
-    // Drain the queue
-    match queue.drain_with_undo(state, player_idx, undo) {
-        DrainResult::Complete => {
-            // Pending is already cleared (we took it above)
-            Ok(())
-        }
-        DrainResult::NeedsChoice {
-            options,
-            continuation,
-            resolution,
-        } => {
-            // Another choice emerged — set new pending
-            state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
-                card_id: source_card_id,
-                skill_id: None,
-                unit_instance_id: None,
-                options,
-                continuation: continuation
-                    .into_iter()
-                    .map(|q| ContinuationEntry {
-                        effect: q.effect,
-                        source_card_id: q.source_card_id,
-                    })
-                    .collect(),
-                movement_bonus_applied: false,
-                resolution,
-            }));
-            Ok(())
-        }
-        DrainResult::PendingSet => {
-            // A custom pending was set directly (e.g., DiscardForBonus inside a choice).
-            Ok(())
-        }
-    }
+    Ok(())
 }
 
 // =============================================================================
@@ -1059,36 +900,11 @@ pub(crate) fn resolve_discard_for_bonus_with_undo(
 
     // Drain through the effect queue
     let source_card_id = Some(dfb.source_card_id);
-    let mut queue = EffectQueue::new();
-    queue.push(final_effect, source_card_id.clone());
-    match queue.drain_with_undo(state, player_idx, undo) {
-        DrainResult::Complete => Ok(()),
-        DrainResult::NeedsChoice {
-            options,
-            continuation,
-            resolution,
-        } => {
-            // Another choice emerged — set new pending
-            state.players[player_idx].pending.active =
-                Some(ActivePending::Choice(PendingChoice {
-                    card_id: source_card_id,
-                    skill_id: None,
-                    unit_instance_id: None,
-                    options,
-                    continuation: continuation
-                        .into_iter()
-                        .map(|q| ContinuationEntry {
-                            effect: q.effect,
-                            source_card_id: q.source_card_id,
-                        })
-                        .collect(),
-                    movement_bonus_applied: false,
-                    resolution,
-                }));
-            Ok(())
-        }
-        DrainResult::PendingSet => Ok(()),
-    }
+    super::continuation::run_effect(
+        state, player_idx, QueuedEffect { effect: final_effect, source_card_id: source_card_id.clone() },
+        Vec::new(), source_card_id, undo,
+    );
+    Ok(())
 }
 
 /// Resolve a pending decompose by picking which hand card to decompose.
@@ -1179,33 +995,10 @@ pub(crate) fn resolve_decompose_with_undo(
     }
 
     let source_card_id = Some(decompose.source_card_id);
-    let mut queue = EffectQueue::new();
-    queue.push_all(effects, source_card_id.clone());
-    match queue.drain_with_undo(state, player_idx, undo) {
-        DrainResult::Complete => Ok(()),
-        DrainResult::NeedsChoice {
-            options,
-            continuation,
-            resolution,
-        } => {
-            state.players[player_idx].pending.active =
-                Some(ActivePending::Choice(PendingChoice {
-                    card_id: source_card_id,
-                    skill_id: None,
-                    unit_instance_id: None,
-                    options,
-                    continuation: continuation
-                        .into_iter()
-                        .map(|q| ContinuationEntry {
-                            effect: q.effect,
-                            source_card_id: q.source_card_id,
-                        })
-                        .collect(),
-                    movement_bonus_applied: false,
-                    resolution,
-                }));
-            Ok(())
-        }
-        DrainResult::PendingSet => Ok(()),
-    }
+    super::continuation::run_effects(
+        state, player_idx, effects.into_iter().map(|effect| QueuedEffect {
+            effect, source_card_id: source_card_id.clone(),
+        }).collect(), source_card_id, undo,
+    );
+    Ok(())
 }

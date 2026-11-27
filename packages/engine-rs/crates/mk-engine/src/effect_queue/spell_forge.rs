@@ -3,7 +3,7 @@
 
 use super::choice_resolution::ResolveChoiceError;
 use super::utils::{colored_card_offer_entries, gain_crystal_color, resolve_eligible_noop_choice};
-use super::{DrainResult, EffectQueue, QueuedEffect, ResolveResult};
+use super::{EffectQueue, QueuedEffect, ResolveResult};
 use crate::undo::UndoStack;
 use mk_types::effect::CardEffect;
 use mk_types::enums::BasicManaColor;
@@ -115,43 +115,9 @@ pub(super) fn resolve_choice(
                     }
                 }
                 // Single spell or second selection — continue normally
-                let mut queue = EffectQueue::new();
-                queue.push_continuation(
-                    choice
-                        .continuation
-                        .into_iter()
-                        .map(|c| QueuedEffect {
-                            effect: c.effect,
-                            source_card_id: c.source_card_id,
-                        })
-                        .collect(),
+                super::continuation::run_continuation(
+                    state, player_idx, choice.continuation, source_card_id, undo,
                 );
-                match queue.drain_with_undo(state, player_idx, undo) {
-                    DrainResult::Complete => {}
-                    DrainResult::NeedsChoice {
-                        options,
-                        continuation,
-                        resolution: new_res,
-                    } => {
-                        state.players[player_idx].pending.active =
-                            Some(ActivePending::Choice(PendingChoice {
-                                card_id: source_card_id,
-                                skill_id: None,
-                                unit_instance_id: None,
-                                options,
-                                continuation: continuation
-                                    .into_iter()
-                                    .map(|q| ContinuationEntry {
-                                        effect: q.effect,
-                                        source_card_id: q.source_card_id,
-                                    })
-                                    .collect(),
-                                movement_bonus_applied: false,
-                                resolution: new_res,
-                            }));
-                    }
-                    DrainResult::PendingSet => {}
-                }
                 return Ok(());
             }
         }
@@ -162,53 +128,11 @@ pub(super) fn resolve_choice(
         }
     }
     // Build a new queue with the chosen option + continuation
-    let mut queue = EffectQueue::new();
-    queue.push(chosen_effect, source_card_id.clone());
-    queue.push_continuation(
-        choice
-            .continuation
-            .into_iter()
-            .map(|c| QueuedEffect {
-                effect: c.effect,
-                source_card_id: c.source_card_id,
-            })
-            .collect(),
+    super::continuation::run_effect(
+        state, player_idx, QueuedEffect { effect: chosen_effect, source_card_id: source_card_id.clone() },
+        choice.continuation, source_card_id, undo,
     );
-
-    // Drain the queue
-    match queue.drain_with_undo(state, player_idx, undo) {
-        DrainResult::Complete => {
-            // Pending is already cleared (we took it above)
-            Ok(())
-        }
-        DrainResult::NeedsChoice {
-            options,
-            continuation,
-            resolution,
-        } => {
-            // Another choice emerged — set new pending
-            state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
-                card_id: source_card_id,
-                skill_id: None,
-                unit_instance_id: None,
-                options,
-                continuation: continuation
-                    .into_iter()
-                    .map(|q| ContinuationEntry {
-                        effect: q.effect,
-                        source_card_id: q.source_card_id,
-                    })
-                    .collect(),
-                movement_bonus_applied: false,
-                resolution,
-            }));
-            Ok(())
-        }
-        DrainResult::PendingSet => {
-            // A custom pending was set directly (e.g., DiscardForBonus inside a choice).
-            Ok(())
-        }
-    }
+    Ok(())
 }
 
 pub(super) fn is_resolvable(state: &GameState) -> bool {
