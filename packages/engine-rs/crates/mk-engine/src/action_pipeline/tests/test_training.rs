@@ -5,6 +5,25 @@ use super::*;
 // =========================================================================
 
 #[test]
+fn training_rejects_non_action_card_without_mutating_state() {
+    const TRAINING: &str = "training";
+    const MARCH: &str = "march";
+    const WOUND: &str = "wound";
+    let mut state = setup_playing_game(vec![TRAINING, MARCH, WOUND]);
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
+        hand_index: 0, card_id: CardId::from(TRAINING),
+    }, epoch).unwrap();
+    let before = serde_json::to_value(&state).unwrap();
+    let epoch = state.action_epoch;
+    let result = apply_legal_action(&mut state, &mut undo, 0,
+        &LegalAction::ResolveTraining { selection_index: 1 }, epoch);
+    assert!(result.is_err());
+    assert_eq!(serde_json::to_value(&state).unwrap(), before);
+}
+
+#[test]
 fn training_creates_pending_select_card() {
     let mut state = setup_playing_game(vec!["training", "march"]);
     state.offers.advanced_actions = vec![CardId::from("refreshing_walk")];

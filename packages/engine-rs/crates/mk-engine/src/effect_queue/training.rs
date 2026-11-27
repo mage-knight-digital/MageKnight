@@ -73,6 +73,13 @@ pub(crate) fn apply_resolve_training(
                 ));
             }
 
+            if !super::utils::is_action_card(&player.hand[selection_index]) {
+                player.pending.active = Some(ActivePending::Training(pending));
+                return Err(ApplyError::InternalError(
+                    "ResolveTraining: hand card is not an action card".to_string(),
+                ));
+            }
+
             let card_id = player.hand.remove(selection_index);
             let card_color = mk_data::cards::get_card_color(card_id.as_str());
             player.removed_cards.push(card_id);
