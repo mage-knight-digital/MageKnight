@@ -22,7 +22,7 @@ pub(super) fn apply_book_of_wisdom(
     let eligible = eligible_colored_hand_cards(
         &state.players[player_idx].hand,
         BOOK_OF_WISDOM_CARD_ID,
-        ColoredHandCardScope::ActionCardsAndSpells,
+        ColoredHandCardScope::ActionCards,
     );
 
     if eligible.is_empty() {
@@ -69,7 +69,7 @@ pub(crate) fn apply_resolve_book_of_wisdom(
                 &mut state.players[player_idx],
                 selection_index,
                 super::BOOK_OF_WISDOM_CARD_ID,
-                super::ColoredHandCardScope::ActionCardsAndSpells,
+                super::ColoredHandCardScope::ActionCards,
                 super::HandCardDestination::Removed,
             ) else {
                 state.players[player_idx].pending.active =
@@ -205,7 +205,7 @@ pub(crate) fn enumerate_book_of_wisdom_choices(
             for (idx, _) in eligible_colored_hand_cards(
                 &player.hand,
                 BOOK_OF_WISDOM_CARD_ID,
-                ColoredHandCardScope::ActionCardsAndSpells,
+                ColoredHandCardScope::ActionCards,
             ) {
                 actions.push(LegalAction::ResolveBookOfWisdom {
                     selection_index: idx,
@@ -224,7 +224,7 @@ pub(super) fn is_resolvable(state: &GameState, player_idx: usize) -> bool {
     !eligible_colored_hand_cards(
         &state.players[player_idx].hand,
         BOOK_OF_WISDOM_CARD_ID,
-        ColoredHandCardScope::ActionCardsAndSpells,
+        ColoredHandCardScope::ActionCards,
     )
     .is_empty()
 }

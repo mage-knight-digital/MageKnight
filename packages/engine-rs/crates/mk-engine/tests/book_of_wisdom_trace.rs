@@ -1,4 +1,4 @@
-//! Book of Wisdom behavior captured from main (f7433c5c), before extraction.
+//! Book of Wisdom action-card behavior captured from main before the spell eligibility fix.
 use mk_engine::{
     action_pipeline::apply_legal_action, effect_queue::EffectQueue,
     legal_actions::enumerate_legal_actions_with_undo, setup::create_solo_game, undo::UndoStack,
@@ -14,6 +14,7 @@ use mk_types::{
 use serde_json::{json, Value};
 const BOOK: &str = "book_of_wisdom";
 const MARCH: &str = "march";
+const RAGE: &str = "rage";
 const WOUND: &str = "wound";
 const FIREBALL: &str = "fireball";
 const BLOOD_RAGE: &str = "blood_rage";
@@ -24,7 +25,7 @@ const TREMOR: &str = "tremor";
 fn setup(offer: &[&str], powered: bool) -> GameState {
     let mut state = create_solo_game(42, Hero::Arythea);
     state.round_phase = RoundPhase::PlayerTurns;
-    state.players[0].hand = [BOOK, WOUND, MARCH, FIREBALL]
+    state.players[0].hand = [BOOK, WOUND, MARCH, RAGE]
         .into_iter()
         .map(CardId::from)
         .collect();

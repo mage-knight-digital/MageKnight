@@ -17,7 +17,6 @@ use super::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ColoredHandCardScope {
     ActionCards,
-    ActionCardsAndSpells,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -194,8 +193,6 @@ pub(crate) fn eligible_colored_hand_cards(
             let card_id = &hand[index];
             let color = match scope {
                 ColoredHandCardScope::ActionCards => mk_data::cards::get_card_color(card_id.as_str()),
-                ColoredHandCardScope::ActionCardsAndSpells => mk_data::cards::get_card_color(card_id.as_str())
-                    .or_else(|| mk_data::cards::get_spell_color(card_id.as_str())),
             }?;
             Some((index, color))
         })
