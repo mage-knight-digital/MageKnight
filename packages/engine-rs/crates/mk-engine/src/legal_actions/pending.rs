@@ -268,17 +268,8 @@ pub(super) fn enumerate_pending(
         ActivePending::MaximalEffect(_) => {
             // Enumerate eligible hand cards (BasicAction or AdvancedAction)
             let player = &state.players[player_idx];
-            for (idx, card_id) in player.hand.iter().enumerate() {
-                if let Some(def) = mk_data::cards::get_card(card_id.as_str()) {
-                    if matches!(
-                        def.card_type,
-                        DeedCardType::BasicAction | DeedCardType::AdvancedAction
-                    ) {
-                        actions.push(LegalAction::ResolveMaximalEffect {
-                            hand_index: idx,
-                        });
-                    }
-                }
+            for idx in crate::effect_queue::eligible_action_hand_indices(&player.hand) {
+                actions.push(LegalAction::ResolveMaximalEffect { hand_index: idx });
             }
         }
         ActivePending::Meditation(ref med) => {

@@ -83,15 +83,15 @@ pub(crate) fn apply_resolve_tome_of_all_spells(
             };
 
             // Find matching-color spells in offer
-            let available_spells: Vec<mk_types::ids::CardId> = state
-                .offers
-                .spells
-                .iter()
-                .filter(|spell_id| {
-                    mk_data::cards::get_spell_color(spell_id.as_str()) == Some(card_color)
-                })
-                .cloned()
-                .collect();
+            let available_spells: Vec<mk_types::ids::CardId> =
+                super::utils::colored_card_offer_entries(
+                    &state.offers.spells,
+                    mk_data::cards::get_spell_color,
+                )
+                    .into_iter()
+                    .filter(|(_, _, color)| *color == card_color)
+                    .map(|(_, card_id, _)| card_id)
+                    .collect();
 
             if available_spells.is_empty() {
                 // No matching spells — resolve without offer phase
