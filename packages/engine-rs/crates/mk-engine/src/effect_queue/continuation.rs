@@ -13,7 +13,7 @@ use super::{DrainResult, EffectQueue, QueuedEffect};
 
 /// Where execution stopped after an effect and its continuation were drained.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum ContinuationOutcome {
+pub(crate) enum ContinuationOutcome {
     Complete,
     ChoiceInstalled,
     CustomPending,
@@ -24,7 +24,7 @@ pub(super) enum ContinuationOutcome {
 ///
 /// This does not emit action events or choose undo checkpoints; those remain
 /// the responsibility of the action pipeline and the existing effect queue.
-pub(super) fn run_effect(
+pub(crate) fn run_effect(
     state: &mut GameState,
     player_idx: usize,
     effect: QueuedEffect,

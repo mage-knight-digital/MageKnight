@@ -1833,3 +1833,34 @@ fn wolfhawk_motivation_tied_fame_counts_as_lowest() {
         "Tied fame should count as lowest (<=)");
 }
 
+
+#[test]
+fn circlet_borrowed_thunderstorm_preserves_both_choices() {
+    const CIRCLET: &str = "circlet_of_proficiency";
+    const THUNDERSTORM: &str = "braevalar_thunderstorm";
+    let mut state = crate::setup::create_solo_game(42, Hero::Krang);
+    state.round_phase = RoundPhase::PlayerTurns;
+    state.phase = GamePhase::Round;
+    state.offers.common_skills = vec![SkillId::from(THUNDERSTORM)];
+    state.players[0].hand = vec![CardId::from(CIRCLET)];
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
+        hand_index: 0, card_id: CardId::from(CIRCLET),
+    }, epoch).unwrap();
+    let selection_index = match &state.players[0].pending.active {
+        Some(ActivePending::CircletOfProficiency(p)) => p.available_skills.iter().position(|s| s.as_str() == THUNDERSTORM).unwrap(),
+        other => panic!("expected Circlet choice: {other:?}"),
+    };
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::ResolveCircletOfProficiency { selection_index }, epoch).unwrap();
+    for color in [ManaColor::Blue, ManaColor::White] {
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &undo);
+        let choice = LegalAction::ResolveChoice { choice_index: 1 };
+        assert!(actions.actions.contains(&choice), "missing choice: {:?}", actions.actions);
+        let epoch = state.action_epoch;
+        apply_legal_action(&mut state, &mut undo, 0, &choice, epoch).unwrap();
+        assert!(state.players[0].pure_mana.iter().any(|token| token.color == color));
+    }
+    assert!(state.players[0].pending.active.is_none());
+}

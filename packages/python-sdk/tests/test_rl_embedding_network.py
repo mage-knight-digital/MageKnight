@@ -647,3 +647,74 @@ class OptimizeEpisodeTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class LegacySourceCheckpointTest(unittest.TestCase):
+    def test_pre_refactor_checkpoint_preserves_source_rows_and_adam_state(self) -> None:
+        from mage_knight_sdk.sim.rl.vocabularies import SOURCE_VOCAB
+
+        old_names = (Path(__file__).parent / "fixtures/source_vocab_v1.txt").read_text().splitlines()
+        from mage_knight_sdk.sim.rl.vocabulary_versions import SOURCE_V1
+        self.assertEqual(old_names, list(SOURCE_V1))
+        policy = ReinforcePolicy(PolicyGradientConfig(embedding_dim=8, hidden_size=64, device="cpu", d_model=32))
+        param = policy._network.source_emb.weight
+        action_param = policy._network.action_type_emb.weight
+        param.grad = torch.arange(param.numel(), dtype=param.dtype).reshape_as(param) + 1
+        action_param.grad = torch.arange(action_param.numel(), dtype=action_param.dtype).reshape_as(action_param) + 1
+        policy._optimizer.step()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "legacy.pt"
+            policy.save_checkpoint(path)
+            payload = torch.load(path, map_location="cpu", weights_only=True)
+            payload.pop("vocabulary_version", None)
+            indices = [0] + [SOURCE_VOCAB.encode(name) for name in old_names]
+            weights = payload["model_state_dict"]["source_emb.weight"][indices].clone()
+            payload["model_state_dict"]["source_emb.weight"] = weights
+            from mage_knight_sdk.sim.rl.vocabularies import ACTION_TYPE_VOCAB
+            from mage_knight_sdk.sim.rl.vocabulary_versions import ACTION_TYPE_V1
+            action_indices = [0] + [ACTION_TYPE_VOCAB.encode(name) for name in ACTION_TYPE_V1]
+            # The removed action has no current row; give it a distinct legacy value.
+            action_weights = payload["model_state_dict"]["action_type_emb.weight"][action_indices].clone()
+            payload["model_state_dict"]["action_type_emb.weight"] = action_weights
+            optimizer = payload["optimizer_state_dict"]
+            action_id = next(i for i, p in enumerate(policy._network.parameters()) if p is action_param)
+            for key in ("exp_avg", "exp_avg_sq"):
+                optimizer["state"][action_id][key] = optimizer["state"][action_id][key][action_indices].clone()
+            old_action_avg = optimizer["state"][action_id]["exp_avg"].clone()
+            source_id = next(i for i, p in enumerate(policy._network.parameters()) if p is param)
+            moments = optimizer["state"][source_id]
+            for key in ("exp_avg", "exp_avg_sq"):
+                moments[key] = moments[key][indices].clone()
+            old_avg = moments["exp_avg"].clone()
+            torch.save(payload, path)
+            loaded, _ = ReinforcePolicy.load_checkpoint(path, device_override="cpu")
+            for old_id, name in enumerate(old_names, 1):
+                new_id = SOURCE_VOCAB.encode(name)
+                self.assertTrue(torch.equal(loaded._network.source_emb.weight[new_id], weights[old_id]), name)
+                self.assertTrue(torch.equal(loaded._optimizer.state[loaded._network.source_emb.weight]["exp_avg"][new_id], old_avg[old_id]), name)
+            for old_id, name in enumerate(ACTION_TYPE_V1, 1):
+                new_id = ACTION_TYPE_VOCAB.encode(name)
+                if new_id:
+                    self.assertTrue(torch.equal(loaded._network.action_type_emb.weight[new_id], action_weights[old_id]), name)
+                    self.assertTrue(torch.equal(loaded._optimizer.state[loaded._network.action_type_emb.weight]["exp_avg"][new_id], old_action_avg[old_id]), name)
+            loaded._network.source_emb.weight.grad = torch.ones_like(loaded._network.source_emb.weight)
+            loaded._optimizer.step()
+
+    def test_unversioned_current_checkpoint_keeps_rows(self) -> None:
+        policy = ReinforcePolicy(PolicyGradientConfig(embedding_dim=8, hidden_size=64, device="cpu", d_model=32))
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "current.pt"
+            policy.save_checkpoint(path)
+            payload = torch.load(path, map_location="cpu", weights_only=True)
+            del payload["vocabulary_version"]
+            torch.save(payload, path)
+            loaded, _ = ReinforcePolicy.load_checkpoint(path, device_override="cpu")
+            self.assertTrue(torch.equal(loaded._network.source_emb.weight, policy._network.source_emb.weight))
+            self.assertTrue(torch.equal(loaded._network.action_type_emb.weight, policy._network.action_type_emb.weight))
+
+class SourceVocabularyReferenceTest(unittest.TestCase):
+    def test_source_ids_match_reference_v2(self) -> None:
+        from mage_knight_sdk.sim.rl.vocabularies import SOURCE_VOCAB
+        names = (Path(__file__).parent / "fixtures/source_vocab_v2.txt").read_text().splitlines()
+        self.assertEqual(SOURCE_VOCAB.size, len(names) + 1)
+        for index, name in enumerate(names, 1):
+            self.assertEqual(SOURCE_VOCAB.encode(name), index, name)

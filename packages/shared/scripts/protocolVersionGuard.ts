@@ -16,6 +16,7 @@ export function hasProtocolContractChanges(changedFiles: readonly string[]): boo
   return changedFiles.some(
     (file) =>
       file === CONTRACT_SOURCE_FILE ||
+      file === "packages/shared/src/actions.ts" ||
       file.startsWith(CONTRACT_SCHEMA_DIR)
   );
 }

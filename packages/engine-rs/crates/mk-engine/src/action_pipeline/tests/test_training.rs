@@ -643,3 +643,22 @@ fn maximal_pending_cleared_after_resolve() {
     assert!(state.players[0].pending.active.is_none());
 }
 
+
+#[test]
+fn maximal_steady_tempo_does_not_offer_removed_card_placement() {
+    const MAXIMAL: &str = "maximal_effect";
+    const TEMPO: &str = "steady_tempo";
+    let mut state = setup_playing_game(vec![MAXIMAL, TEMPO]);
+    let mut undo = UndoStack::new();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::PlayCardBasic {
+        hand_index: 0, card_id: CardId::from(MAXIMAL),
+    }, epoch).unwrap();
+    let epoch = state.action_epoch;
+    apply_legal_action(&mut state, &mut undo, 0, &LegalAction::ResolveMaximalEffect {
+        hand_index: 0,
+    }, epoch).unwrap();
+    assert!(state.players[0].removed_cards.contains(&CardId::from(TEMPO)));
+    crate::end_turn::end_turn(&mut state, 0).unwrap();
+    assert!(!matches!(state.players[0].pending.active, Some(ActivePending::CardEndTurnEffect(_))));
+}

@@ -33,7 +33,7 @@ mod choice_resolution;
 mod call_to_arms;
 mod card_queries;
 mod conditions;
-mod continuation;
+pub(crate) mod continuation;
 mod multi_step;
 mod magic_talent;
 mod mana_storm;

@@ -20,6 +20,13 @@ describe("evaluateProtocolVersionPolicy", () => {
     );
   });
 
+  it("requires a version bump for action contract changes", () => {
+    expect(evaluateProtocolVersionPolicy({
+      changedFiles: ["packages/shared/src/actions.ts"],
+      baseVersion: "1.2.7", headVersion: "1.2.7",
+    }).shouldFail).toBe(true);
+  });
+
   it("passes when contract changed and protocol version changed", () => {
     const result = evaluateProtocolVersionPolicy({
       changedFiles: [`${CONTRACT_SCHEMA_DIR}v1/server-to-client.schema.json`],

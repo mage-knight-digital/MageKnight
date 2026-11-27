@@ -12,7 +12,7 @@ import {
   parseClientMessage,
   parseServerMessage,
 } from "../src/networkProtocol.js";
-import { END_TURN_ACTION } from "../src/actions.js";
+import { END_TURN_ACTION, RESOLVE_CARD_END_TURN_EFFECT_ACTION } from "../src/actions.js";
 
 const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -96,3 +96,14 @@ describe("network protocol schemas", () => {
   });
 });
 
+
+describe("card end-turn protocol compatibility", () => {
+  it("uses a new version and rejects the previous wire contract", () => {
+    expect(NETWORK_PROTOCOL_VERSION).toBe("1.2.8");
+    const action = { type: RESOLVE_CARD_END_TURN_EFFECT_ACTION, decision: { type: "accept" } };
+    expect(parseClientMessage({ protocolVersion: NETWORK_PROTOCOL_VERSION, type: CLIENT_MESSAGE_ACTION, action }).ok).toBe(true);
+    const old = parseClientMessage({ protocolVersion: "1.2.7", type: CLIENT_MESSAGE_ACTION, action });
+    expect(old.ok).toBe(false);
+    if (!old.ok) expect(old.error.code).toBe(PROTOCOL_PARSE_ERROR_UNSUPPORTED_VERSION);
+  });
+});

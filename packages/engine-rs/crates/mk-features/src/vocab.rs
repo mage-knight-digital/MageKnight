@@ -799,6 +799,15 @@ mod tests {
     }
 
     #[test]
+    fn source_ids_match_reference_v2() {
+        let reference = include_str!("../../../../python-sdk/tests/fixtures/source_vocab_v2.txt");
+        assert_eq!(SOURCE_VOCAB.size(), reference.lines().count() + 1);
+        for (index, name) in reference.lines().enumerate() {
+            assert_eq!(SOURCE_VOCAB.encode(name) as usize, index + 1, "{name}");
+        }
+    }
+
+    #[test]
     fn source_vocab_size() {
         // Count the ordered entries
         assert_eq!(SOURCE_VOCAB.size(), 157); // 156 entries + UNK

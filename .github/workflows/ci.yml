@@ -23,6 +23,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+        with:
+          fetch-depth: 0
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -41,6 +44,12 @@ jobs:
 
       - name: bun install (workspace)
         run: bun install
+
+      - name: Check network protocol version against PR base
+        if: github.event_name == 'pull_request'
+        env:
+          PROTOCOL_BASE_REF: ${{ github.event.pull_request.base.sha }}
+        run: bun run --filter @mage-knight/shared check:network-version
 
       - name: bun run build (all packages)
         run: bun run build
