@@ -4,37 +4,30 @@ const TEST_FIREBALL_CARD_ID: &str = "fireball";
 const TEST_MARCH_CARD_ID: &str = "march";
 
 #[test]
-fn book_of_wisdom_selects_and_removes_colored_spells() {
-    let mut state = setup_playing_game(vec![TEST_FIREBALL_CARD_ID]);
-    state.players[0].pending.active = Some(ActivePending::BookOfWisdom(
-        mk_types::pending::PendingBookOfWisdom {
-            source_card_id: CardId::from(crate::effect_queue::BOOK_OF_WISDOM_CARD_ID),
-            mode: EffectMode::Basic,
-            phase: BookOfWisdomPhase::SelectCard,
-            thrown_card_color: None,
-            available_offer_cards: Default::default(),
-        },
-    ));
-    let mut undo = UndoStack::new();
-
-    let actions = enumerate_legal_actions_with_undo(&state, 0, &undo);
-    assert!(actions.actions.iter().any(|action| matches!(
-        action,
-        LegalAction::ResolveBookOfWisdom { selection_index: 0 }
-    )));
-
-    let epoch = state.action_epoch;
-    apply_legal_action(
-        &mut state,
-        &mut undo,
-        0,
-        &LegalAction::ResolveBookOfWisdom { selection_index: 0 },
-        epoch,
-    )
-    .unwrap();
-
-    assert_eq!(state.players[0].removed_cards, vec![CardId::from(TEST_FIREBALL_CARD_ID)]);
-    assert!(!state.players[0].hand.iter().any(|card| card.as_str() == TEST_FIREBALL_CARD_ID));
+fn book_of_wisdom_excludes_spells_from_both_modes() {
+    for mode in [EffectMode::Basic, EffectMode::Powered] {
+        let mut state = setup_playing_game(vec![TEST_FIREBALL_CARD_ID, TEST_MARCH_CARD_ID]);
+        state.players[0].pending.active = Some(ActivePending::BookOfWisdom(
+            mk_types::pending::PendingBookOfWisdom {
+                source_card_id: CardId::from(crate::effect_queue::BOOK_OF_WISDOM_CARD_ID),
+                mode,
+                phase: BookOfWisdomPhase::SelectCard,
+                thrown_card_color: None,
+                available_offer_cards: Default::default(),
+            },
+        ));
+        let actions = enumerate_legal_actions_with_undo(&state, 0, &UndoStack::new());
+        assert!(!actions.actions.contains(&LegalAction::ResolveBookOfWisdom { selection_index: 0 }));
+        assert!(actions.actions.contains(&LegalAction::ResolveBookOfWisdom { selection_index: 1 }));
+        let before = serde_json::to_value(&state).unwrap();
+        let epoch = state.action_epoch;
+        let result = apply_legal_action(
+            &mut state, &mut UndoStack::new(), 0,
+            &LegalAction::ResolveBookOfWisdom { selection_index: 0 }, epoch,
+        );
+        assert!(result.is_err());
+        assert_eq!(serde_json::to_value(&state).unwrap(), before);
+    }
 }
 
 #[test]

@@ -6383,19 +6383,14 @@ const TEST_ENEMY_INSTANCE_1: &str = "enemy_1";
 
     #[test]
     fn book_of_wisdom_no_eligible_cards_skipped() {
-        let mut state = test_state();
-        // Only wounds in hand
-        state.players[0].hand.clear();
-        state.players[0].hand.push(CardId::from("wound"));
-        let mut queue = EffectQueue::new();
-        queue.push(
-            CardEffect::BookOfWisdom {
-                mode: mk_types::pending::EffectMode::Basic,
-            },
-            None,
-        );
-        let result = queue.drain(&mut state, 0);
-        assert!(matches!(result, DrainResult::Complete));
+        for mode in [mk_types::pending::EffectMode::Basic, mk_types::pending::EffectMode::Powered] {
+            let mut state = test_state();
+            state.players[0].hand = vec![CardId::from(WOUND_CARD_ID), CardId::from(TEST_FIREBALL_CARD_ID)];
+            let mut queue = EffectQueue::new();
+            queue.push(CardEffect::BookOfWisdom { mode }, None);
+            assert!(matches!(queue.drain(&mut state, 0), DrainResult::Complete));
+            assert!(!state.players[0].pending.has_active());
+        }
     }
 
     #[test]
@@ -6412,24 +6407,8 @@ const TEST_ENEMY_INSTANCE_1: &str = "enemy_1";
             BOOK_OF_WISDOM_CARD_ID,
             ColoredHandCardScope::ActionCards,
         );
-        let action_cards_and_spells = eligible_colored_hand_cards(
-            &hand,
-            BOOK_OF_WISDOM_CARD_ID,
-            ColoredHandCardScope::ActionCardsAndSpells,
-        );
-
         assert_eq!(action_cards.len(), 1);
         assert_eq!(hand[action_cards[0].0].as_str(), TEST_MARCH_CARD_ID);
-        assert_eq!(action_cards_and_spells.len(), 2);
-        assert!(action_cards_and_spells
-            .iter()
-            .any(|(index, _)| hand[*index].as_str() == TEST_FIREBALL_CARD_ID));
-        assert!(!action_cards_and_spells
-            .iter()
-            .any(|(index, _)| hand[*index].as_str() == BOOK_OF_WISDOM_CARD_ID));
-        assert!(!action_cards_and_spells
-            .iter()
-            .any(|(index, _)| hand[*index].as_str() == WOUND_CARD_ID));
     }
 
     #[test]
@@ -6470,7 +6449,7 @@ const TEST_ENEMY_INSTANCE_1: &str = "enemy_1";
     #[test]
     fn colored_hand_card_selection_uses_requested_destination() {
         let mut player = test_player();
-        player.hand = vec![CardId::from(TEST_MARCH_CARD_ID), CardId::from(TEST_FIREBALL_CARD_ID)];
+        player.hand = vec![CardId::from(TEST_MARCH_CARD_ID), CardId::from(TEST_MARCH_CARD_ID)];
 
         let (_, march_color) = select_colored_hand_card(
             &mut player,
@@ -6484,16 +6463,16 @@ const TEST_ENEMY_INSTANCE_1: &str = "enemy_1";
         assert_eq!(player.removed_cards, vec![CardId::from(TEST_MARCH_CARD_ID)]);
         assert!(player.discard.is_empty());
 
-        let (_, fireball_color) = select_colored_hand_card(
+        let (_, discard_color) = select_colored_hand_card(
             &mut player,
             0,
             TOME_OF_ALL_SPELLS_CARD_ID,
-            ColoredHandCardScope::ActionCardsAndSpells,
+            ColoredHandCardScope::ActionCards,
             HandCardDestination::Discard,
         )
-        .expect("fireball is an eligible colored spell");
-        assert_eq!(Some(fireball_color), mk_data::cards::get_spell_color(TEST_FIREBALL_CARD_ID));
-        assert_eq!(player.discard, vec![CardId::from(TEST_FIREBALL_CARD_ID)]);
+        .expect("march is an eligible action card");
+        assert_eq!(Some(discard_color), mk_data::cards::get_card_color(TEST_MARCH_CARD_ID));
+        assert_eq!(player.discard, vec![CardId::from(TEST_MARCH_CARD_ID)]);
         assert_eq!(player.hand.len(), 0);
     }
 
