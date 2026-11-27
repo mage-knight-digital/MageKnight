@@ -108,8 +108,13 @@ pub fn end_turn(state: &mut GameState, player_idx: usize) -> Result<EndTurnResul
 
     // Step 2: Scheduled card lifecycle effects
     if step < 2 {
-        if !state.players[player_idx].scheduled_card_effects.is_empty() {
+        while !state.players[player_idx].scheduled_card_effects.is_empty() {
             let scheduled = state.players[player_idx].scheduled_card_effects.remove(0);
+            if matches!(scheduled.effect, mk_types::effect::CardEndTurnEffect::OfferDeckPlacement { .. })
+                && !state.players[player_idx].play_area.contains(&scheduled.source_card_id)
+            {
+                continue;
+            }
             state.players[player_idx].pending.active = Some(ActivePending::CardEndTurnEffect(
                 mk_types::pending::PendingCardEndTurnEffect {
                     source_card_id: scheduled.source_card_id,

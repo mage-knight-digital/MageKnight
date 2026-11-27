@@ -118,9 +118,11 @@ pub(super) fn apply_resolve_circlet_of_proficiency(
             // One-shot use: resolve the skill's effect through the queue
             if let Some(def) = mk_data::skills::get_skill(skill_id.as_str()) {
                 if let Some(effect) = def.effect {
-                    let mut queue = effect_queue::EffectQueue::new();
-                    queue.push(effect, None);
-                    queue.drain_with_undo(state, player_idx, Some(undo_stack));
+                    effect_queue::continuation::run_effect(
+                        state, player_idx,
+                        effect_queue::QueuedEffect { effect, source_card_id: None },
+                        Vec::new(), None, Some(undo_stack),
+                    );
                 }
             }
         }

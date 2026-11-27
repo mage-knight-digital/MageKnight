@@ -9,7 +9,7 @@
           "$ref": "player-action.schema.json"
         },
         "protocolVersion": {
-          "const": "1.2.7"
+          "const": "1.2.8"
         },
         "type": {
           "const": "action"
@@ -34,7 +34,7 @@
           "type": "string"
         },
         "protocolVersion": {
-          "const": "1.2.7"
+          "const": "1.2.8"
         },
         "sessionToken": {
           "minLength": 1,

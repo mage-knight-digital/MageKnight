@@ -20,6 +20,7 @@ import {
   ENTER_COMBAT_ACTION,
   END_TURN_ACTION,
   EXPLORE_ACTION,
+  RESOLVE_CARD_END_TURN_EFFECT_ACTION,
 } from "../src/actions.js";
 import {
   NETWORK_PROTOCOL_VERSION,
@@ -375,5 +376,21 @@ describe("deep schema contract", () => {
       expect(files).toContain("game-event.schema.json");
       expect(files).toContain("client-game-state.schema.json");
     });
+  });
+});
+
+
+describe("card end-turn action payload", () => {
+  it("validates each decision and rejects malformed decisions", () => {
+    const validate = createAjv().getSchema("player-action.schema.json")!;
+    for (const decision of [
+      { type: "accept" }, { type: "skip" },
+      { type: "select_discard", discardIndex: 0 },
+      { type: "select_discard", discardIndex: null },
+    ]) {
+      expect(validate({ type: RESOLVE_CARD_END_TURN_EFFECT_ACTION, decision })).toBe(true);
+    }
+    expect(validate({ type: RESOLVE_CARD_END_TURN_EFFECT_ACTION, decision: { type: "select_discard" } })).toBe(false);
+    expect(validate({ type: RESOLVE_CARD_END_TURN_EFFECT_ACTION, decision: { type: "bogus" } })).toBe(false);
   });
 });

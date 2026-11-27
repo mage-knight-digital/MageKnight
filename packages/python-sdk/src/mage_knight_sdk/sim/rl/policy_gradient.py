@@ -19,6 +19,7 @@ from .features import (
     EncodedStep,
     StateFeatures,
 )
+from .vocabulary_versions import ACTION_TYPE_V1, SOURCE_V1
 from .vocabularies import (
     ACTION_TYPE_VOCAB,
     CARD_VOCAB,
@@ -29,7 +30,23 @@ from .vocabularies import (
     SOURCE_VOCAB,
     TERRAIN_VOCAB,
     UNIT_VOCAB,
+    Vocabulary,
 )
+
+
+CHECKPOINT_VOCABULARY_VERSION = 2
+
+
+def _migrate_embedding_rows(old: torch.Tensor, new: torch.Tensor, old_names: tuple[str, ...], vocab: Vocabulary) -> torch.Tensor:
+    """Keep the unknown row and copy known rows by name into initialized rows."""
+    if old.shape != (len(old_names) + 1, *new.shape[1:]):
+        raise ValueError(f"Invalid legacy embedding shape: {old.shape}")
+    new[0] = old[0]
+    for old_id, name in enumerate(old_names, 1):
+        new_id = vocab.encode(name)
+        if new_id:
+            new[new_id] = old[old_id]
+    return new
 
 
 @dataclass(frozen=True)
@@ -1653,6 +1670,7 @@ class ReinforcePolicy:
         target = Path(path)
         target.parent.mkdir(parents=True, exist_ok=True)
         payload: dict[str, Any] = {
+            "vocabulary_version": CHECKPOINT_VOCABULARY_VERSION,
             "config": asdict(self.config),
             "model_state_dict": self._network.state_dict(),
             "optimizer_state_dict": self._optimizer.state_dict(),
@@ -1678,10 +1696,39 @@ class ReinforcePolicy:
         config = PolicyGradientConfig(**{k: v for k, v in config_dict.items() if k in PolicyGradientConfig.__dataclass_fields__})
         device = device_override if device_override is not None else config.device
         policy = cls(config=PolicyGradientConfig(**{**asdict(config), "device": device}))
+        # Unversioned checkpoints exist in both formats. The source row count
+        # distinguishes them; action vocabularies have the same size in both.
+        model = payload["model_state_dict"]
+        rows = model["source_emb.weight"].shape[0]
+        version = payload.get("vocabulary_version")
+        if version is None:
+            version = 1 if rows == len(SOURCE_V1) + 1 else 2 if rows == SOURCE_VOCAB.size else None
+        if version not in (1, 2):
+            raise ValueError(f"Unsupported checkpoint vocabulary version or source row count: {version}, {rows}")
+        migrations = (
+            ("source_emb.weight", SOURCE_V1, SOURCE_VOCAB),
+            ("action_type_emb.weight", ACTION_TYPE_V1, ACTION_TYPE_VOCAB),
+        )
+        if version == 1:
+            for name, old_names, vocab in migrations:
+                model[name] = _migrate_embedding_rows(
+                    model[name], policy._network.state_dict()[name].clone(), old_names, vocab,
+                )
         # strict=False allows loading pre-Actor-Critic checkpoints that lack value_head weights
-        policy._network.load_state_dict(payload["model_state_dict"], strict=False)
+        policy._network.load_state_dict(model, strict=False)
         if "optimizer_state_dict" in payload:
             policy._optimizer.load_state_dict(payload["optimizer_state_dict"])
+            if version == 1:
+                params = dict(policy._network.named_parameters())
+                for name, old_names, vocab in migrations:
+                    param = params[name]
+                    state = policy._optimizer.state.get(param, {})
+                    for key in ("exp_avg", "exp_avg_sq", "max_exp_avg_sq"):
+                        if key not in state:
+                            continue
+                        state[key] = _migrate_embedding_rows(
+                            state[key], torch.zeros_like(param), old_names, vocab,
+                        )
         if "value_normalizer" in payload:
             policy._value_normalizer.load_state_dict(payload["value_normalizer"])
         metadata = payload.get("metadata")
