@@ -1,5 +1,5 @@
 //! Tome of All Spells' artifact effect and saved selection workflow.
-//! Legacy pending states, option order, and queue outcomes remain unchanged.
+//! Selected spells use the shared queue runtime so their choices can pause and resume.
 
 use super::{eligible_colored_hand_cards, ColoredHandCardScope, ResolveResult};
 use crate::action_pipeline::{ApplyError, ApplyResult};
@@ -121,6 +121,7 @@ pub(crate) fn apply_resolve_tome_of_all_spells(
         TomeOfAllSpellsPhase::SelectSpell => {
             // Player selected a spell from the available list
             if selection_index >= pending.available_spells.len() {
+                state.players[player_idx].pending.active = Some(ActivePending::TomeOfAllSpells(pending));
                 return Err(ApplyError::InternalError(
                     "ResolveTomeOfAllSpells: spell selection_index out of range".to_string(),
                 ));
@@ -136,9 +137,14 @@ pub(crate) fn apply_resolve_tome_of_all_spells(
                 };
                 // Resolve the spell's effect through the effect queue
                 // The spell stays in the offer (not consumed)
-                let mut queue = super::EffectQueue::new();
-                queue.push(effect, Some(spell_id.clone()));
-                queue.drain_with_undo(state, player_idx, Some(undo_stack));
+                super::continuation::run_effect(
+                    state,
+                    player_idx,
+                    super::QueuedEffect { effect, source_card_id: Some(spell_id.clone()) },
+                    Vec::new(),
+                    Some(spell_id.clone()),
+                    Some(undo_stack),
+                );
             }
 
             Ok(ApplyResult {
