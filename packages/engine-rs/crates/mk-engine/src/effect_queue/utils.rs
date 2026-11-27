@@ -4,7 +4,7 @@ use mk_types::effect::*;
 use mk_types::enums::*;
 use mk_types::ids::{CardId, SourceDieId, UnitId};
 use mk_types::pending::{
-    ActivePending, ChoiceResolution, ContinuationEntry, PendingChoice,
+    ChoiceResolution, ContinuationEntry,
 };
 use mk_types::state::*;
 
@@ -16,7 +16,7 @@ pub(crate) use super::card_queries::{
 };
 
 use super::{
-    DrainResult, EffectQueue, QueuedEffect, ResolveResult, MAX_CRYSTALS_PER_COLOR, WOUND_CARD_ID,
+    ResolveResult, MAX_CRYSTALS_PER_COLOR, WOUND_CARD_ID,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -319,42 +319,7 @@ pub(super) fn resume_continuation(
     if continuation.is_empty() {
         return;
     }
-    let mut queue = EffectQueue::new();
-    queue.push_continuation(
-        continuation
-            .into_iter()
-            .map(|c| QueuedEffect {
-                effect: c.effect,
-                source_card_id: c.source_card_id,
-            })
-            .collect(),
-    );
-    match queue.drain_with_undo(state, player_idx, undo) {
-        DrainResult::Complete => {}
-        DrainResult::NeedsChoice {
-            options,
-            continuation,
-            resolution: new_res,
-        } => {
-            state.players[player_idx].pending.active =
-                Some(ActivePending::Choice(PendingChoice {
-                    card_id: source_card_id,
-                    skill_id: None,
-                    unit_instance_id: None,
-                    options,
-                    continuation: continuation
-                        .into_iter()
-                        .map(|q| ContinuationEntry {
-                            effect: q.effect,
-                            source_card_id: q.source_card_id,
-                        })
-                        .collect(),
-                    movement_bonus_applied: false,
-                    resolution: new_res,
-                }));
-        }
-        DrainResult::PendingSet => {}
-    }
+    super::continuation::run_continuation(state, player_idx, continuation, source_card_id, undo);
 }
 
 /// Create a scaled copy of an effect with bonus added to its amount.
