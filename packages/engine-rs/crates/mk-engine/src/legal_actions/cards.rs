@@ -4,8 +4,10 @@ use mk_types::enums::*;
 use mk_types::ids::CardId;
 use mk_types::legal_action::LegalAction;
 use mk_types::modifier::{ModifierEffect, RuleOverride};
+use mk_types::pending::EffectMode;
 use mk_types::state::{GameState, PlayerFlags};
 
+use crate::card_payment::can_pay;
 use crate::card_play::{get_effective_sideways_value, is_rule_active};
 use crate::combat_resolution;
 use crate::effect_queue::is_resolvable;
@@ -73,7 +75,7 @@ pub(super) fn enumerate_normal_cards(
                     || (player.flags.contains(PlayerFlags::HAS_TAKEN_ACTION_THIS_TURN)
                         && is_move_only(&card_def.basic_effect))
                     || is_combat_only(card_def.basic_categories);
-                if !dominated {
+                if !dominated && can_pay(state, player_idx, &card_def, EffectMode::Basic, None) {
                     basic_actions.push(LegalAction::PlayCardBasic {
                         hand_index,
                         card_id: card_id.clone(),
@@ -103,7 +105,7 @@ pub(super) fn enumerate_normal_cards(
                         &card_def.powered_effect,
                         None,
                     )
-                    && can_afford_powered(state, player_idx, color)
+                    && can_pay(state, player_idx, &card_def, EffectMode::Powered, Some(color))
                 {
                     powered_actions.push(LegalAction::PlayCardPowered {
                         hand_index,
@@ -123,7 +125,7 @@ pub(super) fn enumerate_normal_cards(
                     )
                 {
                     for &color in &ALL_BASIC_MANA_COLORS {
-                        if can_afford_powered(state, player_idx, color) {
+                        if can_pay(state, player_idx, &card_def, EffectMode::Powered, Some(color)) {
                             powered_actions.push(LegalAction::PlayCardPowered {
                                 hand_index,
                                 card_id: card_id.clone(),
@@ -143,6 +145,7 @@ pub(super) fn enumerate_normal_cards(
                         &card_def.powered_effect,
                         None,
                     )
+                    && can_pay(state, player_idx, &card_def, EffectMode::Powered, None)
                 {
                     powered_actions.push(LegalAction::PlayCardPowered {
                         hand_index,
@@ -250,6 +253,7 @@ pub(super) fn enumerate_combat_cards(
 
             // Category 2: PlayCardBasic.
             if !basic_dominated
+                && can_pay(state, player_idx, &card_def, EffectMode::Basic, None)
                 && is_effect_playable_for_enumeration(
                     state,
                     player_idx,
@@ -279,7 +283,7 @@ pub(super) fn enumerate_combat_cards(
                                 &card_def.powered_effect,
                                 Some(combat_phase),
                             )
-                            && can_afford_powered(state, player_idx, color)
+                            && can_pay(state, player_idx, &card_def, EffectMode::Powered, Some(color))
                         {
                             powered_actions.push(LegalAction::PlayCardPowered {
                                 hand_index,
@@ -299,7 +303,7 @@ pub(super) fn enumerate_combat_cards(
                             )
                         {
                             for &color in &ALL_BASIC_MANA_COLORS {
-                                if can_afford_powered(state, player_idx, color) {
+                                if can_pay(state, player_idx, &card_def, EffectMode::Powered, Some(color)) {
                                     powered_actions.push(LegalAction::PlayCardPowered {
                                         hand_index,
                                         card_id: card_id.clone(),
@@ -318,6 +322,7 @@ pub(super) fn enumerate_combat_cards(
                                 &card_def.powered_effect,
                                 Some(combat_phase),
                             )
+                            && can_pay(state, player_idx, &card_def, EffectMode::Powered, None)
                         {
                             powered_actions.push(LegalAction::PlayCardPowered {
                                 hand_index,
@@ -1110,63 +1115,4 @@ fn has_attack_useful_leaf(effect: &CardEffect) -> bool {
         // Conservative catch-all — don't prune unknown effects
         _ => true,
     }
-}
-
-/// Check if player can afford to power a card requiring the given color.
-///
-/// Mirrors `collect_mana_sources` logic but doesn't mutate state.
-pub(crate) fn can_afford_powered(
-    state: &GameState,
-    player_idx: usize,
-    color: BasicManaColor,
-) -> bool {
-    let player = &state.players[player_idx];
-    let target = ManaColor::from(color);
-
-    // 1. Matching-color mana token.
-    if player.pure_mana.iter().any(|t| t.color == target) {
-        return true;
-    }
-
-    // 2. Gold mana token (wild).
-    if player.pure_mana.iter().any(|t| t.color == ManaColor::Gold) {
-        return true;
-    }
-
-    // 3. Matching-color crystal.
-    let crystal_count = match color {
-        BasicManaColor::Red => player.crystals.red,
-        BasicManaColor::Blue => player.crystals.blue,
-        BasicManaColor::Green => player.crystals.green,
-        BasicManaColor::White => player.crystals.white,
-    };
-    if crystal_count > 0 {
-        return true;
-    }
-
-    // 4. Available mana source die (1 per turn limit).
-    if !player
-        .flags
-        .contains(PlayerFlags::USED_MANA_FROM_SOURCE)
-    {
-        let player_id = &player.id;
-        let stolen_die_id = player
-            .tactic_state
-            .stored_mana_die
-            .as_ref()
-            .map(|s| &s.die_id);
-
-        let has_matching_die = state.source.dice.iter().any(|die| {
-            crate::card_play::is_die_available_with_overrides(die, state, player_idx)
-                && (die.taken_by_player_id.is_none()
-                    || (die.taken_by_player_id.as_ref() == Some(player_id)
-                        && stolen_die_id == Some(&die.id)))
-                && (die.color == target || die.color == ManaColor::Gold)
-        });
-        if has_matching_die {
-            return true;
-        }
-    }
-
-    false
 }

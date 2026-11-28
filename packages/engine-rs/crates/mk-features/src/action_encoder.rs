@@ -983,9 +983,9 @@ fn enrich_choice_scalars(scalars: &mut [f32], effect: &CardEffect, resolution: &
                     };
                     set_mana_color_one_hot(scalars, 12, color);
                 }
-            } else if let ChoiceResolution::ManaSourceSelect { sources, .. } = resolution {
-                if let Some(src) = sources.get(choice_index) {
-                    set_mana_color_one_hot(scalars, 12, src.color);
+            } else if let ChoiceResolution::ManaSourceSelect { payments, .. } = resolution {
+                if let Some(payment) = payments.get(choice_index) {
+                    set_mana_color_one_hot(scalars, 12, payment.colored_source().color());
                 }
             } else if let ChoiceResolution::PolarizationConvert { options } = resolution {
                 if let Some(opt) = options.get(choice_index) {

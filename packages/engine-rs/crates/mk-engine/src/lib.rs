@@ -3,6 +3,7 @@
 //! All mutable game logic lives here. No Python dependency.
 
 pub mod action_pipeline;
+mod card_payment;
 pub mod card_play;
 pub mod client_state;
 pub mod combat;

@@ -161,8 +161,6 @@ pub fn apply_legal_action(
         }
 
         LegalAction::PlayCardBasic { hand_index, card_id } => {
-            // Reversible: save snapshot
-            undo_stack.save(state);
             let effect_desc = mk_data::cards::get_card(card_id.as_str())
                 .and_then(|def| def.basic_effect.describe());
             events.push(GameEvent::CardPlayed {
@@ -180,8 +178,6 @@ pub fn apply_legal_action(
             card_id,
             mana_color,
         } => {
-            // Reversible: save snapshot
-            undo_stack.save(state);
             let effect_desc = mk_data::cards::get_card(card_id.as_str())
                 .and_then(|def| def.powered_effect.describe());
             events.push(GameEvent::CardPlayed {
@@ -1522,8 +1518,8 @@ fn describe_choice_resolution(
                 mk_types::pending::RegenerateManaSource::SourceDie(c) => format!("Take {:?} die", c),
             })
         }
-        ChoiceResolution::ManaSourceSelect { sources, .. } => {
-            sources.get(choice_index).map(|src| format!("Spend {:?} {:?}", src.color, src.source_type))
+        ChoiceResolution::ManaSourceSelect { payments, .. } => {
+            payments.get(choice_index).map(mk_types::pending::CardManaPayment::describe)
         }
         ChoiceResolution::PolarizationConvert { options } => {
             options.get(choice_index).map(|opt| {

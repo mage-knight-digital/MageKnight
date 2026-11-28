@@ -2,17 +2,20 @@
 //!
 //! Matches TS `playCardCommand.ts` and `playCardSidewaysCommand.ts`.
 
-use mk_data::cards::{get_card, PoweredBy};
+use mk_data::cards::get_card;
 use mk_types::action::ManaSourceInfo;
 use mk_types::enums::*;
 use mk_types::modifier::{
     ActiveModifier, ModifierEffect, ModifierScope, ModifierSource, RuleOverride,
     SidewaysCondition,
 };
-use mk_types::pending::{ActivePending, ChoiceResolution, ContinuationEntry, PendingChoice};
+use mk_types::effect::CardEffect;
+use mk_types::ids::CardId;
+use mk_types::pending::{ActivePending, CardManaPayment, ChoiceResolution, EffectMode, PendingChoice};
 use mk_types::state::*;
 
-use crate::effect_queue::{DrainResult, EffectQueue};
+use crate::card_payment::{self, CardManaCost};
+use crate::effect_queue::{continuation, QueuedEffect};
 use crate::undo::UndoStack;
 
 // =============================================================================
@@ -67,7 +70,7 @@ pub(crate) fn play_card_with_undo(
     hand_index: usize,
     powered: bool,
     override_mana_color: Option<BasicManaColor>,
-    undo: Option<&mut UndoStack>,
+    mut undo: Option<&mut UndoStack>,
 ) -> Result<CardPlayResult, CardPlayError> {
     let player = &state.players[player_idx];
 
@@ -81,55 +84,38 @@ pub(crate) fn play_card_with_undo(
     // Look up card definition
     let card_def = get_card(card_id.as_str()).ok_or(CardPlayError::CardNotFound)?;
 
-    // Determine which effect to use and handle mana payment
-    let (effect, consumed_color, mana_choice) = if powered {
-        if card_def.powered_by == PoweredBy::Free {
-            // Free-powered artifacts: no mana payment required
-            (card_def.powered_effect.clone(), None, None)
-        } else {
-            // Validate the card can be powered
-            let required_color = override_mana_color
-                .or(match card_def.powered_by {
-                    PoweredBy::Single(c) => Some(c),
-                    _ => None,
-                })
-                .ok_or(CardPlayError::NotPowerable)?;
-
-            // Collect all available mana sources
-            let sources = collect_mana_sources(state, player_idx, required_color);
-            if sources.is_empty() {
+    let mode = if powered { EffectMode::Powered } else { EffectMode::Basic };
+    let cost = card_payment::cost(&card_def, mode, override_mana_color)
+        .ok_or(CardPlayError::NotPowerable)?;
+    let payments = match cost {
+        CardManaCost::Free => Vec::new(),
+        cost => {
+            let payments: Vec<_> =
+                card_payment::payments(state, player_idx, card_def.card_type, cost).collect();
+            if payments.is_empty() {
                 return Err(CardPlayError::ManaSourceRequired);
             }
-
-            if sources.len() == 1 {
-                // Single source — auto-consume immediately
-                let consumed = consume_specific_mana_source(state, player_idx, &sources[0]);
-                (card_def.powered_effect.clone(), Some(consumed), None)
-            } else {
-                // Multiple sources — defer to pending choice
-                (card_def.powered_effect.clone(), None, Some(sources))
-            }
+            payments
         }
+    };
+    let effect = if powered {
+        card_def.powered_effect
     } else {
-        (card_def.basic_effect.clone(), None, None)
+        card_def.basic_effect
     };
 
-    // Move card from hand to play area
+    if let Some(stack) = undo.as_deref_mut() {
+        stack.save(state);
+    }
     let player = &mut state.players[player_idx];
     player.hand.remove(hand_index);
     player.play_area.push(card_id.clone());
-    player
-        .flags
-        .insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
+    player.flags.insert(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN);
     player.cards_played_this_turn = player.cards_played_this_turn.saturating_add(1);
 
-    // If multiple mana sources: set pending choice and return early
-    if let Some(sources) = mana_choice {
-        let options: Vec<mk_types::effect::CardEffect> = sources
-            .iter()
-            .map(|_| mk_types::effect::CardEffect::Noop)
-            .collect();
-        state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
+    if payments.len() > 1 {
+        let options = vec![CardEffect::Noop; payments.len()];
+        player.pending.active = Some(ActivePending::Choice(PendingChoice {
             card_id: Some(card_id),
             skill_id: None,
             unit_instance_id: None,
@@ -137,158 +123,69 @@ pub(crate) fn play_card_with_undo(
             continuation: vec![],
             movement_bonus_applied: false,
             resolution: ChoiceResolution::ManaSourceSelect {
-                sources,
-                powered_effect: effect,
+                payments,
+                effect,
+                basic: !powered,
             },
         }));
         return Ok(CardPlayResult::PendingChoice);
     }
 
-    // Resolve the effect via effect queue
-    let powered_effect_for_trigger = if powered { Some(card_def.powered_effect.clone()) } else { None };
-    let destroy_on_powered = card_def.destroy_on_powered;
-    let card_id_str: Box<str> = card_id.as_str().into();
-    let mut queue = EffectQueue::new();
-    queue.push(effect, Some(card_id.clone()));
-    let result = match queue.drain_with_undo(state, player_idx, undo) {
-        DrainResult::Complete => Ok(CardPlayResult::Complete),
-        DrainResult::NeedsChoice {
-            options,
-            continuation,
-            resolution,
-        } => {
-            // Store the choice in player pending state
-            state.players[player_idx].pending.active = Some(ActivePending::Choice(PendingChoice {
-                card_id: Some(card_id),
-                skill_id: None,
-                unit_instance_id: None,
-                options,
-                continuation: continuation
-                    .into_iter()
-                    .map(|q| ContinuationEntry {
-                        effect: q.effect,
-                        source_card_id: q.source_card_id,
-                    })
-                    .collect(),
-                movement_bonus_applied: false,
-                resolution,
-            }));
-            Ok(CardPlayResult::PendingChoice)
-        }
-        DrainResult::PendingSet => {
-            // A custom pending (e.g., DiscardForBonus) was set directly on the player.
-            Ok(CardPlayResult::PendingChoice)
-        }
-    };
+    Ok(resolve_paid_card(
+        state, player_idx, card_id, mode, effect, payments.first(), undo,
+    ))
+}
 
-    // Destroy artifact on powered play if flagged
-    if powered && destroy_on_powered {
+/// Finish a cast after a complete payment has been validated.
+pub(crate) fn resolve_paid_card(
+    state: &mut GameState,
+    player_idx: usize,
+    card_id: CardId,
+    mode: EffectMode,
+    effect: CardEffect,
+    payment: Option<&CardManaPayment>,
+    undo: Option<&mut UndoStack>,
+) -> CardPlayResult {
+    if let Some(payment) = payment {
+        card_payment::spend(state, player_idx, payment);
+    }
+
+    let trigger_effect = (payment.is_some() && mode == EffectMode::Powered).then(|| effect.clone());
+    let outcome = continuation::run_effect(
+        state,
+        player_idx,
+        QueuedEffect {
+            effect,
+            source_card_id: Some(card_id.clone()),
+        },
+        Vec::new(),
+        Some(card_id.clone()),
+        undo,
+    );
+
+    if mode == EffectMode::Powered
+        && get_card(card_id.as_str()).is_some_and(|card| card.destroy_on_powered)
+    {
         let player = &mut state.players[player_idx];
-        if let Some(pos) = player.play_area.iter().position(|c| c.as_str() == &*card_id_str) {
+        if let Some(pos) = player.play_area.iter().position(|played| *played == card_id) {
             let removed = player.play_area.remove(pos);
             player.removed_cards.push(removed);
         }
     }
 
-    // Mana trigger hooks after powered card play
-    if let Some(consumed) = consumed_color {
-        if let Some(ref powered_eff) = powered_effect_for_trigger {
-            check_mana_overload_trigger(state, player_idx, consumed, powered_eff);
+    if let Some(payment) = payment {
+        let colored = payment.colored_source().color();
+        if let Some(effect) = &trigger_effect {
+            check_mana_overload_trigger(state, player_idx, colored, effect);
         }
-        check_mana_enhancement_trigger(state, player_idx, consumed);
+        check_mana_enhancement_trigger(state, player_idx, colored);
     }
 
-    result
-}
-
-// =============================================================================
-// Mana source collection (for pending choice)
-// =============================================================================
-
-/// Collect all available mana sources that can pay for the given color.
-///
-/// Returns a deduplicated list: at most one entry per source type/color combo.
-/// Token sources are fungible (we pick the first matching index at consumption time).
-pub(crate) fn collect_mana_sources(
-    state: &GameState,
-    player_idx: usize,
-    required_color: BasicManaColor,
-) -> Vec<ManaSourceInfo> {
-    let target_mana = ManaColor::from(required_color);
-    let player = &state.players[player_idx];
-    let mut sources = Vec::new();
-
-    // 1. Matching-color mana token
-    if player.pure_mana.iter().any(|t| t.color == target_mana) {
-        sources.push(ManaSourceInfo {
-            source_type: ManaSourceType::Token,
-            color: target_mana,
-            die_id: None,
-        });
+    match outcome {
+        continuation::ContinuationOutcome::Complete => CardPlayResult::Complete,
+        continuation::ContinuationOutcome::ChoiceInstalled
+        | continuation::ContinuationOutcome::CustomPending => CardPlayResult::PendingChoice,
     }
-
-    // 2. Gold mana token (wild)
-    if player
-        .pure_mana
-        .iter()
-        .any(|t| t.color == ManaColor::Gold)
-    {
-        sources.push(ManaSourceInfo {
-            source_type: ManaSourceType::Token,
-            color: ManaColor::Gold,
-            die_id: None,
-        });
-    }
-
-    // 3. Matching-color crystal
-    let crystal_count = match required_color {
-        BasicManaColor::Red => player.crystals.red,
-        BasicManaColor::Blue => player.crystals.blue,
-        BasicManaColor::Green => player.crystals.green,
-        BasicManaColor::White => player.crystals.white,
-    };
-    if crystal_count > 0 {
-        sources.push(ManaSourceInfo {
-            source_type: ManaSourceType::Crystal,
-            color: target_mana,
-            die_id: None,
-        });
-    }
-
-    // 4. Mana source dice (1 per turn limit)
-    if !player
-        .flags
-        .contains(PlayerFlags::USED_MANA_FROM_SOURCE)
-    {
-        let player_id = &player.id;
-        let stolen_die_id = player
-            .tactic_state
-            .stored_mana_die
-            .as_ref()
-            .map(|s| &s.die_id);
-
-        for die in &state.source.dice {
-            if !is_die_available_with_overrides(die, state, player_idx) {
-                continue;
-            }
-            // Allow unclaimed dice OR the player's own stolen Mana Steal die
-            let is_available = die.taken_by_player_id.is_none()
-                || (die.taken_by_player_id.as_ref() == Some(player_id)
-                    && stolen_die_id == Some(&die.id));
-            if !is_available {
-                continue;
-            }
-            if die.color == target_mana || die.color == ManaColor::Gold {
-                sources.push(ManaSourceInfo {
-                    source_type: ManaSourceType::Die,
-                    color: die.color,
-                    die_id: Some(die.id.as_str().to_string()),
-                });
-            }
-        }
-    }
-
-    sources
 }
 
 /// Consume a specific mana source identified by `ManaSourceInfo`.
@@ -300,13 +197,22 @@ pub(crate) fn consume_specific_mana_source(
     player_idx: usize,
     source: &ManaSourceInfo,
 ) -> ManaColor {
+    consume_specific_mana_source_with(state, player_idx, source, |_| true)
+}
+
+pub(crate) fn consume_specific_mana_source_with(
+    state: &mut GameState,
+    player_idx: usize,
+    source: &ManaSourceInfo,
+    token_matches: impl Fn(&ManaToken) -> bool,
+) -> ManaColor {
     match source.source_type {
         ManaSourceType::Token => {
             let player = &mut state.players[player_idx];
             if let Some(idx) = player
                 .pure_mana
                 .iter()
-                .position(|t| t.color == source.color)
+                .position(|token| token.color == source.color && token_matches(token))
             {
                 player.pure_mana.remove(idx);
             }
@@ -386,7 +292,7 @@ pub(crate) fn is_die_available_with_overrides(
 }
 
 /// Check whether a modifier applies to the given player based on its scope.
-fn modifier_applies_to_player(m: &ActiveModifier, player_id: &mk_types::ids::PlayerId) -> bool {
+pub(crate) fn modifier_applies_to_player(m: &ActiveModifier, player_id: &mk_types::ids::PlayerId) -> bool {
     match m.scope {
         ModifierScope::SelfScope => m.created_by_player_id == *player_id,
         ModifierScope::OtherPlayers => m.created_by_player_id != *player_id,
@@ -840,6 +746,12 @@ mod tests {
             source: ManaTokenSource::Effect,
             cannot_power_spells: false,
         });
+    }
+
+    fn give_strong_spell_mana(state: &mut GameState, color: ManaColor) {
+        state.time_of_day = TimeOfDay::Night;
+        give_mana(state, color);
+        give_mana(state, ManaColor::Black);
     }
 
     #[test]
@@ -1656,7 +1568,7 @@ mod tests {
     fn restoration_powered_on_forest_heals_5() {
         // OnTerrain{Forest} → then: Heal 5
         let mut state = setup_game(vec!["restoration"]);
-        give_mana(&mut state, ManaColor::Green);
+        give_strong_spell_mana(&mut state, ManaColor::Green);
         // Add 5 wounds to hand
         for _ in 0..5 {
             state.players[0].hand.push(CardId::from("wound"));
@@ -1679,7 +1591,7 @@ mod tests {
     fn restoration_powered_off_forest_heals_3() {
         // OnTerrain{Forest} condition false → else: Heal 3
         let mut state = setup_game(vec!["restoration"]);
-        give_mana(&mut state, ManaColor::Green);
+        give_strong_spell_mana(&mut state, ManaColor::Green);
         // Add 5 wounds to hand
         for _ in 0..5 {
             state.players[0].hand.push(CardId::from("wound"));
@@ -1721,8 +1633,7 @@ mod tests {
     #[test]
     fn fireball_powered_wound_and_siege_fire_8() {
         let mut state = setup_game(vec!["fireball"]);
-        give_mana(&mut state, ManaColor::Red); // spell cost
-        give_mana(&mut state, ManaColor::Red); // powered cost
+        give_strong_spell_mana(&mut state, ManaColor::Red);
         setup_combat_with_enemies(&mut state, &["prowlers"]);
         let result = play_card(&mut state, 0, 0, true, None).unwrap();
         assert!(matches!(result, CardPlayResult::Complete));
@@ -1927,8 +1838,7 @@ mod tests {
     #[test]
     fn burning_shield_powered_destroy_mode_modifier() {
         let mut state = setup_game(vec!["burning_shield"]);
-        give_mana(&mut state, ManaColor::Red); // spell cost
-        give_mana(&mut state, ManaColor::Red); // powered cost
+        give_strong_spell_mana(&mut state, ManaColor::Red);
         setup_combat_with_enemies(&mut state, &["prowlers"]);
         let result = play_card(&mut state, 0, 0, true, None).unwrap();
         assert!(matches!(result, CardPlayResult::Complete));
@@ -2036,8 +1946,7 @@ mod tests {
     #[test]
     fn mist_form_powered_resistances_and_wound_immunity() {
         let mut state = setup_game(vec!["mist_form"]);
-        give_mana(&mut state, ManaColor::Blue); // spell cost
-        give_mana(&mut state, ManaColor::Blue); // powered cost
+        give_strong_spell_mana(&mut state, ManaColor::Blue);
         let result = play_card(&mut state, 0, 0, true, None).unwrap();
         assert!(matches!(result, CardPlayResult::Complete));
         // Powered Mist Form grants resistances + wound immunity, no move
