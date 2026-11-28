@@ -74,11 +74,9 @@ pub(crate) fn free_recruit_unit_indices(
 }
 
 /// Return untaken, undepleted basic-color source dice with their mana colors.
-pub(crate) fn available_basic_source_dice(
-    dice: &[SourceDie],
-) -> Vec<(SourceDieId, BasicManaColor)> {
-    dice.iter()
-        .filter(|die| die.taken_by_player_id.is_none() && !die.is_depleted)
+pub(crate) fn available_basic_source_dice(state: &GameState) -> Vec<(SourceDieId, BasicManaColor)> {
+    state.source.dice.iter()
+        .filter(|die| crate::mana::is_in_source(state, die) && !die.is_depleted)
         .filter_map(|die| {
             let color = to_basic_mana_color(die.color)?;
             Some((die.id.clone(), color))
@@ -228,14 +226,26 @@ pub(super) fn consume_mana_source(
             }
         }
         ManaSourceType::Die => {
-            if let Some(ref die_id_str) = source.die_id {
-                if let Some(die) = state.source.dice.iter_mut().find(|d| d.id.as_str() == die_id_str.as_str()) {
-                    die.taken_by_player_id = Some(state.players[player_idx].id.clone());
-                    die.is_depleted = true;
-                }
+            if let Some(die_id) = &source.die_id {
+                crate::mana::spend_source_die(state, player_idx, die_id, false);
             }
         }
     }
+}
+
+/// Pay the exact blue mana cost for the optional lake effects.
+pub(super) fn consume_blue_lake_mana(state: &mut GameState, player_idx: usize) -> bool {
+    let player = &mut state.players[player_idx];
+    if let Some(index) = player.pure_mana.iter().position(|token| token.color == ManaColor::Blue) {
+        player.pure_mana.remove(index);
+        return true;
+    }
+    if player.crystals.blue > 0 {
+        player.crystals.blue -= 1;
+        player.spent_crystals_this_turn.blue += 1;
+        return true;
+    }
+    crate::mana::spend_exact_die_face(state, player_idx, ManaColor::Blue)
 }
 
 pub(super) fn increment_crystal(c: &mut Crystals, color: BasicManaColor) {

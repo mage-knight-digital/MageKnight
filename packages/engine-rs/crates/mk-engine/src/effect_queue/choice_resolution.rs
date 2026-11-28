@@ -81,28 +81,10 @@ pub(crate) fn resolve_pending_choice_with_undo(
     match &resolution {
         ChoiceResolution::Standard => {}
         ChoiceResolution::CrystallizeConsume => {
-            // Consume a mana source (token preferred, die fallback) matching the chosen color
-            if let CardEffect::GainCrystal {
-                color: Some(basic_color),
-            } = &chosen_effect
-            {
-                let player = &mut state.players[player_idx];
-                // Try token first
-                if let Some(idx) = player
-                    .pure_mana
-                    .iter()
-                    .position(|t| to_basic_mana_color(t.color) == Some(*basic_color))
-                {
-                    player.pure_mana.remove(idx);
-                } else if let Some(source_info) =
-                    super::multi_step::find_crystallizable_die(state, player_idx, *basic_color)
-                {
-                    // Fall back to source die
-                    crate::card_play::consume_specific_mana_source(
-                        state,
-                        player_idx,
-                        &source_info,
-                    );
+            if let CardEffect::GainCrystal { color: Some(color) } = &chosen_effect {
+                if !super::multi_step::consume_crystallize_source(state, player_idx, *color) {
+                    state.players[player_idx].pending.active = Some(ActivePending::Choice(choice));
+                    return Err(ResolveChoiceError::InternalError("Crystallize mana is no longer available".into()));
                 }
             }
         }
@@ -127,11 +109,14 @@ pub(crate) fn resolve_pending_choice_with_undo(
         } => {
             // Mark the die as taken by this player, set its color from the chosen effect
             if let CardEffect::GainMana { color, .. } = &chosen_effect {
-                let player_id = state.players[player_idx].id.clone();
-                if let Some(die) = state.source.dice.iter_mut().find(|d| d.id == *die_id) {
-                    die.taken_by_player_id = Some(player_id);
-                    die.color = *color;
-                }
+                let Some(index) = state.source.dice.iter().position(|die| die.id == *die_id
+                    && !die.is_depleted && crate::mana::is_in_source(state, die)) else {
+                    state.players[player_idx].pending.active = Some(ActivePending::Choice(choice));
+                    return Err(ResolveChoiceError::InternalError("Mana Draw die is no longer available".into()));
+                };
+                let die = &mut state.source.dice[index];
+                die.taken_by_player_id = Some(state.players[player_idx].id.clone());
+                die.color = *color;
                 // Track as mana draw die
                 state.players[player_idx]
                     .mana_draw_die_ids
@@ -204,29 +189,19 @@ pub(crate) fn resolve_pending_choice_with_undo(
             }
         }
         ChoiceResolution::SecretWaysLake => {
-            // Choice 1 = pay Blue mana for lake modifiers. Choice 0 = decline (Noop).
-            if choice_index == 1 {
-                // Consume 1 Blue mana: token > crystal > die
-                let player = &mut state.players[player_idx];
-                if let Some(idx) = player.pure_mana.iter().position(|t| t.color == ManaColor::Blue) {
-                    player.pure_mana.remove(idx);
-                } else if player.crystals.blue > 0 {
-                    player.crystals.blue -= 1;
-                    player.spent_crystals_this_turn.blue += 1;
-                } else if let Some(die) = state.source.dice.iter_mut().find(|d| {
-                    d.color == ManaColor::Blue && !d.is_depleted && d.taken_by_player_id.is_none()
-                }) {
-                    die.taken_by_player_id = Some(state.players[player_idx].id.clone());
-                    die.is_depleted = true;
-                }
+            if choice_index == 1 && !super::utils::consume_blue_lake_mana(state, player_idx) {
+                state.players[player_idx].pending.active = Some(ActivePending::Choice(choice));
+                return Err(ResolveChoiceError::InternalError("Lake payment is no longer available".into()));
             }
         }
         ChoiceResolution::RegenerateMana { sources, bonus_color } => {
             // Consume the specific mana source, remove wound, conditionally draw
             if choice_index < sources.len() {
                 let source = &sources[choice_index];
-                crate::action_pipeline::execute_regenerate(state, player_idx, source, *bonus_color)
-                    .map_err(|e| ResolveChoiceError::InternalError(format!("{:?}", e)))?;
+                if let Err(err) = crate::action_pipeline::execute_regenerate(state, player_idx, source, *bonus_color) {
+                    state.players[player_idx].pending.active = Some(ActivePending::Choice(choice));
+                    return Err(ResolveChoiceError::InternalError(format!("{err:?}")));
+                }
             }
         }
         ChoiceResolution::DuelingTarget { eligible_enemy_ids } => {
@@ -250,7 +225,10 @@ pub(crate) fn resolve_pending_choice_with_undo(
         ChoiceResolution::PolarizationConvert { ref options } => {
             if choice_index < options.len() {
                 let opt = options[choice_index].clone();
-                crate::action_pipeline::execute_polarization(state, player_idx, &opt);
+                if !crate::action_pipeline::execute_polarization(state, player_idx, &opt) {
+                    state.players[player_idx].pending.active = Some(ActivePending::Choice(choice));
+                    return Err(ResolveChoiceError::InternalError("Polarization die is unavailable".into()));
+                }
             }
         }
         ChoiceResolution::CurseTarget { ref eligible_enemy_ids } => {
@@ -481,7 +459,10 @@ pub(crate) fn resolve_pending_choice_with_undo(
             let did = die_id.clone();
             let col = *color;
             let curse = *with_curse;
-            execute_mana_claim_mode(state, player_idx, &did, col, curse, choice_index);
+            if !execute_mana_claim_mode(state, player_idx, &did, col, curse, choice_index) {
+                state.players[player_idx].pending.active = Some(ActivePending::Choice(choice));
+                return Err(ResolveChoiceError::InternalError("Mana Claim die is no longer available".into()));
+            }
             // Early return — fully handled
             return Ok(());
         }
@@ -509,20 +490,9 @@ pub(crate) fn resolve_pending_choice_with_undo(
             return Err(ResolveChoiceError::InternalError("Card mana payment is no longer available".into()));
         }
         ChoiceResolution::SongOfWindLake => {
-            // Choice 1 = pay Blue mana for lake cost 0. Choice 0 = decline (Noop).
-            if choice_index == 1 {
-                let player = &mut state.players[player_idx];
-                if let Some(idx) = player.pure_mana.iter().position(|t| t.color == ManaColor::Blue) {
-                    player.pure_mana.remove(idx);
-                } else if player.crystals.blue > 0 {
-                    player.crystals.blue -= 1;
-                    player.spent_crystals_this_turn.blue += 1;
-                } else if let Some(die) = state.source.dice.iter_mut().find(|d| {
-                    d.color == ManaColor::Blue && !d.is_depleted && d.taken_by_player_id.is_none()
-                }) {
-                    die.taken_by_player_id = Some(state.players[player_idx].id.clone());
-                    die.is_depleted = true;
-                }
+            if choice_index == 1 && !super::utils::consume_blue_lake_mana(state, player_idx) {
+                state.players[player_idx].pending.active = Some(ActivePending::Choice(choice));
+                return Err(ResolveChoiceError::InternalError("Lake payment is no longer available".into()));
             }
         }
         ChoiceResolution::SelectUnitModifier { eligible_unit_indices } => {
@@ -592,6 +562,8 @@ pub(crate) fn resolve_pending_choice_with_undo(
                 );
                 return Ok(());
             }
+            state.players[player_idx].pending.active = Some(ActivePending::Choice(choice));
+            return Err(ResolveChoiceError::InternalError("Mana Storm die is no longer available".into()));
         }
         ChoiceResolution::SpellForgeCrystal { .. } => {
             return super::spell_forge::resolve_choice(state, player_idx, choice_index, choice, undo);

@@ -1,4 +1,4 @@
-//! Mana Storm behavior captured from main (f8962f94), before extraction.
+//! Mana Storm behavior captured before extraction and updated for Source ownership.
 use mk_engine::{
     action_pipeline::apply_legal_action, effect_queue::EffectQueue,
     legal_actions::enumerate_legal_actions_with_undo, setup::create_solo_game, undo::UndoStack,

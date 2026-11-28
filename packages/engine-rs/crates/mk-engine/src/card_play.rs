@@ -146,8 +146,12 @@ pub(crate) fn resolve_paid_card(
     payment: Option<&CardManaPayment>,
     undo: Option<&mut UndoStack>,
 ) -> CardPlayResult {
+    let definition = (payment.is_some() || mode == EffectMode::Powered)
+        .then(|| get_card(card_id.as_str()))
+        .flatten();
     if let Some(payment) = payment {
-        card_payment::spend(state, player_idx, payment);
+        let is_spell = definition.as_ref().is_some_and(|card| card.card_type == DeedCardType::Spell);
+        card_payment::spend(state, player_idx, payment, is_spell);
     }
 
     let trigger_effect = (payment.is_some() && mode == EffectMode::Powered).then(|| effect.clone());
@@ -164,7 +168,7 @@ pub(crate) fn resolve_paid_card(
     );
 
     if mode == EffectMode::Powered
-        && get_card(card_id.as_str()).is_some_and(|card| card.destroy_on_powered)
+        && definition.is_some_and(|card| card.destroy_on_powered)
     {
         let player = &mut state.players[player_idx];
         if let Some(pos) = player.play_area.iter().position(|played| *played == card_id) {
@@ -197,13 +201,14 @@ pub(crate) fn consume_specific_mana_source(
     player_idx: usize,
     source: &ManaSourceInfo,
 ) -> ManaColor {
-    consume_specific_mana_source_with(state, player_idx, source, |_| true)
+    consume_specific_mana_source_with(state, player_idx, source, false, |_| true)
 }
 
 pub(crate) fn consume_specific_mana_source_with(
     state: &mut GameState,
     player_idx: usize,
     source: &ManaSourceInfo,
+    include_source_opening: bool,
     token_matches: impl Fn(&ManaToken) -> bool,
 ) -> ManaColor {
     match source.source_type {
@@ -240,30 +245,8 @@ pub(crate) fn consume_specific_mana_source_with(
             source.color
         }
         ManaSourceType::Die => {
-            let player_id = state.players[player_idx].id.clone();
-            if let Some(ref die_id_str) = source.die_id {
-                // Check if this is the Mana Steal stored die
-                let is_stolen_die = state.players[player_idx]
-                    .tactic_state
-                    .stored_mana_die
-                    .as_ref()
-                    .is_some_and(|s| s.die_id.as_str() == die_id_str.as_str());
-
-                if let Some(die) = state
-                    .source
-                    .dice
-                    .iter_mut()
-                    .find(|d| d.id.as_str() == die_id_str.as_str())
-                {
-                    let die_id = die.id.clone();
-                    die.taken_by_player_id = Some(player_id);
-                    let player = &mut state.players[player_idx];
-                    player.used_die_ids.push(die_id);
-                    player.flags.insert(PlayerFlags::USED_MANA_FROM_SOURCE);
-                    if is_stolen_die {
-                        player.tactic_state.mana_steal_used_this_turn = true;
-                    }
-                }
+            if let Some(die_id) = &source.die_id {
+                crate::mana::spend_source_die(state, player_idx, die_id, include_source_opening);
             }
             source.color
         }

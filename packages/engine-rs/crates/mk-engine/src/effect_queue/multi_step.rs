@@ -293,63 +293,14 @@ pub(super) fn pure_magic_effect_for_color(
 // Multi-step / cost effect handlers
 // =============================================================================
 
-/// Find an available basic-color source die for crystallization.
-///
-/// Returns `Some(ManaSourceInfo)` for the first matching die (basic color, unclaimed
-/// or stolen, `USED_MANA_FROM_SOURCE` not set).
-pub(super) fn find_crystallizable_die(
-    state: &GameState,
-    player_idx: usize,
-    target_color: BasicManaColor,
-) -> Option<mk_types::action::ManaSourceInfo> {
-    let player = &state.players[player_idx];
-    if player.flags.contains(PlayerFlags::USED_MANA_FROM_SOURCE) {
-        return None;
+/// Consume the selected color, preferring a token over a matching Source die.
+pub(super) fn consume_crystallize_source(state: &mut GameState, player_idx: usize, color: BasicManaColor) -> bool {
+    let token_idx = state.players[player_idx].pure_mana.iter().position(|token| token.color.to_basic() == Some(color));
+    if let Some(index) = token_idx {
+        state.players[player_idx].pure_mana.remove(index);
+        return true;
     }
-    let player_id = &player.id;
-    let stolen_die_id = player
-        .tactic_state
-        .stored_mana_die
-        .as_ref()
-        .map(|s| &s.die_id);
-    let target_mana = ManaColor::from(target_color);
-
-    for die in &state.source.dice {
-        if !crate::card_play::is_die_available_with_overrides(die, state, player_idx) {
-            continue;
-        }
-        let is_available = die.taken_by_player_id.is_none()
-            || (die.taken_by_player_id.as_ref() == Some(player_id)
-                && stolen_die_id == Some(&die.id));
-        if !is_available {
-            continue;
-        }
-        if die.color == target_mana {
-            return Some(mk_types::action::ManaSourceInfo {
-                source_type: ManaSourceType::Die,
-                color: die.color,
-                die_id: Some(die.id.as_str().to_string()),
-            });
-        }
-    }
-    None
-}
-
-/// Consume a crystallize source for the given color: prefer token, fall back to die.
-fn consume_crystallize_source(state: &mut GameState, player_idx: usize, color: BasicManaColor) {
-    // Try token first
-    let token_idx = state.players[player_idx]
-        .pure_mana
-        .iter()
-        .position(|t| to_basic_mana_color(t.color) == Some(color));
-    if let Some(idx) = token_idx {
-        state.players[player_idx].pure_mana.remove(idx);
-        return;
-    }
-    // Fall back to source die
-    if let Some(source_info) = find_crystallizable_die(state, player_idx, color) {
-        crate::card_play::consume_specific_mana_source(state, player_idx, &source_info);
-    }
+    crate::mana::spend_exact_die_face(state, player_idx, color.into())
 }
 
 /// Convert one mana source (token or source die) to a crystal of the same color.
@@ -367,29 +318,10 @@ pub(super) fn apply_convert_mana_to_crystal(state: &mut GameState, player_idx: u
         }
     }
 
-    // Also collect basic colors from available source dice
-    if !player.flags.contains(PlayerFlags::USED_MANA_FROM_SOURCE) {
-        let player_id = &player.id;
-        let stolen_die_id = player
-            .tactic_state
-            .stored_mana_die
-            .as_ref()
-            .map(|s| &s.die_id);
-
-        for die in &state.source.dice {
-            if !crate::card_play::is_die_available_with_overrides(die, state, player_idx) {
-                continue;
-            }
-            let is_available = die.taken_by_player_id.is_none()
-                || (die.taken_by_player_id.as_ref() == Some(player_id)
-                    && stolen_die_id == Some(&die.id));
-            if !is_available {
-                continue;
-            }
-            if let Some(basic) = to_basic_mana_color(die.color) {
-                if !available_colors.contains(&basic) {
-                    available_colors.push(basic);
-                }
+    for die in crate::mana::exact_source_dice(state, player_idx) {
+        if let Some(basic) = to_basic_mana_color(die.color) {
+            if !available_colors.contains(&basic) {
+                available_colors.push(basic);
             }
         }
     }
@@ -463,7 +395,7 @@ pub(super) fn apply_mana_draw_powered_simplified(
         .source
         .dice
         .iter()
-        .find(|d| d.taken_by_player_id.is_none() && !d.is_depleted);
+        .find(|d| crate::mana::is_in_source(state, d) && !d.is_depleted);
 
     let die = match available_die {
         Some(d) => d,
@@ -477,7 +409,7 @@ pub(super) fn apply_mana_draw_powered_simplified(
         .source
         .dice
         .iter()
-        .filter(|d| d.taken_by_player_id.is_none() && !d.is_depleted && d.id != die_id)
+        .filter(|d| crate::mana::is_in_source(state, d) && !d.is_depleted && d.id != die_id)
         .count() as u32;
 
     // Offer a choice of basic mana colors, each giving `tokens_per_die` tokens

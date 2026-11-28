@@ -340,7 +340,7 @@ pub(super) fn execute_sacrifice_pair(
 /// Mana Claim: select an unclaimed basic-color die from the source.
 pub(super) fn apply_mana_claim(state: &mut GameState, player_idx: usize, with_curse: bool) -> ResolveResult {
     resolve_eligible_noop_choice(
-        available_basic_source_dice(&state.source.dice),
+        available_basic_source_dice(state),
         |(die_id, color)| {
             // Auto-select die → go to mode choice
             setup_mana_claim_mode_choice(state, player_idx, die_id, color, with_curse);
@@ -392,13 +392,15 @@ pub(super) fn execute_mana_claim_mode(
     color: BasicManaColor,
     with_curse: bool,
     choice_index: usize,
-) {
+) -> bool {
     let player_id = state.players[player_idx].id.clone();
 
-    // Mark die as claimed
-    if let Some(die) = state.source.dice.iter_mut().find(|d| &d.id == die_id) {
-        die.taken_by_player_id = Some(player_id.clone());
-    }
+    let Some(index) = state.source.dice.iter().position(|die| die.id == *die_id
+        && die.color == ManaColor::from(color) && !die.is_depleted
+        && crate::mana::is_in_source(state, die)) else {
+        return false;
+    };
+    state.source.dice[index].taken_by_player_id = Some(player_id.clone());
 
     match choice_index {
         0 => {
@@ -448,6 +450,7 @@ pub(super) fn execute_mana_claim_mode(
     // with_curse: In solo mode, the curse part is a no-op (no other players).
     // In multiplayer it would apply ManaCurse modifiers to other players.
     let _ = with_curse;
+    true
 }
 
 // =============================================================================

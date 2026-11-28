@@ -169,7 +169,7 @@ fn can_initiate_mana_search(state: &GameState, player_idx: usize) -> bool {
         .source
         .dice
         .iter()
-        .any(|d| d.taken_by_player_id.is_none())
+        .any(|die| crate::mana::is_in_source(state, die))
 }
 
 /// Enumerate AssignBanner actions for banner cards in hand × eligible units.

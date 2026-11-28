@@ -540,7 +540,7 @@ pub(super) fn apply_source_opening(
 
     // Find available dice
     let die_ids: Vec<SourceDieId> = state.source.dice.iter()
-        .filter(|d| d.taken_by_player_id.is_none() && !d.is_depleted)
+        .filter(|die| crate::mana::is_in_source(state, die) && !die.is_depleted)
         .map(|d| d.id.clone())
         .collect();
 
@@ -587,11 +587,12 @@ pub(crate) fn execute_source_opening_die_select(
 ) {
     let skill_id = SkillId::from("goldyx_source_opening");
 
-    if choice_index < die_ids.len() {
-        // Reroll the chosen die
-        crate::mana::reroll_die(&mut state.source, &die_ids[choice_index], state.time_of_day, &mut state.rng);
+    if let Some(die_id) = die_ids.get(choice_index).filter(|id| {
+        state.source.dice.iter().any(|die| die.id == **id
+            && !die.is_depleted && crate::mana::is_in_source(state, die))
+    }) {
+        crate::mana::reroll_die(&mut state.source, die_id, state.time_of_day, &mut state.rng);
     }
-    // else: skip (no reroll)
 
     // Set center state
     state.source_opening_center = Some(SourceOpeningCenter {
@@ -669,8 +670,9 @@ pub(crate) fn apply_resolve_source_opening_reroll(
         }
     };
 
-    if reroll {
-        crate::mana::reroll_die(&mut state.source, &die_id, state.time_of_day, &mut state.rng);
+    if !crate::mana::return_source_opening_die(state, player_idx, &die_id, reroll) {
+        state.players[player_idx].pending.active = Some(ActivePending::SourceOpeningReroll { die_id });
+        return Err(ApplyError::InternalError("Source Opening die is no longer held".into()));
     }
 
     // Resume end-turn flow

@@ -90,9 +90,7 @@ pub(super) fn apply_song_of_wind_powered(state: &mut GameState, player_idx: usiz
     let player = &state.players[player_idx];
     let has_blue = player.pure_mana.iter().any(|t| t.color == ManaColor::Blue)
         || player.crystals.blue > 0
-        || state.source.dice.iter().any(|d| {
-            d.color == ManaColor::Blue && !d.is_depleted && d.taken_by_player_id.is_none()
-        });
+        || crate::mana::exact_source_dice(state, player_idx).any(|die| die.color == ManaColor::Blue);
 
     if has_blue {
         // Add choice: skip or pay blue for lake cost 0

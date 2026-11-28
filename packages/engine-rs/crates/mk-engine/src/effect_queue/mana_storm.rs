@@ -15,7 +15,7 @@ const MANA_STORM_CARD_ID: &str = "mana_storm";
 
 pub(super) fn apply_mana_storm_basic(state: &mut GameState, player_idx: usize) -> ResolveResult {
     resolve_eligible_noop_choice(
-        available_basic_source_dice(&state.source.dice),
+        available_basic_source_dice(state),
         |(die_id, color)| {
             // Auto-select: gain crystal + reroll
             gain_crystal_and_reroll(state, player_idx, &die_id, color);
@@ -32,9 +32,11 @@ pub(super) fn apply_mana_storm_basic(state: &mut GameState, player_idx: usize) -
 }
 
 pub(super) fn apply_mana_storm_powered(state: &mut GameState, player_idx: usize) -> ResolveResult {
-    // Reroll ALL dice in source
-    let die_ids: Vec<mk_types::ids::SourceDieId> =
-        state.source.dice.iter().map(|d| d.id.clone()).collect();
+    // Depleted dice are still in the Source. Dice already taken are not.
+    let die_ids: Vec<SourceDieId> = state.source.dice.iter()
+        .filter(|die| crate::mana::is_in_source(state, die))
+        .map(|die| die.id.clone())
+        .collect();
     for die_id in &die_ids {
         crate::mana::reroll_die(&mut state.source, die_id, state.time_of_day, &mut state.rng);
     }
@@ -93,21 +95,21 @@ pub(super) fn select_die(
     die_ids: &[SourceDieId],
     die_colors: &[BasicManaColor],
 ) -> bool {
-    if choice_index >= die_ids.len() {
+    let Some((die_id, &color)) = die_ids.get(choice_index).zip(die_colors.get(choice_index)) else {
+        return false;
+    };
+    if !state.source.dice.iter().any(|die| die.id == *die_id
+        && die.color == ManaColor::from(color) && !die.is_depleted
+        && crate::mana::is_in_source(state, die)) {
         return false;
     }
-    gain_crystal_and_reroll(
-        state,
-        player_idx,
-        &die_ids[choice_index],
-        die_colors[choice_index],
-    );
+    gain_crystal_and_reroll(state, player_idx, die_id, color);
     true
 }
 
 pub(super) fn is_basic_resolvable(state: &GameState) -> bool {
     state.source.dice.iter().any(|d| {
-        d.taken_by_player_id.is_none()
+        crate::mana::is_in_source(state, d)
             && !d.is_depleted
             && matches!(
                 d.color,

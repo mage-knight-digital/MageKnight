@@ -169,14 +169,8 @@ pub(super) fn apply_tactic_on_pick_effects(
             }
         }
         "mana_steal" => {
-            let current_player_id = &state.players[player_idx].id;
-            // Available: unclaimed basic dice OR basic dice claimed by other players
-            let has_available = state.source.dice.iter().any(|d| {
-                !d.is_depleted
-                    && d.color.is_basic()
-                    && (d.taken_by_player_id.is_none()
-                        || d.taken_by_player_id.as_ref().is_some_and(|owner| owner != current_player_id))
-            });
+            let has_available = state.source.dice.iter()
+                .any(|die| mana::can_select_mana_steal_die(state, player_idx, die));
             if has_available {
                 state.players[player_idx].pending.active =
                     Some(ActivePending::TacticDecision(PendingTacticDecision::ManaSteal));
@@ -208,8 +202,10 @@ pub(super) fn apply_resolve_tactic_decision(
     let mut events: Vec<GameEvent> = Vec::new();
     match data {
         TacticDecisionData::ManaSteal { die_index } => {
-            if *die_index >= state.source.dice.len() {
-                return Err(ApplyError::InternalError("ManaSteal: invalid die index".into()));
+            if !state.source.dice.get(*die_index)
+                .is_some_and(|die| mana::can_select_mana_steal_die(state, player_idx, die))
+            {
+                return Err(ApplyError::InternalError("ManaSteal: die is unavailable".into()));
             }
 
             let die = &mut state.source.dice[*die_index];
@@ -460,15 +456,18 @@ pub(super) fn finalize_subset_selection(
             player.deck = pool;
             player.discard.clear();
         }
-        SubsetSelectionKind::ManaSearch {
-            rerollable_die_indices,
-        } => {
-            // Map selected pool indices → actual die indices, then reroll
-            let time_of_day = state.time_of_day;
-            for &pool_idx in ss.selected.iter() {
-                let die_idx = rerollable_die_indices[pool_idx];
-                let die_id = state.source.dice[die_idx].id.clone();
-                mana::reroll_die(&mut state.source, &die_id, time_of_day, &mut state.rng);
+        SubsetSelectionKind::ManaSearch { ref rerollable_die_indices } => {
+            let selected: Option<Vec<_>> = ss.selected.iter().map(|&pool_index| {
+                let index = *rerollable_die_indices.get(pool_index)?;
+                let die = state.source.dice.get(index)?;
+                mana::is_in_source(state, die).then(|| die.id.clone())
+            }).collect();
+            let Some(die_ids) = selected else {
+                state.players[player_idx].pending.active = Some(ActivePending::SubsetSelection(ss));
+                return Err(ApplyError::InternalError("Mana Search die is no longer in the Source".into()));
+            };
+            for die_id in die_ids {
+                mana::reroll_die(&mut state.source, &die_id, state.time_of_day, &mut state.rng);
             }
             state.players[player_idx].tactic_state.mana_search_used_this_turn = true;
         }
@@ -597,7 +596,7 @@ pub(super) fn apply_initiate_mana_search(
         .dice
         .iter()
         .enumerate()
-        .filter(|(_, d)| d.taken_by_player_id.is_none())
+        .filter(|(_, die)| mana::is_in_source(state, die))
         .map(|(i, _)| i)
         .collect();
 
