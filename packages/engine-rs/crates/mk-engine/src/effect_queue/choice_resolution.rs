@@ -485,41 +485,28 @@ pub(crate) fn resolve_pending_choice_with_undo(
             // Early return — fully handled
             return Ok(());
         }
-        ChoiceResolution::ManaSourceSelect {
-            ref sources,
-            ref powered_effect,
-        } => {
-            if choice_index < sources.len() {
-                let source = sources[choice_index].clone();
-                let effect = powered_effect.clone();
-                let card_id = source_card_id.clone();
+        ChoiceResolution::ManaSourceSelect { payments, effect, basic } => {
+            use mk_types::pending::EffectMode;
 
-                // Consume the selected mana source
-                let consumed_color =
-                    crate::card_play::consume_specific_mana_source(state, player_idx, &source);
+            let mode = if *basic { EffectMode::Basic } else { EffectMode::Powered };
+            let payment = payments.get(choice_index);
+            let valid = source_card_id
+                .as_ref()
+                .and_then(|id| mk_data::cards::get_card(id.as_str()))
+                .zip(payment)
+                .is_some_and(|(card, payment)| {
+                    crate::card_payment::payment_is_available(state, player_idx, &card, mode, payment)
+                });
 
-                // Resolve the powered effect via effect queue
-                super::continuation::run_effect(
-                    state, player_idx, QueuedEffect { effect: effect.clone(), source_card_id: card_id.clone() },
-                    Vec::new(), card_id, undo,
+            if let (Some(card_id), Some(payment), true) = (source_card_id, payment, valid) {
+                crate::card_play::resolve_paid_card(
+                    state, player_idx, card_id, mode, effect.clone(), Some(payment), undo,
                 );
-
-                // Mana trigger hooks
-                crate::card_play::check_mana_overload_trigger(
-                    state,
-                    player_idx,
-                    consumed_color,
-                    &effect,
-                );
-                crate::card_play::check_mana_enhancement_trigger(
-                    state,
-                    player_idx,
-                    consumed_color,
-                );
-
-                // Early return — we handled effect resolution ourselves
                 return Ok(());
             }
+
+            state.players[player_idx].pending.active = Some(ActivePending::Choice(choice));
+            return Err(ResolveChoiceError::InternalError("Card mana payment is no longer available".into()));
         }
         ChoiceResolution::SongOfWindLake => {
             // Choice 1 = pay Blue mana for lake cost 0. Choice 0 = decline (Noop).

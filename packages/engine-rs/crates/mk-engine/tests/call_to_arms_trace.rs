@@ -1,11 +1,11 @@
-//! Call to Arms behavior captured from main (2f6b9ad9), before extraction.
+//! Call to Arms behavior captured before extraction and updated for spell payment.
 use mk_engine::{
     action_pipeline::apply_legal_action, effect_queue::EffectQueue,
     legal_actions::enumerate_legal_actions_with_undo, setup::create_solo_game, undo::UndoStack,
 };
 use mk_types::{
     effect::CardEffect,
-    enums::{BasicManaColor, Hero, ManaColor, RoundPhase},
+    enums::{BasicManaColor, Hero, ManaColor, RoundPhase, TimeOfDay},
     ids::{CardId, UnitId},
     legal_action::LegalAction,
     state::{GameState, ManaToken, ManaTokenSource},
@@ -26,9 +26,15 @@ fn setup(units: &[&str], powered: bool, room: bool) -> GameState {
     state.decks.unit_deck = vec![UnitId::from(MONKS)];
     state.players[0].command_tokens = u32::from(room);
     state.source.dice.clear();
+    state.players[0].pure_mana.push(ManaToken {
+        color: ManaColor::White,
+        source: ManaTokenSource::Effect,
+        cannot_power_spells: false,
+    });
     if powered {
+        state.time_of_day = TimeOfDay::Night;
         state.players[0].pure_mana.push(ManaToken {
-            color: ManaColor::White,
+            color: ManaColor::Black,
             source: ManaTokenSource::Effect,
             cannot_power_spells: false,
         });

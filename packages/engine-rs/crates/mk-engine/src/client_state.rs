@@ -623,10 +623,8 @@ fn pending_options(active: &ActivePending, player: &PlayerState, state: &GameSta
                     })
                     .collect();
             }
-            if let ChoiceResolution::ManaSourceSelect { sources, .. } = &choice.resolution {
-                return sources.iter()
-                    .map(|src| format!("Spend {:?} {:?}", src.color, src.source_type))
-                    .collect();
+            if let ChoiceResolution::ManaSourceSelect { payments, .. } = &choice.resolution {
+                return payments.iter().map(mk_types::pending::CardManaPayment::describe).collect();
             }
             if let ChoiceResolution::PolarizationConvert { options } = &choice.resolution {
                 return options.iter()

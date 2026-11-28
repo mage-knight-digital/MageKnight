@@ -296,7 +296,7 @@ fn mana_steal_die_counts_as_mana_source_for_card_playability() {
 }
 
 #[test]
-fn mana_steal_die_appears_in_collect_mana_sources() {
+fn mana_steal_die_can_pay_for_a_card() {
     let mut state = create_solo_game(42, Hero::Arythea);
 
     // Clear all mana tokens and crystals
@@ -329,12 +329,16 @@ fn mana_steal_die_appears_in_collect_mana_sources() {
         }
     }
 
-    let sources = crate::card_play::collect_mana_sources(&state, 0, BasicManaColor::Red);
-    let has_die_source = sources.iter().any(|s| s.source_type == ManaSourceType::Die);
-    assert!(
-        has_die_source,
-        "collect_mana_sources should include the stolen mana die as a Die source",
-    );
+    let has_die_source = crate::card_payment::payments(
+        &state,
+        0,
+        DeedCardType::BasicAction,
+        crate::card_payment::CardManaCost::Color(BasicManaColor::Red),
+    ).any(|payment| matches!(
+        payment.colored_source(),
+        mk_types::pending::CardManaSource::Spend(source) if source.source_type == ManaSourceType::Die
+    ));
+    assert!(has_die_source, "the stolen mana die should be available as a payment");
 }
 
 #[test]

@@ -1379,17 +1379,21 @@ fn extract_max_attack_elements(effect: &mk_types::effect::CardEffect) -> AttackE
     }
 }
 
-fn can_afford_card_powered(state: &GameState, powered_by: mk_data::cards::PoweredBy) -> bool {
-    match powered_by {
-        mk_data::cards::PoweredBy::None => false,
-        mk_data::cards::PoweredBy::Single(color) => {
-            crate::legal_actions::cards::can_afford_powered(state, 0, color)
-        }
-        mk_data::cards::PoweredBy::AnyBasic => mk_types::enums::ALL_BASIC_MANA_COLORS
-            .iter()
-            .any(|&color| crate::legal_actions::cards::can_afford_powered(state, 0, color)),
-        mk_data::cards::PoweredBy::Free => true,
+fn can_afford_card_powered(state: &GameState, card: &mk_data::cards::CardDefinition) -> bool {
+    use mk_data::cards::PoweredBy;
+    use mk_types::enums::{ALL_BASIC_MANA_COLORS, DeedCardType};
+    use mk_types::pending::EffectMode;
+
+    // Bounds must include a spell that can become affordable after a mana-generating play.
+    if card.card_type == DeedCardType::Spell {
+        return true;
     }
+
+    let can_pay = |color| crate::card_payment::can_pay(state, 0, card, EffectMode::Powered, color);
+    if card.powered_by == PoweredBy::AnyBasic {
+        return ALL_BASIC_MANA_COLORS.into_iter().any(|color| can_pay(Some(color)));
+    }
+    can_pay(None)
 }
 
 fn max_future_attack_elements(state: &GameState) -> AttackElementsByType {
@@ -1400,7 +1404,7 @@ fn max_future_attack_elements(state: &GameState) -> AttackElementsByType {
         .filter_map(|card_id| mk_data::cards::get_card(card_id.as_str()))
         .fold(AttackElementsByType::default(), |total, definition| {
             let mut card_max = extract_max_attack_elements(&definition.basic_effect);
-            if can_afford_card_powered(state, definition.powered_by) {
+            if can_afford_card_powered(state, &definition) {
                 card_max =
                     card_max.component_max(extract_max_attack_elements(&definition.powered_effect));
             }
@@ -1441,27 +1445,10 @@ fn max_future_melee_attack(state: &GameState) -> u32 {
         .filter(|card_id| card_id.as_str() != crate::effect_queue::WOUND_CARD_ID)
         .filter_map(|card_id| mk_data::cards::get_card(card_id.as_str()))
         .map(|definition| {
-            let powered_attack = match definition.powered_by {
-                mk_data::cards::PoweredBy::None => 0,
-                mk_data::cards::PoweredBy::Single(color) => {
-                    if crate::legal_actions::cards::can_afford_powered(state, 0, color) {
-                        extract_max_melee_attack(&definition.powered_effect).unwrap_or(0)
-                    } else {
-                        0
-                    }
-                }
-                mk_data::cards::PoweredBy::AnyBasic => {
-                    if mk_types::enums::ALL_BASIC_MANA_COLORS.iter().any(|&color| {
-                        crate::legal_actions::cards::can_afford_powered(state, 0, color)
-                    }) {
-                        extract_max_melee_attack(&definition.powered_effect).unwrap_or(0)
-                    } else {
-                        0
-                    }
-                }
-                mk_data::cards::PoweredBy::Free => {
-                    extract_max_melee_attack(&definition.powered_effect).unwrap_or(0)
-                }
+            let powered_attack = if can_afford_card_powered(state, &definition) {
+                extract_max_melee_attack(&definition.powered_effect).unwrap_or(0)
+            } else {
+                0
             };
             extract_max_melee_attack(&definition.basic_effect)
                 .unwrap_or(0)

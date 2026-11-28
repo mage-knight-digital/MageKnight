@@ -4,6 +4,32 @@ use super::*;
 // Normal turn: cards
 // =========================================================================
 
+fn give_strong_spell_mana(state: &mut GameState, color: ManaColor) {
+    state.time_of_day = TimeOfDay::Night;
+    state.source.dice.clear();
+    for color in [color, ManaColor::Black] {
+        state.players[0].pure_mana.push(ManaToken {
+            color,
+            source: ManaTokenSource::Effect,
+            cannot_power_spells: false,
+        });
+    }
+}
+
+#[test]
+fn basic_spell_requires_mana_of_its_color() {
+    const RESTORATION: &str = "restoration";
+    let mut state = setup_game(vec![RESTORATION, crate::effect_queue::WOUND_CARD_ID]);
+    state.source.dice.clear();
+
+    let legal = enumerate_legal_actions(&state, 0);
+
+    assert!(!legal.actions.iter().any(|action| matches!(
+        action,
+        LegalAction::PlayCardBasic { card_id, .. } if card_id.as_str() == RESTORATION
+    )));
+}
+
 #[test]
 fn march_basic_and_sideways_no_powered() {
     // No tokens, crystals, or source dice — powered should NOT be emitted
@@ -280,11 +306,7 @@ fn whirlwind_basic_skip_attack_single_enemy() {
 fn whirlwind_powered_defeats_single_enemy() {
     // Whirlwind powered: select enemy → defeat outright. Attack phase only.
     let (mut state, mut undo) = setup_card_combat("whirlwind", &["prowlers"]);
-    state.players[0].pure_mana.push(ManaToken {
-        color: ManaColor::White,
-        source: ManaTokenSource::Effect,
-        cannot_power_spells: false,
-    });
+    give_strong_spell_mana(&mut state, ManaColor::White);
     state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
 
     let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
@@ -305,11 +327,7 @@ fn whirlwind_powered_not_playable_in_ranged_siege_phase() {
     // Whirlwind powered says "Play this only in the Attack Phase of combat."
     // It should NOT be playable during RangedSiege phase.
     let (mut state, _undo) = setup_card_combat("whirlwind", &["prowlers"]);
-    state.players[0].pure_mana.push(ManaToken {
-        color: ManaColor::White,
-        source: ManaTokenSource::Effect,
-        cannot_power_spells: false,
-    });
+    give_strong_spell_mana(&mut state, ManaColor::White);
 
     // Default combat phase is RangedSiege
     assert_eq!(state.combat.as_ref().unwrap().phase, CombatPhase::RangedSiege);
@@ -331,11 +349,7 @@ fn whirlwind_powered_not_playable_in_ranged_siege_phase() {
 fn whirlwind_powered_playable_in_attack_phase() {
     // Whirlwind powered should be playable in the Attack phase.
     let (mut state, mut undo) = setup_card_combat("whirlwind", &["prowlers"]);
-    state.players[0].pure_mana.push(ManaToken {
-        color: ManaColor::White,
-        source: ManaTokenSource::Effect,
-        cannot_power_spells: false,
-    });
+    give_strong_spell_mana(&mut state, ManaColor::White);
     state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
 
     let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
@@ -499,12 +513,7 @@ fn chill_basic_excludes_ice_resistant_enemies() {
 fn chill_powered_reduces_armor() {
     // Chill powered: skip attack + armor -4 (min 1)
     let (mut state, mut undo) = setup_card_combat("chill", &["prowlers"]);
-    state.source.dice.clear(); // control mana sources explicitly
-    state.players[0].pure_mana.push(ManaToken {
-        color: ManaColor::Blue,
-        source: ManaTokenSource::Effect,
-        cannot_power_spells: false,
-    });
+    give_strong_spell_mana(&mut state, ManaColor::Blue);
 
     let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
     let action = legal.actions.iter().find(|a| matches!(a,
@@ -524,6 +533,7 @@ fn chill_powered_reduces_armor() {
 fn tremor_basic_choice_single_enemy_or_all() {
     // Tremor basic: Choice between SelectCombatEnemy(-3) and AllEnemies(-2).
     let (mut state, mut undo) = setup_card_combat("tremor", &["prowlers"]);
+    state.source.dice.clear();
     state.players[0].pure_mana.push(ManaToken {
         color: ManaColor::Red,
         source: ManaTokenSource::Effect,
@@ -716,11 +726,7 @@ fn chilling_stare_basic_select_enemy_nullifies_abilities() {
 fn expose_powered_all_enemies_fortification_nullified() {
     // Expose powered: Compound([Choice([all nullify fort, all remove res]), GainAttack(3, Ranged)])
     let (mut state, mut undo) = setup_card_combat("expose", &["diggers", "prowlers"]);
-    state.players[0].pure_mana.push(ManaToken {
-        color: ManaColor::White,
-        source: ManaTokenSource::Effect,
-        cannot_power_spells: false,
-    });
+    give_strong_spell_mana(&mut state, ManaColor::White);
 
     let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
     let action = legal.actions.iter().find(|a| matches!(a,
@@ -970,11 +976,7 @@ fn cure_not_playable_without_wounds() {
 #[test]
 fn disease_powered_sets_armor_to_1_for_blocked_enemies() {
     let (mut state, _undo) = setup_card_combat("cure", &["prowlers"]);
-    state.players[0].pure_mana.push(ManaToken {
-        color: ManaColor::White,
-        source: ManaTokenSource::Effect,
-        cannot_power_spells: false,
-    });
+    give_strong_spell_mana(&mut state, ManaColor::White);
     state.combat.as_mut().unwrap().enemies[0].is_blocked = true;
     state.combat.as_mut().unwrap().phase = CombatPhase::Block;
 
@@ -999,11 +1001,7 @@ fn disease_skipped_when_no_enemies_blocked() {
     let (mut state, _undo) = setup_card_combat("cure", &["prowlers"]);
     // Disease is dominated in RangedSiege; use Attack phase for this test.
     state.combat.as_mut().unwrap().phase = CombatPhase::Attack;
-    state.players[0].pure_mana.push(ManaToken {
-        color: ManaColor::White,
-        source: ManaTokenSource::Effect,
-        cannot_power_spells: false,
-    });
+    give_strong_spell_mana(&mut state, ManaColor::White);
 
     let undo = UndoStack::new();
     let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
@@ -1023,11 +1021,7 @@ fn disease_not_playable_outside_combat() {
     let mut state = create_solo_game(42, Hero::Arythea);
     state.round_phase = RoundPhase::PlayerTurns;
     state.players[0].hand = vec![CardId::from("cure")];
-    state.players[0].pure_mana.push(ManaToken {
-        color: ManaColor::White,
-        source: ManaTokenSource::Effect,
-        cannot_power_spells: false,
-    });
+    give_strong_spell_mana(&mut state, ManaColor::White);
 
     let undo = UndoStack::new();
     let legal = enumerate_legal_actions_with_undo(&state, 0, &undo);
@@ -1040,11 +1034,7 @@ fn disease_not_playable_outside_combat() {
 #[test]
 fn disease_affects_multiple_blocked_enemies() {
     let (mut state, _undo) = setup_card_combat("cure", &["prowlers", "diggers"]);
-    state.players[0].pure_mana.push(ManaToken {
-        color: ManaColor::White,
-        source: ManaTokenSource::Effect,
-        cannot_power_spells: false,
-    });
+    give_strong_spell_mana(&mut state, ManaColor::White);
 
     let combat = state.combat.as_mut().unwrap();
     combat.enemies[0].is_blocked = true;
@@ -1281,10 +1271,17 @@ fn play_card_powered_with_token_and_die_creates_pending_choice() {
         Some(mk_types::pending::ActivePending::Choice(choice)) => {
             assert_eq!(choice.options.len(), 2, "should have 2 mana source options (token + die)");
             match &choice.resolution {
-                mk_types::pending::ChoiceResolution::ManaSourceSelect { sources, .. } => {
-                    assert_eq!(sources.len(), 2);
-                    assert_eq!(sources[0].source_type, mk_types::enums::ManaSourceType::Token);
-                    assert_eq!(sources[1].source_type, mk_types::enums::ManaSourceType::Die);
+                mk_types::pending::ChoiceResolution::ManaSourceSelect { payments, .. } => {
+                    use mk_types::pending::{CardManaPayment, CardManaSource};
+
+                    let [
+                        CardManaPayment::Single(CardManaSource::Spend(token)),
+                        CardManaPayment::Single(CardManaSource::Spend(die)),
+                    ] = payments.as_slice() else {
+                        panic!("Expected two single-source payments");
+                    };
+                    assert_eq!(token.source_type, mk_types::enums::ManaSourceType::Token);
+                    assert_eq!(die.source_type, mk_types::enums::ManaSourceType::Die);
                 }
                 other => panic!("Expected ManaSourceSelect resolution, got {:?}", other),
             }

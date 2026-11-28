@@ -7,6 +7,7 @@
 use arrayvec::ArrayVec;
 use serde::{Deserialize, Serialize};
 
+use crate::action::ManaSourceInfo;
 use crate::effect::{CardEndTurnEffect, CardEffect};
 use crate::enums::*;
 use crate::ids::*;
@@ -373,12 +374,14 @@ pub enum ChoiceResolution {
         color: BasicManaColor,
         with_curse: bool,
     },
-    /// Mana source selection for powered card play.
-    /// Player chooses which mana source to consume (token, crystal, or source die).
+    /// Select a complete payment for a card that has more than one valid option.
     ManaSourceSelect {
-        sources: Vec<crate::action::ManaSourceInfo>,
-        /// The powered effect to resolve after mana is consumed.
-        powered_effect: CardEffect,
+        #[serde(rename = "sources")]
+        payments: Vec<CardManaPayment>,
+        #[serde(rename = "powered_effect")]
+        effect: CardEffect,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        basic: bool,
     },
 
     // === Advanced Action ChoiceResolutions ===
@@ -554,6 +557,57 @@ pub struct PendingDiscardForCrystal {
 pub struct PendingDecompose {
     pub source_card_id: CardId,
     pub mode: EffectMode,
+}
+
+/// A source used by card payment, including a Ring's unlimited supply.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CardManaSource {
+    Spend(ManaSourceInfo),
+    Endless { endless: ManaColor },
+}
+
+impl CardManaSource {
+    pub fn color(&self) -> ManaColor {
+        match self {
+            Self::Spend(source) => source.color,
+            Self::Endless { endless } => *endless,
+        }
+    }
+
+    fn description(&self) -> String {
+        match self {
+            Self::Spend(source) => format!("{:?} {:?}", source.color, source.source_type),
+            Self::Endless { endless } => format!("{endless:?} mana from unlimited supply"),
+        }
+    }
+}
+
+/// A complete payment. A single ordinary source retains its serialized form.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CardManaPayment {
+    Single(CardManaSource),
+    WithBlack {
+        colored: CardManaSource,
+        black: CardManaSource,
+    },
+}
+
+impl CardManaPayment {
+    pub fn colored_source(&self) -> &CardManaSource {
+        match self {
+            Self::Single(colored) | Self::WithBlack { colored, .. } => colored,
+        }
+    }
+
+    pub fn describe(&self) -> String {
+        let colored = self.colored_source().description();
+        match self {
+            Self::Single(_) => format!("Spend {colored}"),
+            Self::WithBlack { black, .. } => format!("Spend {colored} and {}", black.description()),
+        }
+    }
 }
 
 /// Basic/powered mode.

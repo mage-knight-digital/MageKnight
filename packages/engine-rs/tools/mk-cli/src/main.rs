@@ -1093,14 +1093,9 @@ fn format_resolve_choice(
 ) -> String {
     let player = &state.players[player_idx];
     if let Some(ActivePending::Choice(ref choice)) = player.pending.active {
-        if let ChoiceResolution::ManaSourceSelect { ref sources, .. } = choice.resolution {
-            if let Some(src) = sources.get(choice_index) {
-                let src_type = match src.source_type {
-                    ManaSourceType::Token => "token",
-                    ManaSourceType::Crystal => "crystal",
-                    ManaSourceType::Die => "die",
-                };
-                return format!("Pay {} mana ({})", mana_color_str(src.color), src_type);
+        if let ChoiceResolution::ManaSourceSelect { ref payments, .. } = choice.resolution {
+            if let Some(payment) = payments.get(choice_index) {
+                return payment.describe();
             }
         }
         if let ChoiceResolution::DiscardThenContinue { ref eligible_indices } = choice.resolution {
