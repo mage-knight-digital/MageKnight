@@ -402,15 +402,7 @@ pub(super) fn apply_secret_ways(
     let player = &state.players[player_idx];
     let has_blue_token = player.pure_mana.iter().any(|t| t.color == ManaColor::Blue);
     let has_blue_crystal = player.crystals.blue > 0;
-    let has_blue_die = state
-        .source
-        .dice
-        .iter()
-        .any(|d| {
-            d.color == ManaColor::Blue
-                && !d.is_depleted
-                && d.taken_by_player_id.is_none()
-        });
+    let has_blue_die = crate::mana::exact_source_dice(state, player_idx).any(|die| die.color == ManaColor::Blue);
 
     if has_blue_token || has_blue_crystal || has_blue_die {
         // Present choice: Noop (decline) or Lake modifiers (pay blue mana)
@@ -499,13 +491,11 @@ pub(super) fn apply_regenerate(
 
     // Source dice
     let mut seen_die = [false; 6];
-    for die in &state.source.dice {
-        if !die.is_depleted && die.taken_by_player_id.is_none() {
-            if let Some(i) = mana_color_to_index(die.color) {
-                if !seen_die[i] {
-                    seen_die[i] = true;
-                    sources.push(RegenerateManaSource::SourceDie(die.color));
-                }
+    for die in crate::mana::exact_source_dice(state, player_idx) {
+        if let Some(i) = mana_color_to_index(die.color) {
+            if !seen_die[i] {
+                seen_die[i] = true;
+                sources.push(RegenerateManaSource::SourceDie(die.color));
             }
         }
     }
@@ -608,12 +598,7 @@ pub(crate) fn execute_regenerate(
             }
         }
         RegenerateManaSource::SourceDie(color) => {
-            if let Some(die) = state.source.dice.iter_mut().find(|d| {
-                d.color == *color && !d.is_depleted && d.taken_by_player_id.is_none()
-            }) {
-                die.taken_by_player_id = Some(state.players[player_idx].id.clone());
-                die.is_depleted = true;
-            } else {
+            if !crate::mana::spend_exact_die_face(state, player_idx, *color) {
                 return Err(ApplyError::InternalError(
                     "Regenerate: chosen source die not available".into(),
                 ));
@@ -1107,10 +1092,7 @@ pub(super) fn apply_polarization(
     }
 
     // 3. Source dice
-    for die in &state.source.dice {
-        if die.is_depleted || die.taken_by_player_id.is_some() {
-            continue;
-        }
+    for die in crate::mana::exact_source_dice(state, player_idx) {
         // Basic → opposite
         if let Some(target) = opposite_basic(die.color) {
             let key = (PolarizationSourceType::Die, die.color, target);
@@ -1164,7 +1146,9 @@ pub(super) fn apply_polarization(
     }
 
     if options.len() == 1 {
-        execute_polarization(state, player_idx, &options[0]);
+        if !execute_polarization(state, player_idx, &options[0]) {
+            return Err(ApplyError::InternalError("Polarization die is unavailable".into()));
+        }
     } else {
         let choice_options: Vec<CardEffect> = options.iter().map(|_| CardEffect::Noop).collect();
         state.players[player_idx].pending.active =
@@ -1192,7 +1176,7 @@ pub(crate) fn execute_polarization(
     state: &mut GameState,
     player_idx: usize,
     opt: &mk_types::pending::PolarizationOption,
-) {
+) -> bool {
     use mk_types::pending::PolarizationSourceType;
 
     match opt.source_type {
@@ -1238,15 +1222,17 @@ pub(crate) fn execute_polarization(
                     *target_crystal += 1;
                 }
             }
-            return; // Crystal→Crystal, no token added
+            return true; // Crystal→Crystal, no token added
         }
         PolarizationSourceType::Die => {
-            if let Some(ref die_id) = opt.die_id {
-                let player_id = state.players[player_idx].id.clone();
-                if let Some(die) = state.source.dice.iter_mut().find(|d| d.id == *die_id) {
-                    die.taken_by_player_id = Some(player_id);
-                    die.is_depleted = true;
-                }
+            let Some(die_id) = opt.die_id.as_ref().filter(|id| {
+                crate::mana::exact_source_dice(state, player_idx)
+                    .any(|die| die.id == **id && die.color == opt.source_color)
+            }) else {
+                return false;
+            };
+            if !crate::mana::spend_source_die(state, player_idx, die_id.as_str(), false) {
+                return false;
             }
         }
     }
@@ -1257,6 +1243,7 @@ pub(crate) fn execute_polarization(
         source: ManaTokenSource::Effect,
         cannot_power_spells: opt.cannot_power_spells,
     });
+    true
 }
 
 

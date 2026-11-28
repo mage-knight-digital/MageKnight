@@ -4,7 +4,6 @@ use mk_types::effect::*;
 use mk_types::enums::*;
 use mk_types::state::*;
 
-use crate::card_play::is_die_available_with_overrides;
 use crate::unit_eligibility::{has_heal_unit_target, has_ready_unit_target};
 use super::{
     eligible_action_hand_indices,
@@ -69,32 +68,8 @@ pub(crate) fn is_resolvable(state: &GameState, player_idx: usize, effect: &CardE
         // Crystallize: resolvable if player has a basic-color mana token OR an available
         // basic-color source die (gold/black excluded — no gold/black crystal exists)
         CardEffect::ConvertManaToCrystal => {
-            let has_basic_token = player.pure_mana.iter().any(|t| {
-                matches!(t.color, ManaColor::Red | ManaColor::Blue | ManaColor::Green | ManaColor::White)
-            });
-            if has_basic_token {
-                return true;
-            }
-            // Check source dice: basic color, available, not already used this turn
-            if player.flags.contains(PlayerFlags::USED_MANA_FROM_SOURCE) {
-                return false;
-            }
-            let player_id = &player.id;
-            let stolen_die_id = player
-                .tactic_state
-                .stored_mana_die
-                .as_ref()
-                .map(|s| &s.die_id);
-            state.source.dice.iter().any(|die| {
-                if !is_die_available_with_overrides(die, state, player_idx) {
-                    return false;
-                }
-                let is_available = die.taken_by_player_id.is_none()
-                    || (die.taken_by_player_id.as_ref() == Some(player_id)
-                        && stolen_die_id == Some(&die.id));
-                is_available
-                    && matches!(die.color, ManaColor::Red | ManaColor::Blue | ManaColor::Green | ManaColor::White)
-            })
+            player.pure_mana.iter().any(|token| token.color.is_basic())
+                || crate::mana::exact_source_dice(state, player_idx).any(|die| die.color.is_basic())
         }
 
         // ReadyUnit: only resolvable if there are spent units at or below max_level
@@ -165,7 +140,7 @@ pub(crate) fn is_resolvable(state: &GameState, player_idx: usize, effect: &CardE
 
         // Mana Claim: need unclaimed basic-color dice
         CardEffect::ManaClaim { .. } => state.source.dice.iter().any(|d| {
-            d.taken_by_player_id.is_none()
+            crate::mana::is_in_source(state, d)
                 && !d.is_depleted
                 && matches!(
                     d.color,

@@ -129,9 +129,7 @@ pub(super) fn enumerate_skill_activations(
                 || player.crystals.blue > 0
                 || player.crystals.green > 0
                 || player.crystals.white > 0
-                || state.source.dice.iter().any(|d| {
-                    !d.is_depleted && d.taken_by_player_id.is_none()
-                });
+                || crate::mana::exact_source_dice(state, player_idx).next().is_some();
             if !has_mana {
                 continue;
             }

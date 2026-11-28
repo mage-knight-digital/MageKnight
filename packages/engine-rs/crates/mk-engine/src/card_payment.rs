@@ -7,7 +7,9 @@ use mk_types::enums::{
 };
 use mk_types::modifier::{ModifierEffect, RuleOverride};
 use mk_types::pending::{CardManaPayment, CardManaSource, EffectMode};
-use mk_types::state::{GameState, PlayerFlags};
+use mk_types::state::{GameState, PlayerState};
+
+use crate::mana;
 
 use crate::card_play::{
     consume_specific_mana_source_with, is_die_available_with_overrides, is_rule_active,
@@ -73,7 +75,7 @@ pub(crate) fn payments(
         CardManaCost::ColorAndBlack(color) => (Some(color), true),
     };
     let is_spell = card_type == DeedCardType::Spell;
-    let budget = source_dice_remaining(state, player_idx, is_spell);
+    let budget = mana::source_dice_remaining(state, player_idx, is_spell);
     color.into_iter().flat_map(move |color| {
         sources(
             state,
@@ -81,16 +83,18 @@ pub(crate) fn payments(
             color.into(),
             is_spell,
             strong_spell,
-            budget > 0,
+            budget,
         )
         .flat_map(move |colored| {
             let single = (!strong_spell).then(|| CardManaPayment::Single(colored.clone()));
             let pairs = strong_spell
-                .then(|| sources(state, player_idx, ManaColor::Black, true, true, budget > 0))
+                .then(|| sources(state, player_idx, ManaColor::Black, true, true, budget))
                 .into_iter()
                 .flatten()
                 .filter_map(move |black| {
-                    (dice_used(&colored) + dice_used(&black) <= budget
+                    (shared_dice_used(&state.players[player_idx], &colored)
+                        + shared_dice_used(&state.players[player_idx], &black)
+                        <= budget
                         && !same_die(&colored, &black))
                     .then(|| CardManaPayment::WithBlack {
                         colored: colored.clone(),
@@ -102,7 +106,12 @@ pub(crate) fn payments(
     })
 }
 
-pub(crate) fn spend(state: &mut GameState, player_idx: usize, payment: &CardManaPayment) {
+pub(crate) fn spend(
+    state: &mut GameState,
+    player_idx: usize,
+    payment: &CardManaPayment,
+    is_spell: bool,
+) {
     let strong_spell = matches!(payment, CardManaPayment::WithBlack { .. });
     let black = match payment {
         CardManaPayment::Single(_) => None,
@@ -110,7 +119,7 @@ pub(crate) fn spend(state: &mut GameState, player_idx: usize, payment: &CardMana
     };
     for source in std::iter::once(payment.colored_source()).chain(black) {
         if let CardManaSource::Spend(source) = source {
-            consume_specific_mana_source_with(state, player_idx, source, |token| {
+            consume_specific_mana_source_with(state, player_idx, source, is_spell, |token| {
                 !strong_spell || !token.cannot_power_spells
             });
         }
@@ -148,7 +157,7 @@ fn sources(
     color: ManaColor,
     is_spell: bool,
     strong_spell: bool,
-    allow_die: bool,
+    remaining_dice: usize,
 ) -> impl Iterator<Item = CardManaSource> + '_ {
     let player = &state.players[player_idx];
     let night = state.time_of_day == TimeOfDay::Night
@@ -196,24 +205,11 @@ fn sources(
             } > 0)
             .map(|_| from_personal_supply(ManaSourceType::Crystal, color)),
     ];
-    let stolen_die_id = player
-        .tactic_state
-        .stored_mana_die
-        .as_ref()
-        .map(|stored| &stored.die_id);
-    let dice = state
-        .source
-        .dice
-        .iter()
+    let dice = mana::spendable_source_dice(state, player_idx, remaining_dice)
         .filter(move |die| {
-            allow_die
-                && is_matching(die.color)
+            is_matching(die.color)
                 && (is_die_available_with_overrides(die, state, player_idx)
                     || (is_spell && night && die.color == ManaColor::Black))
-                && (die.taken_by_player_id.is_none()
-                    || (die.taken_by_player_id.as_ref() == Some(&player.id)
-                        && stolen_die_id == Some(&die.id)
-                        && !player.tactic_state.mana_steal_used_this_turn))
         })
         .map(|die| {
             CardManaSource::Spend(ManaSourceInfo {
@@ -225,34 +221,10 @@ fn sources(
     personal.into_iter().flatten().chain(dice)
 }
 
-fn source_dice_remaining(state: &GameState, player_idx: usize, is_spell: bool) -> usize {
-    let player = &state.players[player_idx];
-    let has_used_source = player.flags.contains(PlayerFlags::USED_MANA_FROM_SOURCE);
-    let extra = if is_spell {
-        state
-            .active_modifiers
-            .iter()
-            .filter(|modifier| {
-                modifier_applies_to_player(modifier, &player.id)
-                    && matches!(
-                        modifier.effect,
-                        ModifierEffect::RuleOverride {
-                            rule: RuleOverride::ExtraSourceDie
-                        }
-                    )
-            })
-            .count()
-    } else {
-        0
-    };
-    let used = player.used_die_ids.len().max(usize::from(has_used_source));
-    (1 + extra).saturating_sub(used)
-}
-
-fn dice_used(source: &CardManaSource) -> usize {
-    usize::from(matches!(
-        source,
-        CardManaSource::Spend(source) if source.source_type == ManaSourceType::Die
+fn shared_dice_used(player: &PlayerState, source: &CardManaSource) -> usize {
+    usize::from(matches!(source, CardManaSource::Spend(source)
+        if source.source_type == ManaSourceType::Die
+            && source.die_id.as_deref().is_some_and(|id| !mana::is_stored_mana_steal(player, id))
     ))
 }
 

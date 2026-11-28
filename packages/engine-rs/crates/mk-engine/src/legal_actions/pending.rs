@@ -437,18 +437,8 @@ fn enumerate_tactic_decision(
 ) {
     match td {
         PendingTacticDecision::ManaSteal => {
-            let current_player_id = &state.players[player_idx].id;
             for (idx, die) in state.source.dice.iter().enumerate() {
-                if die.is_depleted || !die.color.is_basic() {
-                    continue;
-                }
-                // Include unclaimed dice AND dice claimed by other players (steal)
-                let is_available = die.taken_by_player_id.is_none();
-                let is_stealable = die
-                    .taken_by_player_id
-                    .as_ref()
-                    .is_some_and(|owner| owner != current_player_id);
-                if is_available || is_stealable {
+                if crate::mana::can_select_mana_steal_die(state, player_idx, die) {
                     actions.push(LegalAction::ResolveTacticDecision {
                         data: TacticDecisionData::ManaSteal { die_index: idx },
                     });

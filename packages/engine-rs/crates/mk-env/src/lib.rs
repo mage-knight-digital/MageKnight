@@ -2108,10 +2108,8 @@ mod tests {
         assert!(!env.state.game_ended, "Game should not have ended naturally");
     }
 
-    /// Reproduce: seed=42048 replay must keep legal actions available through the
-    /// plunder and rampaging challenge prefix.
-    /// After village plunder, the site is not burned (rulebook), so a later turn can
-    /// offer `PlunderDecision` again — the golden trace includes `DeclinePlunder` for that.
+    /// Rule 5a regression for seed 42048. Replay the village and combat prefix,
+    /// then set up the empty hand directly so the assertion survives dice rerolls.
     #[test]
     fn replay_seed_42048_zero_actions() {
         let actions_json = r#"[
@@ -2129,24 +2127,7 @@ mod tests {
             "PlunderSite",
             {"ChallengeRampaging":{"hex":{"q":3,"r":-3}}},
             "EndTurn",
-            "DeclinePlunder",
-            {"PlayCardPowered":{"card_id":"march","hand_index":2,"mana_color":"green"}},
-            {"Explore":{"target_center":{"q":4,"r":-5}}},
-            {"PlayCardSideways":{"card_id":"improvisation","hand_index":0,"sideways_as":"move"}},
-            {"Move":{"cost":3,"target":{"q":1,"r":-3}}},
-            "EndTurn",
-            {"ChooseLevelUpSkill":{"from_common_pool":false,"skill_index":0}},
-            {"ChooseLevelUpAdvancedAction":{"advanced_action_id":"ambush"}},
-            {"ChallengeRampaging":{"hex":{"q":1,"r":-4}}},
-            {"UseSkill":{"skill_id":"arythea_dark_fire_magic"}},
-            {"ResolveChoice":{"choice_index":0}},
-            {"PlayCardBasic":{"card_id":"crystallize","hand_index":1}},
-            {"ResolveChoice":{"choice_index":0}},
-            "EndTurn",
-            {"PlayCardPowered":{"card_id":"stamina","hand_index":4,"mana_color":"blue"}},
-            {"ResolveChoice":{"choice_index":2}},
-            {"ChallengeRampaging":{"hex":{"q":1,"r":-4}}},
-            "EndTurn"
+            "DeclinePlunder"
         ]"#;
 
         let actions: Vec<LegalAction> = serde_json::from_str(actions_json).unwrap();
@@ -2165,21 +2146,18 @@ mod tests {
                 ));
             let (game_ended, panicked, _) = env.step(idx);
             assert!(!panicked, "Engine panicked at step {i}");
-            if game_ended {
-                return;
-            }
+            assert!(!game_ended, "Game ended during the replay prefix at step {i}");
         }
-        // After all actions, should still have legal actions
-        assert!(
-            !env.action_set.actions.is_empty(),
-            "0 legal actions after replaying all {} actions. \
-             pending={:?}, flags={:?}, hand={}, position={:?}",
-            actions.len(),
-            env.state.players[0].pending.active,
-            env.state.players[0].flags,
-            env.state.players[0].hand.len(),
-            env.state.players[0].position,
-        );
+
+        assert!(!env.state.players[0].deck.is_empty());
+        assert!(!env.state.players[0].flags.contains(PlayerFlags::PLAYED_CARD_FROM_HAND_THIS_TURN));
+        env.state.players[0].hand.clear();
+        env.action_set = filter_undo(enumerate_legal_actions_with_undo(&env.state, 0, &env.undo_stack));
+        let end_turn = env.action_set.actions.iter().position(|action| matches!(action, LegalAction::EndTurn))
+            .expect("Rule 5a should offer EndTurn with an empty hand and cards left to draw");
+        let (game_ended, panicked, _) = env.step(end_turn);
+        assert!(!panicked && !game_ended);
+        assert!(!env.action_set.actions.is_empty());
     }
 
     #[test]

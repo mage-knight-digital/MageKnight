@@ -153,8 +153,8 @@ pub fn end_turn(state: &mut GameState, player_idx: usize) -> Result<EndTurnResul
     // Level-ups
     process_level_ups(state, player_idx);
     if promote_level_up_reward(state, player_idx) {
-        reset_player_turn_inner(&mut state.players[player_idx]);
         cleanup_end_turn_mana(state, player_idx);
+        reset_player_turn_inner(&mut state.players[player_idx]);
         return Ok(EndTurnResult::AwaitingLevelUpRewards);
     }
 
@@ -172,11 +172,9 @@ pub fn end_turn(state: &mut GameState, player_idx: usize) -> Result<EndTurnResul
         process_card_flow(state, player_idx);
     }
 
-    // Reset player turn state
-    reset_player_turn_inner(&mut state.players[player_idx]);
-
-    // Mana/dice/modifier cleanup
+    // Return dice while the spent and reserved die records are still available.
     cleanup_end_turn_mana(state, player_idx);
+    reset_player_turn_inner(&mut state.players[player_idx]);
 
     // Determine next player or round end
     let result = advance_turn(state, player_idx, is_time_bending);
@@ -539,24 +537,8 @@ pub fn promote_level_up_reward_pub(state: &mut GameState, player_idx: usize) -> 
     promote_level_up_reward(state, player_idx)
 }
 
-/// Mana steal cleanup, return dice, and expire turn-duration modifiers.
-/// Extracted to avoid duplication between normal end-turn and level-up-reward path.
+/// Return held dice and expire the player's turn-duration modifiers.
 fn cleanup_end_turn_mana(state: &mut GameState, player_idx: usize) {
-    // Mana Steal cleanup — return stolen die
-    if let Some(stolen_die) = state.players[player_idx]
-        .tactic_state
-        .stored_mana_die
-        .take()
-    {
-        mana::reroll_die(
-            &mut state.source,
-            &stolen_die.die_id,
-            state.time_of_day,
-            &mut state.rng,
-        );
-    }
-
-    // Return mana dice
     return_player_dice(state, player_idx);
 
     // Expire turn-duration modifiers
@@ -2242,7 +2224,7 @@ mod tests {
     // =========================================================================
 
     #[test]
-    fn mana_steal_die_returned_at_end_turn() {
+    fn unused_mana_steal_die_remains_reserved_at_end_turn() {
         let mut state = setup_playing_game(vec!["march"]);
         // Simulate a stolen die
         let die_id = state.source.dice[0].id.clone();
@@ -2255,9 +2237,14 @@ mod tests {
         play_card(&mut state, 0, 0, false, None).unwrap();
         end_turn(&mut state, 0).unwrap();
 
-        // Die should be returned (rerolled)
-        assert!(state.players[0].tactic_state.stored_mana_die.is_none());
-        assert!(state.source.dice.iter().find(|d| d.id == die_id).unwrap().taken_by_player_id.is_none());
+        let player = &state.players[0];
+        assert_eq!(
+            player.tactic_state.stored_mana_die.as_ref().map(|stored| &stored.die_id),
+            Some(&die_id),
+        );
+        let die = state.source.dice.iter().find(|die| die.id == die_id).unwrap();
+        assert_eq!(die.taken_by_player_id.as_ref(), Some(&player.id));
+        assert!(!player.tactic_state.mana_steal_used_this_turn);
     }
 
     // =========================================================================
